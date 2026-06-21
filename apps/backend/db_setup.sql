@@ -18,14 +18,20 @@ DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS pharmacy CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TYPE IF EXISTS sex_type CASCADE;
+
+-- Enum Types
+CREATE TYPE sex_type AS ENUM ('M', 'F');
 
 -- Users
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(255) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX users_username_lower_unique ON users (LOWER(username));
 
 -- Locations
 CREATE TABLE locations (
@@ -38,12 +44,12 @@ CREATE TABLE locations (
 -- Patients
 CREATE TABLE patients (
     id SERIAL PRIMARY KEY,
-    face_id INT UNIQUE NOT NULL,
+    face_id INT UNIQUE,
     location_id INT REFERENCES locations(id),           -- Will not be deleted, set inactive only
     english_name VARCHAR(255),
     khmer_name VARCHAR(255),
     date_of_birth DATE,
-    sex CHAR(1) CHECK (sex IN ('M', 'F')),
+    sex sex_type,
     address TEXT,
     phone_number VARCHAR(50),
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),

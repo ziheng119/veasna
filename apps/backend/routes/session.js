@@ -10,16 +10,17 @@ router.post('/login', async (req, res) => {
   if (!username || username.trim().length < 3) {
     return res.status(400).json({ message: 'username (>=3 chars) is required' });
   }
+  const normalizedUsername = username.trim();
 
   try {
     // Upsert user by username (no password, no role)
     const upsert = `
       INSERT INTO users (username)
       VALUES ($1)
-      ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
+      ON CONFLICT ((LOWER(username))) DO UPDATE SET username = EXCLUDED.username
       RETURNING id, username;
     `;
-    const { rows } = await db.query(upsert, [username.trim()]);
+    const { rows } = await db.query(upsert, [normalizedUsername]);
     const user = rows[0];
 
     // Sign a token with just id and username

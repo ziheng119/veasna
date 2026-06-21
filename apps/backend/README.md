@@ -44,15 +44,88 @@ PORT=3000
 NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
 NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
+ADMIN_USERNAME=admin
 ```
 
-Initialize database schema:
+## Database Setup (PostgreSQL)
+
+Yes, the current backend requires a PostgreSQL database.
+
+1. Install PostgreSQL (if not installed):
+
+2. Create database and user:
 
 ```bash
-psql -U your_postgres_user -d veasna_backend -f db_setup.sql
+psql postgres
 ```
 
-Optional setup check:
+Then run:
+
+```sql
+CREATE DATABASE veasna_backend;
+CREATE USER veasna_app WITH PASSWORD 'change_me';
+GRANT ALL PRIVILEGES ON DATABASE veasna_backend TO veasna_app;
+\q
+```
+
+3. Update `.env` to match your DB credentials:
+
+```env
+DB_USER=veasna_app
+DB_HOST=localhost
+DB_NAME=veasna_backend
+DB_PASSWORD=change_me
+DB_PORT=5432
+```
+
+4. Initialize schema:
+
+```bash
+psql -U veasna_app -d veasna_backend -f db_setup.sql
+```
+
+5. Verify backend can connect:
+
+```bash
+npm run setup
+```
+
+If `npm run setup` succeeds, your DB setup is complete and it will automatically create (or reactivate) the admin user from `ADMIN_USERNAME`.
+
+Manual admin seed (any time):
+
+```bash
+npm run seed:admin
+```
+
+### Alternative: Setup with pgAdmin
+
+If you prefer GUI setup:
+
+1. Open pgAdmin and connect to your local PostgreSQL server.
+2. Create a login role:
+   - Go to `Login/Group Roles` -> `Create` -> `Login/Group Role`
+   - Name: `veasna_app`
+   - Set password to match `DB_PASSWORD` in `.env`
+   - Enable login privilege
+3. Create database:
+   - Go to `Databases` -> `Create` -> `Database`
+   - Database name: `veasna_backend`
+   - Owner: `veasna_app`
+4. Initialize schema:
+   - Open Query Tool on `veasna_backend`
+   - Open and run `apps/backend/db_setup.sql`
+5. Confirm `.env` values in `apps/backend/.env`:
+
+```env
+DB_USER=veasna_app
+DB_HOST=localhost
+DB_NAME=veasna_backend
+DB_PASSWORD=change_me
+DB_PORT=5432
+```
+
+6. Run:
 
 ```bash
 npm run setup

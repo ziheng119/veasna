@@ -3,11 +3,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
+const { normalizeSexToEnum } = require('../utils/sex');
 
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
+    const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
 
 
     try {
@@ -16,6 +18,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         // Step 1: Insert or Find the patient
         let patientId = patientInfo.id;
         if (!patientId) {
+            if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
+                await db.query('ROLLBACK');
+                return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
+            }
             // New patient: Insert into patients table
             const patientQuery = `
                 INSERT INTO patients (face_id, location_id, english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
@@ -28,7 +34,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 patientInfo.english_name,
                 patientInfo.khmer_name,
                 patientInfo.date_of_birth || null,
-                patientInfo.sex,
+                normalizedPatientSex,
                 patientInfo.address,
                 patientInfo.phone_number,
                 last_updated_by
@@ -99,7 +105,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
             age: patientInfo.age,
-            sex: patientInfo.sex,
+            sex: normalizedPatientSex ?? patientInfo.sex ?? null,
             timestamp: new Date(visitTimestamp).toLocaleTimeString()
         });
 

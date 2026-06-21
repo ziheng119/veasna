@@ -27,6 +27,7 @@ router.use('/patient', patientRoutes);
 const { body } = require('express-validator');
 const db = require('../config/db');
 const { authenticateToken, requireRole, validateRequest } = require('./auth');
+const { normalizeSexToEnum } = require('../utils/sex');
 
 // --- User Management (any authenticated user) ---
 
@@ -59,11 +60,12 @@ router.post(
   validateRequest,
   async (req, res) => {
     const { username } = req.body;
+    const normalizedUsername = username.trim();
 
     try {
       // 1️⃣ Check if user already exists
-      const checkQuery = 'SELECT id, is_active FROM users WHERE username = $1';
-      const { rows: existingUsers } = await db.query(checkQuery, [username]);
+      const checkQuery = 'SELECT id, username, is_active FROM users WHERE LOWER(username) = LOWER($1)';
+      const { rows: existingUsers } = await db.query(checkQuery, [normalizedUsername]);
 
       if (existingUsers.length === 0) {
         // 2️⃣ User does not exist → create
@@ -72,7 +74,7 @@ router.post(
           VALUES ($1, TRUE)
           RETURNING id, username, is_active, created_at;
         `;
-        const { rows } = await db.query(insertQuery, [username]);
+        const { rows } = await db.query(insertQuery, [normalizedUsername]);
         return res.status(201).json({
           message: 'User successfully created',
           user: rows[0],
@@ -128,14 +130,14 @@ router.patch(
     const SELECT_USER = `
       SELECT id, username, is_active
       FROM users
-      WHERE username = $1e
+      WHERE LOWER(username) = LOWER($1)
     `;
 
     const DEACTIVATE_USER = `
       UPDATE users
       SET is_active = FALSE,
           last_updated_at = NOW()
-      WHERE username = $1
+      WHERE LOWER(username) = LOWER($1)
       RETURNING id, username, is_active, created_at, last_updated_at
     `;
 
@@ -201,7 +203,11 @@ router.post(
     body('face_id').notEmpty().withMessage('Face ID is required'),
     body('location_id').notEmpty().isInt({ min: 1 }).withMessage('Valid location_id is required'),
     body('date_of_birth').notEmpty().isISO8601().withMessage('Valid date of birth is required'),
-    body('sex').notEmpty().isIn(['Male', 'Female']).withMessage('Valid sex is required'),
+    body('sex')
+      .notEmpty()
+      .withMessage('Sex is required')
+      .custom((value) => normalizeSexToEnum(value) !== null)
+      .withMessage('Valid sex is required (M/F)'),
     body('user_id').notEmpty().isInt({ min: 1 }).withMessage('Valid user ID is required'),
   ],
   validateRequest,
@@ -218,6 +224,7 @@ router.post(
         phone_number,
         user_id,
       } = req.body;
+      const normalizedSex = normalizeSexToEnum(sex);
 
       const query = `
         INSERT INTO patients (
@@ -243,7 +250,7 @@ router.post(
         english_name || null,
         khmer_name || null,
         date_of_birth || null,
-        sex || null,
+        normalizedSex,
         address || null,
         phone_number || null,
         user_id,
@@ -356,15 +363,20 @@ router.put('/patients/:id', [
   requireRole(['any']),
   body('english_name').notEmpty().withMessage('English name is required'),
   body('date_of_birth').isISO8601().withMessage('Valid date of birth is required'),
-  body('sex').isIn(['male', 'female', 'other']).withMessage('Valid sex is required')
+  body('sex')
+    .notEmpty()
+    .withMessage('Sex is required')
+    .custom((value) => normalizeSexToEnum(value) !== null)
+    .withMessage('Valid sex is required (M/F)')
 ], validateRequest, async (req, res) => {
   try {
     const { english_name, khmer_name, date_of_birth, sex, phone_number, address, location_id, queue_no } = req.body;
+    const normalizedSex = normalizeSexToEnum(sex);
     const query = `
       UPDATE patients SET english_name=$1, khmer_name=$2, date_of_birth=$3, sex=$4, phone_number=$5, address=$6, location_id = COALESCE($7, location_id), queue_no = COALESCE($8, queue_no)
       WHERE id=$9 RETURNING *;
     `;
-    const values = [english_name, khmer_name, date_of_birth, sex, phone_number, address, location_id || null, queue_no ? String(queue_no).toUpperCase() : null, req.params.id];
+    const values = [english_name, khmer_name, date_of_birth, normalizedSex, phone_number, address, location_id || null, queue_no ? String(queue_no).toUpperCase() : null, req.params.id];
     const { rows } = await db.query(query, values);
     if (!rows.length) return res.status(404).json({ message: 'Patient not found' });
     res.json(rows[0]);

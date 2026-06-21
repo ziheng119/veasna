@@ -1,9 +1,10 @@
 // scripts/setup.js
+require('dotenv').config();
 
-require('../server.js')
 const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
+const { seedAdminUser } = require('./seedAdmin');
 
 async function runSetup() {
   console.log('🔧 Veasna Backend Setup');
@@ -55,6 +56,15 @@ async function runSetup() {
     process.exit(1);
   }
 
+  // Seed default admin user
+  try {
+    const adminUser = await seedAdminUser();
+    console.log(`Admin user seeded/verified: ${adminUser.username}`);
+  } catch (error) {
+    console.error(`Admin user seed failed: ${error.message}`);
+    process.exit(1);
+  }
+
   console.log('\nSetup completed successfully!');
   console.log('\nNext steps:');
   console.log('1. Start the server: npm run dev');
@@ -62,4 +72,11 @@ async function runSetup() {
   console.log('3. Create your first user: POST /api/users (body: { "username": "yourname" })');
 }
 
-runSetup().catch(console.error); 
+runSetup()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await db.pool.end();
+  });

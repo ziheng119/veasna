@@ -27,7 +27,7 @@ describe('Combined registration + component CRUD + queue', () => {
           english_name: 'Alice Test',
           khmer_name: 'អាលីស',
           date_of_birth: '1995-01-01',
-          sex: 'female',
+          sex: 'F',
           phone_number: '+85512345',
           address: 'Somewhere',
           location_id: locationId

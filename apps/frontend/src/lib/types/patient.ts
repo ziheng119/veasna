@@ -29,7 +29,7 @@ export type PatientFormData = {
     english_name?: string;
     khmer_name?: string;
     date_of_birth?: string;  // e.g., "dd/mm/yyyy"
-    sex?: string;
+    sex?: "M" | "F" | "";
     address?: string;
     phone_number?: string;
     queue_no?: string;
@@ -55,7 +55,7 @@ export interface PatientWithVisits {
       english_name: string;
       khmer_name: string;
       date_of_birth: string;
-      sex: string;
+      sex: "M" | "F" | null;
       address?: string;
       phone_number?: string;
       last_updated_at: string;

@@ -94,7 +94,7 @@ Create a new patient.
     "english_name": "John Smith",
     "khmer_name": "ចន ស្មីត",
     "date_of_birth": "1990-01-01",
-    "sex": "male",
+    "sex": "M",
     "phone_number": "+855123456789",
     "address": "Phnom Penh, Cambodia"
   }

@@ -18,19 +18,19 @@ INSERT INTO patients
   (english_name, khmer_name, date_of_birth, sex, phone_number, address, location_id, queue_no)
 VALUES
   -- Poipet
-  ('Sophea Chan',  'សុភា ចាន់',  '1985-03-14', 'female', '+85510100001', 'Thma Koul, Poipet', (SELECT id FROM locations WHERE name='Poipet'),         '1A'),
-  ('Vuthy Sorn',   'វុទ្ធី សូន',  '1979-08-22', 'male',   '+85510100002', 'Kbal Spean, Poipet', (SELECT id FROM locations WHERE name='Poipet'),        '2'),
-  ('Sareth Kim',   'សារ៉េត គីម',  '1992-12-05', 'male',   '+85510100003', 'O’Russey, Poipet',   (SELECT id FROM locations WHERE name='Poipet'),        NULL),
+  ('Sophea Chan',  'សុភា ចាន់',  '1985-03-14', 'F', '+85510100001', 'Thma Koul, Poipet', (SELECT id FROM locations WHERE name='Poipet'),         '1A'),
+  ('Vuthy Sorn',   'វុទ្ធី សូន',  '1979-08-22', 'M', '+85510100002', 'Kbal Spean, Poipet', (SELECT id FROM locations WHERE name='Poipet'),        '2'),
+  ('Sareth Kim',   'សារ៉េត គីម',  '1992-12-05', 'M', '+85510100003', 'O’Russey, Poipet',   (SELECT id FROM locations WHERE name='Poipet'),        NULL),
 
   -- Mongkol Borey
-  ('Dara Long',    'ដារ៉ា លង',   '1990-01-11', 'male',   '+85510100004', 'Kouk Ballang, MB',    (SELECT id FROM locations WHERE name='Mongkol Borey'),'3B'),
-  ('Sreyneang Im', 'ស្រីណាង អ៊ីម', '1988-06-09', 'female', '+85510100005', 'Prey Chhor, MB',      (SELECT id FROM locations WHERE name='Mongkol Borey'),'4'),
-  ('Raksmey Oum',  'រាក់ស்மை អ៊ុំ', '1970-03-30', 'female', '+85510100006', 'Chamkar, MB',         (SELECT id FROM locations WHERE name='Mongkol Borey'),NULL),
+  ('Dara Long',    'ដារ៉ា លង',   '1990-01-11', 'M', '+85510100004', 'Kouk Ballang, MB',    (SELECT id FROM locations WHERE name='Mongkol Borey'),'3B'),
+  ('Sreyneang Im', 'ស្រីណាង អ៊ីម', '1988-06-09', 'F', '+85510100005', 'Prey Chhor, MB',      (SELECT id FROM locations WHERE name='Mongkol Borey'),'4'),
+  ('Raksmey Oum',  'រាក់ស்மை អ៊ុំ', '1970-03-30', 'F', '+85510100006', 'Chamkar, MB',         (SELECT id FROM locations WHERE name='Mongkol Borey'),NULL),
 
   -- Sisophon
-  ('Piseth Mean',  'ពីសេធ មៀន', '1995-05-17', 'male',   '+85510100007', 'Svay Dangkum, Siso',  (SELECT id FROM locations WHERE name='Sisophon'),     '5A'),
-  ('Sokunthea Ty', 'សុខន្ធា ទី', '1982-10-03', 'female', '+85510100008', 'Phsar Ler, Siso',     (SELECT id FROM locations WHERE name='Sisophon'),     '6'),
-  ('Makara Nuon',  'មករា នួន',  '2001-02-21', 'other',  '+85510100009', 'Kokor, Siso',         (SELECT id FROM locations WHERE name='Sisophon'),     NULL);
+  ('Piseth Mean',  'ពីសេធ មៀន', '1995-05-17', 'M', '+85510100007', 'Svay Dangkum, Siso',  (SELECT id FROM locations WHERE name='Sisophon'),     '5A'),
+  ('Sokunthea Ty', 'សុខន្ធា ទី', '1982-10-03', 'F', '+85510100008', 'Phsar Ler, Siso',     (SELECT id FROM locations WHERE name='Sisophon'),     '6'),
+  ('Makara Nuon',  'មករា នួន',  '2001-02-21', 'M', '+85510100009', 'Kokor, Siso',         (SELECT id FROM locations WHERE name='Sisophon'),     NULL);
 
 -- ─────────────────────────────
 -- Visits (per-day per-location queues; mirror patient queue numbers)

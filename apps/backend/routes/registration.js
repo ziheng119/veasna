@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
+const { normalizeSexToEnum } = require('../utils/sex');
 
 /**
  * POST /api/registration
@@ -21,6 +22,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
   if (!patient || !patient.english_name || !patient.location_id) {
     return res.status(400).json({ message: 'patient.english_name and patient.location_id are required' });
   }
+  const normalizedPatientSex = normalizeSexToEnum(patient.sex);
+  if (patient.sex != null && String(patient.sex).trim() !== '' && normalizedPatientSex === null) {
+    return res.status(400).json({ message: 'Invalid patient.sex. Use M or F.' });
+  }
 
   const client = await db.pool.connect();
   try {
@@ -32,7 +37,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
        RETURNING *`,
       [
         patient.english_name, patient.khmer_name || null, patient.date_of_birth || null,
-        patient.sex || null, patient.phone_number || null, patient.address || null,
+        normalizedPatientSex, patient.phone_number || null, patient.address || null,
         patient.location_id
       ]
     );
@@ -106,6 +111,17 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, res) => {
   const { patient, vitals, hef, visit } = req.body;
   const { patientId } = req.params;
+  const normalizedPatientSex = patient ? normalizeSexToEnum(patient.sex) : null;
+
+  if (
+    patient &&
+    Object.prototype.hasOwnProperty.call(patient, 'sex') &&
+    patient.sex != null &&
+    String(patient.sex).trim() !== '' &&
+    normalizedPatientSex === null
+  ) {
+    return res.status(400).json({ message: 'Invalid patient.sex. Use M or F.' });
+  }
 
   const client = await db.pool.connect();
   try {
@@ -126,7 +142,7 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
         RETURNING *`,
         [
           patient.english_name || null, patient.khmer_name || null, patient.date_of_birth || null,
-          patient.sex || null, patient.phone_number || null, patient.address || null,
+          normalizedPatientSex, patient.phone_number || null, patient.address || null,
           patient.location_id || null, patientId
         ]
       );
