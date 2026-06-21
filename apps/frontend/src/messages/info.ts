@@ -1,0 +1,1 @@
+export const SET_LOCATION_MESSAGE = "Please set your location!";

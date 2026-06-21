@@ -1,0 +1,5 @@
+export const PATIENT = "Patient"
+export const VITALS = "Vitals"
+export const HISTORY = "History"
+export const SNELLENS_TEST = "Snellen's Test"
+export const PRESENTING_COMPLAINTS = "Presenting Complaints"
