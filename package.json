@@ -1,0 +1,22 @@
+{
+  "name": "veasna-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace apps/backend",
+    "dev:frontend": "npm run dev --workspace apps/frontend",
+    "dev:desktop": "npm run dev --workspace apps/desktop",
+    "start:backend": "npm run start --workspace apps/backend",
+    "start:frontend": "npm run start --workspace apps/frontend",
+    "lint": "npm run lint --workspace apps/frontend",
+    "test": "npm run test --workspace apps/backend",
+    "setup:backend": "npm run setup --workspace apps/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

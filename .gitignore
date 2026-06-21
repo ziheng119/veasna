@@ -1,0 +1,14 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+
+# local env files
+.env
+.env.*
+!.env.example
+
+# build artifacts
+dist/
+out/
+.next/
+coverage/

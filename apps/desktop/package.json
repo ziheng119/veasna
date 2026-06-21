@@ -1,0 +1,13 @@
+{
+  "name": "veasna-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron main.js",
+    "start": "electron main.js"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0"
+  }
+}
