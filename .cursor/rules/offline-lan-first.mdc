@@ -1,0 +1,31 @@
+---
+description: Enforce VEASNA offline and LAN-first project goals
+alwaysApply: true
+---
+
+# VEASNA Offline/LAN-First Rule
+
+## Core Context
+- Treat VEASNA as an offline/local-network-first application.
+- Assume backend, frontend, and PostgreSQL run on one host laptop.
+- Assume client devices connect from the same private subnet.
+- Prefer host IP access patterns over localhost-only assumptions.
+
+## Implementation Priorities
+- Keep core workflows functional without internet.
+- Prefer simple, reliable local deployment over cloud-dependent architecture.
+- Preserve data integrity and attribution for future sync to central DB.
+
+## Networking and Environment
+- Prefer host binding where relevant (`0.0.0.0`).
+- Keep CORS/API config compatible with LAN IP origins.
+- Avoid introducing hard dependencies on external services for core features.
+
+## Authentication Guidance
+- Keep lightweight username/password auth unless user asks otherwise.
+- Do not introduce complex role systems unless explicitly requested.
+- Preserve user attribution fields (e.g., updater identity and timestamps).
+
+## Change Management
+- When changes affect setup, update README documentation.
+- If a proposal conflicts with offline/LAN goals, present an offline-safe alternative.
