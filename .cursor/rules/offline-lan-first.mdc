@@ -29,3 +29,13 @@ alwaysApply: true
 ## Change Management
 - When changes affect setup, update README documentation.
 - If a proposal conflicts with offline/LAN goals, present an offline-safe alternative.
+
+## Engineering Quality Expectations
+- Prefer simple, readable, and maintainable code over clever complexity.
+- Keep implementations modular: extract shared components/utilities for repeated patterns.
+- Minimize scope of each change; avoid unrelated edits in the same task.
+- Maintain backward compatibility for APIs, data shape, and clinic workflows unless explicitly requested.
+- Validate changes with lint/tests when available, and resolve newly introduced issues.
+- Handle errors explicitly and preserve actionable logging/messages.
+- Remove obvious duplication/dead code and keep naming consistent.
+- Document setup or behavior changes in relevant README files.

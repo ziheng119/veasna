@@ -33,3 +33,13 @@ Build and maintain VEASNA for an offline/local-network deployment first.
 - Optimize for clinic usability in constrained/offline environments.
 - Document any setup changes in project README files.
 - If a change conflicts with offline/LAN-first operation, propose an offline-safe alternative.
+
+## Software Engineering Principles
+- Prefer simple, maintainable solutions over clever complexity.
+- Keep changes small and cohesive; avoid broad refactors unless requested.
+- Reuse shared components/utilities for repeated UI or logic patterns.
+- Preserve backward compatibility for existing workflows and data contracts.
+- Validate behavior with lint/tests where available before finishing work.
+- Handle failures explicitly with clear user-facing and developer-facing signals.
+- Keep naming clear and consistent; remove dead code and obvious duplication.
+- Update docs when behavior, setup, or developer workflow changes.
