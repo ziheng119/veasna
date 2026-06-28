@@ -82,15 +82,15 @@ export default function SearchBar({ onSelectPatient }: SearchBarProps) {
   }, [location])
 
   return (
-    <div className="relative w-full text-gray-700">
-      <div className="flex flex-wrap items-center bg-white rounded-full w-full p-2 border-[1px] gap-1">
-        <SearchIcon className="ml-1" />
+    <div className="relative w-full text-foreground">
+      <div className="flex flex-wrap items-center rounded-full w-full p-2 border border-border bg-card gap-1">
+        <SearchIcon className="ml-1 text-muted-foreground" />
 
         <input
           type="text"
           placeholder="Enter Queue Number"
           value={query}
-          className="flex-1 min-w-[100px] outline-none ml-1"
+          className="flex-1 min-w-[100px] outline-none ml-1 bg-transparent placeholder:text-muted-foreground"
           onChange={e => {
             setQuery(e.target.value)
             setShowSuggestions(true)
@@ -100,22 +100,22 @@ export default function SearchBar({ onSelectPatient }: SearchBarProps) {
           onKeyDown={handleKeyDown}
         />
 
-        <CrossIcon 
+        <CrossIcon
           width={20} 
           height={20} 
-          color="black" 
+          color="currentColor"
           onClick={handleClearQuery}
-          className="hover:cursor-pointer"  
+          className="hover:cursor-pointer text-muted-foreground hover:text-foreground"
         />
       </div>
 
       {showSuggestions && query.trim() !== "" && filteredPatients.length > 0 && (
-        <ul className="absolute z-10 bg-white border border-gray-300 rounded-md w-full mt-1 max-h-48 overflow-y-auto">
+        <ul className="absolute z-10 bg-card border border-border rounded-md w-full mt-1 max-h-48 overflow-y-auto shadow-sm">
           {filteredPatients.map((patient, idx) => (
             <li
               key={patient.patient_id ?? idx}
               className={`px-4 py-2 cursor-pointer ${
-                idx === highlightedIndex ? "bg-gray-100 font-medium" : "hover:bg-gray-100"
+                idx === highlightedIndex ? "bg-accent font-medium" : "hover:bg-accent/70"
               }`}
               onMouseEnter={() => setHighlightedIndex(idx)}
               onMouseDown={() => handlePatientSelect(patient)}

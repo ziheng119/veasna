@@ -27,6 +27,21 @@ interface PatientFormProps {
     locationId?: number;
 }
 
+type FormErrors = {
+    queue_no?: string;
+    english_name?: string;
+    sex?: string;
+    face_id?: string;
+    height?: string;
+    weight?: string;
+    bmi?: string;
+    bp_systolic?: string;
+    bp_diastolic?: string;
+    temperature?: string;
+    know_of_hef?: string;
+    has_hef?: string;
+};
+
 const getBMICategory = (bmi: number) : string => {
     if (bmi < 18.5) return "Underweight";
     if (bmi < 25) return "Normal Weight";
@@ -40,6 +55,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState("patient-info");
+    const [errors, setErrors] = useState<FormErrors>({});
 
     const [patientInfo, setPatientInfo] =  useState<PatientFormData>({
         face_id: "",
@@ -69,6 +85,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         has_hef: "",
         notes: ""
     })
+
+    const clearFieldError = (field: keyof FormErrors) => {
+      setErrors(prev => {
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    };
 
     const calculateAge = () => {
         if (patientInfo.date_of_birth) {
@@ -100,6 +125,46 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         }
       };
 
+    const validateForm = (): boolean => {
+      const nextErrors: FormErrors = {};
+      const queueNo = patientInfo.queue_no?.trim() ?? "";
+      const englishName = patientInfo.english_name?.trim() ?? "";
+      const faceId = patientInfo.face_id?.trim() ?? "";
+      const height = Number(vitals.height);
+      const weight = Number(vitals.weight);
+      const bmi = Number(vitals.bmi);
+      const bpSystolic = Number(vitals.bp_systolic);
+      const bpDiastolic = Number(vitals.bp_diastolic);
+      const temperature = Number(vitals.temperature);
+
+      if (!queueNo) nextErrors.queue_no = "Queue number is required.";
+      if (!englishName) nextErrors.english_name = "English name is required.";
+      if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
+      if (faceId && !/^\d+$/.test(faceId)) nextErrors.face_id = "Face ID must be a positive integer.";
+
+      if (!Number.isFinite(height) || height <= 0) nextErrors.height = "Enter a valid height greater than 0.";
+      if (!Number.isFinite(weight) || weight <= 0) nextErrors.weight = "Enter a valid weight greater than 0.";
+      if (!Number.isFinite(bmi) || bmi <= 0) nextErrors.bmi = "BMI is required. Click Calculate after entering height and weight.";
+      if (!Number.isInteger(bpSystolic) || bpSystolic <= 0) nextErrors.bp_systolic = "Systolic BP must be a positive whole number.";
+      if (!Number.isInteger(bpDiastolic) || bpDiastolic <= 0) nextErrors.bp_diastolic = "Diastolic BP must be a positive whole number.";
+      if (!Number.isFinite(temperature) || temperature <= 0) nextErrors.temperature = "Enter a valid temperature greater than 0.";
+
+      if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
+      if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
+
+      setErrors(nextErrors);
+
+      const patientInfoFields: (keyof FormErrors)[] = ["queue_no", "english_name", "sex", "face_id"];
+      const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
+      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef"];
+
+      if (patientInfoFields.some((field) => nextErrors[field])) setActiveTab("patient-info");
+      else if (vitalsFields.some((field) => nextErrors[field])) setActiveTab("vitals");
+      else if (hefFields.some((field) => nextErrors[field])) setActiveTab("hef");
+
+      return Object.keys(nextErrors).length === 0;
+    };
+
     const checkExistingPatient = () => {
       // Use either English or Khmer name for search
       const name = patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim();
@@ -121,6 +186,12 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           address: found.address || "",
           phone_number: found.phone_number || "",
         });
+        setErrors((prev) => ({
+          ...prev,
+          english_name: undefined,
+          sex: undefined,
+          face_id: undefined,
+        }));
       } else {
         alert("No existing patient found with that name");
       }
@@ -131,10 +202,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           alert("Location not selected or user not authenticated.");
           return;
         }
-        if (!patientInfo.queue_no || !patientInfo.english_name || !patientInfo.sex) {
-        alert("Please fill in required fields: Queue Number, English Name, and Sex");
-        return;
-        }
+        if (!validateForm()) return;
 
         setIsSubmitting(true);
 
@@ -178,6 +246,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             notes: ""
           });
           setActiveTab("patient-info");
+          setErrors({});
         } catch (error) {
           console.error("Submissio failed: ", error)
           alert(`Error: ${error instanceof Error ? error.message : "Could not add patient to queue."}`);
@@ -223,18 +292,26 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     <Input
                       id="queueNumber"
                       value={patientInfo.queue_no}
-                      onChange={(e) => setPatientInfo(prev => ({ ...prev, queue_no: e.target.value }))}
+                      aria-invalid={!!errors.queue_no}
+                      onChange={(e) => {
+                        setPatientInfo(prev => ({ ...prev, queue_no: e.target.value }));
+                        clearFieldError("queue_no");
+                      }}
                       placeholder="e.g., 12A"
                       className="mt-2"
                       />
+                    {errors.queue_no && <p className="mt-1 text-xs text-destructive">{errors.queue_no}</p>}
                   </div>
                   <div>
                     <Label htmlFor="sex" className="text-muted-foreground">Sex *</Label>
                     <Select 
                       value={patientInfo.sex} 
-                      onValueChange={(value) => setPatientInfo(prev => ({ ...prev, sex: value as "M" | "F" }))}
+                      onValueChange={(value) => {
+                        setPatientInfo(prev => ({ ...prev, sex: value as "M" | "F" }));
+                        clearFieldError("sex");
+                      }}
                     >
-                      <SelectTrigger className="mt-2 w-full">
+                      <SelectTrigger className="mt-2 w-full" aria-invalid={!!errors.sex}>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border">
@@ -242,6 +319,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                         <SelectItem value="F" className="text-foreground hover:bg-accent">Female</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.sex && <p className="mt-1 text-xs text-destructive">{errors.sex}</p>}
                   </div>
                 </div>
     
@@ -250,10 +328,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Input
                     id="englishName"
                     value={patientInfo.english_name}
-                    onChange={(e) => setPatientInfo(prev => ({ ...prev, english_name: e.target.value }))}
+                    aria-invalid={!!errors.english_name}
+                    onChange={(e) => {
+                      setPatientInfo(prev => ({ ...prev, english_name: e.target.value }));
+                      clearFieldError("english_name");
+                    }}
                     placeholder="Enter English name"
                     className="mt-2"
                   />
+                  {errors.english_name && <p className="mt-1 text-xs text-destructive">{errors.english_name}</p>}
                 </div>
     
                 <div>
@@ -330,10 +413,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Input
                     id="faceId"
                     value={patientInfo.face_id}
-                    onChange={(e) => setPatientInfo(prev => ({ ...prev, face_id: e.target.value || "" }))}
+                    aria-invalid={!!errors.face_id}
+                    onChange={(e) => {
+                      setPatientInfo(prev => ({ ...prev, face_id: e.target.value || "" }));
+                      clearFieldError("face_id");
+                    }}
                     placeholder="Face ID"
                     className="mt-2"
                   />
+                  {errors.face_id && <p className="mt-1 text-xs text-destructive">{errors.face_id}</p>}
                 </div>
               </TabsContent>
     
@@ -346,10 +434,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       type="number"
                       step="0.1"
                       value={vitals.height}
-                      onChange={(e) => setVitals(prev => ({ ...prev, height: e.target.value }))}
+                      aria-invalid={!!errors.height}
+                      onChange={(e) => {
+                        setVitals(prev => ({ ...prev, height: e.target.value }));
+                        clearFieldError("height");
+                      }}
                       placeholder="Height in cm"
                       className="mt-2"
                     />
+                    {errors.height && <p className="mt-1 text-xs text-destructive">{errors.height}</p>}
                   </div>
                   <div>
                     <Label htmlFor="weight" className="text-muted-foreground">Weight (kg)</Label>
@@ -358,10 +451,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       type="number"
                       step="0.1"
                       value={vitals.weight}
-                      onChange={(e) => setVitals(prev => ({ ...prev, weight: e.target.value }))}
+                      aria-invalid={!!errors.weight}
+                      onChange={(e) => {
+                        setVitals(prev => ({ ...prev, weight: e.target.value }));
+                        clearFieldError("weight");
+                      }}
                       placeholder="Weight in kg"
                       className="mt-2"
                     />
+                    {errors.weight && <p className="mt-1 text-xs text-destructive">{errors.weight}</p>}
                   </div>
                   <div>
                     <Label htmlFor="bmi" className="text-muted-foreground">BMI</Label>
@@ -369,6 +467,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       <Input
                         id="bmi"
                         value={vitals.bmi}
+                        aria-invalid={!!errors.bmi}
                         readOnly
                         placeholder="BMI"
                         className=""
@@ -385,6 +484,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                         Calculate
                       </Button>
                     </div>
+                    {errors.bmi && <p className="mt-1 text-xs text-destructive">{errors.bmi}</p>}
                   </div>
                 </div>
     
@@ -419,10 +519,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       id="systolic"
                       type="number"
                       value={vitals.bp_systolic}
-                      onChange={(e) => setVitals(prev => ({ ...prev, bp_systolic: e.target.value }))}
+                      aria-invalid={!!errors.bp_systolic}
+                      onChange={(e) => {
+                        setVitals(prev => ({ ...prev, bp_systolic: e.target.value }));
+                        clearFieldError("bp_systolic");
+                      }}
                       placeholder="Systolic"
                       className="mt-2"
                     />
+                    {errors.bp_systolic && <p className="mt-1 text-xs text-destructive">{errors.bp_systolic}</p>}
                   </div>
                   <div>
                     <Label htmlFor="diastolic" className="text-muted-foreground">Blood Pressure - Diastolic</Label>
@@ -430,10 +535,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       id="diastolic"
                       type="number"
                       value={vitals.bp_diastolic}
-                      onChange={(e) => setVitals(prev => ({ ...prev, bp_diastolic: e.target.value }))}
+                      aria-invalid={!!errors.bp_diastolic}
+                      onChange={(e) => {
+                        setVitals(prev => ({ ...prev, bp_diastolic: e.target.value }));
+                        clearFieldError("bp_diastolic");
+                      }}
                       placeholder="Diastolic"
                       className="mt-2"
                     />
+                    {errors.bp_diastolic && <p className="mt-1 text-xs text-destructive">{errors.bp_diastolic}</p>}
                   </div>
                 </div>
     
@@ -444,10 +554,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     type="number"
                     step="0.1"
                     value={vitals.temperature}
-                    onChange={(e) => setVitals(prev => ({ ...prev, temperature: e.target.value }))}
+                    aria-invalid={!!errors.temperature}
+                    onChange={(e) => {
+                      setVitals(prev => ({ ...prev, temperature: e.target.value }));
+                      clearFieldError("temperature");
+                    }}
                     placeholder="Temperature in Celsius"
                     className="mt-2"
                   />
+                  {errors.temperature && <p className="mt-1 text-xs text-destructive">{errors.temperature}</p>}
                 </div>
     
                 <div>
@@ -467,7 +582,10 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Label className="text-muted-foreground block mb-4">Does patient know about HEF?</Label>
                   <RadioGroup 
                     value={hef.know_of_hef} 
-                    onValueChange={(value) => setHEF(prev => ({ ...prev, know_of_hef: value as "yes" | "no" }))}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, know_of_hef: value as "yes" | "no" }));
+                      clearFieldError("know_of_hef");
+                    }}
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -479,13 +597,17 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       <Label htmlFor="knows-no" className="text-muted-foreground">No</Label>
                     </div>
                   </RadioGroup>
+                  {errors.know_of_hef && <p className="mt-2 text-xs text-destructive">{errors.know_of_hef}</p>}
                 </div>
     
                 <div>
                   <Label className="text-muted-foreground block mb-4">Does patient have HEF?</Label>
                   <RadioGroup 
                     value={hef.has_hef} 
-                    onValueChange={(value) => setHEF(prev => ({ ...prev, has_hef: value as "yes" | "no" }))}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, has_hef: value as "yes" | "no" }));
+                      clearFieldError("has_hef");
+                    }}
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -497,6 +619,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       <Label htmlFor="has-no" className="text-muted-foreground">No</Label>
                     </div>
                   </RadioGroup>
+                  {errors.has_hef && <p className="mt-2 text-xs text-destructive">{errors.has_hef}</p>}
                 </div>
     
                 <div>

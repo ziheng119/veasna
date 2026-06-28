@@ -77,109 +77,109 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
 
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 bg-slate-700 text-slate-300">
-                <TabsTrigger value="visual-acuity" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Visual Acuity</TabsTrigger>
-                <TabsTrigger value="presenting-complaint" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Presenting Complaints</TabsTrigger>
-                <TabsTrigger value="medical-history" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Medical History</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 bg-muted/80">
+                <TabsTrigger value="visual-acuity" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Visual Acuity</TabsTrigger>
+                <TabsTrigger value="presenting-complaint" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Presenting Complaints</TabsTrigger>
+                <TabsTrigger value="medical-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Medical History</TabsTrigger>
             </TabsList>
 
             <div className="flex-1 overflow-y-auto mt-6">
                 {/* Visual Acuity Form */}
                 <TabsContent value="visual-acuity" className="mt-0">
-                    <Card className="bg-slate-800 border-slate-700">
-                        <CardHeader><CardTitle className="text-slate-100">Snellen's Test (Visual Acuity)</CardTitle></CardHeader>
+                    <Card className="bg-card border-border">
+                        <CardHeader><CardTitle className="text-foreground">Snellen's Test (Visual Acuity)</CardTitle></CardHeader>
                         <CardContent className="space-y-6">
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <h4 className="text-slate-200">Left Eye</h4>
+                                    <h4 className="text-foreground">Left Eye</h4>
                                     <div>
-                                        <Label className="text-slate-200">With Pinhole</Label>
-                                        <Input value={visualAcuity.left_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_with_pinhole: e.target.value}))} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                        <Label className="text-muted-foreground">With Pinhole</Label>
+                                        <Input value={visualAcuity.left_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_with_pinhole: e.target.value}))} className="mt-2" />
                                     </div>
                                     <div>
-                                        <Label className="text-slate-200">Without Pinhole</Label>
-                                        <Input value={visualAcuity.left_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_without_pinhole: e.target.value}))} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                        <Label className="text-muted-foreground">Without Pinhole</Label>
+                                        <Input value={visualAcuity.left_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_without_pinhole: e.target.value}))} className="mt-2" />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h4 className="text-slate-200">Right Eye</h4>
+                                    <h4 className="text-foreground">Right Eye</h4>
                                     <div>
-                                        <Label className="text-slate-200">With Pinhole</Label>
-                                        <Input value={visualAcuity.right_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_with_pinhole: e.target.value}))} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                        <Label className="text-muted-foreground">With Pinhole</Label>
+                                        <Input value={visualAcuity.right_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_with_pinhole: e.target.value}))} className="mt-2" />
                                     </div>
                                     <div>
-                                        <Label className="text-slate-200">Without Pinhole</Label>
-                                        <Input value={visualAcuity.right_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_without_pinhole: e.target.value}))} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                        <Label className="text-muted-foreground">Without Pinhole</Label>
+                                        <Input value={visualAcuity.right_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_without_pinhole: e.target.value}))} className="mt-2" />
                                     </div>
                                 </div>
                             </div>
                             <div>
-                                <Label className="text-slate-200">Notes</Label>
-                                <Textarea value={visualAcuity.notes} onChange={(e) => setVisualAcuity(p => ({...p, notes: e.target.value}))} rows={3} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Notes</Label>
+                                <Textarea value={visualAcuity.notes} onChange={(e) => setVisualAcuity(p => ({...p, notes: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-slate-800 pt-4">
-                            <Button onClick={handleSaveVisualAcuity} disabled={isLoading} className="bg-slate-600 hover:bg-slate-700 text-white"><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
+                        <CardFooter className="flex justify-end bg-card pt-4">
+                            <Button onClick={handleSaveVisualAcuity} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
                         </CardFooter>
                     </Card>
                 </TabsContent>
 
                 {/* Presenting Complaints Form */}
                 <TabsContent value="presenting-complaint" className="mt-0">
-                     <Card className="bg-slate-800 border-slate-700">
-                        <CardHeader><CardTitle className="text-slate-100">Presenting Complaints</CardTitle></CardHeader>
+                     <Card className="bg-card border-border">
+                        <CardHeader><CardTitle className="text-foreground">Presenting Complaints</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <Label className="text-slate-200">History of Presenting Symptoms</Label>
-                                <Textarea value={presentingComplaint.history} onChange={(e) => setPresentingComplaint(p => ({...p, history: e.target.value}))} rows={4} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">History of Presenting Symptoms</Label>
+                                <Textarea value={presentingComplaint.history} onChange={(e) => setPresentingComplaint(p => ({...p, history: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Red Flags</Label>
-                                <Textarea value={presentingComplaint.red_flags} onChange={(e) => setPresentingComplaint(p => ({...p, red_flags: e.target.value}))} rows={3} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Red Flags</Label>
+                                <Textarea value={presentingComplaint.red_flags} onChange={(e) => setPresentingComplaint(p => ({...p, red_flags: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Systems Review</Label>
-                                <Textarea value={presentingComplaint.systems_review} onChange={(e) => setPresentingComplaint(p => ({...p, systems_review: e.target.value}))} rows={4} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Systems Review</Label>
+                                <Textarea value={presentingComplaint.systems_review} onChange={(e) => setPresentingComplaint(p => ({...p, systems_review: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Drug Allergies</Label>
-                                <Textarea value={presentingComplaint.drug_allergies} onChange={(e) => setPresentingComplaint(p => ({...p, drug_allergies: e.target.value}))} rows={3} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Drug Allergies</Label>
+                                <Textarea value={presentingComplaint.drug_allergies} onChange={(e) => setPresentingComplaint(p => ({...p, drug_allergies: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-slate-800 pt-4">
-                            <Button onClick={handleSavePresentingComplaint} disabled={isLoading} className="bg-slate-600 hover:bg-slate-700 text-white"><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
+                        <CardFooter className="flex justify-end bg-card pt-4">
+                            <Button onClick={handleSavePresentingComplaint} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
                         </CardFooter>
                     </Card>
                 </TabsContent>
 
                 {/* Medical History Form */}
                 <TabsContent value="medical-history" className="mt-0">
-                    <Card className="bg-slate-800 border-slate-700">
-                        <CardHeader><CardTitle className="text-slate-100">Medical History</CardTitle></CardHeader>
+                    <Card className="bg-card border-border">
+                        <CardHeader><CardTitle className="text-foreground">Medical History</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <Label className="text-slate-200">Past Medical History</Label>
-                                <Textarea value={medicalHistory.past} onChange={(e) => setMedicalHistory(p => ({...p, past: e.target.value}))} rows={4} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Past Medical History</Label>
+                                <Textarea value={medicalHistory.past} onChange={(e) => setMedicalHistory(p => ({...p, past: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                              <div>
-                                <Label className="text-slate-200">Drug and Treatment History</Label>
-                                <Textarea value={medicalHistory.drug_and_treatment} onChange={(e) => setMedicalHistory(p => ({...p, drug_and_treatment: e.target.value}))} rows={4} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Drug and Treatment History</Label>
+                                <Textarea value={medicalHistory.drug_and_treatment} onChange={(e) => setMedicalHistory(p => ({...p, drug_and_treatment: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Family History</Label>
-                                <Textarea value={medicalHistory.family} onChange={(e) => setMedicalHistory(p => ({...p, family: e.target.value}))} rows={3} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Family History</Label>
+                                <Textarea value={medicalHistory.family} onChange={(e) => setMedicalHistory(p => ({...p, family: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Social History</Label>
-                                <Textarea value={medicalHistory.social} onChange={(e) => setMedicalHistory(p => ({...p, social: e.target.value}))} rows={3} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Social History</Label>
+                                <Textarea value={medicalHistory.social} onChange={(e) => setMedicalHistory(p => ({...p, social: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                             <div>
-                                <Label className="text-slate-200">Systems Review</Label>
-                                <Textarea value={medicalHistory.systems_review} onChange={(e) => setMedicalHistory(p => ({...p, systems_review: e.target.value}))} rows={4} className="bg-slate-700 border-slate-600 text-slate-100 mt-2" />
+                                <Label className="text-muted-foreground">Systems Review</Label>
+                                <Textarea value={medicalHistory.systems_review} onChange={(e) => setMedicalHistory(p => ({...p, systems_review: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-slate-800 pt-4">
-                            <Button onClick={handleSaveMedicalHistory} disabled={isLoading} className="bg-slate-600 hover:bg-slate-700 text-white"><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save History"}</Button>
+                        <CardFooter className="flex justify-end bg-card pt-4">
+                            <Button onClick={handleSaveMedicalHistory} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save History"}</Button>
                         </CardFooter>
                     </Card>
                 </TabsContent>

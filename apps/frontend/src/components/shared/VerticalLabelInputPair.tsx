@@ -23,7 +23,7 @@ export default function VerticalLabelInputPair({
 
       <div className="flex-1 flex items-center">
         <textarea
-          className="bg-white border-[1px] rounded-sm w-full h-full p-2 text-black"
+          className="bg-background border border-input rounded-md w-full h-full p-2 text-foreground placeholder:text-muted-foreground"
           value={value}
           readOnly={readOnly}
           onChange={e => {

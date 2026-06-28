@@ -5,22 +5,62 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
 
+function parseOptionalPositiveInt(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  const trimmed = String(value).trim();
+  if (trimmed === '') return null;
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return parsed > 0 ? parsed : null;
+}
+
+function parseRequiredNumber(value) {
+  const num = typeof value === 'number' ? value : Number.parseFloat(String(value).trim());
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseRequiredInt(value) {
+  const num = typeof value === 'number' ? value : Number.parseInt(String(value).trim(), 10);
+  return Number.isInteger(num) ? num : null;
+}
+
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
+    const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
+    const queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
 
 
     try {
         await db.query('BEGIN');
 
+        if (!locationId) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
+        }
+
+        if (!queueNo) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ error: 'visit.queue_no is required.' });
+        }
+
         // Step 1: Insert or Find the patient
-        let patientId = patientInfo.id;
+        let patientId = parseOptionalPositiveInt(patientInfo?.id);
         if (!patientId) {
             if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
                 await db.query('ROLLBACK');
                 return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
+            }
+            const faceId = parseOptionalPositiveInt(patientInfo?.face_id);
+            if (patientInfo?.face_id != null && String(patientInfo.face_id).trim() !== '' && faceId === null) {
+                await db.query('ROLLBACK');
+                return res.status(400).json({ error: 'Invalid patientInfo.face_id. Use a positive integer.' });
             }
             // New patient: Insert into patients table
             const patientQuery = `
@@ -29,8 +69,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 RETURNING id;
             `;
             const patientValues = [
-                patientInfo.face_id,
-                patientInfo.location_id,
+                faceId,
+                locationId,
                 patientInfo.english_name,
                 patientInfo.khmer_name,
                 patientInfo.date_of_birth || null,
@@ -51,14 +91,35 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         `;
         const visitValues = [
             patientId, 
-            patientInfo.location_id, 
-            visit.queue_no, 
+            locationId, 
+            queueNo, 
             new Date(), 
             last_updated_by
         ];
         const visitResult = await db.query(visitQuery, visitValues);
         const visitId = visitResult.rows[0].id;
         const visitTimestamp = visitResult.rows[0].created_at;
+
+        const height = parseRequiredNumber(vitals?.height);
+        const weight = parseRequiredNumber(vitals?.weight);
+        const bmi = parseRequiredNumber(vitals?.bmi);
+        const bpSystolic = parseRequiredInt(vitals?.bp_systolic);
+        const bpDiastolic = parseRequiredInt(vitals?.bp_diastolic);
+        const temperature = parseRequiredNumber(vitals?.temperature);
+        const below3rdPercentile = typeof vitals?.below_3rd_percentile === 'boolean' ? vitals.below_3rd_percentile : null;
+
+        if (
+            height === null || height <= 0 ||
+            weight === null || weight <= 0 ||
+            bmi === null || bmi <= 0 ||
+            bpSystolic === null ||
+            bpDiastolic === null ||
+            temperature === null ||
+            below3rdPercentile === null
+        ) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ error: 'Invalid vitals payload. Please provide valid numeric values and below_3rd_percentile.' });
+        }
 
         // Step 3: Insert into vitals table
         const vitalsQuery = `
@@ -67,13 +128,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         `;
         const vitalsValues = [
             visitId, 
-            parseFloat(vitals.height), 
-            parseFloat(vitals.weight), 
-            parseFloat(vitals.bmi),
-            vitals.below_3rd_percentile,
-            parseInt(vitals.bp_systolic),
-            parseInt(vitals.bp_diastolic),
-            parseFloat(vitals.temperature),
+            height, 
+            weight, 
+            bmi,
+            below3rdPercentile,
+            bpSystolic,
+            bpDiastolic,
+            temperature,
             vitals.notes,
             last_updated_by
         ];
@@ -101,7 +162,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         res.status(201).json({
             visit_id: visitId,
             patient_id: patientId,
-            queue_no: visit.queue_no,
+            queue_no: queueNo,
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
             age: patientInfo.age,

@@ -9,6 +9,7 @@ import { getPhysiotherapy } from '@/lib/api/visit/physiotherapy/getPhysiotherapy
 import { QueuedPatient } from '@/lib/types/patient'
 import toast from 'react-hot-toast'
 import { postPhysiotherapy } from '@/lib/api/visit/physiotherapy/postPhysiotherapy'
+import { PageCard } from '../shared/PageCard'
 
 interface Props {
   patient: QueuedPatient
@@ -24,6 +25,8 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       const data: Physiotherapy | null = await getPhysiotherapy(patient.visit_id);
 
       if (!data) {
+          setNotes("");
+          setPainpoints([]);
           toast("No data loaded")
           return;
       }
@@ -57,11 +60,14 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
 
   useEffect(() => {
     loadData();
-  }, [])
+  }, [patient.visit_id])
 
   return (
-    <div className="flex flex-col gap-4 bg-beige-default px-4 py-2 rounded-md border-[1px] lg:w-[30%]">
-      <h2 className="text-[20px] font-semibold">Physiotherapy Notes</h2>
+    <PageCard
+      title="Physiotherapy Notes"
+      className="xl:col-span-4"
+      contentClassName="space-y-4"
+    >
       <div className="flex w-full h-[40%]">
         <VerticalLabelInputPair 
           onChangeFunction={setNotes}
@@ -85,6 +91,6 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
           onClick={handleSave}
         />
       </div>
-    </div>
+    </PageCard>
   )
 }

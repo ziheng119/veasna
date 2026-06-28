@@ -10,6 +10,7 @@ import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 
 export default function Physiotherapy() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -22,22 +23,25 @@ export default function Physiotherapy() {
     }
   }, [location]);
 
-  if (!selectedPatient) {
-    return (
-      <div className="flex flex-col w-full h-screen gap-y-5">
-        <SearchBar onSelectPatient={setSelectedPatient} />
-        <NoPatientSelected/>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 lg:min-h-[70vh]">
+    <div className="space-y-5">
       <SearchBar onSelectPatient={setSelectedPatient} />
-      <div className="flex flex-col gap-2 mt-3 lg:w-full lg:flex-row lg:gap-4 lg:justify-evenly">
-        <PatientContainer selectedPatient = {selectedPatient}/>
-        <TriageContainer selectedPatient = {selectedPatient}/>
-        <PhysiotherapyNotesContainer patient={selectedPatient} />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <QueuePatientPicker
+          onSelectPatient={setSelectedPatient}
+          selectedVisitId={selectedPatient?.visit_id}
+        />
+        <div className="xl:col-span-8">
+          {!selectedPatient ? (
+            <NoPatientSelected />
+          ) : (
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+              <PatientContainer selectedPatient = {selectedPatient}/>
+              <TriageContainer selectedPatient = {selectedPatient}/>
+              <PhysiotherapyNotesContainer patient={selectedPatient} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

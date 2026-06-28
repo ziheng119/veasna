@@ -11,6 +11,7 @@ import Loading from "../shared/Loading";
 import { Consultation, Referral } from "@/lib/types/consultation";
 import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
+import { PageCard } from "../shared/PageCard";
 
 interface Props {
   patient: QueuedPatient;
@@ -28,6 +29,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       const data: Consultation | null = await getConsultation(patient.visit_id);
 
       if (!data) {
+          setNotes("");
+          setPrescription("");
+          setReferralNeeded(true);
+          setReferral(null);
           toast("No data loaded")
           return;
       }
@@ -88,11 +93,14 @@ export default function DoctorsNotesContainer({ patient }: Props) {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [patient.visit_id])
 
   return (
-    <div className="flex flex-col gap-4 bg-beige-default px-4 py-2 rounded-md border-[1px] lg:w-[30%]">
-      <h2 className="text-[20px] font-semibold">Consultation Notes</h2>
+    <PageCard
+      title="Consultation Notes"
+      className="xl:col-span-4"
+      contentClassName="space-y-4"
+    >
       <div className="flex w-full h-[40%]">
         <VerticalLabelInputPair 
           value={notes}
@@ -118,6 +126,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             value="yes"
             checked={referralNeeded === true}
             onChange={() => setReferralNeeded(true)}
+            className="accent-primary"
           />
           <p>Yes</p>
         </div>
@@ -129,6 +138,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             value="no"
             checked={referralNeeded === false}
             onChange={() => setReferralNeeded(false)}
+            className="accent-primary"
           />
           <p>No</p>
         </div>
@@ -151,6 +161,6 @@ export default function DoctorsNotesContainer({ patient }: Props) {
           onClick={handleSave}
         />
       </div>
-    </div>
+    </PageCard>
   )
 }

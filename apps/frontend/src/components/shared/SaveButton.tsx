@@ -9,7 +9,7 @@ export default function SaveButton({ onClick, mode }: Props) {
 
   return (
     <button 
-      className="bg-green-default rounded-md p-2 hover:cursor-pointer"
+      className="bg-primary text-primary-foreground rounded-md px-4 py-2 hover:cursor-pointer hover:bg-primary/90"
       onClick={onClick}
     >
       {label}

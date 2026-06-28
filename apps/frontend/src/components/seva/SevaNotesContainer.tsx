@@ -9,6 +9,7 @@ import { QueuedPatient } from "@/lib/types/patient"
 import { getSeva } from "@/lib/api/visit/seva/getSeva"
 import { postSeva } from "@/lib/api/visit/seva/postSeva"
 import formatDate from "@/helper/format_date"
+import { PageCard } from "../shared/PageCard"
 
 interface Props {
     patient: QueuedPatient;
@@ -28,6 +29,13 @@ export default function SevaNotesContainer({ patient }: Props) {
         const data: Seva | null = await getSeva(patient.visit_id);
 
         if (!data) {
+            setLeftWithPinholeNew("");
+            setLeftWithoutPinholeNew("");
+            setRightWithPinholeNew("");
+            setRightWithoutPinholeNew("");
+            setDiagnosis("");
+            setDateOfReferral("");
+            setAdditionalNotes("");
             toast("No data loaded")
             return;
         }
@@ -76,12 +84,15 @@ export default function SevaNotesContainer({ patient }: Props) {
 
     useEffect(() => {
         loadData();
-    }, [])
+    }, [patient.visit_id])
  
     return (
-        <div className="flex flex-col gap-4 bg-beige-default px-4 py-2 rounded-md border-[1px] lg:w-[30%]">
-
-            <h2 className="text-[20px] font-semibold">New Snellen&apos;s Test</h2>
+        <PageCard
+            title="Seva Notes"
+            className="xl:col-span-4"
+            contentClassName="space-y-4"
+        >
+            <h2 className="text-[20px] font-semibold text-foreground">New Snellen&apos;s Test</h2>
             <div className="min-h-70 flex flex-col">
                 <div className="grid grid-cols-3 gap-x-4 gap-y-2 mb-[30px] items-center">
                     {/* Header Row */}
@@ -92,12 +103,12 @@ export default function SevaNotesContainer({ patient }: Props) {
                     {/* With Pinhole Row */}
                     <p className="text-start">With Pinhole</p>
                     <input 
-                        className="bg-white-default border-[1px] block rounded-sm p-0.5"
+                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
                         onChange={e => setLeftWithPinholeNew(e.target.value)}
                         value={leftWithPinholeNew}
                     ></input>
                     <input 
-                        className="bg-white-default border-[1px] block rounded-sm p-0.5"
+                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
                         onChange={e => setRightWithPinholeNew(e.target.value)}
                         value={rightWithPinholeNew}
                     ></input>
@@ -106,12 +117,12 @@ export default function SevaNotesContainer({ patient }: Props) {
                     {/* Without Pinhole Row */}
                     <p className="text-start" >Without Pinhole</p>
                     <input 
-                        className="bg-white-default border-[1px] block rounded-sm p-0.5"
+                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
                         onChange={e => setLeftWithoutPinholeNew(e.target.value)}
                         value={leftWithoutPinholeNew}
                     ></input>
                     <input 
-                        className="bg-white-default border-[1px] block rounded-sm p-0.5"
+                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
                         onChange={e => setRightWithoutPinholeNew(e.target.value)}
                         value={rightWithoutPinholeNew}
                     ></input>
@@ -130,7 +141,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             <input
             type="date"
             placeholder="DD/MM/YYYY"
-            className="bg-white border-[1px] rounded-sm p-2 w-32 text-black"
+            className="bg-background border border-input rounded-sm p-2 w-40 text-foreground"
             onChange={(e) => setDateOfReferral(e.target.value)}
             value={dateOfReferral}
             />
@@ -150,7 +161,7 @@ export default function SevaNotesContainer({ patient }: Props) {
                     onClick={handleSave}
                 />
             </div>
-        </div>
+        </PageCard>
     
 
 
