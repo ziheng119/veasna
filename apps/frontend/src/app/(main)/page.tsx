@@ -1,16 +1,16 @@
 "use client";
-import { useUserStore } from '@/stores/useUserStore';
-import { useLocationStore } from '@/stores/useLocationStore';
-import { useLocationDataStore } from '@/stores/useLocationDataStore';
+import { useUserStore } from "@/stores/useUserStore";
+import { useLocationStore } from "@/stores/useLocationStore";
+import { useLocationDataStore } from "@/stores/useLocationDataStore";
 
-import { PatientQueue } from '@/components/home/PatientQueue';
-import { PatientForm } from '@/components/home/PatientForm';
-import { useEffect, useState } from 'react';
-import { SET_LOCATION_MESSAGE } from '@/messages/info';
-import toast from 'react-hot-toast';
-import { getPatientsByLocation } from '@/lib/api/patients/getPatientsByLocation';
-import { PatientInfo, QueuedPatient } from '@/lib/types/patient';
-import { getQueue } from '@/lib/api/queue/getQueue';
+import { PatientQueue } from "@/components/home/PatientQueue";
+import { PatientForm } from "@/components/home/PatientForm";
+import { useEffect, useState } from "react";
+import { SET_LOCATION_MESSAGE } from "@/messages/info";
+import toast from "react-hot-toast";
+import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
+import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
+import { getQueue } from "@/lib/api/queue/getQueue";
 
 export default function HomePage() {
   const user = useUserStore((state) => state.user);
@@ -26,11 +26,11 @@ export default function HomePage() {
       toast(SET_LOCATION_MESSAGE);
     }
   }, [location]);
-  
+
   // API helper functions
   async function refreshAllPatients() {
     if (token && location) {
-      const db_patients = await getPatientsByLocation(location.id,  token);
+      const db_patients = await getPatientsByLocation(location.id, token);
       setPatients(db_patients);
     }
   }
@@ -49,34 +49,21 @@ export default function HomePage() {
       refreshAllPatients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location])
+  }, [location]);
 
   useEffect(() => {
-    refreshQueuePatients()
+    refreshQueuePatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-background overflow-hidden">
-      {/* Header with gradient */}
-      <header className="bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-b border-border/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-2">
-          <div className="flex items-center justify-between">
-              <h1 className="text-2xl text-black font-bold">
-                Welcome, {username} !
-              </h1>
+    <div className="space-y-5">
+      <main className="w-full">
+        <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="xl:col-span-4 2xl:col-span-3">
+            <PatientQueue patients={queuePatients} />
           </div>
-        </div>
-      </header>
-
-      <main className="flex-1 p-6 overflow-hidden bg-background w-full">
-        <div className="flex w-full gap-6">
-          <div className="w-1/3 min-w-[300px]">
-            <PatientQueue 
-              patients={queuePatients}
-            />
-          </div>
-          <div className="flex-1 min-w-[600px] flex">
+          <div className="xl:col-span-8 2xl:col-span-9">
             <PatientForm
               existingPatients={patients}
               onSubmit={refreshQueuePatients}
@@ -86,5 +73,5 @@ export default function HomePage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

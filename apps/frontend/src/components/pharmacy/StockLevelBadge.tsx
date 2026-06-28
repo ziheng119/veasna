@@ -1,21 +1,23 @@
+import { Badge } from "../ui/badge";
+
 interface StockLevelBadgeProps {
     level: "low" | "medium" | "high" | "no stock"
 }
 
 export function StockLevelBadge({ level }: StockLevelBadgeProps) {
-    const getStockLevelColor = (level: "low" | "medium" | "high" | "no stock"): string => {
+    const getStockLevelVariant = (level: "low" | "medium" | "high" | "no stock"): "warning" | "info" | "success" | "destructive" => {
       switch (level) {
-        case "low": return "bg-yellow-500"
-        case "medium": return "bg-blue-500"
-        case "high": return "bg-green-500"
-        case "no stock": return "bg-red-600"
-        default: return "bg-gray-500"
+        case "low": return "warning"
+        case "medium": return "info"
+        case "high": return "success"
+        case "no stock": return "destructive"
+        default: return "info"
       }
     }
   
     return (
-      <span className={`inline-flex items-center justify-center h-8 w-24 px-3 py-1 rounded-full text-xs font-medium text-white ${getStockLevelColor(level)}`}>
+      <Badge variant={getStockLevelVariant(level)} className="inline-flex min-w-24 justify-center">
         {level.charAt(0).toUpperCase() + level.slice(1)}
-      </span>
+      </Badge>
     )
 }

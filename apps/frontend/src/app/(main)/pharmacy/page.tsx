@@ -14,6 +14,7 @@ import { deleteDrug } from "@/lib/api/pharmacy/pharmacy"
 import { useLocationStore } from "@/stores/useLocationStore"
 import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
+import { Button } from "@/components/ui/button"
 
 export default function Pharmacy() {
     const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -105,9 +106,8 @@ export default function Pharmacy() {
     }
     
     return (
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
+      <div className="space-y-5">
+          <div>
             <PageHeader />
           
             <div className="flex items-center justify-between">
@@ -116,18 +116,19 @@ export default function Pharmacy() {
                placeholder={"Search drugs or ID..."}
               />
 
-              <button
+              <Button
                 onClick={() => setShowAddTab(!showAddTab)}
-                className="ml-4 bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition" 
+                size="icon"
+                className="ml-4 rounded-full"
               >
                 <PlusIcon className='w-5 h-5'/>
-              </button>
+              </Button>
             </div>
           </div>
 
-          <div className="flex gap-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
             {/* Drug Tablee */}
-            <div className="w-2/3">
+            <div className={showAddTab ? "xl:col-span-8" : "xl:col-span-12"}>
               <DrugTable 
                 drugs={filteredDrugs}
                 onStockLevelChange={handleStockLevelChange}
@@ -137,13 +138,12 @@ export default function Pharmacy() {
 
             {/* Add Drug Form */}
             {showAddTab && (
-              <div className="w-1/3">
+              <div className="xl:col-span-4">
               <AddDrugSidebar 
                 onSubmit={handleAddDrug}
               />
               </div>
             )}
-        </div>
         </div>
       </div>
     )

@@ -57,8 +57,12 @@ export default function Login() {
   }
 
   return (
-    <div
-      className="bg-beige-default px-[30px] py-[30px] rounded-md border-[1px]"
+    <form
+      className="bg-beige-default px-[30px] py-[30px] rounded-md border"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
     >
       <h2 className="font-bold text-[30px] mb-[20px] text-center">
         {mode === "login" ? "Log In" : "Create Account"}
@@ -88,20 +92,21 @@ export default function Login() {
       </div>
 
       <button
-        className="bg-green-default px-[10px] py-[5px] rounded-md border-[1px] block hover:cursor-pointer items-center mx-auto disabled:opacity-60"
-        onClick={handleSubmit}
+        type="submit"
+        className="bg-green-default px-[10px] py-[5px] rounded-md border block hover:cursor-pointer items-center mx-auto disabled:opacity-60"
         disabled={isSubmitting}
       >
         {isSubmitting ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
       </button>
 
       <button
+        type="button"
         className="mt-4 text-sm underline block mx-auto hover:cursor-pointer"
         onClick={() => setMode((prev) => (prev === "login" ? "register" : "login"))}
       >
         {mode === "login" ? "New user? Create account" : "Already have an account? Log in"}
       </button>
 
-    </div>
+    </form>
   )
 }

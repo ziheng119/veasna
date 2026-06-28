@@ -5,11 +5,16 @@ import LocationDropdown from "./LocationDropdown";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { useEffect, useState } from "react";
-import { Location } from "@/lib/types/location";
 import { Button } from "../ui/button";
-import { RefreshCw } from "lucide-react";
+import { ChevronDown, RefreshCw } from "lucide-react";
 import { getLocations } from "@/lib/api/location";
 import { useUserStore } from "@/stores/useUserStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
 export default function TopNav() {
 
@@ -39,12 +44,12 @@ export default function TopNav() {
     }
   }
 
-  const handleAuthClick = () => {
-    if (user?.token) {
-      removeUser();
-      router.push("/login");
-      return;
-    }
+  const handleLoginClick = () => {
+    router.push("/login");
+  };
+
+  const handleLogout = () => {
+    removeUser();
     router.push("/login");
   };
 
@@ -55,11 +60,11 @@ export default function TopNav() {
   };
 
   const linkBaseClass = "mr-[20px] pb-2 border-b-2 transition-colors duration-200";
-  const activeLinkClass = "border-white";
-  const inactiveLinkClass = "border-transparent hover:border-white/50";
+  const activeLinkClass = "border-primary-foreground";
+  const inactiveLinkClass = "border-transparent hover:border-primary-foreground/60";
 
   return (
-    <nav className="grow bg-blue-default text-white font-bold py-[13px]">
+    <nav className="grow bg-primary text-primary-foreground font-bold py-[13px]">
       <div className="flex justify-between items-center mx-10">
         {/* Navigation Links */}
         <div className="flex">
@@ -115,7 +120,7 @@ export default function TopNav() {
             disabled={isRefreshing}
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/10 transition-colors"
+            className="text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
             title="Refresh data"
           >
             <RefreshCw
@@ -123,13 +128,32 @@ export default function TopNav() {
             />
           </Button>
           <LocationDropdown />
-          <Button
-            onClick={handleAuthClick}
-            variant="outline"
-            className="border-white text-white hover:bg-white hover:text-blue-default font-semibold"
-          >
-            {user?.token ? "Logout" : "Login"}
-          </Button>
+          {user?.token ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground hover:text-primary font-semibold"
+                >
+                  {user.username}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              onClick={handleLoginClick}
+              variant="outline"
+              className="border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground hover:text-primary font-semibold"
+            >
+              Login
+            </Button>
+          )}
         </div>
       </div>
     </nav>

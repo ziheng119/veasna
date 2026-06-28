@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -20,6 +19,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
 import formatDate from "@/helper/format_date";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
+import { PageCard } from "../shared/PageCard";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -189,13 +189,14 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     return (
-      <Card className="h-[800px] w-full flex flex-col bg-card border-border shadow-sm">
-        <CardHeader className="bg-muted border-b border-border py-3">
-          <CardTitle className="text-foreground">Patient Registration</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col overflow-hidden">
+      <PageCard
+        title="Patient Registration"
+        className="h-[800px] w-full flex flex-col"
+        headerClassName="py-3"
+        contentClassName="flex-1 flex flex-col overflow-hidden"
+      >
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 ">
-            <TabsList className="grid w-full grid-cols-3 bg-muted">
+            <TabsList className="grid w-full grid-cols-3 bg-muted/80">
               
               <TabsTrigger 
                 value="patient-info" 
@@ -224,7 +225,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={patientInfo.queue_no}
                       onChange={(e) => setPatientInfo(prev => ({ ...prev, queue_no: e.target.value }))}
                       placeholder="e.g., 12A"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                       />
                   </div>
                   <div>
@@ -233,7 +234,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={patientInfo.sex} 
                       onValueChange={(value) => setPatientInfo(prev => ({ ...prev, sex: value as "M" | "F" }))}
                     >
-                      <SelectTrigger className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2">
+                      <SelectTrigger className="mt-2 w-full">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border">
@@ -251,7 +252,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={patientInfo.english_name}
                     onChange={(e) => setPatientInfo(prev => ({ ...prev, english_name: e.target.value }))}
                     placeholder="Enter English name"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
     
@@ -262,7 +263,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={patientInfo.khmer_name}
                     onChange={(e) => setPatientInfo(prev => ({ ...prev, khmer_name: e.target.value }))}
                     placeholder="Enter Khmer name"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
     
@@ -274,7 +275,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       type="date"
                       value={patientInfo.date_of_birth}
                       onChange={(e) => setPatientInfo(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                   <div>
@@ -286,15 +287,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                         value={patientInfo.age || ""}
                         onChange={(e) => setPatientInfo(prev => ({ ...prev, age: e.target.value || "" }))}
                         placeholder="Age"
-                        className="!bg-white !text-black !placeholder-gray-400 !border-gray-300"
+                        className=""
                       />
                       <Button 
                         type="button" 
                         onClick={calculateAge}
                         className={`${
                           patientInfo.date_of_birth 
-                            ? "bg-primary text-white hover:bg-primary/90 border-primary" 
-                            : "bg-background border-input text-white"
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                            : "bg-muted text-muted-foreground border-border hover:bg-muted"
                         }`}
                       >
                         Calculate
@@ -308,7 +309,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={patientInfo.phone_number || ""}
                       onChange={(e) => setPatientInfo(prev => ({ ...prev, phone_number: e.target.value }))}
                       placeholder="Phone number"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                 </div>
@@ -320,7 +321,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={patientInfo.address || ""}
                     onChange={(e) => setPatientInfo(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Enter address"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
     
@@ -331,7 +332,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={patientInfo.face_id}
                     onChange={(e) => setPatientInfo(prev => ({ ...prev, face_id: e.target.value || "" }))}
                     placeholder="Face ID"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
               </TabsContent>
@@ -347,7 +348,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={vitals.height}
                       onChange={(e) => setVitals(prev => ({ ...prev, height: e.target.value }))}
                       placeholder="Height in cm"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                   <div>
@@ -359,7 +360,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={vitals.weight}
                       onChange={(e) => setVitals(prev => ({ ...prev, weight: e.target.value }))}
                       placeholder="Weight in kg"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                   <div>
@@ -370,15 +371,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                         value={vitals.bmi}
                         readOnly
                         placeholder="BMI"
-                        className="!bg-white !text-black !placeholder-gray-400 !border-gray-300"
+                        className=""
                       />
                       <Button 
                         type="button" 
                         onClick={calculateBMI}
                         className={`${
                           vitals.height && vitals.weight 
-                            ? "bg-primary text-white hover:bg-primary/90 border-primary" 
-                            : "bg-background border-input text-white"
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                            : "bg-muted text-muted-foreground border-border hover:bg-muted"
                         }`}
                       >
                         Calculate
@@ -395,7 +396,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       ...prev, 
                       below_3rd_percentile: checked as boolean 
                     }))}
-                    className="border-border !bg-white data-[state=checked]:!bg-default-blue data-[state=checked]:border-primary"
+                    className="border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                   <Label htmlFor="below3rd" className="text-muted-foreground">Child is below 3rd percentile (BMI by age)</Label>
                 </div>
@@ -407,7 +408,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={vitals.category}
                     readOnly
                     placeholder="BMI category (auto-calculated)"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
     
@@ -420,7 +421,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={vitals.bp_systolic}
                       onChange={(e) => setVitals(prev => ({ ...prev, bp_systolic: e.target.value }))}
                       placeholder="Systolic"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                   <div>
@@ -431,7 +432,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       value={vitals.bp_diastolic}
                       onChange={(e) => setVitals(prev => ({ ...prev, bp_diastolic: e.target.value }))}
                       placeholder="Diastolic"
-                      className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                      className="mt-2"
                     />
                   </div>
                 </div>
@@ -445,7 +446,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={vitals.temperature}
                     onChange={(e) => setVitals(prev => ({ ...prev, temperature: e.target.value }))}
                     placeholder="Temperature in Celsius"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
     
@@ -456,7 +457,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={vitals.notes}
                     onChange={(e) => setVitals(prev => ({ ...prev, notes: e.target.value }))}
                     placeholder="Additional notes about vitals"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300 mt-2"
+                    className="mt-2"
                   />
                 </div>
               </TabsContent>
@@ -470,11 +471,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="knows-yes" className="border-border text-primary !bg-white" />
+                      <RadioGroupItem value="yes" id="knows-yes" className="border-border text-primary bg-background" />
                       <Label htmlFor="knows-yes" className="text-muted-foreground">Yes</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="knows-no" className="border-border text-primary !bg-white" />
+                      <RadioGroupItem value="no" id="knows-no" className="border-border text-primary bg-background" />
                       <Label htmlFor="knows-no" className="text-muted-foreground">No</Label>
                     </div>
                   </RadioGroup>
@@ -488,11 +489,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="has-yes" className="border-border text-primary !bg-white" />
+                      <RadioGroupItem value="yes" id="has-yes" className="border-border text-primary bg-background" />
                       <Label htmlFor="has-yes" className="text-muted-foreground">Yes</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="has-no" className="border-border text-primary !bg-white" />
+                      <RadioGroupItem value="no" id="has-no" className="border-border text-primary bg-background" />
                       <Label htmlFor="has-no" className="text-muted-foreground">No</Label>
                     </div>
                   </RadioGroup>
@@ -505,7 +506,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={hef.notes}
                     onChange={(e) => setHEF(prev => ({ ...prev, notes: e.target.value }))}
                     placeholder="Explain patient's HEF usage and reasoning"
-                    className="!bg-white !text-black !placeholder-gray-400 !border-gray-300"
+                    className=""
                   />
                 </div>
               </TabsContent>
@@ -523,13 +524,12 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             <Button 
               onClick={handleSubmit} 
               disabled={isSubmitting}
-              className="px-8 bg-green-600 hover:bg-green-700 text-white"
+              className="px-8"
             >
               {isSubmitting ? "Submitting..." : "Submit & Add to Queue"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </PageCard>
     );
 
 

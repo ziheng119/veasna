@@ -1,6 +1,5 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { useEffect, useState } from "react";
 import { Input } from "../ui/input";
@@ -13,6 +12,7 @@ import toast from "react-hot-toast";
 import { useUserStore } from "@/stores/useUserStore";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { getQueue } from "@/lib/api/queue/getQueue";
+import { PageCard } from "../shared/PageCard";
 
 function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
     // Extract the number and parts portion
@@ -68,17 +68,12 @@ export function PatientQueue({ patients }: Props) {
   const today = new Date().toLocaleDateString();
 
   return (
-    <Card className="h-full flex flex-col bg-card border-border shadow-sm">
-      <CardHeader className="bg-muted border-b border-border">
-        <CardTitle className="flex items-center justify-between text-foreground">
-          Today's Queue
-          <Badge 
-            variant="secondary" 
-            className="bg-primary text-foreground"
-          >
-            {today}
-          </Badge>
-        </CardTitle>
+    <PageCard
+      title="Today's Queue"
+      action={<Badge variant="inactive">{today}</Badge>}
+      className="h-full flex flex-col"
+      contentClassName="flex-1 overflow-y-auto space-y-3 bg-card"
+      headerExtra={
         <div className="relative mt-4">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -88,9 +83,8 @@ export function PatientQueue({ patients }: Props) {
             className="pl-10 bg-background border-input text-foreground placeholder-muted-foreground"
           />
         </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 overflow-y-auto space-y-3 bg-card">
+      }
+    >
         {sortedPatients.length === 0 ? (
           <p className="text-muted-foreground text-center">
             {searchQuery ? "No patients found matching search" : "No patients in queue today"}
@@ -102,10 +96,7 @@ export function PatientQueue({ patients }: Props) {
               className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors bg-card"
             >
               <div className="flex items-center space-x-3">
-                <Badge 
-                  variant="outline" 
-                  className="font-mono border-border text-foreground bg-primary"
-                >
+                <Badge variant="active" className="font-mono min-w-12 justify-center">
                   {patient.queue_no}
                 </Badge>
                 <div>
@@ -122,7 +113,6 @@ export function PatientQueue({ patients }: Props) {
             </div>
           ))
         )}
-      </CardContent>
-    </Card>
+    </PageCard>
   );
 }

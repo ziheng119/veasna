@@ -14,6 +14,7 @@ import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { useUserStore } from "@/stores/useUserStore";
+import { Button } from "@/components/ui/button";
 
 export default function PatientListPage() {
 
@@ -90,21 +91,22 @@ export default function PatientListPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-5">
       <PatientPageHeader/>
 
-      <div className='flex items-center justify-between mb-4.5'>
+      <div className='flex items-center justify-between gap-4'>
         <FullSearchBar
           placeholder= "Search for Patient by English Name or Khmer Name"
           onSearchChange={handleSearchChange}
         />
 
-        <button
+        <Button
           onClick={handleAddPatient}
-          className="ml-4 bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition"
+          size="icon"
+          className="rounded-full"
         >
           <PlusIcon className="w-5 h-5"/>
-        </button>
+        </Button>
       </div>
 
       <PatientTable

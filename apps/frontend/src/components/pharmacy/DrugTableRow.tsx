@@ -11,9 +11,9 @@ interface DrugTableRowProps {
 
 export function DrugTableRow({ drug, onStockLevelChange, onDeleteDrug }: DrugTableRowProps) {
     return (
-        <tr className="hover:bg-blue-50 transition-colors duration-150">
+        <tr className="hover:bg-accent/50 transition-colors duration-150">
           <td className="px-6 py-4">
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-foreground">
               {drug.drug_name}
             </div>
           </td>
@@ -30,9 +30,9 @@ export function DrugTableRow({ drug, onStockLevelChange, onDeleteDrug }: DrugTab
                 <button
                     onClick={() => onDeleteDrug(drug.id)}
                     className="
-                    p-2 text-red-500 hover:text-red-700 hover:bg-red-50 
+                    p-2 text-destructive hover:text-destructive hover:bg-destructive/10
                     rounded-md transition-colors duration-150
-                    focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1
+                    focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-1
                     "
                     title={`Delete ${drug.drug_name}`}
                 >

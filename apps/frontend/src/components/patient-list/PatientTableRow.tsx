@@ -24,27 +24,27 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
     }
     
     return (
-        <tr className="h-16 align-middle hover:bg-blue-50 tansition-colors duration-150">
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.english_name}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.khmer_name}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{formatDate(patient.date_of_birth)}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{calculateAge(patient.date_of_birth)}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.sex}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.phone_number}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.address}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">{patient.face_id}</td>
-                <td className="px-4 py-3 text-sm text-gray-900">
+        <tr className="h-16 align-middle hover:bg-accent/50 transition-colors duration-150">
+                <td className="px-4 py-3 text-sm text-foreground">{patient.english_name}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{patient.khmer_name}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{formatDate(patient.date_of_birth)}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{calculateAge(patient.date_of_birth)}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{patient.sex}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{patient.phone_number}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{patient.address}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{patient.face_id}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">
                     {patient.lastUpdated
                         ? new Date(patient.lastUpdated).toLocaleString()
                         : "-"}
                 </td>
-                <td className="py-3 text-sm text-gray-900">
+                <td className="py-3 text-sm text-foreground">
                     <div className="flex items-center gap-2">
 
                         {/* View Patient */}
                         <button
                         onClick={() => patient.id && onViewPatient?.(patient.id)}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-primary hover:text-primary/80"
                         title="View patient"
                         >
                             <EyeIcon className="w-4- h-4"/>
