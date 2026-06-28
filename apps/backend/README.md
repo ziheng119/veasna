@@ -45,6 +45,7 @@ NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
 NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
 ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin12345
 ```
 
 ## Database Setup (PostgreSQL)
@@ -78,6 +79,22 @@ DB_PASSWORD=change_me
 DB_PORT=5432
 ```
 
+What each value means:
+
+- `DB_USER`: PostgreSQL role/username used by the backend to connect.
+- `DB_HOST`: database server address (`localhost` means your own machine).
+- `DB_NAME`: target database name in PostgreSQL.
+- `DB_PASSWORD`: password for `DB_USER` (must match the role password in PostgreSQL).
+- `DB_PORT`: PostgreSQL port (`5432` is the default).
+
+How the backend uses these values:
+
+- On startup, the backend loads `.env`.
+- `config/db.js` creates a PostgreSQL connection pool from these variables.
+- All API queries (`db.query(...)`) run through that pool.
+
+If any value is incorrect, database calls will fail with connection/auth/database errors.
+
 4. Initialize schema:
 
 ```bash
@@ -90,7 +107,7 @@ psql -U veasna_app -d veasna_backend -f db_setup.sql
 npm run setup
 ```
 
-If `npm run setup` succeeds, your DB setup is complete and it will automatically create (or reactivate) the admin user from `ADMIN_USERNAME`.
+If `npm run setup` succeeds, your DB setup is complete and it will automatically create (or reactivate) the admin user from `ADMIN_USERNAME` (with password from `ADMIN_PASSWORD`).
 
 Manual admin seed (any time):
 
@@ -178,9 +195,11 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 ## Authentication Notes
 
-- Login endpoint is `POST /api/auth/login` (username-based, no password flow).
+- Register endpoint: `POST /api/auth/register` with `{ username, password }`.
+- Login endpoint: `POST /api/auth/login` with `{ username, password }`.
+- Password must be at least 8 characters.
 - JWT expiry is currently `30d`.
-- The current middleware behavior is permissive/public-first for many routes.
+- Some existing routes still use permissive/public-first middleware behavior.
 
 ## Current Caveats
 

@@ -1,23 +1,36 @@
 require('dotenv').config();
 
 const db = require('../config/db');
+const { hashPassword } = require('../config/db');
 
 async function seedAdminUser() {
   const adminUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin12345';
 
   if (adminUsername.length < 3) {
     throw new Error('ADMIN_USERNAME must be at least 3 characters');
   }
+  if (adminPassword.length < 8) {
+    throw new Error('ADMIN_PASSWORD must be at least 8 characters');
+  }
+
+  await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS password_hash TEXT;
+  `);
+  const passwordHash = await hashPassword(adminPassword);
 
   const upsertQuery = `
-    INSERT INTO users (username, is_active)
-    VALUES ($1, TRUE)
+    INSERT INTO users (username, password_hash, is_active)
+    VALUES ($1, $2, TRUE)
     ON CONFLICT ((LOWER(username)))
-    DO UPDATE SET is_active = TRUE
+    DO UPDATE SET
+      is_active = TRUE,
+      password_hash = COALESCE(users.password_hash, EXCLUDED.password_hash)
     RETURNING id, username, is_active, created_at;
   `;
 
-  const { rows } = await db.query(upsertQuery, [adminUsername]);
+  const { rows } = await db.query(upsertQuery, [adminUsername, passwordHash]);
   const user = rows[0];
 
   return user;

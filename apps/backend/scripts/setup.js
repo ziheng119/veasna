@@ -69,7 +69,7 @@ async function runSetup() {
   console.log('\nNext steps:');
   console.log('1. Start the server: npm run dev');
   console.log('2. Test the API: curl http://localhost:3000/health');
-  console.log('3. Create your first user: POST /api/users (body: { "username": "yourname" })');
+  console.log('3. Create your first user: POST /api/auth/register (body: { "username": "yourname", "password": "yourpassword" })');
 }
 
 runSetup()

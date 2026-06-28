@@ -27,6 +27,7 @@ CREATE TYPE sex_type AS ENUM ('M', 'F');
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
+    password_hash TEXT,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );

@@ -1,6 +1,6 @@
 'use client';
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import LocationDropdown from "./LocationDropdown";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
@@ -9,11 +9,15 @@ import { Location } from "@/lib/types/location";
 import { Button } from "../ui/button";
 import { RefreshCw } from "lucide-react";
 import { getLocations } from "@/lib/api/location";
+import { useUserStore } from "@/stores/useUserStore";
 
 export default function TopNav() {
 
   const setLocations = useLocationStore((state) => state.setLocations);
   const fetchData = useLocationDataStore((state) => state.fetchData);
+  const user = useUserStore((state) => state.user);
+  const removeUser = useUserStore((state) => state.removeUser);
+  const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   async function refreshLocations() {
@@ -35,6 +39,15 @@ export default function TopNav() {
     }
   }
 
+  const handleAuthClick = () => {
+    if (user?.token) {
+      removeUser();
+      router.push("/login");
+      return;
+    }
+    router.push("/login");
+  };
+
   const pathname = usePathname();
   
   const isActive = (path: string) => {
@@ -46,7 +59,7 @@ export default function TopNav() {
   const inactiveLinkClass = "border-transparent hover:border-white/50";
 
   return (
-    <nav className="flex-grow bg-blue-default text-white font-bold py-[13px]">
+    <nav className="grow bg-blue-default text-white font-bold py-[13px]">
       <div className="flex justify-between items-center mx-10">
         {/* Navigation Links */}
         <div className="flex">
@@ -110,6 +123,13 @@ export default function TopNav() {
             />
           </Button>
           <LocationDropdown />
+          <Button
+            onClick={handleAuthClick}
+            variant="outline"
+            className="border-white text-white hover:bg-white hover:text-blue-default font-semibold"
+          >
+            {user?.token ? "Logout" : "Login"}
+          </Button>
         </div>
       </div>
     </nav>
