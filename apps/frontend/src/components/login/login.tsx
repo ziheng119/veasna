@@ -1,17 +1,27 @@
 // src/components/login/login.tsx
 
-"use client"
+"use client";
 
-import { loginUser } from "@/lib/api/user/loginUser"
-import { registerUser } from "@/lib/api/user/registerUser"
-import { useUserStore } from "@/stores/useUserStore"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import toast from "react-hot-toast"
+import { loginUser } from "@/lib/api/user/loginUser";
+import { registerUser } from "@/lib/api/user/registerUser";
+import { useUserStore } from "@/stores/useUserStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 export default function Login() {
-  const user = useUserStore((state) => state.user)
-  const setUser = useUserStore((state) => state.setUser)
+  const user = useUserStore((state) => state.user);
+  const setUser = useUserStore((state) => state.setUser);
   const router = useRouter();
 
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -43,70 +53,98 @@ export default function Login() {
         mode === "login"
           ? await loginUser(normalizedUsername, password)
           : await registerUser(normalizedUsername, password);
-      setUser(loggedInUser)
+      setUser(loggedInUser);
 
-      toast.success(mode === "login" ? `Welcome, ${loggedInUser.username}!` : "Account created successfully!");
-      router.push('/');
+      toast.success(
+        mode === "login"
+          ? `Welcome, ${loggedInUser.username}!`
+          : "Account created successfully!",
+      );
+      router.push("/");
     } catch (error) {
-      console.error(error)
-      const message = error instanceof Error ? error.message : "Authentication failed";
+      console.error(error);
+      const message =
+        error instanceof Error ? error.message : "Authentication failed";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form
-      className="bg-beige-default px-[30px] py-[30px] rounded-md border"
+      className="w-full max-w-md px-4"
       onSubmit={(e) => {
         e.preventDefault();
         handleSubmit();
       }}
     >
-      <h2 className="font-bold text-[30px] mb-[20px] text-center">
-        {mode === "login" ? "Log In" : "Create Account"}
-      </h2>
+      <Card className="border-border/80 shadow-md">
+        <CardHeader className="space-y-3 border-b border-border/70 pb-5">
+          <CardTitle className="text-2xl">
+            {mode === "login" ? "Welcome" : "Create Account"}
+          </CardTitle>
+          <CardDescription>
+            {mode === "login"
+              ? "Sign in to continue to VEASNA."
+              : "Set up your account for local clinic use."}
+          </CardDescription>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={mode === "login" ? "default" : "outline"}
+              onClick={() => setMode("login")}
+            >
+              Login
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "register" ? "default" : "outline"}
+              onClick={() => setMode("register")}
+            >
+              Register
+            </Button>
+          </div>
+        </CardHeader>
 
-      <div className="flex items-center mb-[16px]">
-        <p className="w-24">Username</p>
-        <input
-          className="w-[220px] rounded border border-gray-300 px-3 py-2 text-black bg-white"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter username"
-          autoComplete="username"
-        />
-      </div>
+        <CardContent className="space-y-4 pt-5">
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              autoComplete="username"
+            />
+          </div>
 
-      <div className="flex items-center mb-[24px]">
-        <p className="w-24">Password</p>
-        <input
-          className="w-[220px] rounded border border-gray-300 px-3 py-2 text-black bg-white"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          placeholder="At least 8 characters"
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              placeholder="At least 8 characters"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Minimum 8 characters.
+            </p>
+          </div>
 
-      <button
-        type="submit"
-        className="bg-green-default px-[10px] py-[5px] rounded-md border block hover:cursor-pointer items-center mx-auto disabled:opacity-60"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
-      </button>
-
-      <button
-        type="button"
-        className="mt-4 text-sm underline block mx-auto hover:cursor-pointer"
-        onClick={() => setMode((prev) => (prev === "login" ? "register" : "login"))}
-      >
-        {mode === "login" ? "New user? Create account" : "Already have an account? Log in"}
-      </button>
-
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting
+              ? "Please wait..."
+              : mode === "login"
+                ? "Login"
+                : "Create Account"}
+          </Button>
+        </CardContent>
+      </Card>
     </form>
-  )
+  );
 }
