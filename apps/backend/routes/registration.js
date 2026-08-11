@@ -70,6 +70,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     if (visit && visit.location_id) {
       const visitDate = visit.visit_date || new Date().toISOString().slice(0,10);
       if (!visit.queue_no || !String(visit.queue_no).trim()) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ message: 'visit.queue_no is required (e.g., "2A", "3")' });
       }
       const queueToken = String(visit.queue_no).trim().toUpperCase();
@@ -146,7 +147,10 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
           patient.location_id || null, patientId
         ]
       );
-      if (!uRes.rows.length) return res.status(404).json({ message: 'Patient not found' });
+      if (!uRes.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Patient not found' });
+      }
       updatedPatient = uRes.rows[0];
     }
 
@@ -178,6 +182,7 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
     if (visit && visit.location_id) {
       const visitDate = visit.visit_date || new Date().toISOString().slice(0,10);
       if (!visit.queue_no || !String(visit.queue_no).trim()) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ message: 'visit.queue_no is required when visit is provided' });
       }
       const queueToken = String(visit.queue_no).trim().toUpperCase();

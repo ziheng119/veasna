@@ -1,7 +1,6 @@
 "use client";
 import { useUserStore } from "@/stores/useUserStore";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 
 import { PatientQueue } from "@/components/home/PatientQueue";
 import { PatientForm } from "@/components/home/PatientForm";
@@ -13,9 +12,7 @@ import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getQueue } from "@/lib/api/queue/getQueue";
 
 export default function HomePage() {
-  const user = useUserStore((state) => state.user);
   const token = useUserStore((state) => state.user?.token);
-  const username = user?.username;
   const location = useLocationStore((state) => state.currentLocation);
 
   const [patients, setPatients] = useState<PatientInfo[]>([]);

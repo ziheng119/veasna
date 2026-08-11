@@ -2,7 +2,6 @@
 
 const express = require('express');
 const router = express.Router();
-const { query } = require('express-validator');
 
 const sessionRoutes = require('./session');
 const patientRoutes = require('./patient');
@@ -24,7 +23,8 @@ router.use('/pharmacy', pharmacyRoutes);
 router.use('/triage', triageRoutes);
 router.use('/patient', patientRoutes);
 
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
+
 const db = require('../config/db');
 const { authenticateToken, requireRole, validateRequest } = require('./auth');
 const { normalizeSexToEnum } = require('../utils/sex');

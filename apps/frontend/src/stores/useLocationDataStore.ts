@@ -34,10 +34,6 @@ export const useLocationDataStore = create<LocationDataStore>((set, get) => ({
         getDrugsByLocation(locationId),
       ]);
       set({ all_patients: patients, todays_patients: today_patients, drugs: pharmacy });
-
-      console.log("All Patients:", patients)
-      console.log("Today's Patients:", today_patients)
-      console.log("All Drugs:", pharmacy)
     } catch (err) {
       console.error("Failed to fetch location data:", err);
     }

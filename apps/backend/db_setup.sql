@@ -223,7 +223,7 @@ CREATE TABLE pharmacy (
     location_id INT NOT NULL REFERENCES locations(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     drug_name VARCHAR(255) NOT NULL,
-    stock_level VARCHAR(50) NOT NULL CHECK (stock_level IN ('low', 'medium', 'high', 'no stock')),
+    stock_count INT NOT NULL DEFAULT 0 CHECK (stock_count >= 0),
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),

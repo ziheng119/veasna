@@ -9,7 +9,6 @@ import { PatientInfo } from "@/lib/types/patient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
@@ -21,9 +20,8 @@ export default function PatientListPage() {
   const router = useRouter();
 
   const location: Location | null = useLocationStore((state) => state.currentLocation)
-  const token = useUserStore((state) => state.user?.id)
+  const token = useUserStore((state) => state.user?.token)
 
-  const [allPatients, setAllPatients] = useState<PatientInfo[]>([]);
   const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
@@ -36,9 +34,7 @@ export default function PatientListPage() {
   // API helper functions
   async function refreshAllPatients() {
     if (token && location) {
-      console.log(location)
-      const db_patients = await getPatientsByLocation(location.id,  token.toString());
-      setAllPatients(db_patients);
+      const db_patients = await getPatientsByLocation(location.id, token);
       setPatients(db_patients);
     }
   }
@@ -47,7 +43,6 @@ export default function PatientListPage() {
   useEffect(() => {
     if (token && location) {
       refreshAllPatients();
-      setPatients(allPatients);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location])

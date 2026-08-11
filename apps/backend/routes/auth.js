@@ -8,17 +8,13 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  // If no token, allow through and set a benign user (no role checks enforced)
   if (!token) {
-    req.user = { id: null, username: 'public' };
-    return next();
+    return res.status(401).json({ message: 'Authentication required' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
-      // If invalid token, still allow through as public
-      req.user = { id: null, username: 'public' };
-      return next();
+      return res.status(403).json({ message: 'Invalid or expired token' });
     }
     req.user = user;
     next();

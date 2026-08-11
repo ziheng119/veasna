@@ -21,12 +21,11 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 15 minutes windowMs
-  max: 200, // How many requests from each IP per windowMs
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
   message: 'Too many requests from this IP, please try again later.'
 });
-// Removed limiter
-// app.use('/api/', limiter);
+app.use('/api/', limiter);
 
 // Body parsing middleware
 app.use(bodyParser.json());

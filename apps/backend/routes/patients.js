@@ -29,6 +29,29 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+router.get('/search', authenticateToken, requireRole(['any']), async (req, res) => {
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({ error: 'Search query "q" is required' });
+  }
+
+  try {
+    const escaped = q.replace(/[%_\\]/g, '\\$&');
+    const searchTerm = `%${escaped}%`;
+    const queryText = `
+      SELECT * FROM patients
+      WHERE english_name ILIKE $1 OR khmer_name ILIKE $1
+      LIMIT 10
+    `;
+    const result = await db.query(queryText, [searchTerm]);
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error searching patients:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // (patient id) -> patient details
 router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => {
   const { id } = req.params;
@@ -57,27 +80,5 @@ router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => 
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
-router.get('/search', authenticateToken, requireRole(['any']), async (req, res) => {
-  const { q } = req.query;
-
-  if (!q) {
-    return res.status(400).json({ error: 'Search query "q" is required' });
-  }
-
-  try {
-    const searchTerm = `%${q}%`;
-    const queryText = `
-      SELECT * FROM patients
-      WHERE english_name ILIKE $1 OR khmer_name ILIKE $1
-      LIMIT 10
-    `;
-    const result = await db.query(queryText, [searchTerm]);
-    res.status(200).json(result.rows);
-  } catch (err) {
-    console.error('Error searching patients:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-})
 
 module.exports = router;

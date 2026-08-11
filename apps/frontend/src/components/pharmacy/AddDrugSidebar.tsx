@@ -1,38 +1,28 @@
 import React, { useState } from "react";
-import { Drug } from "@/lib/types/drug";
-import { StockLevelSelector } from "./StockLevelSelector";
-import { StockLevelBadge } from "./StockLevelBadge";
 
 interface AddDrugSidebarProps {
-  onSubmit: (newDrug: { drug_name: string, stock_level: Drug['stock_level'] }) => void;
+  onSubmit: (newDrug: { drug_name: string; stock_count: number }) => void;
 }
 
 export function AddDrugSidebar({ onSubmit }: AddDrugSidebarProps) {
   const [drugName, setDrugName] = useState("");
-  const [stockLevel, setStockLevel] = useState<Drug['stock_level']>("high");
-
-  // The StockLevelSelector passes a dummy ID which we ignore here
-  const handleStockLevelChange = (_drugId: number | string, newLevel: Drug['stock_level']) => {
-    setStockLevel(newLevel);
-  };
+  const [stockCount, setStockCount] = useState(0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!drugName.trim()) {
       alert("Please enter a drug name");
       return;
     }
 
-    // Pass the raw form data to the parent component for submission
     onSubmit({
       drug_name: drugName.trim(),
-      stock_level: stockLevel
+      stock_count: Math.max(0, stockCount),
     });
-    
-    // Reset form fields after submission
+
     setDrugName("");
-    setStockLevel("high");
+    setStockCount(0);
   };
 
   return (
@@ -58,19 +48,18 @@ export function AddDrugSidebar({ onSubmit }: AddDrugSidebarProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Stock Level
+          <label htmlFor="stockCount" className="block text-sm font-medium text-gray-700 mb-1">
+            Initial Stock Count
           </label>
-          <div className="flex items-center gap-3">
-            <StockLevelBadge level={stockLevel} />
-            <div className="flex-1">
-              <StockLevelSelector
-                currentLevel={stockLevel}
-                drugId={0} // Dummy ID, not used for a new drug
-                onStockLevelChange={handleStockLevelChange}
-              />
-            </div>
-          </div>
+          <input
+            type="number"
+            id="stockCount"
+            min="0"
+            value={stockCount}
+            onChange={(e) => setStockCount(parseInt(e.target.value, 10) || 0)}
+            className="w-full px-3 py-2 border border-gray-300 text-black bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            placeholder="0"
+          />
         </div>
 
         <div className="flex gap-3 pt-4">

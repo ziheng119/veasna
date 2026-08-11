@@ -1,11 +1,14 @@
 import { backend_url } from "@/constants/env_variable";
+import { useUserStore } from "@/stores/useUserStore";
 
 export async function deleteLocation(id: number): Promise<void> {
   try {
+    const token = useUserStore.getState().user?.token;
     const res = await fetch(`${backend_url}/api/locations/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
     });
 

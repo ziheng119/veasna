@@ -49,6 +49,6 @@ export async function getQueue(locationId: number, date: string, token: string) 
       return cachedQueues[cacheKey];
     }
 
-    return null;
+    return [];
   }
 }

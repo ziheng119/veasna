@@ -25,11 +25,15 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { name } = req.body;
 
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Location name is required' });
+    }
+
     const result = await db.query(
       `INSERT INTO locations (name, is_active, created_at)
       VALUES ($1, $2, $3)
       RETURNING id, name, is_active, created_at`,
-      [name, true, new Date()]
+      [name.trim(), true, new Date()]
     );
 
     res.status(201).json({ 

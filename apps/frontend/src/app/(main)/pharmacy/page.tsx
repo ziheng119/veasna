@@ -7,10 +7,7 @@ import { PageHeader } from "@/components/pharmacy/PageHeader"
 import { PlusIcon } from "@/assets/icons"
 import { AddDrugSidebar } from "@/components/pharmacy/AddDrugSidebar"
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar"
-import { getDrugsByLocation } from "@/lib/api/pharmacy/pharmacy"
-import { addDrug } from "@/lib/api/pharmacy/pharmacy"
-import { updateDrugStock } from "@/lib/api/pharmacy/pharmacy"
-import { deleteDrug } from "@/lib/api/pharmacy/pharmacy"
+import { getDrugsByLocation, addDrug, updateDrugCount, updateDrugName, deleteDrug } from "@/lib/api/pharmacy/pharmacy"
 import { useLocationStore } from "@/stores/useLocationStore"
 import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
@@ -38,14 +35,12 @@ export default function Pharmacy() {
         setIsLoading(false)
       }
     }
-    
-    // load drugs
+
     useEffect(() => {
       refreshDrugs()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);
 
-    // if there is a change in the searchTerm or drug, filteredDrugs is recalculated
     const filteredDrugs = useMemo(() => {
         if (!searchTerm.trim()) {
             return drugs
@@ -53,30 +48,41 @@ export default function Pharmacy() {
 
         const searchLower = searchTerm.toLowerCase()
         return drugs.filter((drug) =>
-        drug.drug_name.toLowerCase().includes(searchLower) ||
-        drug.stock_level.toLowerCase().includes(searchLower)
+          drug.drug_name.toLowerCase().includes(searchLower)
         )
     }, [drugs, searchTerm])
 
-    // to change with db 
     const handleSearchChange = (term: string) => {
         setSearchTerm(term)
     }
 
-    const handleStockLevelChange = async (drugId: number, newLevel: Drug['stock_level']) => {
+    const handleStockCountChange = async (drugId: number, newCount: number) => {
       try {
-        const updatedDrug = await updateDrugStock(drugId, newLevel);
+        const updatedDrug = await updateDrugCount(drugId, newCount);
         setDrugs(prevDrugs =>
           prevDrugs.map((drug) =>
             drug.id === drugId ? updatedDrug : drug
           )
         );
-        toast.success(`${updatedDrug.drug_name} stock updated.`);
       } catch (error) {
-        toast.error("Failed to update stock level.");
+        toast.error("Failed to update stock count.");
       }
     }
-    
+
+    const handleDrugNameChange = async (drugId: number, newName: string) => {
+      try {
+        const updatedDrug = await updateDrugName(drugId, newName);
+        setDrugs(prevDrugs =>
+          prevDrugs.map((drug) =>
+            drug.id === drugId ? updatedDrug : drug
+          )
+        );
+        toast.success(`Drug renamed to "${updatedDrug.drug_name}".`);
+      } catch (error) {
+        toast.error("Failed to rename drug. It may already exist.");
+      }
+    }
+
     const handleDeleteDrug = async (drugId: number) => {
         if (window.confirm('Are you sure you want to delete this drug?')) {
           try {
@@ -89,8 +95,7 @@ export default function Pharmacy() {
         }
     }
 
-    // to change with db
-    const handleAddDrug = async (newDrugData: { drug_name: string, stock_level: Drug['stock_level'] }) => {
+    const handleAddDrug = async (newDrugData: { drug_name: string; stock_count: number }) => {
       if (!location) {
         toast.error("No Location Selected !");
         return;
@@ -104,16 +109,16 @@ export default function Pharmacy() {
         toast.error("Failed to add new drug.");
       }
     }
-    
+
     return (
       <div className="space-y-5">
           <div>
             <PageHeader />
-          
+
             <div className="flex items-center justify-between">
               <FullSearchBar
                onSearchChange={handleSearchChange}
-               placeholder={"Search drugs or ID..."}
+               placeholder={"Search drugs..."}
               />
 
               <Button
@@ -127,19 +132,18 @@ export default function Pharmacy() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-            {/* Drug Tablee */}
             <div className={showAddTab ? "xl:col-span-8" : "xl:col-span-12"}>
-              <DrugTable 
+              <DrugTable
                 drugs={filteredDrugs}
-                onStockLevelChange={handleStockLevelChange}
+                onStockCountChange={handleStockCountChange}
+                onDrugNameChange={handleDrugNameChange}
                 onDeleteDrug={handleDeleteDrug}
               />
             </div>
 
-            {/* Add Drug Form */}
             {showAddTab && (
               <div className="xl:col-span-4">
-              <AddDrugSidebar 
+              <AddDrugSidebar
                 onSubmit={handleAddDrug}
               />
               </div>
@@ -147,4 +151,4 @@ export default function Pharmacy() {
         </div>
       </div>
     )
-  }
+}

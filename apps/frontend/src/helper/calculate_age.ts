@@ -1,5 +1,3 @@
-import { PatientInfo } from "@/lib/types/patient";
-
 export const calculateAge = (date_of_birth: string) => {
     if (date_of_birth) {
         const today = new Date();

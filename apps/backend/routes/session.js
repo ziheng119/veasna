@@ -20,7 +20,10 @@ async function ensurePasswordColumn() {
     ensurePasswordColumnPromise = db.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS password_hash TEXT;
-    `);
+    `).catch((err) => {
+      ensurePasswordColumnPromise = null;
+      throw err;
+    });
   }
   return ensurePasswordColumnPromise;
 }
@@ -126,7 +129,7 @@ router.post('/login', async (req, res) => {
 
     const token = signUserToken(user);
 
-    res.json({ token, user });
+    res.json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error' });

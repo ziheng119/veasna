@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { Location } from "@/lib/types/location";
+import { useUserStore } from "@/stores/useUserStore";
 
 let cachedLocations: Location[] | null = null;
 let lastETag: string | null = null; // store last ETag
@@ -9,8 +10,10 @@ export async function getLocations(): Promise<Location[]> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    // Add If-None-Match header if we have an ETag
-    const headers: HeadersInit = {};
+    const token = useUserStore.getState().user?.token;
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${token}`,
+    };
     if (lastETag) {
       headers["If-None-Match"] = lastETag;
     }

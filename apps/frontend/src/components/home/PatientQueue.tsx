@@ -1,17 +1,10 @@
 "use client"
 
 import { Badge } from "../ui/badge";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "../ui/input";
 import { SearchIcon } from "@/assets/icons";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
-import toast from "react-hot-toast";
-import { useUserStore } from "@/stores/useUserStore";
-import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
-import { getQueue } from "@/lib/api/queue/getQueue";
 import { PageCard } from "../shared/PageCard";
 
 function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
@@ -43,9 +36,6 @@ interface Props {
 }
 
 export function PatientQueue({ patients }: Props) {
-  const location = useLocationStore((state) => state.currentLocation);
-  const token = useUserStore((state) => state.user?.token);
-
   const [searchQuery, setSearchQuery] = useState("");  
 
   const filteredPatients = patients.filter((patient) => {

@@ -1,34 +1,32 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
-import { Drug } from "@/lib/types/drug";
+import { Drug, PharmacyStats } from "@/lib/types/drug";
 
-type AddDrugPayload = Omit<Drug, 'id' | 'last_updated_at' | 'last_updated_by' | 'created_at'>;
+type AddDrugPayload = {
+    location_id: number;
+    drug_name: string;
+    stock_count: number;
+};
 
-// Cache for drugs per location
 const cachedDrugs: Record<number, Drug[]> = {};
 const cachedETags: Record<number, string> = {};
 
-/**
- * Fetches all drugs for a given location with ETag caching.
- */
 export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
     const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {
         'Authorization': `Bearer ${token}`,
     };
 
-    // Add If-None-Match header if we have an ETag for this location
     if (cachedETags[locationId]) {
         headers['If-None-Match'] = cachedETags[locationId];
     }
 
     const res = await fetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
         cache: "no-cache",
-        headers 
+        headers
     });
 
     if (res.status === 304 && cachedDrugs[locationId]) {
-        console.log(`✅ Drugs for location ${locationId} not modified, using cache`);
         return cachedDrugs[locationId];
     }
 
@@ -36,16 +34,21 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
 
     const data: Drug[] = await res.json();
 
-    // Update cache and ETag
     cachedDrugs[locationId] = data;
     cachedETags[locationId] = res.headers.get('ETag') || '';
 
     return data;
 }
 
-/**
- * Adds a new drug to the pharmacy stock and invalidates cache.
- */
+export async function getPharmacyStats(locationId: number): Promise<PharmacyStats> {
+    const token = useUserStore.getState().user?.token;
+    const res = await fetch(`${backend_url}/api/pharmacy/stats?location_id=${locationId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch pharmacy stats');
+    return res.json();
+}
+
 export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     const res = await fetch(`${backend_url}/api/pharmacy`, {
@@ -58,18 +61,14 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     });
     if (!res.ok) throw new Error('Failed to add drug');
 
-    // Invalidate cache for the drug's location
-    if (drugData.location_id) delete cachedDrugs[drugData.location_id];
+    if (drugData.location_id) {
+        delete cachedDrugs[drugData.location_id];
+        delete cachedETags[drugData.location_id];
+    }
     return res.json();
 }
 
-/**
- * Updates the stock level of an existing drug and invalidates cache.
- */
-export async function updateDrugStock(
-    drugId: number, 
-    stockLevel: Drug['stock_level']
-): Promise<Drug> {
+export async function updateDrugCount(drugId: number, stockCount: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
         method: 'PATCH',
@@ -77,19 +76,30 @@ export async function updateDrugStock(
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ stock_level: stockLevel }),
+        body: JSON.stringify({ stock_count: stockCount }),
     });
     if (!res.ok) throw new Error('Failed to update drug stock');
 
-    // Optional: invalidate all caches (or per location if you track location of drug)
-    Object.keys(cachedDrugs).forEach(key => delete cachedDrugs[parseInt(key)]);
-
+    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
     return res.json();
 }
 
-/**
- * Deletes a drug from the pharmacy stock and invalidates cache.
- */
+export async function updateDrugName(drugId: number, drugName: string): Promise<Drug> {
+    const token = useUserStore.getState().user?.token;
+    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/name`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ drug_name: drugName }),
+    });
+    if (!res.ok) throw new Error('Failed to update drug name');
+
+    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    return res.json();
+}
+
 export async function deleteDrug(drugId: number): Promise<void> {
     const token = useUserStore.getState().user?.token;
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
@@ -98,6 +108,5 @@ export async function deleteDrug(drugId: number): Promise<void> {
     });
     if (!res.ok) throw new Error('Failed to delete drug');
 
-    // Optional: invalidate all caches
-    Object.keys(cachedDrugs).forEach(key => delete cachedDrugs[parseInt(key)]);
+    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
 }

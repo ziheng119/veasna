@@ -1,12 +1,15 @@
 import { backend_url } from "@/constants/env_variable";
 import { Location } from "@/lib/types/location";
+import { useUserStore } from "@/stores/useUserStore";
 
 export async function createLocation(name: string): Promise<Location> {
   try {
+    const token = useUserStore.getState().user?.token;
     const res = await fetch(`${backend_url}/api/locations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ name }),
     });

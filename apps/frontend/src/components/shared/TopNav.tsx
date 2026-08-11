@@ -107,7 +107,7 @@ export default function TopNav() {
           
           <Link
             href="/pharmacy"
-            className={`${linkBaseClass} ${isActive("/pharmacy") ? activeLinkClass : inactiveLinkClass}`}
+            className={`${linkBaseClass} ${pathname.startsWith("/pharmacy") ? activeLinkClass : inactiveLinkClass}`}
           >
             Pharmacy
           </Link>

@@ -36,33 +36,60 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
     const queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
 
+    if (!locationId) {
+        return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
+    }
 
+    if (!queueNo) {
+        return res.status(400).json({ error: 'visit.queue_no is required.' });
+    }
+
+    if (!hef) {
+        return res.status(400).json({ error: 'hef is required.' });
+    }
+
+    const height = parseRequiredNumber(vitals?.height);
+    const weight = parseRequiredNumber(vitals?.weight);
+    const bmi = parseRequiredNumber(vitals?.bmi);
+    const bpSystolic = parseRequiredInt(vitals?.bp_systolic);
+    const bpDiastolic = parseRequiredInt(vitals?.bp_diastolic);
+    const temperature = parseRequiredNumber(vitals?.temperature);
+    const below3rdPercentile = typeof vitals?.below_3rd_percentile === 'boolean' ? vitals.below_3rd_percentile : null;
+
+    if (
+        height === null || height <= 0 ||
+        weight === null || weight <= 0 ||
+        bmi === null || bmi <= 0 ||
+        bpSystolic === null || bpSystolic <= 0 ||
+        bpDiastolic === null || bpDiastolic <= 0 ||
+        temperature === null || temperature <= 0 ||
+        below3rdPercentile === null
+    ) {
+        return res.status(400).json({ error: 'Invalid vitals payload. Please provide valid numeric values and below_3rd_percentile.' });
+    }
+
+    let client;
     try {
-        await db.query('BEGIN');
-
-        if (!locationId) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
-        }
-
-        if (!queueNo) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ error: 'visit.queue_no is required.' });
-        }
+        client = await db.pool.connect();
+    } catch (err) {
+        console.error('Failed to acquire database connection:', err);
+        return res.status(500).json({ error: 'Database connection unavailable' });
+    }
+    try {
+        await client.query('BEGIN');
 
         // Step 1: Insert or Find the patient
         let patientId = parseOptionalPositiveInt(patientInfo?.id);
         if (!patientId) {
             if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
-                await db.query('ROLLBACK');
+                await client.query('ROLLBACK');
                 return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
             }
             const faceId = parseOptionalPositiveInt(patientInfo?.face_id);
             if (patientInfo?.face_id != null && String(patientInfo.face_id).trim() !== '' && faceId === null) {
-                await db.query('ROLLBACK');
+                await client.query('ROLLBACK');
                 return res.status(400).json({ error: 'Invalid patientInfo.face_id. Use a positive integer.' });
             }
-            // New patient: Insert into patients table
             const patientQuery = `
                 INSERT INTO patients (face_id, location_id, english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -79,8 +106,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 patientInfo.phone_number,
                 last_updated_by
             ];
-            const patientResult = await db.query(patientQuery, patientValues);
-            patientId = patientResult.rows[0].id
+            const patientResult = await client.query(patientQuery, patientValues);
+            patientId = patientResult.rows[0].id;
         }
 
         // Step 2: Insert into visits table
@@ -90,36 +117,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             RETURNING id, created_at;
         `;
         const visitValues = [
-            patientId, 
-            locationId, 
-            queueNo, 
-            new Date(), 
+            patientId,
+            locationId,
+            queueNo,
+            new Date(),
             last_updated_by
         ];
-        const visitResult = await db.query(visitQuery, visitValues);
+        const visitResult = await client.query(visitQuery, visitValues);
         const visitId = visitResult.rows[0].id;
         const visitTimestamp = visitResult.rows[0].created_at;
-
-        const height = parseRequiredNumber(vitals?.height);
-        const weight = parseRequiredNumber(vitals?.weight);
-        const bmi = parseRequiredNumber(vitals?.bmi);
-        const bpSystolic = parseRequiredInt(vitals?.bp_systolic);
-        const bpDiastolic = parseRequiredInt(vitals?.bp_diastolic);
-        const temperature = parseRequiredNumber(vitals?.temperature);
-        const below3rdPercentile = typeof vitals?.below_3rd_percentile === 'boolean' ? vitals.below_3rd_percentile : null;
-
-        if (
-            height === null || height <= 0 ||
-            weight === null || weight <= 0 ||
-            bmi === null || bmi <= 0 ||
-            bpSystolic === null ||
-            bpDiastolic === null ||
-            temperature === null ||
-            below3rdPercentile === null
-        ) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({ error: 'Invalid vitals payload. Please provide valid numeric values and below_3rd_percentile.' });
-        }
 
         // Step 3: Insert into vitals table
         const vitalsQuery = `
@@ -127,9 +133,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
         `;
         const vitalsValues = [
-            visitId, 
-            height, 
-            weight, 
+            visitId,
+            height,
+            weight,
             bmi,
             below3rdPercentile,
             bpSystolic,
@@ -138,27 +144,24 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             vitals.notes,
             last_updated_by
         ];
-        await db.query(vitalsQuery, vitalsValues);
+        await client.query(vitalsQuery, vitalsValues);
 
         // Step 4: Insert into HEF table
         const hefQuery = `
             INSERT INTO hef (visit_id, know_of_hef, has_hef, notes, last_updated_by)
             VALUES ($1, $2, $3, $4, $5);
         `;
-
         const hefValues = [
-            visitId, 
-            hef.know_of_hef === 'yes', 
-            hef.has_hef === 'yes', 
-            hef.notes, 
+            visitId,
+            hef.know_of_hef === 'yes',
+            hef.has_hef === 'yes',
+            hef.notes,
             last_updated_by
         ];
-        await db.query(hefQuery, hefValues);
+        await client.query(hefQuery, hefValues);
 
-        // if all queries succeed, commit the transaction
-        await db.query('COMMIT');
+        await client.query('COMMIT');
 
-        // respond with the newly created QueuedPatient Object
         res.status(201).json({
             visit_id: visitId,
             patient_id: patientId,
@@ -171,13 +174,11 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         });
 
     } catch (err) {
-        // if any query fails, roll back entire transaction
-        await db.query('ROLLBACK');
+        try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error in registration transaction:', err);
         res.status(500).json({ error: 'Failed to register patient' });
-    // } finally {
-    //     // Release the db back to the pool
-    //     db.release();
+    } finally {
+        client.release();
     }
 });
 
@@ -503,8 +504,16 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
   const { notes = "", painpoints = [] } = req.body;
   const last_updated_by = req.user.id;
 
+  let client;
   try {
-    // Upsert physiotherapy record
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error('Failed to acquire database connection:', err);
+    return res.status(500).json({ error: 'Database connection unavailable' });
+  }
+  try {
+    await client.query('BEGIN');
+
     const physioQuery = `
       INSERT INTO physiotherapy (visit_id, notes, last_updated_by)
       VALUES ($1, $2, $3)
@@ -514,31 +523,28 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
         last_updated_at = NOW()
       RETURNING id, visit_id, notes, last_updated_by, last_updated_at, created_at;
     `;
-    const { rows } = await db.query(physioQuery, [visit_id, notes, last_updated_by]);
+    const { rows } = await client.query(physioQuery, [visit_id, notes, last_updated_by]);
     const physio = rows[0];
 
-    // Delete existing painpoints for this physiotherapy (simple approach)
-    await db.query("DELETE FROM painpoints WHERE physiotherapy_id = $1", [physio.id]);
+    await client.query("DELETE FROM painpoints WHERE physiotherapy_id = $1", [physio.id]);
 
-    // Insert new painpoints
-    const painpointPromises = painpoints.map(pp => 
-      db.query(
+    for (const pp of painpoints) {
+      await client.query(
         `INSERT INTO painpoints (physiotherapy_id, x_coord, y_coord, last_updated_by)
          VALUES ($1, $2, $3, $4)`,
         [physio.id, pp.xCoord, pp.yCoord, last_updated_by]
-      )
-    );
-    await Promise.all(painpointPromises);
+      );
+    }
 
-    // Fetch updated painpoints
-    const { rows: painpointRows } = await db.query(
+    const { rows: painpointRows } = await client.query(
       `SELECT id, x_coord, y_coord, last_updated_by, last_updated_at, created_at
        FROM painpoints
        WHERE physiotherapy_id = $1`,
       [physio.id]
     );
 
-    // Return combined data
+    await client.query('COMMIT');
+
     res.status(200).json({
       notes: physio.notes,
       lastUpdatedBy: physio.last_updated_by,
@@ -555,8 +561,11 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Error upserting physiotherapy:", err);
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error("Error upserting physiotherapy:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    client.release();
   }
 });
 

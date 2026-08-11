@@ -6,19 +6,20 @@ import { PageCard } from "../shared/PageCard"
 
 interface DrugTableProps {
     drugs: Drug[]
-    onStockLevelChange: (drugId: number, newLevel: "low" | "medium" | "high" | "no stock") => void
+    onStockCountChange: (drugId: number, newCount: number) => void
+    onDrugNameChange: (drugId: number, newName: string) => void
     onDeleteDrug: (drugId: number) => void
 }
 
 
-export function DrugTable({ drugs, onStockLevelChange, onDeleteDrug}: DrugTableProps) {
+export function DrugTable({ drugs, onStockCountChange, onDrugNameChange, onDeleteDrug }: DrugTableProps) {
 
-    const stockCounts = useMemo(() => {
-        return drugs.reduce((acc, drug) => {
-          acc[drug.stock_level] = (acc[drug.stock_level] || 0) + 1
-          return acc
-        }, {} as Record<"low" | "medium" | "high" | "no stock", number>)
-      }, [drugs])
+    const stats = useMemo(() => {
+        const outOfStock = drugs.filter(d => d.stock_count === 0).length;
+        const lowStock = drugs.filter(d => d.stock_count > 0 && d.stock_count <= 20).length;
+        const totalStock = drugs.reduce((sum, d) => sum + d.stock_count, 0);
+        return { outOfStock, lowStock, totalStock };
+    }, [drugs]);
 
     return (
         <PageCard
@@ -26,26 +27,22 @@ export function DrugTable({ drugs, onStockLevelChange, onDeleteDrug}: DrugTableP
           className="overflow-hidden"
           contentClassName="px-0"
           headerExtra={
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
-                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">Total Items</p>
                 <p className="font-semibold text-foreground">{drugs.length}</p>
               </div>
+              <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                <p className="text-xs text-muted-foreground">Total Stock</p>
+                <p className="font-semibold text-foreground">{stats.totalStock}</p>
+              </div>
               <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm">
-                <p className="text-xs text-destructive">No Stock</p>
-                <p className="font-semibold text-destructive">{stockCounts["no stock"] || 0}</p>
+                <p className="text-xs text-destructive">Out of Stock</p>
+                <p className="font-semibold text-destructive">{stats.outOfStock}</p>
               </div>
               <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
-                <p className="text-xs text-amber-700">Low</p>
-                <p className="font-semibold text-amber-700">{stockCounts.low || 0}</p>
-              </div>
-              <div className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm">
-                <p className="text-xs text-sky-700">Medium</p>
-                <p className="font-semibold text-sky-700">{stockCounts.medium || 0}</p>
-              </div>
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
-                <p className="text-xs text-emerald-700">High</p>
-                <p className="font-semibold text-emerald-700">{stockCounts.high || 0}</p>
+                <p className="text-xs text-amber-700">Low Stock</p>
+                <p className="font-semibold text-amber-700">{stats.lowStock}</p>
               </div>
             </div>
           }
@@ -58,25 +55,29 @@ export function DrugTable({ drugs, onStockLevelChange, onDeleteDrug}: DrugTableP
                     Drug Name
                   </th>
                   <th className="w-1/4 px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Stock Level
+                    Stock
                   </th>
                   <th className="w-1/4 px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Edit Count
+                  </th>
+                  <th className="w-[100px] px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {drugs.map((drug) => (
-                  <DrugTableRow 
+                  <DrugTableRow
                     key={drug.id}
                     drug={drug}
-                    onStockLevelChange={onStockLevelChange}
+                    onStockCountChange={onStockCountChange}
+                    onDrugNameChange={onDrugNameChange}
                     onDeleteDrug={onDeleteDrug}
                   />
                 ))}
               </tbody>
             </table>
-            
+
             {drugs.length === 0 && (
               <div className="text-center py-12">
                 <DrugIcon className="mx-auto h-16 w-16 text-muted-foreground/50" />
@@ -88,5 +89,5 @@ export function DrugTable({ drugs, onStockLevelChange, onDeleteDrug}: DrugTableP
             )}
           </div>
         </PageCard>
-      )
-  }
+    )
+}
