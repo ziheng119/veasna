@@ -116,6 +116,7 @@ router.post(
 // PATCH /users/deactivate
 router.patch(
   '/users/deactivate',
+  authenticateToken,
   [
     body('username')
       .isLength({ min: 2 })

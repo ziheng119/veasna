@@ -26,8 +26,19 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
         headers
     });
 
-    if (res.status === 304 && cachedDrugs[locationId]) {
-        return cachedDrugs[locationId];
+    if (res.status === 304) {
+        if (cachedDrugs[locationId]) {
+            return cachedDrugs[locationId];
+        }
+        const freshRes = await fetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
+            cache: "no-cache",
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!freshRes.ok) throw new Error('Failed to fetch pharmacy stock');
+        const freshData: Drug[] = await freshRes.json();
+        cachedDrugs[locationId] = freshData;
+        cachedETags[locationId] = freshRes.headers.get('ETag') || '';
+        return freshData;
     }
 
     if (!res.ok) throw new Error('Failed to fetch pharmacy stock');

@@ -27,7 +27,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     return res.status(400).json({ message: 'Invalid patient.sex. Use M or F.' });
   }
 
-  const client = await db.pool.connect();
+  let client;
+  try {
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error('Failed to acquire database connection:', err);
+    return res.status(500).json({ message: 'Database connection unavailable' });
+  }
   try {
     await client.query('BEGIN');
 
@@ -93,7 +99,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     await client.query('COMMIT');
     res.status(201).json({ patient: newPatient, vitals: vitalsRow, hef: hefRow, visit: visitRow });
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (_) {}
     if (err && err.code === '23505') {
       return res.status(409).json({ message: 'Duplicate queue number for this location and date' });
     }
@@ -124,7 +130,13 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
     return res.status(400).json({ message: 'Invalid patient.sex. Use M or F.' });
   }
 
-  const client = await db.pool.connect();
+  let client;
+  try {
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error('Failed to acquire database connection:', err);
+    return res.status(500).json({ message: 'Database connection unavailable' });
+  }
   try {
     await client.query('BEGIN');
 
@@ -216,7 +228,7 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
     await client.query('COMMIT');
     res.json({ patient: updatedPatient, vitals: vitalsRow, hef: hefRow, visit: visitRow });
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (_) {}
     if (err && err.code === '23505') {
       return res.status(409).json({ message: 'Duplicate queue number for this location and date' });
     }

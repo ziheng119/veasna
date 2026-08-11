@@ -177,15 +177,16 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       });
 
       if (found) {
-        setPatientInfo({
-          face_id: found.face_id.toString(),
+        setPatientInfo(prev => ({
+          ...prev,
+          face_id: found.face_id?.toString() ?? "",
           english_name: found.english_name || "",
           khmer_name: found.khmer_name || "",
           date_of_birth: formatDate(found.date_of_birth) || "",
           sex: found.sex,
           address: found.address || "",
           phone_number: found.phone_number || "",
-        });
+        }));
         setErrors((prev) => ({
           ...prev,
           english_name: undefined,

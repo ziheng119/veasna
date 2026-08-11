@@ -9,23 +9,32 @@ interface Props {
   children: React.ReactNode;
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export default function AuthWrapper({ children }: Props) {
   const user = useUserStore((state) => state.user);
+  const removeUser = useUserStore((state) => state.removeUser);
   const hasHydrated = useUserStore((state) => state.hasHydrated);
   const router = useRouter();
 
   useEffect(() => {
-    if (hasHydrated && !user) {
+    if (!hasHydrated) return;
+    if (!user || !user.token || isTokenExpired(user.token)) {
+      removeUser();
       router.replace("/login");
     }
-  }, [hasHydrated, user, router]);
+  }, [hasHydrated, user, removeUser, router]);
 
-  // Wait for hydration to complete before rendering or redirecting
   if (!hasHydrated) return <LoadingSpinner />;
 
-  // If no user after hydration, render null while redirect runs
-  if (!user) return null;
+  if (!user || !user.token || isTokenExpired(user.token)) return null;
 
-  // User exists, render children
   return <>{children}</>;
 };

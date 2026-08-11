@@ -48,6 +48,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'hef is required.' });
     }
 
+    if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
+        return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
+    }
+
+    const faceId = parseOptionalPositiveInt(patientInfo?.face_id);
+    if (patientInfo?.face_id != null && String(patientInfo.face_id).trim() !== '' && faceId === null) {
+        return res.status(400).json({ error: 'Invalid patientInfo.face_id. Use a positive integer.' });
+    }
+
     const height = parseRequiredNumber(vitals?.height);
     const weight = parseRequiredNumber(vitals?.weight);
     const bmi = parseRequiredNumber(vitals?.bmi);
@@ -81,15 +90,6 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         // Step 1: Insert or Find the patient
         let patientId = parseOptionalPositiveInt(patientInfo?.id);
         if (!patientId) {
-            if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
-            }
-            const faceId = parseOptionalPositiveInt(patientInfo?.face_id);
-            if (patientInfo?.face_id != null && String(patientInfo.face_id).trim() !== '' && faceId === null) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Invalid patientInfo.face_id. Use a positive integer.' });
-            }
             const patientQuery = `
                 INSERT INTO patients (face_id, location_id, english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

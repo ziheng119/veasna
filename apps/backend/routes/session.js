@@ -83,7 +83,7 @@ router.post('/register', async (req, res) => {
     const user = rows[0];
     const token = signUserToken(user);
 
-    res.status(201).json({ token, user });
+    res.status(201).json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ message: 'Internal server error' });
