@@ -120,7 +120,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             patientId,
             locationId,
             queueNo,
-            new Date(),
+            new Date().toISOString().slice(0, 10),
             last_updated_by
         ];
         const visitResult = await client.query(visitQuery, visitValues);
@@ -502,6 +502,9 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
   }
 
   const { notes = "", painpoints = [] } = req.body;
+  if (painpoints !== undefined && !Array.isArray(painpoints)) {
+    return res.status(400).json({ error: 'painpoints must be an array' });
+  }
   const last_updated_by = req.user.id;
 
   let client;

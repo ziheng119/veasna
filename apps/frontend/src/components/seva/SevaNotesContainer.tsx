@@ -68,17 +68,10 @@ export default function SevaNotesContainer({ patient }: Props) {
         }
         
         try {
-            const res = await postSeva(data, patient.visit_id)
-            setLeftWithPinholeNew("");
-            setLeftWithoutPinholeNew("");
-            setRightWithPinholeNew("");
-            setRightWithoutPinholeNew("");
-            setDiagnosis("");
-            setDateOfReferral("");
-            setAdditionalNotes("");
+            await postSeva(data, patient.visit_id)
             toast.success("Save Success")
         } catch (error) {
-            toast.error("An error as occured")
+            toast.error("An error has occurred")
         }
     }
 

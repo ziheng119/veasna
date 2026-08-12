@@ -8,6 +8,6 @@
     "start": "electron main.js"
   },
   "devDependencies": {
-    "electron": "^37.0.0"
+    "electron": "^43.4.0"
   }
 }

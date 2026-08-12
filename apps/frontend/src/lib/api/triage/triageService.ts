@@ -3,6 +3,7 @@ import { useUserStore } from "@/stores/useUserStore";
 
 async function saveData(endpoint: string, data: any) {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/triage/${endpoint}`, {
         method: 'POST',
         headers: {
@@ -13,7 +14,7 @@ async function saveData(endpoint: string, data: any) {
     });
 
     if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({}));
         throw new Error(error.message || `Failed to save ${endpoint} data.`);
     }
     return res.json();

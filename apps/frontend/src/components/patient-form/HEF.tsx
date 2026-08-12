@@ -1,20 +1,14 @@
 import React from 'react';
-
-interface PatientData {
-    know_of_hef?: string;
-    has_hef?: string;
-    notes?: string;
-}
+import { PatientFormData } from '@/lib/types/patient';
 
 interface Props {
-    patient: PatientData;
-    onUpdatePatient: (updates: Partial<PatientData>) => void;
+    patient: PatientFormData;
+    onUpdatePatient: (updates: Partial<PatientFormData>) => void;
     isViewMode: boolean;
-
 }
 
 export default function HEF({patient, onUpdatePatient, isViewMode}: Props) {
-    const handleChange = (field: keyof PatientData, value: string) => {
+    const handleChange = (field: keyof PatientFormData, value: string) => {
         if (isViewMode) return;
         onUpdatePatient({ [field]: value});
     }

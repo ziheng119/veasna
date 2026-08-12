@@ -49,12 +49,10 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
         painpoints: painpoints,
       }
 
-      const res = await postPhysiotherapy(data, patient.visit_id)
-      setNotes("")
-      setPainpoints([])
+      await postPhysiotherapy(data, patient.visit_id)
       toast.success("Save Success")
     } catch (error) {
-        toast.error("An error as occured")
+        toast.error("An error has occurred")
     }
   }
 

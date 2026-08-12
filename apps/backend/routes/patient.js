@@ -73,9 +73,14 @@ router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => 
       visits: visitsResult.rows
     };
 
-    // Generate ETag based on last_updated_at
-    const etag = `"${patient.last_updated_at}"`;
-    
+    // Generate ETag from the max of patient and visit timestamps
+    const timestamps = [new Date(patient.last_updated_at).getTime()];
+    for (const v of visitsResult.rows) {
+      if (v.last_updated_at) timestamps.push(new Date(v.last_updated_at).getTime());
+    }
+    const maxUpdated = Math.max(...timestamps);
+    const etag = `"${maxUpdated}"`;
+
     // Check if client has cached version
     if (ifNoneMatch && ifNoneMatch === etag) {
       return res.status(304).end();

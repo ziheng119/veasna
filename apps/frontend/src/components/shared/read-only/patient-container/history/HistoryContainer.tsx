@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, RefObject } from "react";
+import { useState, useRef, useCallback, useEffect, RefObject } from "react";
 import { PopUpIcon } from "@/assets/icons/PopUpIcon";
 import HistoryPopUp from "./HistoryPopUp";
 import { QueuedPatient } from "@/lib/types/patient";
@@ -21,6 +21,27 @@ export default function HistoryContainer({ patient }: Props) {
 
   const popupRef = useRef<HTMLDivElement>(null);
 
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragging.current) return;
+    setPos({
+      x: e.clientX - dragStart.current.x,
+      y: e.clientY - dragStart.current.y,
+    });
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragging.current = false;
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  }, [onMouseMove]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [onMouseMove, onMouseUp]);
+
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     dragging.current = true;
     dragStart.current = {
@@ -29,20 +50,6 @@ export default function HistoryContainer({ patient }: Props) {
     };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-  };
-
-  const onMouseMove = (e: MouseEvent) => {
-    if (!dragging.current) return;
-    setPos({
-      x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y,
-    });
-  };
-
-  const onMouseUp = () => {
-    dragging.current = false;
-    window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
   };
 
   return (

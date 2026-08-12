@@ -62,7 +62,7 @@ router.post('/register', async (req, res) => {
   const { username, password } = parsed;
 
   try {
-    await ensurePasswordColumn();
+
     const existing = await db.query(
       'SELECT id FROM users WHERE LOWER(username) = LOWER($1)',
       [username]
@@ -99,7 +99,7 @@ router.post('/login', async (req, res) => {
   const { username, password } = parsed;
 
   try {
-    await ensurePasswordColumn();
+
     const userQuery = `
       SELECT id, username, password_hash, is_active
       FROM users
@@ -137,3 +137,4 @@ router.post('/login', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.ensurePasswordColumn = ensurePasswordColumn;

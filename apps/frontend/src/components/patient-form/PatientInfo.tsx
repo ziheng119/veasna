@@ -1,20 +1,9 @@
 import React from 'react';
-
-interface PatientData {
-    queue_no?: string;
-    english_name?: string;
-    khmer_name?: string;
-    date_of_birth?: string;
-    age?: string;
-    sex?: string;
-    phone_number?: string;
-    address?: string;
-    face_id?: string;
-}
+import { PatientFormData } from '@/lib/types/patient';
 
 interface Props {
-    patient: PatientData;
-    onUpdatePatient: (updates: Partial<PatientData>) => void;
+    patient: PatientFormData;
+    onUpdatePatient: (updates: Partial<PatientFormData>) => void;
     isViewMode: boolean;
 }
 
@@ -26,7 +15,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode}: Pro
     };
 
     // Restrictions for respective inputs 
-    const handleChange = (field: keyof PatientData, value: string) => {
+    const handleChange = (field: keyof PatientFormData, value: string) => {
         if (isViewMode) return;
         if (field === 'age') {
             const regex = /^\d*$/; // only Integers
@@ -185,7 +174,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode}: Pro
                                 name='sex'
                                 value='M'
                                 checked={patient.sex === 'M'}
-                                onChange={(e) => onUpdatePatient({ sex: e.target.value })}
+                                onChange={(e) => onUpdatePatient({ sex: e.target.value as "M" | "F" })}
                                 className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300'
                             />
                             <span className='text-sm'>M</span>
@@ -197,7 +186,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode}: Pro
                                 name='sex'
                                 value='F'
                                 checked={patient.sex === 'F'}
-                                onChange={(e) => onUpdatePatient({ sex: e.target.value })}
+                                onChange={(e) => onUpdatePatient({ sex: e.target.value as "M" | "F" })}
                                 className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300'
                             />
                             <span className='text-sm'>F</span>

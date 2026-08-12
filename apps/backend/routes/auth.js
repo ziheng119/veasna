@@ -12,7 +12,12 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'Authentication required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ message: 'Server misconfigured' });
+  }
+
+  jwt.verify(token, secret, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
@@ -22,7 +27,12 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Middleware to check if user has required role
-const requireRole = (_roles) => (_req, _res, next) => next();
+const requireRole = (roles) => (req, res, next) => {
+  if (!roles.includes('any') && !roles.includes(req.user.role)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  next();
+};
 
 // Middleware to validate request data
 const validateRequest = (req, res, next) => {

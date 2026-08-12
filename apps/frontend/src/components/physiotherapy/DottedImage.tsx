@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 
 type Props = {
   imageUrl: string;
-  onClickFunction: (positions: PainPoint[]) => void; // pass full array
+  onClickFunction: (positions: PainPoint[]) => void;
   positions?: PainPoint[] | undefined;
 };
 
@@ -11,26 +11,19 @@ export default function DottedImage({ imageUrl, positions: initialPositions, onC
   const [clickPositions, setClickPositions] = useState<PainPoint[]>([]);
 
   useEffect(() => {
-  if (!initialPositions) return;
+    if (!initialPositions) return;
 
-  // Only update if the new positions are different
-  const areEqual =
-    initialPositions.length === clickPositions.length &&
-    initialPositions.every((p, i) => 
-      p.xCoord === clickPositions[i]?.xCoord &&
-      p.yCoord === clickPositions[i]?.yCoord
-    );
+    const areEqual =
+      initialPositions.length === clickPositions.length &&
+      initialPositions.every((p, i) =>
+        p.xCoord === clickPositions[i]?.xCoord &&
+        p.yCoord === clickPositions[i]?.yCoord
+      );
 
-  if (!areEqual) {
-    setClickPositions(initialPositions);
-  }
-}, [initialPositions]);
-
-
-  // Call onClickFunction whenever clickPositions changes
-  useEffect(() => {
-    onClickFunction(clickPositions);
-  }, [clickPositions, onClickFunction]);
+    if (!areEqual) {
+      setClickPositions(initialPositions);
+    }
+  }, [initialPositions]);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).dataset.dot) return;
@@ -39,20 +32,21 @@ export default function DottedImage({ imageUrl, positions: initialPositions, onC
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    const newPos: PainPoint = {
-      xCoord: x,
-      yCoord: y,
-    }
-
-    setClickPositions((prev) => [...prev, newPos]);
+    const newPos: PainPoint = { xCoord: x, yCoord: y };
+    const updated = [...clickPositions, newPos];
+    setClickPositions(updated);
+    onClickFunction(updated);
   };
 
   const handleRemoveDot = (indexToRemove: number) => {
-    setClickPositions((prev) => prev.filter((_, i) => i !== indexToRemove));
+    const updated = clickPositions.filter((_, i) => i !== indexToRemove);
+    setClickPositions(updated);
+    onClickFunction(updated);
   };
 
   const handleClearAll = () => {
     setClickPositions([]);
+    onClickFunction([]);
   };
 
   return (

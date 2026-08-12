@@ -73,18 +73,22 @@ export default function PatientDetailsPage() {
   const [editedPatient, setEditedPatient] = useState<PatientInfo | null>(null);
 
   useEffect(() => {
-    if (patientId && token) {
-      setIsLoading(true);
-      getPatient(patientId, token)
-        .then(data => {
-          if (data) {
-            setPatientData(data);
-            setEditedPatient(data.patient);
-          }
-        })
-        .catch(console.error)
-        .finally(() => setIsLoading(false));
+    if (!patientId) {
+      setIsLoading(false);
+      return;
     }
+    if (!token) return;
+
+    setIsLoading(true);
+    getPatient(patientId, token)
+      .then(data => {
+        if (data) {
+          setPatientData(data);
+          setEditedPatient(data.patient);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, [patientId, token]);
 
   const filteredVisits = useMemo(() => {
@@ -156,9 +160,11 @@ export default function PatientDetailsPage() {
     }
   };
 
-  const calculateAge = (birthDate: string): number => {
-    const today = new Date();
+  const calculateAge = (birthDate: string): number | null => {
+    if (!birthDate) return null;
     const dob = new Date(birthDate);
+    if (isNaN(dob.getTime())) return null;
+    const today = new Date();
     const age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
     return monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())
@@ -269,7 +275,7 @@ export default function PatientDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Age</label>
                   <p className="mt-1">
-                    {calculateAge(displayPatient?.date_of_birth || '')} years
+                    {calculateAge(displayPatient?.date_of_birth || '') ?? 'N/A'} {calculateAge(displayPatient?.date_of_birth || '') !== null ? 'years' : ''}
                   </p>
                 </div>
 

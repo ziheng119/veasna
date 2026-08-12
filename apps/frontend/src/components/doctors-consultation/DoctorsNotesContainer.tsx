@@ -59,13 +59,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     }
     
     try {
-      const res = await postConsultation(data, patient.visit_id)
-      setNotes("");
-      setPrescription("");
-      setReferralNeeded(true);
+      await postConsultation(data, patient.visit_id)
       toast.success("Save Success")
     } catch (error) {
-      toast.error("An error as occured")
+      toast.error("An error has occurred")
     }
   }
 
@@ -144,7 +141,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         </div>
       </div>
 
-      {patientInfo === undefined && (
+      {patientInfo === null && (
         <Loading />
       )}
       

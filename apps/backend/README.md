@@ -36,7 +36,7 @@ Create a `.env` file in `apps/backend` (or copy from `.env.example`):
 ```env
 DB_USER=your_postgres_user
 DB_HOST=localhost
-DB_NAME=veasna_backend
+DB_NAME=veasna_screening
 DB_PASSWORD=your_postgres_password
 DB_PORT=5432
 
@@ -48,105 +48,118 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin12345
 ```
 
-## Database Setup (PostgreSQL)
+## Database Setup (First-Time)
 
-Yes, the current backend requires a PostgreSQL database.
+The backend requires PostgreSQL. Follow these steps to get it running from scratch.
 
-1. Install PostgreSQL (if not installed):
+### 1. Install PostgreSQL
 
-2. Create database and user:
+**macOS (Homebrew):**
 
 ```bash
-psql postgres
+brew install postgresql@16
+brew services start postgresql@16
 ```
 
-Then run:
+**Ubuntu/Debian:**
+
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+```
+
+**Windows:**
+
+Download and run the installer from https://www.postgresql.org/download/windows/. Use the default port (5432) and remember the password you set for the `postgres` superuser.
+
+### 2. Create the database and user
+
+Open a PostgreSQL shell:
+
+```bash
+# macOS / Linux
+psql postgres
+
+# Windows (from the SQL Shell that ships with the installer)
+psql -U postgres
+```
+
+Run the following SQL:
 
 ```sql
-CREATE DATABASE veasna_backend;
+CREATE DATABASE veasna_screening;
 CREATE USER veasna_app WITH PASSWORD 'change_me';
-GRANT ALL PRIVILEGES ON DATABASE veasna_backend TO veasna_app;
+GRANT ALL PRIVILEGES ON DATABASE veasna_screening TO veasna_app;
 \q
 ```
 
-3. Update `.env` to match your DB credentials:
+Replace `'change_me'` with a password of your choice.
+
+### 3. Configure environment variables
+
+From `apps/backend`, copy the example env file and fill in your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` so the DB values match what you just created:
 
 ```env
 DB_USER=veasna_app
 DB_HOST=localhost
-DB_NAME=veasna_backend
+DB_NAME=veasna_screening
 DB_PASSWORD=change_me
 DB_PORT=5432
 ```
 
-What each value means:
+### 4. Initialize the schema
 
-- `DB_USER`: PostgreSQL role/username used by the backend to connect.
-- `DB_HOST`: database server address (`localhost` means your own machine).
-- `DB_NAME`: target database name in PostgreSQL.
-- `DB_PASSWORD`: password for `DB_USER` (must match the role password in PostgreSQL).
-- `DB_PORT`: PostgreSQL port (`5432` is the default).
-
-How the backend uses these values:
-
-- On startup, the backend loads `.env`.
-- `config/db.js` creates a PostgreSQL connection pool from these variables.
-- All API queries (`db.query(...)`) run through that pool.
-
-If any value is incorrect, database calls will fail with connection/auth/database errors.
-
-4. Initialize schema:
+This creates all required tables, indexes, and seed data:
 
 ```bash
-psql -U veasna_app -d veasna_backend -f db_setup.sql
+psql -U veasna_app -d veasna_screening -f db_setup.sql
 ```
 
-5. Verify backend can connect:
+If prompted for a password, enter the one you set in step 2.
+
+### 5. Run the setup script
 
 ```bash
 npm run setup
 ```
 
-If `npm run setup` succeeds, your DB setup is complete and it will automatically create (or reactivate) the admin user from `ADMIN_USERNAME` (with password from `ADMIN_PASSWORD`).
+This verifies the database connection and creates the initial admin user using `ADMIN_USERNAME` and `ADMIN_PASSWORD` from your `.env`.
 
-Manual admin seed (any time):
+You can re-run this at any time. To seed just the admin user:
 
 ```bash
 npm run seed:admin
 ```
 
-### Alternative: Setup with pgAdmin
+### Troubleshooting
 
-If you prefer GUI setup:
+| Symptom | Fix |
+|---------|-----|
+| `ECONNREFUSED 127.0.0.1:5432` | PostgreSQL isn't running. Start it with `brew services start postgresql@16` or `sudo systemctl start postgresql`. |
+| `password authentication failed` | The password in `.env` doesn't match the PostgreSQL role. Reset it with `ALTER USER veasna_app WITH PASSWORD 'new_password';` in `psql postgres`. |
+| `database "veasna_screening" does not exist` | You haven't created the database yet — go back to step 2. |
+| `relation "..." does not exist` | Schema not loaded — run step 4 again. |
+
+### Alternative: Setup with pgAdmin (GUI)
 
 1. Open pgAdmin and connect to your local PostgreSQL server.
 2. Create a login role:
-   - Go to `Login/Group Roles` -> `Create` -> `Login/Group Role`
-   - Name: `veasna_app`
-   - Set password to match `DB_PASSWORD` in `.env`
-   - Enable login privilege
+   - `Login/Group Roles` → `Create` → `Login/Group Role`
+   - Name: `veasna_app`, set a password, enable login privilege
 3. Create database:
-   - Go to `Databases` -> `Create` -> `Database`
-   - Database name: `veasna_backend`
-   - Owner: `veasna_app`
+   - `Databases` → `Create` → `Database`
+   - Name: `veasna_screening`, Owner: `veasna_app`
 4. Initialize schema:
-   - Open Query Tool on `veasna_backend`
-   - Open and run `apps/backend/db_setup.sql`
-5. Confirm `.env` values in `apps/backend/.env`:
-
-```env
-DB_USER=veasna_app
-DB_HOST=localhost
-DB_NAME=veasna_backend
-DB_PASSWORD=change_me
-DB_PORT=5432
-```
-
-6. Run:
-
-```bash
-npm run setup
-```
+   - Open Query Tool on `veasna_screening`
+   - Open and execute `apps/backend/db_setup.sql`
+5. Confirm your `.env` matches, then run `npm run setup`.
 
 ## Run
 

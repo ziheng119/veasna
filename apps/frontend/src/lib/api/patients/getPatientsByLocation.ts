@@ -5,6 +5,11 @@ import { PatientInfo } from "@/lib/types/patient";
 const cachedPatients: Record<number, PatientInfo[]> = {};
 const cachedETags: Record<number, string> = {};
 
+export function clearPatientsByLocationCache() {
+  Object.keys(cachedPatients).forEach(key => delete cachedPatients[Number(key)]);
+  Object.keys(cachedETags).forEach(key => delete cachedETags[Number(key)]);
+}
+
 export async function getPatientsByLocation(
   locationId: number,
   token: string

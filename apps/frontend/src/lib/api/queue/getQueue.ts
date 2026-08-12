@@ -4,6 +4,11 @@ import { backend_url } from "@/constants/env_variable";
 const cachedQueues: Record<string, any> = {};
 const cachedETags: Record<string, string> = {};
 
+export function clearQueueCache() {
+  Object.keys(cachedQueues).forEach(key => delete cachedQueues[key]);
+  Object.keys(cachedETags).forEach(key => delete cachedETags[key]);
+}
+
 export async function getQueue(locationId: number, date: string, token: string) {
   const cacheKey = `${locationId}_${date}`;
 

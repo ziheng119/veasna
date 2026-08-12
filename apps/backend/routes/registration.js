@@ -144,19 +144,24 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
     if (patient) {
       const uRes = await client.query(
         `UPDATE patients
-            SET english_name = COALESCE($1, english_name),
-                khmer_name   = COALESCE($2, khmer_name),
-                date_of_birth= COALESCE($3, date_of_birth),
-                sex          = COALESCE($4, sex),
-                phone_number = COALESCE($5, phone_number),
-                address      = COALESCE($6, address),
-                location_id  = COALESCE($7, location_id)
-          WHERE id = $8
+            SET english_name = CASE WHEN $1::boolean THEN $2 ELSE english_name END,
+                khmer_name   = CASE WHEN $3::boolean THEN $4 ELSE khmer_name END,
+                date_of_birth= CASE WHEN $5::boolean THEN $6 ELSE date_of_birth END,
+                sex          = CASE WHEN $7::boolean THEN $8 ELSE sex END,
+                phone_number = CASE WHEN $9::boolean THEN $10 ELSE phone_number END,
+                address      = CASE WHEN $11::boolean THEN $12 ELSE address END,
+                location_id  = CASE WHEN $13::boolean THEN $14 ELSE location_id END
+          WHERE id = $15
         RETURNING *`,
         [
-          patient.english_name || null, patient.khmer_name || null, patient.date_of_birth || null,
-          normalizedPatientSex, patient.phone_number || null, patient.address || null,
-          patient.location_id || null, patientId
+          'english_name' in patient, patient.english_name ?? null,
+          'khmer_name' in patient, patient.khmer_name ?? null,
+          'date_of_birth' in patient, patient.date_of_birth ?? null,
+          'sex' in patient, normalizedPatientSex,
+          'phone_number' in patient, patient.phone_number ?? null,
+          'address' in patient, patient.address ?? null,
+          'location_id' in patient, patient.location_id ?? null,
+          patientId
         ]
       );
       if (!uRes.rows.length) {
@@ -172,8 +177,13 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
         `INSERT INTO vitals(patient_id, height_cm, weight_kg, bmi, blood_pressure, temperature_c, vitals_notes)
          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
         [
-          patientId, vitals.height_cm || null, vitals.weight_kg || null, vitals.bmi || null,
-          vitals.blood_pressure || null, vitals.temperature_c || null, vitals.vitals_notes || null
+          patientId,
+          vitals.height_cm !== undefined ? vitals.height_cm : null,
+          vitals.weight_kg !== undefined ? vitals.weight_kg : null,
+          vitals.bmi !== undefined ? vitals.bmi : null,
+          vitals.blood_pressure !== undefined ? vitals.blood_pressure : null,
+          vitals.temperature_c !== undefined ? vitals.temperature_c : null,
+          vitals.vitals_notes !== undefined ? vitals.vitals_notes : null
         ]
       );
       vitalsRow = vRes.rows[0];

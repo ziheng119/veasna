@@ -46,12 +46,12 @@ export default function HomePage() {
       refreshAllPatients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location]);
+  }, [location, token]);
 
   useEffect(() => {
     refreshQueuePatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location]);
+  }, [location, token]);
 
   return (
     <div className="space-y-5">

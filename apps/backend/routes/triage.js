@@ -6,6 +6,9 @@ const { authenticateToken } = require('./auth');
 // UPSERT Visual Acuity (Snellen's Test)
 router.post('/visual-acuity', authenticateToken, async (req, res) => {
     const { visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes } = req.body;
+    if (!visit_id || !Number.isInteger(Number(visit_id))) {
+        return res.status(400).json({ error: 'Valid visit_id is required' });
+    }
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by)
@@ -32,6 +35,9 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
 // UPSERT Presenting Complaint
 router.post('/presenting-complaint', authenticateToken, async (req, res) => {
     const { visit_id, history, red_flags, systems_review, drug_allergies } = req.body;
+    if (!visit_id || !Number.isInteger(Number(visit_id))) {
+        return res.status(400).json({ error: 'Valid visit_id is required' });
+    }
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO presenting_complaint (visit_id, history, red_flags, systems_review, drug_allergies, last_updated_by)
@@ -53,6 +59,9 @@ router.post('/presenting-complaint', authenticateToken, async (req, res) => {
 // UPSERT Medical History
 router.post('/history', authenticateToken, async (req, res) => {
     const { visit_id, past, drug_and_treatment, family, social, systems_review } = req.body;
+    if (!visit_id || !Number.isInteger(Number(visit_id))) {
+        return res.status(400).json({ error: 'Valid visit_id is required' });
+    }
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO history (visit_id, past, drug_and_treatment, family, social, systems_review, last_updated_by)

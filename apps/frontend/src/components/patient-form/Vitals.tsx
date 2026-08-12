@@ -1,20 +1,9 @@
 import React from 'react';
-
-interface PatientData {
-    height?: string;
-    weight?: string;
-    bmi?: string;
-    category?: string;
-    below_3rd_percentile?: boolean;
-    bp_systolic?: string;
-    bp_diastolic?: string;
-    temperature?: string;
-    additionalNotes?: string;
-}
+import { PatientFormData } from '@/lib/types/patient';
 
 interface Props {
-    patient: PatientData;
-    onUpdatePatient: (updates: Partial<PatientData>) => void;
+    patient: PatientFormData;
+    onUpdatePatient: (updates: Partial<PatientFormData>) => void;
     isViewMode: boolean;
 }
 
@@ -25,7 +14,7 @@ export default function Vitals({patient, onUpdatePatient, isViewMode}: Props) {
         readOnly: isViewMode,
     };
 
-    const handleChange = (field: keyof PatientData, value: string | boolean) => {
+    const handleChange = (field: keyof PatientFormData, value: string | boolean) => {
         if (isViewMode) return;
         if (typeof value === 'string') {
 
@@ -248,8 +237,8 @@ export default function Vitals({patient, onUpdatePatient, isViewMode}: Props) {
                     </label>
                     <textarea
                         {...inputProps}
-                        value={patient.additionalNotes}
-                        onChange={(e) => handleChange('additionalNotes', e.target.value)}
+                        value={patient.notes}
+                        onChange={(e) => handleChange('notes', e.target.value)}
                         rows={4}
                         className='w-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black'
                         placeholder='Enter any additional notes...'

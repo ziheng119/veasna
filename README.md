@@ -33,7 +33,7 @@ Backend env (`apps/backend/.env`):
 ```env
 DB_USER=your_postgres_user
 DB_HOST=localhost
-DB_NAME=veasna_backend
+DB_NAME=veasna_screening
 DB_PASSWORD=your_postgres_password
 DB_PORT=5432
 

@@ -32,7 +32,7 @@ const { normalizeSexToEnum } = require('../utils/sex');
 // --- User Management (any authenticated user) ---
 
 // GET all users
-router.get('/users', async (req, res) => {
+router.get('/users', authenticateToken, async (req, res) => {
   console.log('Querying users');
   try {
     const { rows } = await db.query(
@@ -177,6 +177,7 @@ router.patch(
 // -- Location Management --
 router.get(
   '/locations',
+  authenticateToken,
   async (req, res) => {
     try {
       const query = `
@@ -200,6 +201,7 @@ router.get(
 // POST create a new patient
 router.post(
   '/patients',
+  authenticateToken,
   [
     body('face_id').notEmpty().withMessage('Face ID is required'),
     body('location_id').notEmpty().isInt({ min: 1 }).withMessage('Valid location_id is required'),
@@ -273,12 +275,18 @@ router.post(
 // GET all patients (filter by location_id)
 router.get(
   '/patients',
+  authenticateToken,
   async (req, res) => {
     try {
       const { location_id } = req.query;
 
       if (!location_id) {
         return res.status(400).json({ message: 'Location ID is required'})
+      }
+
+      const locId = Number(location_id);
+      if (!Number.isInteger(locId) || locId < 1) {
+        return res.status(400).json({ message: 'location_id must be a positive integer' });
       }
 
       const sql = `
@@ -297,7 +305,7 @@ router.get(
         ORDER BY p.created_at DESC;
       `;
 
-      const vals = [Number(location_id)];
+      const vals = [locId];
       const result = await db.query(sql, vals);
 
       res.json({
@@ -314,6 +322,7 @@ router.get(
 // GET: today's patients (by location_id and visit_date)
 router.get(
   '/patients/today',
+  authenticateToken,
   [
     query('location_id')
       .notEmpty().isInt({ min: 1 }).withMessage('Valid location_id is required'),
@@ -399,145 +408,7 @@ router.delete('/patients/:id', [authenticateToken, requireRole(['any'])], async 
   }
 });
 
-// --- Vitals Management ---
-
-// Add vitals for a patient
-router.post('/patients/:id/vitals', [
-  authenticateToken,
-  requireRole(['any']),
-  body('weight_kg').isFloat({ min: 0 }).withMessage('Valid weight is required'),
-  body('height_cm').isFloat({ min: 0 }).withMessage('Valid height is required')
-], validateRequest, async (req, res) => {
-  try {
-    const { height_cm, weight_kg, bmi, blood_pressure, temperature_c, vitals_notes } = req.body;
-    const query = `
-      INSERT INTO vitals(patient_id, height_cm, weight_kg, bmi, blood_pressure, temperature_c, vitals_notes)
-      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *;
-    `;
-    const values = [req.params.id, height_cm, weight_kg, bmi, blood_pressure, temperature_c, vitals_notes];
-    const { rows } = await db.query(query, values);
-    res.status(201).json(rows[0]);
-  } catch (error) {
-    console.error('Add Vitals Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Update a vitals record
-router.put('/patients/:id/vitals/:vitalsId', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const { height_cm, weight_kg, bmi, blood_pressure, temperature_c, vitals_notes } = req.body;
-    const { id, vitalsId } = req.params;
-    const upd = await db.query(
-      `UPDATE vitals
-         SET height_cm = COALESCE($1, height_cm),
-             weight_kg = COALESCE($2, weight_kg),
-             bmi = COALESCE($3, bmi),
-             blood_pressure = COALESCE($4, blood_pressure),
-             temperature_c = COALESCE($5, temperature_c),
-             vitals_notes = COALESCE($6, vitals_notes)
-       WHERE id = $7 AND patient_id = $8
-       RETURNING *`,
-      [height_cm || null, weight_kg || null, bmi || null, blood_pressure || null, temperature_c || null, vitals_notes || null, vitalsId, id]
-    );
-    if (!upd.rows.length) return res.status(404).json({ message: 'Vitals not found' });
-    res.json(upd.rows[0]);
-  } catch (error) {
-    console.error('Update Vitals Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Delete a vitals record
-router.delete('/patients/:id/vitals/:vitalsId', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const del = await db.query('DELETE FROM vitals WHERE id = $1 AND patient_id = $2 RETURNING id', [req.params.vitalsId, req.params.id]);
-    if (!del.rows.length) return res.status(404).json({ message: 'Vitals not found' });
-    res.json({ message: 'Vitals deleted', id: del.rows[0].id });
-  } catch (error) {
-    console.error('Delete Vitals Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Get vitals for a patient
-router.get('/patients/:id/vitals', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const { rows } = await db.query('SELECT * FROM vitals WHERE patient_id=$1 ORDER BY created_at DESC', [req.params.id]);
-    res.json(rows);
-  } catch (error) {
-    console.error('Get Vitals Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// --- HEF Management ---
-
-// Add HEF for a patient
-router.post('/patients/:id/hef', [
-  authenticateToken,
-  requireRole(['any']),
-  body('know_hef').isBoolean().withMessage('know_hef is required'),
-  body('have_hef').isBoolean().withMessage('have_hef is required')
-], validateRequest, async (req, res) => {
-  try {
-    const { know_hef, have_hef, hef_notes } = req.body;
-    const query = `INSERT INTO hef(patient_id, know_hef, have_hef, hef_notes) VALUES($1,$2,$3,$4) RETURNING *;`;
-    const values = [req.params.id, know_hef, have_hef, hef_notes];
-    const { rows } = await db.query(query, values);
-    res.status(201).json(rows[0]);
-  } catch (error) {
-    console.error('Add HEF Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Update HEF
-router.put('/patients/:id/hef/:hefId', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const { know_hef, have_hef, hef_notes } = req.body;
-    const upd = await db.query(
-      `UPDATE hef
-          SET know_hef = COALESCE($1, know_hef),
-              have_hef = COALESCE($2, have_hef),
-              hef_notes = COALESCE($3, hef_notes)
-        WHERE id = $4 AND patient_id = $5
-        RETURNING *`,
-      [typeof know_hef === 'boolean' ? know_hef : null,
-       typeof have_hef === 'boolean' ? have_hef : null,
-       hef_notes || null,
-       req.params.hefId, req.params.id]
-    );
-    if (!upd.rows.length) return res.status(404).json({ message: 'HEF not found' });
-    res.json(upd.rows[0]);
-  } catch (error) {
-    console.error('Update HEF Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Delete HEF
-router.delete('/patients/:id/hef/:hefId', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const del = await db.query('DELETE FROM hef WHERE id = $1 AND patient_id = $2 RETURNING id', [req.params.hefId, req.params.id]);
-    if (!del.rows.length) return res.status(404).json({ message: 'HEF not found' });
-    res.json({ message: 'HEF deleted', id: del.rows[0].id });
-  } catch (error) {
-    console.error('Delete HEF Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Get HEF records for a patient
-router.get('/patients/:id/hef', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    const { rows } = await db.query('SELECT * FROM hef WHERE patient_id=$1 ORDER BY created_at DESC', [req.params.id]);
-    res.json(rows);
-  } catch (error) {
-    console.error('Get HEF Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
+// Legacy vitals/HEF routes removed — use visit-based routes in /api/visits instead
 
 // --- Visual Acuity Management ---
 

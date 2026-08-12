@@ -27,7 +27,7 @@ async function runSetup() {
     console.log('\nPlease check:');
     console.log('1. PostgreSQL is running');
     console.log('2. Database credentials in .env are correct');
-    console.log('3. Database "veasna_backend" exists');
+    console.log('3. Database "veasna_screening" exists');
     console.log('4. User has proper permissions');
     process.exit(1);
   }
@@ -52,7 +52,7 @@ async function runSetup() {
   } catch (error) {
     console.error('Database tables not found!');
     console.log('Please run the database setup script:');
-    console.log('psql -U your_user -d veasna_backend -f db_setup.sql');
+    console.log('psql -U your_user -d veasna_screening -f db_setup.sql');
     process.exit(1);
   }
 

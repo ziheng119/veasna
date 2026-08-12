@@ -79,7 +79,7 @@ export default function SearchBar({ onSelectPatient }: SearchBarProps) {
     }
 
     getAllPatients();
-  }, [location])
+  }, [location, token])
 
   return (
     <div className="relative w-full text-foreground">

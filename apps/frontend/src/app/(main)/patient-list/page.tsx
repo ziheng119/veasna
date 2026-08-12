@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
+import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
 
@@ -45,7 +46,7 @@ export default function PatientListPage() {
       refreshAllPatients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location])
+  }, [location, token])
   
   const filteredPatients: PatientInfo[] = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -77,11 +78,15 @@ export default function PatientListPage() {
     router.push(`/patient-details?id=${patientId}`);
   }
 
-  const handleDeletePatient = (patientId: number) => {
-    if (window.confirm('Are you sure you want to delete this patient?')){
-      // temporarily show that it was deleted here
-      setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId))
-      console.log('Delete patient Clicked:', patientId);      
+  const handleDeletePatient = async (patientId: number) => {
+    if (!window.confirm('Are you sure you want to delete this patient?')) return;
+    if (!token) return;
+    try {
+      await deletePatient(patientId, token);
+      setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
+    } catch (error) {
+      console.error('Delete patient error:', error);
+      toast.error('Failed to delete patient');
     }
   };
 

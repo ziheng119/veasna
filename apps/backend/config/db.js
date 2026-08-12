@@ -38,7 +38,6 @@ const testConnection = async () => {
 // Handle pool errors
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
 });
 
 // Function to hash passwords before saving to the database

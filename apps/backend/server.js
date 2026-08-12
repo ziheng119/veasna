@@ -38,6 +38,10 @@ app.use('/api/auth/', authLimiter);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Run schema migrations at startup
+const { ensurePasswordColumn } = require('./routes/session');
+ensurePasswordColumn().catch(err => console.error('Migration warning:', err.message));
+
 // API routes
 const apiRoutes = require('./routes/api');
 app.use('/api', apiRoutes);

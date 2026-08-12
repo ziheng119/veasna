@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
 import formatDate from "@/helper/format_date";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for patients by id
 const cachedPatients: Record<number, PatientInfo> = {};
@@ -8,14 +9,19 @@ const cachedETags: Record<number, string> = {};
 
 export async function getPatient(id: number): Promise<PatientInfo | null> {
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this patient
     if (cachedETags[id]) {
       headers['If-None-Match'] = cachedETags[id];
     }
 
-    const res = await fetch(`${backend_url}/api/patients/${id}`, { 
+    const res = await fetch(`${backend_url}/api/patients/${id}`, {
       cache: "no-cache",
       headers
     });

@@ -11,8 +11,14 @@ type AddDrugPayload = {
 const cachedDrugs: Record<number, Drug[]> = {};
 const cachedETags: Record<number, string> = {};
 
+export function clearPharmacyCache() {
+  Object.keys(cachedDrugs).forEach(key => delete cachedDrugs[Number(key)]);
+  Object.keys(cachedETags).forEach(key => delete cachedETags[Number(key)]);
+}
+
 export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const headers: HeadersInit = {
         'Authorization': `Bearer ${token}`,
     };
@@ -53,6 +59,7 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
 
 export async function getPharmacyStats(locationId: number): Promise<PharmacyStats> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/stats?location_id=${locationId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -62,6 +69,7 @@ export async function getPharmacyStats(locationId: number): Promise<PharmacyStat
 
 export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy`, {
         method: 'POST',
         headers: {
@@ -81,6 +89,7 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
 
 export async function updateDrugCount(drugId: number, stockCount: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
         method: 'PATCH',
         headers: {
@@ -97,6 +106,7 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
 
 export async function updateDrugName(drugId: number, drugName: string): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/name`, {
         method: 'PATCH',
         headers: {
@@ -113,6 +123,7 @@ export async function updateDrugName(drugId: number, drugName: string): Promise<
 
 export async function deleteDrug(drugId: number): Promise<void> {
     const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },

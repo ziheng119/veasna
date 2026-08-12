@@ -2,6 +2,10 @@
 import { User } from "@/lib/types/user";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { clearPatientsByLocationCache } from "@/lib/api/patients/getPatientsByLocation";
+import { clearQueueCache } from "@/lib/api/queue/getQueue";
+import { clearPharmacyCache } from "@/lib/api/pharmacy/pharmacy";
+import { clearAllPatientCache } from "@/lib/api/patient/getPatients";
 
 interface UserState {
   user: User | null;
@@ -18,7 +22,13 @@ export const useUserStore = create<UserState>()(
       hasHydrated: false,
       setHasHydrated: (state: boolean) => set({ hasHydrated: state }),
       setUser: (user: User) => set({ user }),
-      removeUser: () => set({ user: null }),
+      removeUser: () => {
+        clearPatientsByLocationCache();
+        clearQueueCache();
+        clearPharmacyCache();
+        clearAllPatientCache();
+        set({ user: null });
+      },
     }),
     {
       name: "user-storage",
