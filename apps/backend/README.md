@@ -212,10 +212,10 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 - Login endpoint: `POST /api/auth/login` with `{ username, password }`.
 - Password must be at least 8 characters.
 - JWT expiry is currently `30d`.
-- Some existing routes still use permissive/public-first middleware behavior.
+- All routes require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
 
 ## Current Caveats
 
-- The codebase contains both newer visit-centric routes and older legacy patient-centric routes.
-- `express-rate-limit` is configured in `server.js` but not currently applied.
+- `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
+- The `password_hash` column migration runs once at server startup (idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`).
