@@ -65,6 +65,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
 // When using 'npm test' comment out this part
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

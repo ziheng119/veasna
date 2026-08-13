@@ -5,7 +5,11 @@ const { hashPassword } = require('../config/db');
 
 async function seedAdminUser() {
   const adminUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin12345';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    throw new Error('ADMIN_PASSWORD environment variable is required');
+  }
 
   if (adminUsername.length < 3) {
     throw new Error('ADMIN_USERNAME must be at least 3 characters');

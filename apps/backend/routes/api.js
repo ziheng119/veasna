@@ -18,7 +18,6 @@ router.use('/locations', locationRoutes);
 router.use('/registration', registrationRoutes);
 router.use('/queue', queueRoutes);
 router.use('/visits', visitRoutes);
-router.use('/patients', patientsRoutes)
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/triage', triageRoutes);
 router.use('/patient', patientRoutes);
@@ -33,7 +32,6 @@ const { normalizeSexToEnum } = require('../utils/sex');
 
 // GET all users
 router.get('/users', authenticateToken, async (req, res) => {
-  console.log('Querying users');
   try {
     const { rows } = await db.query(
       `SELECT username
@@ -41,7 +39,6 @@ router.get('/users', authenticateToken, async (req, res) => {
        WHERE is_active = TRUE
        ORDER BY created_at DESC`
     );
-    console.log('Rows:', rows);
     res.json(rows);
   } catch (error) {
     console.error('Get Users Error:', error);
@@ -49,9 +46,11 @@ router.get('/users', authenticateToken, async (req, res) => {
   }
 });
 
-// POST create a new user (no auth)
+// POST create a new user
 router.post(
   '/users',
+  authenticateToken,
+  requireRole(['admin']),
   [
     body('username')
       .isLength({ min: 2 })
@@ -117,6 +116,7 @@ router.post(
 router.patch(
   '/users/deactivate',
   authenticateToken,
+  requireRole(['admin']),
   [
     body('username')
       .isLength({ min: 2 })
@@ -272,53 +272,6 @@ router.post(
 );
 
 
-// GET all patients (filter by location_id)
-router.get(
-  '/patients',
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { location_id } = req.query;
-
-      if (!location_id) {
-        return res.status(400).json({ message: 'Location ID is required'})
-      }
-
-      const locId = Number(location_id);
-      if (!Number.isInteger(locId) || locId < 1) {
-        return res.status(400).json({ message: 'location_id must be a positive integer' });
-      }
-
-      const sql = `
-        SELECT
-          p.face_id,
-          p.english_name,
-          p.khmer_name,
-          p.date_of_birth,
-          p.sex,
-          p.address,
-          p.phone_number,
-          p.last_updated_at,
-          p.last_updated_by
-        FROM patients p
-        WHERE p.location_id = $1
-        ORDER BY p.created_at DESC;
-      `;
-
-      const vals = [locId];
-      const result = await db.query(sql, vals);
-
-      res.json({
-        message: 'Patients fetched successfully',
-        patients: result.rows,
-      });
-    } catch (error) {
-      console.error('Get Patients Error:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-);
-
 // GET: today's patients (by location_id and visit_date)
 router.get(
   '/patients/today',
@@ -386,9 +339,18 @@ router.put('/patients/:id', [
       UPDATE patients SET english_name=$1, khmer_name=$2, date_of_birth=$3, sex=$4, phone_number=$5, address=$6, location_id = COALESCE($7, location_id), queue_no = COALESCE($8, queue_no)
       WHERE id=$9 RETURNING *;
     `;
-    const values = [english_name, khmer_name, date_of_birth, normalizedSex, phone_number, address, location_id || null, queue_no ? String(queue_no).toUpperCase() : null, req.params.id];
+    const queueToken = queue_no ? String(queue_no).toUpperCase() : null;
+    const values = [english_name, khmer_name, date_of_birth, normalizedSex, phone_number, address, location_id || null, queueToken, req.params.id];
     const { rows } = await db.query(query, values);
     if (!rows.length) return res.status(404).json({ message: 'Patient not found' });
+
+    if (queueToken) {
+      await db.query(
+        `UPDATE visits SET queue_no = $1 WHERE patient_id = $2 AND visit_date = CURRENT_DATE`,
+        [queueToken, req.params.id]
+      );
+    }
+
     res.json(rows[0]);
   } catch (error) {
     console.error('Update Patient Error:', error);
@@ -397,7 +359,7 @@ router.put('/patients/:id', [
 });
 
 // Delete patient
-router.delete('/patients/:id', [authenticateToken, requireRole(['any'])], async (req, res) => {
+router.delete('/patients/:id', [authenticateToken, requireRole(['admin'])], async (req, res) => {
   try {
     const { rows } = await db.query('DELETE FROM patients WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Patient not found' });
@@ -619,9 +581,12 @@ router.get('/patients/:id/physiotherapy', [authenticateToken, requireRole(['any'
   }
 });
 
+// Mount /patients subrouter after inline /patients routes to avoid conflicts
+router.use('/patients', patientsRoutes);
+
 // --- Visits: update queue number of a specific visit ---
 
-// Update a visit’s queue number
+// Update a visit's queue number
 router.put('/visits/:id', [authenticateToken, requireRole(['any'])], async (req, res) => {
   try {
     if (!req.body.queue_no || !String(req.body.queue_no).trim()) {

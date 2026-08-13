@@ -234,7 +234,7 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
         last_updated_at: visit.visit_last_updated,
         created_at: visit.visit_created_at,
         
-        vitals: visit.height ? {
+        vitals: visit.height !== null && visit.height !== undefined ? {
           height: visit.height,
           weight: visit.weight,
           bmi: visit.bmi,
@@ -259,14 +259,14 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
           notes: visit.visual_acuity_notes
         } : null,
         
-        presenting_complaint: visit.complaint_history ? {
+        presenting_complaint: visit.complaint_history !== null && visit.complaint_history !== undefined ? {
           history: visit.complaint_history,
           red_flags: visit.red_flags,
           systems_review: visit.complaint_systems_review,
           drug_allergies: visit.drug_allergies
         } : null,
-        
-        history: visit.history_past ? {
+
+        history: visit.history_past !== null && visit.history_past !== undefined ? {
           past: visit.history_past,
           drug_and_treatment: visit.drug_and_treatment,
           family: visit.history_family,
@@ -299,9 +299,16 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
         referrals: referrals
       };
   
-      // Generate ETag based on visit last_updated_at
-      const etag = `"${visit.visit_last_updated}"`;
-      
+      // Generate ETag based on max timestamp across visit, referrals, and painpoints
+      const allTimestamps = [new Date(visit.visit_last_updated).getTime()];
+      for (const r of referrals) {
+        if (r.last_updated_at) allTimestamps.push(new Date(r.last_updated_at).getTime());
+      }
+      for (const p of painpoints) {
+        if (p.last_updated_at) allTimestamps.push(new Date(p.last_updated_at).getTime());
+      }
+      const etag = `"${Math.max(...allTimestamps)}"`;
+
       // Check if client has cached version
       if (ifNoneMatch && ifNoneMatch === etag) {
         return res.status(304).end();

@@ -145,8 +145,10 @@ router.patch('/:drugId/name', authenticateToken, async (req, res) => {
     }
 });
 
+const { requireRole } = require('../routes/auth');
+
 // DELETE a drug from the pharmacy
-router.delete('/:drugId', authenticateToken, async (req, res) => {
+router.delete('/:drugId', authenticateToken, requireRole(['admin']), async (req, res) => {
     const { drugId } = req.params;
 
     try {

@@ -87,7 +87,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Step 1: Insert or Find the patient
+        // Step 1: Insert or Find/Update the patient
         let patientId = parseOptionalPositiveInt(patientInfo?.id);
         if (!patientId) {
             const patientQuery = `
@@ -108,6 +108,30 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             ];
             const patientResult = await client.query(patientQuery, patientValues);
             patientId = patientResult.rows[0].id;
+        } else {
+            await client.query(
+                `UPDATE patients SET
+                    english_name = COALESCE($1, english_name),
+                    khmer_name = COALESCE($2, khmer_name),
+                    date_of_birth = COALESCE($3, date_of_birth),
+                    sex = COALESCE($4, sex),
+                    address = COALESCE($5, address),
+                    phone_number = COALESCE($6, phone_number),
+                    face_id = COALESCE($7, face_id),
+                    last_updated_by = $8
+                WHERE id = $9`,
+                [
+                    patientInfo.english_name || null,
+                    patientInfo.khmer_name || null,
+                    patientInfo.date_of_birth || null,
+                    normalizedPatientSex,
+                    patientInfo.address || null,
+                    patientInfo.phone_number || null,
+                    faceId,
+                    last_updated_by,
+                    patientId
+                ]
+            );
         }
 
         // Step 2: Insert into visits table
@@ -175,6 +199,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
+        if (err && err.code === '23505') {
+            return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
+        }
         console.error('Error in registration transaction:', err);
         res.status(500).json({ error: 'Failed to register patient' });
     } finally {
@@ -532,10 +559,16 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
     await client.query("DELETE FROM painpoints WHERE physiotherapy_id = $1", [physio.id]);
 
     for (const pp of painpoints) {
+      const x = parseFloat(pp.xCoord);
+      const y = parseFloat(pp.yCoord);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Each painpoint must have valid numeric xCoord and yCoord' });
+      }
       await client.query(
         `INSERT INTO painpoints (physiotherapy_id, x_coord, y_coord, last_updated_by)
          VALUES ($1, $2, $3, $4)`,
-        [physio.id, pp.xCoord, pp.yCoord, last_updated_by]
+        [physio.id, x, y, last_updated_by]
       );
     }
 

@@ -5,7 +5,7 @@ import { postReferral } from "@/lib/api/visit/postReferral";
 import { Referral } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
-import { Ref, useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -35,17 +35,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       duration: duration,
       reason: reason,
     }
-    
+
     try {
-      const res = await postReferral(data, patient.visit_id)
-      setReferralDate("");
-      setReferralType([]);
-      setIllness("");
-      setDuration("")
-      setReason("")
+      await postReferral(data, patient.visit_id)
       toast.success("Save Success")
+      onClose()
     } catch (error) {
-      toast.error("An error as occured")
+      console.error("Referral save error:", error)
+      toast.error("An error has occurred")
     }
   }
 
@@ -118,7 +115,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             </label>
             <label className="flex items-center gap-x-2">
               <span>Patient Address:</span>
-              <p>{patientInfo.address === "" ? "N/A" : patientInfo.address}</p>
+              <p>{patientInfo.address || "N/A"}</p>
             </label>
           </div>
         </div>
@@ -162,17 +159,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
           <button
             type="button"
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            onClick={() => {
-              handleSave()
-              onClose()
-            }}
+            onClick={handleSave}
           >
             Save
           </button>
           <button
             type="button"
             className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-            onClick={e => onClose()}
+            onClick={() => window.print()}
           >
             Print
           </button>

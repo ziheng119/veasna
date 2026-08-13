@@ -56,8 +56,8 @@ router.get('/search', authenticateToken, requireRole(['any']), async (req, res) 
 router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => {
   const { id } = req.params;
 
-  if (!id) {
-    return res.status(400).json({ error: 'Patient id is required' });
+  if (!id || !Number.isInteger(Number(id)) || Number(id) < 1) {
+    return res.status(400).json({ error: 'Patient id must be a positive integer' });
   }
 
   try {

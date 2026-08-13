@@ -253,7 +253,7 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
  * DELETE /api/registration/:patientId
  * Removes the patient (cascades to vitals/hef/visits due to FK ON DELETE CASCADE)
  */
-router.delete('/:patientId', authenticateToken, requireRole(['any']), async (req, res) => {
+router.delete('/:patientId', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     const del = await db.query('DELETE FROM patients WHERE id = $1 RETURNING id', [ req.params.patientId ]);
     if (!del.rows.length) return res.status(404).json({ message: 'Patient not found' });

@@ -97,14 +97,19 @@ export const useLocationStore = create<LocationState>()(
           const str = localStorage.getItem(name);
           if (!str) return null;
 
-          const data = JSON.parse(str);
+          try {
+            const data = JSON.parse(str);
 
-          if (Date.now() > data.expiry) {
+            if (Date.now() > data.expiry) {
+              localStorage.removeItem(name);
+              return null;
+            }
+
+            return data.value;
+          } catch {
             localStorage.removeItem(name);
-            return null; // expired → fallback to defaults
+            return null;
           }
-
-          return data.value;
         },
         setItem: (name, value) => {
           localStorage.setItem(

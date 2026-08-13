@@ -12,6 +12,10 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'location_id and date are required' });
     }
 
+    if (isNaN(Date.parse(date))) {
+        return res.status(400).json({ error: 'Invalid date format' });
+    }
+
     try {
         const queryText = `
             SELECT

@@ -21,34 +21,9 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [notes, setNotes] = useState<string>("")
   const [prescription, setPrescription] = useState<string>("")
-  const [referralNeeded, setReferralNeeded] = useState<boolean>(true)
+  const [referralNeeded, setReferralNeeded] = useState<boolean>(false)
   const [referral, setReferral] = useState<Referral | null>(null)
 
-  const loadData = async () => {
-    try {
-      const data: Consultation | null = await getConsultation(patient.visit_id);
-
-      if (!data) {
-          setNotes("");
-          setPrescription("");
-          setReferralNeeded(true);
-          setReferral(null);
-          toast("No data loaded")
-          return;
-      }
-
-      setNotes(data.notes);
-      setPrescription(data.prescription);
-      setReferralNeeded(data.requireReferral);
-      setReferral(data.referral)
-
-      toast.success("Load success")
-
-    } catch (error) {
-        toast.error("Failed to load SEVA data");
-        console.error("Error loading SEVA:", error);
-    }
-  };
 
   const handleSave = async () => {
     const data: Consultation = {
@@ -74,22 +49,57 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       return;
     }
 
+    let cancelled = false;
+
     const fetchPatient = async () => {
       try {
         const data = await getPatient(patient.patient_id!);
-        setPatientInfo(data);
+        if (!cancelled) setPatientInfo(data);
       } catch (err) {
-        toast.error("An error has occured")
-        console.error("Failed to fetch patient:", err);
-        setPatientInfo(null)
+        if (!cancelled) {
+          toast.error("An error has occured")
+          console.error("Failed to fetch patient:", err);
+          setPatientInfo(null)
+        }
       }
     };
 
     fetchPatient();
-  }, [patient]);
+
+    return () => { cancelled = true; };
+  }, [patient.patient_id]);
 
   useEffect(() => {
-    loadData()
+    let cancelled = false;
+
+    const fetchConsultation = async () => {
+      try {
+        const data: Consultation | null = await getConsultation(patient.visit_id);
+        if (cancelled) return;
+
+        if (!data) {
+          setNotes("");
+          setPrescription("");
+          setReferralNeeded(false);
+          setReferral(null);
+          return;
+        }
+
+        setNotes(data.notes);
+        setPrescription(data.prescription);
+        setReferralNeeded(data.requireReferral);
+        setReferral(data.referral);
+      } catch (error) {
+        if (!cancelled) {
+          toast.error("Failed to load consultation data");
+          console.error("Error loading consultation:", error);
+        }
+      }
+    };
+
+    fetchConsultation();
+
+    return () => { cancelled = true; };
   }, [patient.visit_id])
 
   return (

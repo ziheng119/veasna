@@ -4,7 +4,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 
 import { PatientQueue } from "@/components/home/PatientQueue";
 import { PatientForm } from "@/components/home/PatientForm";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
@@ -17,26 +17,41 @@ export default function HomePage() {
 
   const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [queuePatients, setQueuePatients] = useState<QueuedPatient[]>([]);
+  const hasShownLocationToast = useRef(false);
 
   useEffect(() => {
-    if (!location) {
+    if (!location && !hasShownLocationToast.current) {
+      hasShownLocationToast.current = true;
       toast(SET_LOCATION_MESSAGE);
+    }
+    if (location) {
+      hasShownLocationToast.current = false;
     }
   }, [location]);
 
   // API helper functions
   async function refreshAllPatients() {
     if (token && location) {
-      const db_patients = await getPatientsByLocation(location.id, token);
-      setPatients(db_patients);
+      try {
+        const db_patients = await getPatientsByLocation(location.id, token);
+        setPatients(db_patients);
+      } catch (err) {
+        console.error("Failed to fetch patients:", err);
+        toast.error("Failed to load patients");
+      }
     }
   }
 
   async function refreshQueuePatients() {
     if (token && location) {
-      const date = new Date().toISOString().slice(0, 10);
-      const db_patients = await getQueue(location.id, date.toString(), token);
-      setQueuePatients(db_patients);
+      try {
+        const date = new Date().toISOString().slice(0, 10);
+        const db_patients = await getQueue(location.id, date.toString(), token);
+        setQueuePatients(db_patients);
+      } catch (err) {
+        console.error("Failed to fetch queue:", err);
+        toast.error("Failed to load queue");
+      }
     }
   }
 
@@ -44,12 +59,8 @@ export default function HomePage() {
   useEffect(() => {
     if (token && location) {
       refreshAllPatients();
+      refreshQueuePatients();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, token]);
-
-  useEffect(() => {
-    refreshQueuePatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, token]);
 

@@ -45,15 +45,17 @@ function normalizeCredentials(username, password) {
 
 function signUserToken(user) {
   const token = jwt.sign(
-    { id: user.id, username: user.username },
+    { id: user.id, username: user.username, role: user.role || 'user' },
     getJwtSecret(),
-    { expiresIn: '30d' }
+    { expiresIn: '7d' }
   );
 
   return token;
 }
 
-router.post('/register', async (req, res) => {
+const { authenticateToken, requireRole } = require('./auth');
+
+router.post('/register', authenticateToken, requireRole(['admin']), async (req, res) => {
   const parsed = normalizeCredentials(req.body.username, req.body.password);
   if (parsed.error) {
     return res.status(400).json({ message: parsed.error });
@@ -76,7 +78,7 @@ router.post('/register', async (req, res) => {
     const insertQuery = `
       INSERT INTO users (username, password_hash, is_active)
       VALUES ($1, $2, TRUE)
-      RETURNING id, username;
+      RETURNING id, username, role;
     `;
 
     const { rows } = await db.query(insertQuery, [username, passwordHash]);
@@ -101,7 +103,7 @@ router.post('/login', async (req, res) => {
   try {
 
     const userQuery = `
-      SELECT id, username, password_hash, is_active
+      SELECT id, username, password_hash, is_active, role
       FROM users
       WHERE LOWER(username) = LOWER($1)
     `;

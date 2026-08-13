@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { authenticateToken } = require('../routes/auth');
+const { authenticateToken, requireRole } = require('../routes/auth');
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -21,7 +21,7 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     const { name } = req.body;
 
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
     const checkResult = await db.query(

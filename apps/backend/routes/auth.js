@@ -28,7 +28,11 @@ const authenticateToken = (req, res, next) => {
 
 // Middleware to check if user has required role
 const requireRole = (roles) => (req, res, next) => {
-  if (!roles.includes('any') && !roles.includes(req.user.role)) {
+  if (roles.includes('any')) {
+    return next();
+  }
+  const userRole = req.user && req.user.role;
+  if (!userRole || !roles.includes(userRole)) {
     return res.status(403).json({ message: 'Forbidden' });
   }
   next();

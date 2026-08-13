@@ -1,18 +1,28 @@
-const scheduleDailyFetch = (fetchFn: () => void) => {
-  const now = new Date();
-  const next6am = new Date();
-  next6am.setHours(6, 0, 0, 0);
-  if (now >= next6am) {
-    next6am.setDate(next6am.getDate() + 1);
-  }
+export const scheduleDailyFetch = (fetchFn: () => void): (() => void) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  const delay = next6am.getTime() - now.getTime();
+  const scheduleNext = () => {
+    const now = new Date();
+    const next6am = new Date();
+    next6am.setHours(6, 0, 0, 0);
+    if (now >= next6am) {
+      next6am.setDate(next6am.getDate() + 1);
+    }
 
-  setTimeout(() => {
-    fetchFn();
+    const delay = next6am.getTime() - now.getTime();
 
-    setInterval(() => {
+    timeoutId = setTimeout(() => {
       fetchFn();
-    }, 24 * 60 * 60 * 1000); // every 24 hours
-  }, delay);
+      scheduleNext();
+    }, delay);
+  };
+
+  scheduleNext();
+
+  return () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
 };
