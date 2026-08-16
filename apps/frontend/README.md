@@ -126,4 +126,5 @@ Goal: run Veasna on desktops without internet access.
 - `/seva`
 - `/physiotherapy`
 - `/doctors-consultation`
-- `/pharmacy`
+- `/pharmacy` (medication view + dispense)
+- `/pharmacy/dashboard` (edit stock / inventory)
