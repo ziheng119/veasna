@@ -3,7 +3,9 @@
 import { Badge } from "../ui/badge";
 import { useState } from "react";
 import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
+import { X } from "lucide-react";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 
@@ -33,9 +35,10 @@ function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
 
 interface Props {
   patients: QueuedPatient[];
+  onRemovePatient?: (visitId: number) => void;
 }
 
-export function PatientQueue({ patients }: Props) {
+export function PatientQueue({ patients, onRemovePatient }: Props) {
   const [searchQuery, setSearchQuery] = useState("");  
 
   const filteredPatients = patients.filter((patient) => {
@@ -82,23 +85,42 @@ export function PatientQueue({ patients }: Props) {
         ) : (
           sortedPatients.map((patient) => (
             <div
-              key={`${patient.queue_no}-${patient.timestamp}`}
-              className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors bg-card"
+              key={patient.visit_id}
+              className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors bg-card gap-3"
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 min-w-0">
                 <Badge variant="active" className="font-mono min-w-12 justify-center">
                   {patient.queue_no}
                 </Badge>
-                <div>
-                  <div className="font-medium text-foreground">{patient.english_name}</div>
-                  <div className="text-sm text-muted-foreground">
+                <div className="min-w-0">
+                  <div className="font-medium text-foreground truncate">{patient.english_name}</div>
+                  <div className="text-sm text-muted-foreground truncate">
                     {patient.khmer_name}
                   </div>
                 </div>
               </div>
-              <div className="text-right text-sm text-muted-foreground">
-                <div>{patient.age}y, {patient.sex}</div>
-                <div>{patient.timestamp}</div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right text-sm text-muted-foreground">
+                  <div>{patient.age}y, {patient.sex}</div>
+                  <div>{patient.timestamp}</div>
+                </div>
+                {onRemovePatient && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 text-muted-foreground hover:text-destructive"
+                    title="Discharge patient"
+                    onClick={() => {
+                      if (!window.confirm(`Discharge ${patient.english_name || 'this patient'}?`)) {
+                        return;
+                      }
+                      onRemovePatient(patient.visit_id);
+                    }}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))

@@ -7,21 +7,42 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 
 // (location id) -> patients[]
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
-  const { location_id } = req.query;
+  const { location_id, visit_date } = req.query;
 
   if (!location_id) {
     return res.status(400).json({ error: 'location_id is required' });
   }
 
+  if (visit_date && !/^\d{4}-\d{2}-\d{2}$/.test(visit_date)) {
+    return res.status(400).json({ error: 'visit_date must be YYYY-MM-DD' });
+  }
+
   try {
+    const values = [location_id];
+    let visitFilter = '';
+
+    if (visit_date) {
+      values.push(visit_date);
+      visitFilter = `
+        AND EXISTS (
+          SELECT 1
+          FROM visits v
+          WHERE v.patient_id = p.id
+            AND v.location_id = p.location_id
+            AND v.visit_date = $2::date
+        )
+      `;
+    }
+
     const queryText = `
       SELECT p.*, l.name AS location_name
       FROM patients p
       JOIN locations l ON l.id = p.location_id
       WHERE p.location_id = $1
+      ${visitFilter}
       ORDER BY p.english_name ASC
     `;
-    const result = await db.query(queryText, [location_id]);
+    const result = await db.query(queryText, values);
     res.status(200).json(result.rows)
 
   } catch (err) {

@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageCard } from "@/components/shared/PageCard";
 import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
 import { getQueue } from "@/lib/api/queue/getQueue";
+import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
+import { X } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface QueuePatientPickerProps {
-  onSelectPatient: (patient: QueuedPatient) => void;
+  onSelectPatient: (patient: QueuedPatient | null) => void;
   selectedVisitId?: number;
 }
 
@@ -43,20 +47,38 @@ export default function QueuePatientPicker({
   const [patients, setPatients] = useState<QueuedPatient[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const loadQueue = async () => {
-      if (!location || !token) {
-        setPatients([]);
-        return;
-      }
+  const loadQueue = useCallback(async () => {
+    if (!location || !token) {
+      setPatients([]);
+      return;
+    }
 
-      const date = new Date().toISOString().slice(0, 10);
-      const queuePatients = await getQueue(location.id, date, token);
-      setPatients(Array.isArray(queuePatients) ? queuePatients : []);
-    };
-
-    loadQueue();
+    const date = new Date().toISOString().slice(0, 10);
+    const queuePatients = await getQueue(location.id, date, token);
+    setPatients(Array.isArray(queuePatients) ? queuePatients : []);
   }, [location, token]);
+
+  useEffect(() => {
+    loadQueue();
+  }, [loadQueue]);
+
+  const handleRemovePatient = async (patient: QueuedPatient) => {
+    if (!token) return;
+    if (!window.confirm(`Discharge ${patient.english_name || "this patient"}?`)) {
+      return;
+    }
+
+    try {
+      await completeQueueVisit(patient.visit_id, token);
+      if (selectedVisitId === patient.visit_id) {
+        onSelectPatient(null);
+      }
+      await loadQueue();
+    } catch (err) {
+      console.error("Failed to remove patient from queue:", err);
+      toast.error("Failed to remove patient from queue");
+    }
+  };
 
   const sortedPatients = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -100,23 +122,37 @@ export default function QueuePatientPicker({
         sortedPatients.map((patient) => {
           const isSelected = selectedVisitId === patient.visit_id;
           return (
-            <button
+            <div
               key={`${patient.visit_id}-${patient.queue_no}`}
-              type="button"
-              onClick={() => onSelectPatient(patient)}
-              className={`w-full rounded-lg border p-3 text-left transition-colors ${
+              className={`flex items-start gap-2 rounded-lg border p-3 transition-colors ${
                 isSelected
                   ? "border-primary bg-primary/10"
                   : "border-border hover:bg-accent/60"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
-                <span className="text-xs text-muted-foreground">{patient.timestamp}</span>
-              </div>
-              <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
-              <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
-            </button>
+              <button
+                type="button"
+                onClick={() => onSelectPatient(patient)}
+                className="min-w-0 flex-1 text-left"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
+                  <span className="text-xs text-muted-foreground">{patient.timestamp}</span>
+                </div>
+                <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
+                <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                title="Discharge patient"
+                onClick={() => handleRemovePatient(patient)}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
           );
         })
       )}

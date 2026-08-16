@@ -82,7 +82,7 @@ Fetches the current user’s profile.
 ### Patients
 
 **GET** `patients`
-List all patients.
+List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date.
 
 **POST** `patients`
 Create a new patient.
@@ -114,6 +114,16 @@ Fetch a patient plus a lightweight visit list (used by the patient details page)
 
 **PUT** `patient/{id}`
 Update a patient’s demographic details (`english_name`, `khmer_name`, `date_of_birth`, `sex`, `phone_number`, `address`). Sets `last_updated_by` and `last_updated_at`.
+
+---
+
+### Queue
+
+**GET** `queue?location_id={id}&date=YYYY-MM-DD`
+Today’s active queue for a location (visits with `completed_at` unset).
+
+**POST** `queue/{visitId}/complete`
+Remove a visit from the active queue. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
 
 ---
 

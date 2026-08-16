@@ -1,38 +1,48 @@
 import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
 
-// Cache for patients per location
-const cachedPatients: Record<number, PatientInfo[]> = {};
-const cachedETags: Record<number, string> = {};
+// Cache for patients per location (+ optional visit date)
+const cachedPatients: Record<string, PatientInfo[]> = {};
+const cachedETags: Record<string, string> = {};
+
+function cacheKey(locationId: number, visitDate?: string) {
+  return visitDate ? `${locationId}_${visitDate}` : String(locationId);
+}
 
 export function clearPatientsByLocationCache() {
-  Object.keys(cachedPatients).forEach(key => delete cachedPatients[Number(key)]);
-  Object.keys(cachedETags).forEach(key => delete cachedETags[Number(key)]);
+  Object.keys(cachedPatients).forEach(key => delete cachedPatients[key]);
+  Object.keys(cachedETags).forEach(key => delete cachedETags[key]);
 }
 
 export async function getPatientsByLocation(
   locationId: number,
-  token: string
+  token: string,
+  visitDate?: string
 ): Promise<PatientInfo[]> {
+  const key = cacheKey(locationId, visitDate);
+
   try {
     const headers: HeadersInit = {
       'Authorization': `Bearer ${token}`,
     };
 
-    // Add If-None-Match header if we have an ETag for this location
-    if (cachedETags[locationId]) {
-      headers['If-None-Match'] = cachedETags[locationId];
+    if (cachedETags[key]) {
+      headers['If-None-Match'] = cachedETags[key];
     }
 
-    const res = await fetch(`${backend_url}/api/patients?location_id=${locationId}`, {
+    const params = new URLSearchParams({ location_id: String(locationId) });
+    if (visitDate) {
+      params.set('visit_date', visitDate);
+    }
+
+    const res = await fetch(`${backend_url}/api/patients?${params.toString()}`, {
       cache: "no-cache",
       headers,
     });
 
-    if (res.status === 304 && cachedPatients[locationId]) {
-      // Data not modified, return cached
+    if (res.status === 304 && cachedPatients[key]) {
       console.log(`✅ Patients for location ${locationId} not modified, using cache`);
-      return cachedPatients[locationId];
+      return cachedPatients[key];
     }
 
     if (!res.ok) {
@@ -41,19 +51,17 @@ export async function getPatientsByLocation(
 
     const data: PatientInfo[] = await res.json();
 
-    // Update cache and ETag
-    cachedPatients[locationId] = data;
-    cachedETags[locationId] = res.headers.get('ETag') || '';
+    cachedPatients[key] = data;
+    cachedETags[key] = res.headers.get('ETag') || '';
 
     console.log(`✅ GET Patients for location ${locationId} (Success): ${data.length}`);
     return data;
   } catch (err: any) {
     console.error('❌ GET Patients (Error):', err);
 
-    // Fallback to cached data if available
-    if (cachedPatients[locationId]) {
+    if (cachedPatients[key]) {
       console.warn(`⚠️ Returning cached patients for location ${locationId} due to fetch failure.`);
-      return cachedPatients[locationId];
+      return cachedPatients[key];
     }
 
     return [];

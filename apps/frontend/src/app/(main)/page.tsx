@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getQueue } from "@/lib/api/queue/getQueue";
+import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 
 export default function HomePage() {
   const token = useUserStore((state) => state.user?.token);
@@ -55,6 +56,17 @@ export default function HomePage() {
     }
   }
 
+  async function handleRemoveFromQueue(visitId: number) {
+    if (!token) return;
+    try {
+      await completeQueueVisit(visitId, token);
+      await refreshQueuePatients();
+    } catch (err) {
+      console.error("Failed to remove patient from queue:", err);
+      toast.error("Failed to remove patient from queue");
+    }
+  }
+
   // API useEffects
   useEffect(() => {
     if (token && location) {
@@ -69,7 +81,7 @@ export default function HomePage() {
       <main className="w-full">
         <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
           <div className="xl:col-span-4 2xl:col-span-3">
-            <PatientQueue patients={queuePatients} />
+            <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
           </div>
           <div className="xl:col-span-8 2xl:col-span-9">
             <PatientForm

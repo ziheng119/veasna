@@ -1,6 +1,7 @@
 "use client"
 
 import { PlusIcon } from "@/assets/icons";
+import { CrossIcon } from "@/assets/icons/CrossIcon";
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
 import { PatientTable } from "@/components/patient-list/PatientTable";
@@ -15,6 +16,7 @@ import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation"
 import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function PatientListPage() {
 
@@ -25,6 +27,7 @@ export default function PatientListPage() {
 
   const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [visitDate, setVisitDate] = useState<string>("");
 
   useEffect(() => {
     if (!location) {
@@ -35,7 +38,7 @@ export default function PatientListPage() {
   // API helper functions
   async function refreshAllPatients() {
     if (token && location) {
-      const db_patients = await getPatientsByLocation(location.id, token);
+      const db_patients = await getPatientsByLocation(location.id, token, visitDate || undefined);
       setPatients(db_patients);
     }
   }
@@ -46,7 +49,7 @@ export default function PatientListPage() {
       refreshAllPatients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, token])
+  }, [location, token, visitDate])
   
   const filteredPatients: PatientInfo[] = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -99,6 +102,27 @@ export default function PatientListPage() {
           placeholder= "Search for Patient by English Name or Khmer Name"
           onSearchChange={handleSearchChange}
         />
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Input
+            type="date"
+            value={visitDate}
+            onChange={(e) => setVisitDate(e.target.value)}
+            aria-label="Filter by visit date"
+            className="w-auto"
+          />
+          {visitDate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setVisitDate("")}
+              title="Clear date filter"
+            >
+              <CrossIcon className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
 
         <Button
           onClick={handleAddPatient}

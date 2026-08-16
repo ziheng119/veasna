@@ -67,6 +67,7 @@ CREATE TABLE visits (
         ON DELETE SET NULL ON UPDATE CASCADE,
     queue_no VARCHAR(50) NOT NULL,
     visit_date DATE NOT NULL,
+    completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
