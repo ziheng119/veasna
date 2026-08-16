@@ -109,6 +109,12 @@ Update a patient’s info.
 **DELETE** `patients/{id}`
 Delete a patient.
 
+**GET** `patient/{id}`
+Fetch a patient plus a lightweight visit list (used by the patient details page).
+
+**PUT** `patient/{id}`
+Update a patient’s demographic details (`english_name`, `khmer_name`, `date_of_birth`, `sex`, `phone_number`, `address`). Sets `last_updated_by` and `last_updated_at`.
+
 ---
 
 ### Vitals

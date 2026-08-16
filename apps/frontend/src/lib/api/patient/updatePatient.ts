@@ -8,13 +8,22 @@ export async function updatePatient(
   token: string
 ) {
   try {
+    const payload = {
+      english_name: patientData.english_name ?? '',
+      khmer_name: patientData.khmer_name ?? null,
+      date_of_birth: patientData.date_of_birth ?? null,
+      sex: patientData.sex ?? '',
+      phone_number: patientData.phone_number ?? null,
+      address: patientData.address ?? null,
+    };
+
     const res = await fetch(`${backend_url}/api/patient/${patientId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(patientData),
+      body: JSON.stringify(payload),
     });
 
     if (res.status === 404) {
@@ -24,7 +33,7 @@ export async function updatePatient(
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `Failed to update patient: ${res.statusText}`);
+      throw new Error(errorData.error || errorData.message || `Failed to update patient: ${res.statusText}`);
     }
 
     const data = await res.json();
@@ -42,4 +51,3 @@ export async function updatePatient(
     };
   }
 }
-

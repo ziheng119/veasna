@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for presenting complaint per patientId + visitId
 const cachedComplaints: Record<string, PresentingComplaint> = {};
@@ -9,7 +10,12 @@ export async function getPresentingComplaint(patientId: number, visitId: number)
   const cacheKey = `${patientId}_${visitId}`;
 
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this complaint
     if (cachedETags[cacheKey]) {

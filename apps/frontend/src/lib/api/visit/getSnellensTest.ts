@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { VisualAcuity } from "@/lib/types/visualAcuity";
 import formatDate from "@/helper/format_date";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for visual acuity per patientId + visitId
 const cachedVisualAcuity: Record<string, VisualAcuity> = {};
@@ -10,7 +11,12 @@ export async function getVisualAcuity(patientId: number, visitId: number): Promi
   const cacheKey = `${patientId}_${visitId}`;
 
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this record
     if (cachedETags[cacheKey]) {

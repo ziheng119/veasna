@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { Seva } from "@/lib/types/seva";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for SEVA per visitId
 const cachedSeva: Record<number, Seva | null> = {};
@@ -11,7 +12,12 @@ const cachedETags: Record<number, string> = {};
  */
 export async function getSeva(visitId: number): Promise<Seva | null> {
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this visit
     if (cachedETags[visitId]) {

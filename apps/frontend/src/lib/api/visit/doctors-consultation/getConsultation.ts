@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import formatDate from "@/helper/format_date";
 import { Consultation, Referral } from "@/lib/types/consultation";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for consultation per visitId
 const cachedConsultation: Record<number, Consultation | null> = {};
@@ -12,7 +13,12 @@ const cachedETags: Record<number, string> = {};
  */
 export async function getConsultation(visitId: number): Promise<Consultation | null> {
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this visit
     if (cachedETags[visitId]) {

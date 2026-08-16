@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import formatDate from "@/helper/format_date";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for medical history per patientId + visitId
 const cachedHistories: Record<string, MedicalHistory> = {};
@@ -10,7 +11,12 @@ export async function getHistory(patientId: number, visitId: number): Promise<Me
   const cacheKey = `${patientId}_${visitId}`;
 
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this history
     if (cachedETags[cacheKey]) {

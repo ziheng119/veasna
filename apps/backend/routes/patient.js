@@ -1,22 +1,26 @@
- // routes/patient.js
-const express = require('express');
+// routes/patient.js
+const express = require("express");
 const router = express.Router();
-const db = require('../config/db');
-const { authenticateToken, requireRole } = require('../routes/auth');
+const db = require("../config/db");
+const { authenticateToken, requireRole } = require("../routes/auth");
 
 // GET /api/patient/:id - Get patient information with visits list (lightweight)
-router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => {
-  // Support ETag for caching
-  const ifNoneMatch = req.headers['if-none-match'];
-  const { id } = req.params;
+router.get(
+  "/:id",
+  authenticateToken,
+  requireRole(["any"]),
+  async (req, res) => {
+    // Support ETag for caching
+    const ifNoneMatch = req.headers["if-none-match"];
+    const { id } = req.params;
 
-  if (!id) {
-    return res.status(400).json({ error: 'Patient ID is required' });
-  }
+    if (!id) {
+      return res.status(400).json({ error: "Patient ID is required" });
+    }
 
-  try {
-    // Get basic patient information
-    const patientQuery = `
+    try {
+      // Get basic patient information
+      const patientQuery = `
       SELECT 
         p.id,
         p.face_id,
@@ -34,16 +38,16 @@ router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => 
       LEFT JOIN locations l ON p.location_id = l.id
       WHERE p.id = $1
     `;
-    const patientResult = await db.query(patientQuery, [id]);
+      const patientResult = await db.query(patientQuery, [id]);
 
-    if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
-    }
+      if (patientResult.rows.length === 0) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
 
-    const patient = patientResult.rows[0];
+      const patient = patientResult.rows[0];
 
-    // Get visits list (lightweight - just basic info)
-    const visitsQuery = `
+      // Get visits list (lightweight - just basic info)
+      const visitsQuery = `
       SELECT 
         v.id AS visit_id,
         v.queue_no,
@@ -66,43 +70,142 @@ router.get('/:id', authenticateToken, requireRole(['any']), async (req, res) => 
       WHERE v.patient_id = $1
       ORDER BY v.visit_date DESC, v.created_at DESC
     `;
-    const visitsResult = await db.query(visitsQuery, [id]);
+      const visitsResult = await db.query(visitsQuery, [id]);
 
-    const response = {
-      patient: patient,
-      visits: visitsResult.rows
-    };
+      const response = {
+        patient: patient,
+        visits: visitsResult.rows,
+      };
 
-    // Generate ETag from the max of patient and visit timestamps
-    const timestamps = [new Date(patient.last_updated_at).getTime()];
-    for (const v of visitsResult.rows) {
-      if (v.last_updated_at) timestamps.push(new Date(v.last_updated_at).getTime());
+      // Generate ETag from the max of patient and visit timestamps
+      const timestamps = [new Date(patient.last_updated_at).getTime()];
+      for (const v of visitsResult.rows) {
+        if (v.last_updated_at)
+          timestamps.push(new Date(v.last_updated_at).getTime());
+      }
+      const maxUpdated = Math.max(...timestamps);
+      const etag = `"${maxUpdated}"`;
+
+      // Check if client has cached version
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        return res.status(304).end();
+      }
+
+      res.setHeader("ETag", etag);
+      res.status(200).json(response);
+    } catch (err) {
+      console.error("Error fetching patient data:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-    const maxUpdated = Math.max(...timestamps);
-    const etag = `"${maxUpdated}"`;
+  },
+);
 
-    // Check if client has cached version
-    if (ifNoneMatch && ifNoneMatch === etag) {
-      return res.status(304).end();
+// PUT /api/patient/:id - Update patient demographic details
+router.put(
+  "/:id",
+  authenticateToken,
+  requireRole(["any"]),
+  async (req, res) => {
+    const { id } = req.params;
+
+    if (!id || !Number.isInteger(Number(id)) || Number(id) < 1) {
+      return res
+        .status(400)
+        .json({ error: "Patient ID must be a positive integer" });
     }
 
-    res.setHeader('ETag', etag);
-    res.status(200).json(response);
-  } catch (err) {
-    console.error('Error fetching patient data:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+    const {
+      english_name,
+      khmer_name,
+      date_of_birth,
+      sex,
+      phone_number,
+      address,
+    } = req.body;
+    const last_updated_by = req.user && req.user.id;
+
+    if (!english_name) {
+      return res.status(400).json({ error: "English name is required" });
+    }
+    if (!date_of_birth) {
+      return res.status(400).json({ error: "Date of birth is required" });
+    }
+    if (!sex) {
+      return res.status(400).json({ error: "Sex is required" });
+    }
+    if (!last_updated_by) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const updateQuery = `
+      WITH updated AS (
+        UPDATE patients
+        SET
+          english_name = $1,
+          khmer_name = $2,
+          date_of_birth = $3,
+          sex = $4,
+          phone_number = $5,
+          address = $6,
+          last_updated_by = $7,
+          last_updated_at = NOW()
+        WHERE id = $8
+        RETURNING *
+      )
+      SELECT
+        u.id,
+        u.face_id,
+        u.location_id,
+        u.english_name,
+        u.khmer_name,
+        TO_CHAR(u.date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
+        u.sex,
+        u.address,
+        u.phone_number,
+        u.last_updated_at,
+        u.created_at,
+        l.name AS location_name
+      FROM updated u
+      LEFT JOIN locations l ON u.location_id = l.id
+    `;
+
+      const result = await db.query(updateQuery, [
+        english_name,
+        khmer_name || null,
+        date_of_birth,
+        sex,
+        phone_number || null,
+        address || null,
+        last_updated_by,
+        id,
+      ]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+
+      res.status(200).json({ patient: result.rows[0] });
+    } catch (err) {
+      console.error("Error updating patient data:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // GET /api/visit/:id - Get complete visit details
-router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, res) => {
+router.get(
+  "/visit/:id",
+  authenticateToken,
+  requireRole(["any"]),
+  async (req, res) => {
     const { id } = req.params;
-    const ifNoneMatch = req.headers['if-none-match'];
-  
+    const ifNoneMatch = req.headers["if-none-match"];
+
     if (!id) {
-      return res.status(400).json({ error: 'Visit ID is required' });
+      return res.status(400).json({ error: "Visit ID is required" });
     }
-  
+
     try {
       // Get complete visit data
       const visitQuery = `
@@ -182,13 +285,13 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
         WHERE v.id = $1
       `;
       const visitResult = await db.query(visitQuery, [id]);
-  
+
       if (visitResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Visit not found' });
+        return res.status(404).json({ error: "Visit not found" });
       }
-  
+
       const visit = visitResult.rows[0];
-  
+
       // Get painpoints if physiotherapy exists
       let painpoints = [];
       if (visit.physio_id) {
@@ -202,10 +305,12 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
           WHERE physiotherapy_id = $1
           ORDER BY created_at ASC
         `;
-        const painpointsResult = await db.query(painpointsQuery, [visit.physio_id]);
+        const painpointsResult = await db.query(painpointsQuery, [
+          visit.physio_id,
+        ]);
         painpoints = painpointsResult.rows;
       }
-  
+
       // Get referrals for this visit (changed from consultation-based to visit-based)
       let referrals = [];
       const referralQuery = `
@@ -223,7 +328,7 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
       `;
       const referralResult = await db.query(referralQuery, [id]);
       referrals = referralResult.rows;
-  
+
       // Structure the response
       const response = {
         visit_id: visit.visit_id,
@@ -233,79 +338,104 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
         location_name: visit.location_name,
         last_updated_at: visit.visit_last_updated,
         created_at: visit.visit_created_at,
-        
-        vitals: visit.height !== null && visit.height !== undefined ? {
-          height: visit.height,
-          weight: visit.weight,
-          bmi: visit.bmi,
-          below_3rd_percentile: visit.below_3rd_percentile,
-          bp_systolic: visit.bp_systolic,
-          bp_diastolic: visit.bp_diastolic,
-          temperature: visit.temperature,
-          notes: visit.vitals_notes
-        } : null,
-        
-        hef: visit.know_of_hef !== null ? {
-          know_of_hef: visit.know_of_hef,
-          has_hef: visit.has_hef,
-          notes: visit.hef_notes
-        } : null,
-        
-        visual_acuity: visit.left_with_pinhole !== null ? {
-          left_with_pinhole: visit.left_with_pinhole,
-          left_without_pinhole: visit.left_without_pinhole,
-          right_with_pinhole: visit.right_with_pinhole,
-          right_without_pinhole: visit.right_without_pinhole,
-          notes: visit.visual_acuity_notes
-        } : null,
-        
-        presenting_complaint: visit.complaint_history !== null && visit.complaint_history !== undefined ? {
-          history: visit.complaint_history,
-          red_flags: visit.red_flags,
-          systems_review: visit.complaint_systems_review,
-          drug_allergies: visit.drug_allergies
-        } : null,
 
-        history: visit.history_past !== null && visit.history_past !== undefined ? {
-          past: visit.history_past,
-          drug_and_treatment: visit.drug_and_treatment,
-          family: visit.history_family,
-          social: visit.history_social,
-          systems_review: visit.history_systems_review
-        } : null,
-        
-        seva: visit.seva_left_with_pinhole !== null ? {
-          left_with_pinhole_new: visit.seva_left_with_pinhole,
-          left_without_pinhole_new: visit.seva_left_without_pinhole,
-          right_with_pinhole_new: visit.seva_right_with_pinhole,
-          right_without_pinhole_new: visit.seva_right_without_pinhole,
-          diagnosis: visit.seva_diagnosis,
-          date_of_referral: visit.seva_referral_date,
-          notes: visit.seva_notes
-        } : null,
-        
-        physiotherapy: visit.physio_id ? {
-          notes: visit.physio_notes,
-          painpoints: painpoints
-        } : null,
-        
-        consultation: visit.consultation_id ? {
-          notes: visit.consultation_notes,
-          prescription: visit.prescription,
-          require_referral: visit.require_referral
-        } : null,
-        
+        vitals:
+          visit.height !== null && visit.height !== undefined
+            ? {
+                height: visit.height,
+                weight: visit.weight,
+                bmi: visit.bmi,
+                below_3rd_percentile: visit.below_3rd_percentile,
+                bp_systolic: visit.bp_systolic,
+                bp_diastolic: visit.bp_diastolic,
+                temperature: visit.temperature,
+                notes: visit.vitals_notes,
+              }
+            : null,
+
+        hef:
+          visit.know_of_hef !== null
+            ? {
+                know_of_hef: visit.know_of_hef,
+                has_hef: visit.has_hef,
+                notes: visit.hef_notes,
+              }
+            : null,
+
+        visual_acuity:
+          visit.left_with_pinhole !== null
+            ? {
+                left_with_pinhole: visit.left_with_pinhole,
+                left_without_pinhole: visit.left_without_pinhole,
+                right_with_pinhole: visit.right_with_pinhole,
+                right_without_pinhole: visit.right_without_pinhole,
+                notes: visit.visual_acuity_notes,
+              }
+            : null,
+
+        presenting_complaint:
+          visit.complaint_history !== null &&
+          visit.complaint_history !== undefined
+            ? {
+                history: visit.complaint_history,
+                red_flags: visit.red_flags,
+                systems_review: visit.complaint_systems_review,
+                drug_allergies: visit.drug_allergies,
+              }
+            : null,
+
+        history:
+          visit.history_past !== null && visit.history_past !== undefined
+            ? {
+                past: visit.history_past,
+                drug_and_treatment: visit.drug_and_treatment,
+                family: visit.history_family,
+                social: visit.history_social,
+                systems_review: visit.history_systems_review,
+              }
+            : null,
+
+        seva:
+          visit.seva_left_with_pinhole !== null
+            ? {
+                left_with_pinhole_new: visit.seva_left_with_pinhole,
+                left_without_pinhole_new: visit.seva_left_without_pinhole,
+                right_with_pinhole_new: visit.seva_right_with_pinhole,
+                right_without_pinhole_new: visit.seva_right_without_pinhole,
+                diagnosis: visit.seva_diagnosis,
+                date_of_referral: visit.seva_referral_date,
+                notes: visit.seva_notes,
+              }
+            : null,
+
+        physiotherapy: visit.physio_id
+          ? {
+              notes: visit.physio_notes,
+              painpoints: painpoints,
+            }
+          : null,
+
+        consultation: visit.consultation_id
+          ? {
+              notes: visit.consultation_notes,
+              prescription: visit.prescription,
+              require_referral: visit.require_referral,
+            }
+          : null,
+
         // Referrals are now at visit level, not nested in consultation
-        referrals: referrals
+        referrals: referrals,
       };
-  
+
       // Generate ETag based on max timestamp across visit, referrals, and painpoints
       const allTimestamps = [new Date(visit.visit_last_updated).getTime()];
       for (const r of referrals) {
-        if (r.last_updated_at) allTimestamps.push(new Date(r.last_updated_at).getTime());
+        if (r.last_updated_at)
+          allTimestamps.push(new Date(r.last_updated_at).getTime());
       }
       for (const p of painpoints) {
-        if (p.last_updated_at) allTimestamps.push(new Date(p.last_updated_at).getTime());
+        if (p.last_updated_at)
+          allTimestamps.push(new Date(p.last_updated_at).getTime());
       }
       const etag = `"${Math.max(...allTimestamps)}"`;
 
@@ -313,13 +443,14 @@ router.get('/visit/:id', authenticateToken, requireRole(['any']), async (req, re
       if (ifNoneMatch && ifNoneMatch === etag) {
         return res.status(304).end();
       }
-  
-      res.setHeader('ETag', etag);
+
+      res.setHeader("ETag", etag);
       res.status(200).json(response);
     } catch (err) {
-      console.error('Error fetching visit data:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error fetching visit data:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-  });
+  },
+);
 
 module.exports = router;

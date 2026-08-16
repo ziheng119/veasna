@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { Vitals } from "@/lib/types/vitals";
 import formatDate from "@/helper/format_date"; // optional if you want to format dates
+import { useUserStore } from "@/stores/useUserStore";
 
 // Cache for vitals per patientId + visitId
 const cachedVitals: Record<string, Vitals> = {};
@@ -10,7 +11,12 @@ export async function getVitals(patientId: number, visitId: number): Promise<Vit
   const cacheKey = `${patientId}_${visitId}`;
 
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     // Add If-None-Match header if we have an ETag for this record
     if (cachedETags[cacheKey]) {

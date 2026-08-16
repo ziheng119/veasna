@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { Physiotherapy } from "@/lib/types/physiotherapy";
+import { useUserStore } from "@/stores/useUserStore";
 
 const cachedPhysio: Record<number, Physiotherapy | null> = {};
 const cachedETags: Record<number, string> = {};
@@ -10,7 +11,12 @@ const cachedETags: Record<number, string> = {};
  */
 export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy | null> {
   try {
+    const token = useUserStore.getState().user?.token;
     const headers: HeadersInit = {};
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
     if (cachedETags[visitId]) {
       headers["If-None-Match"] = cachedETags[visitId];
