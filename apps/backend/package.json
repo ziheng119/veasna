@@ -8,6 +8,7 @@
     "start": "NODE_ENV=production node server.js",
     "setup": "node scripts/setup.js",
     "seed:admin": "node scripts/seedAdmin.js",
+    "seed:demo": "node scripts/seedDemo.js",
     "test": "jest",
     "format": "prettier --write ."
   },

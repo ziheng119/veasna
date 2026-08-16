@@ -78,7 +78,7 @@ router.post('/register', authenticateToken, requireRole(['admin']), async (req, 
     const insertQuery = `
       INSERT INTO users (username, password_hash, is_active)
       VALUES ($1, $2, TRUE)
-      RETURNING id, username, role;
+      RETURNING id, username;
     `;
 
     const { rows } = await db.query(insertQuery, [username, passwordHash]);
@@ -103,7 +103,7 @@ router.post('/login', async (req, res) => {
   try {
 
     const userQuery = `
-      SELECT id, username, password_hash, is_active, role
+      SELECT id, username, password_hash, is_active
       FROM users
       WHERE LOWER(username) = LOWER($1)
     `;

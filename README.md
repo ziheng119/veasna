@@ -80,6 +80,12 @@ npm run dev:desktop
 npm run setup:backend
 npm run test
 
+# Apply incremental DB migrations (existing databases only)
+psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
+
+# Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
+npm run seed:demo
+
 # Frontend lint
 npm run lint
 ```

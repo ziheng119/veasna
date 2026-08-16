@@ -2,6 +2,17 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
+const { ensurePharmacyNumericStock } = require('../utils/ensureSchema');
+
+router.use(async (req, res, next) => {
+    try {
+        await ensurePharmacyNumericStock();
+        next();
+    } catch (err) {
+        console.error('Pharmacy schema migration failed:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 // GET all drugs for a specific location
 router.get('/', authenticateToken, async (req, res) => {

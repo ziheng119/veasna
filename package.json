@@ -14,7 +14,8 @@
     "start:frontend": "npm run start --workspace apps/frontend",
     "lint": "npm run lint --workspace apps/frontend",
     "test": "npm run test --workspace apps/backend",
-    "setup:backend": "npm run setup --workspace apps/backend"
+    "setup:backend": "npm run setup --workspace apps/backend",
+    "seed:demo": "npm run seed:demo --workspace apps/backend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

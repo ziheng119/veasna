@@ -17,21 +17,25 @@ Express + PostgreSQL API for clinic workflows (registration, queue, triage, visi
 - `routes/*.js`: feature routes (`visits`, `triage`, `pharmacy`, etc.)
 - `config/db.js`: PostgreSQL pool and DB helpers
 - `db_setup.sql`: schema bootstrap script
+- `migrations/`: incremental SQL for existing databases
+- `scripts/`: setup, admin seed, and optional demo seed
 - `API_DOCUMENTATION.md`: endpoint reference
 
 ## Prerequisites
 
-- Node.js 16+
+- Node.js 18+ recommended
 - PostgreSQL 12+
 
 ## Setup
 
+From repo root:
+
 ```bash
-cd apps/backend
 npm install
+cp apps/backend/.env.example apps/backend/.env
 ```
 
-Create a `.env` file in `apps/backend` (or copy from `.env.example`):
+This installs workspace dependencies for all apps. Then fill in `apps/backend/.env`:
 
 ```env
 DB_USER=your_postgres_user
@@ -116,7 +120,7 @@ DB_PORT=5432
 
 ### 4. Initialize the schema
 
-This creates all required tables, indexes, and seed data:
+This creates all required tables and indexes:
 
 ```bash
 psql -U veasna_app -d veasna_screening -f db_setup.sql
@@ -124,7 +128,19 @@ psql -U veasna_app -d veasna_screening -f db_setup.sql
 
 If prompted for a password, enter the one you set in step 2.
 
-### 5. Run the setup script
+Fresh installs can skip the next step — `db_setup.sql` already includes the current schema.
+
+### 5. Apply incremental migrations (existing databases only)
+
+If the database was initialized from an older schema, apply SQL files in `migrations/` in order. Do not re-run `db_setup.sql` on a database that already has data, and do not run these after a fresh `db_setup.sql` (they can reset pharmacy stock to 0).
+
+```bash
+psql -U veasna_app -d veasna_screening -f migrations/001_pharmacy_numeric_stock.sql
+```
+
+If prompted for a password, enter the one you set in step 2.
+
+### 6. Run the setup script
 
 ```bash
 npm run setup
@@ -137,6 +153,22 @@ You can re-run this at any time. To seed just the admin user:
 ```bash
 npm run seed:admin
 ```
+
+### 7. Load demo data (optional)
+
+After the admin user exists, you can load sample locations, patients, today's queue, and pharmacy stock:
+
+```bash
+npm run seed:demo
+```
+
+Equivalent SQL:
+
+```bash
+psql -U veasna_app -d veasna_screening -f scripts/seed_demo.sql
+```
+
+Safe to re-run: existing rows are skipped. Demo locations are Poipet, Mongkol Borey, and Sisophon. Today's queue is seeded for the current date.
 
 ### Troubleshooting
 
@@ -159,7 +191,7 @@ npm run seed:admin
 4. Initialize schema:
    - Open Query Tool on `veasna_screening`
    - Open and execute `apps/backend/db_setup.sql`
-5. Confirm your `.env` matches, then run `npm run setup`.
+5. Confirm your `.env` matches, then run `npm run setup`. Optionally load demo data with `npm run seed:demo`. For an existing (not freshly initialized) database, also run the SQL files in `migrations/` in order.
 
 ## Run
 
@@ -173,11 +205,24 @@ npm start
 
 Server defaults to `http://localhost:3000`.
 
-From monorepo root, equivalent commands are:
+From repo root, equivalent commands are:
 
 ```bash
+# Run backend + frontend together
+npm run dev
+
+# Run the backend only
 npm run dev:backend
+
+# Backend setup/test
 npm run setup:backend
+npm run test
+
+# Apply incremental DB migrations (existing databases only)
+psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
+
+# Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
+npm run seed:demo
 ```
 
 ## Testing and Formatting
@@ -218,4 +263,4 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 - `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
-- The `password_hash` column migration runs once at server startup (idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`).
+- The `password_hash` column and pharmacy `stock_count` migrations run once at server startup (idempotent SQL).

@@ -70,8 +70,8 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
           </td>
           <td className="px-6 py-4">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-foreground w-12">{drug.stock_count}</span>
-              <StockStatusBadge count={drug.stock_count} />
+              <span className="text-sm font-semibold text-foreground w-12">{drug.stock_count ?? 0}</span>
+              <StockStatusBadge count={drug.stock_count ?? 0} />
             </div>
           </td>
           <td className="px-6 py-4">

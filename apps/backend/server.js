@@ -40,7 +40,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Run schema migrations at startup
 const { ensurePasswordColumn } = require('./routes/session');
+const { ensurePharmacyNumericStock } = require('./utils/ensureSchema');
 ensurePasswordColumn().catch(err => console.error('Migration warning:', err.message));
+ensurePharmacyNumericStock().catch(err => console.error('Migration warning:', err.message));
 
 // API routes
 const apiRoutes = require('./routes/api');

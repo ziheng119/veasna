@@ -6,20 +6,26 @@ interface StockCountInputProps {
     onCountChange: (newCount: number) => void;
 }
 
+function toStockCount(value: number | null | undefined): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 export function StockCountInput({ count, onCountChange }: StockCountInputProps) {
-    const [localValue, setLocalValue] = useState(count.toString());
+    const safeCount = toStockCount(count);
+    const [localValue, setLocalValue] = useState(safeCount.toString());
 
     useEffect(() => {
-        setLocalValue(count.toString());
-    }, [count]);
+        setLocalValue(safeCount.toString());
+    }, [safeCount]);
 
     const handleBlur = () => {
         const parsed = parseInt(localValue, 10);
         if (isNaN(parsed) || parsed < 0) {
-            setLocalValue(count.toString());
+            setLocalValue(safeCount.toString());
             return;
         }
-        if (parsed !== count) {
+        if (parsed !== safeCount) {
             onCountChange(parsed);
         }
     };
@@ -31,14 +37,14 @@ export function StockCountInput({ count, onCountChange }: StockCountInputProps) 
     };
 
     const handleIncrement = () => {
-        const newCount = count + 1;
+        const newCount = safeCount + 1;
         setLocalValue(newCount.toString());
         onCountChange(newCount);
     };
 
     const handleDecrement = () => {
-        if (count <= 0) return;
-        const newCount = count - 1;
+        if (safeCount <= 0) return;
+        const newCount = safeCount - 1;
         setLocalValue(newCount.toString());
         onCountChange(newCount);
     };
@@ -47,7 +53,7 @@ export function StockCountInput({ count, onCountChange }: StockCountInputProps) 
         <div className="flex items-center gap-1">
             <button
                 onClick={handleDecrement}
-                disabled={count <= 0}
+                disabled={safeCount <= 0}
                 className="p-1.5 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
                 <Minus className="h-3 w-3" />
