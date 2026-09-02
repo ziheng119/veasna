@@ -3,6 +3,7 @@
 -- =========================================
 
 -- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS dispense_log CASCADE;
 DROP TABLE IF EXISTS referral CASCADE;
 DROP TABLE IF EXISTS painpoints CASCADE;
 DROP TABLE IF EXISTS consultation CASCADE;
@@ -72,6 +73,12 @@ CREATE TABLE visits (
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- One queue number per location per day, ignoring discharged visits.
+-- Kept in sync with migrations/003_queue_number_unique.sql.
+CREATE UNIQUE INDEX visits_active_queue_no_unique
+    ON visits (location_id, visit_date, queue_no)
+    WHERE completed_at IS NULL;
 
 -- Vitals
 CREATE TABLE vitals (
@@ -230,6 +237,21 @@ CREATE TABLE pharmacy (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (location_id, drug_name)
 );
+
+-- Dispense log: an append-only record of what pharmacy stock left the shelf.
+CREATE TABLE dispense_log (
+    id SERIAL PRIMARY KEY,
+    pharmacy_id INT NOT NULL REFERENCES pharmacy(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    visit_id INT REFERENCES visits(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    dispensed_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    dispensed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX dispense_log_pharmacy_idx ON dispense_log (pharmacy_id);
+CREATE INDEX dispense_log_visit_idx ON dispense_log (visit_id);
 
 CREATE OR REPLACE FUNCTION delete_referrals_on_consultation_delete()
 RETURNS TRIGGER AS $$

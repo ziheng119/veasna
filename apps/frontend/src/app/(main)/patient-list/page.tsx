@@ -1,6 +1,5 @@
 "use client"
 
-import { PlusIcon } from "@/assets/icons";
 import { CrossIcon } from "@/assets/icons/CrossIcon";
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
@@ -15,6 +14,7 @@ import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
+import { confirm } from "@/stores/useConfirmStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -71,19 +71,20 @@ export default function PatientListPage() {
     setSearchTerm(term);
   }
   
-  const handleAddPatient = () => {
-    console.log('Add new patient Clicked');
-    router.push('/patient-form?mode=new');
-  };
-
   const handleViewPatient = (patientId: number) => {
     console.log('Viewing Patient, ', patientId);
     router.push(`/patient-details?id=${patientId}`);
   }
 
   const handleDeletePatient = async (patientId: number) => {
-    if (!window.confirm('Are you sure you want to delete this patient?')) return;
     if (!token) return;
+    const ok = await confirm({
+      title: "Delete patient?",
+      description: "This permanently deletes the patient and every visit, vitals and clinical record attached to them.",
+      confirmText: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deletePatient(patientId, token);
       setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
@@ -123,14 +124,6 @@ export default function PatientListPage() {
             </Button>
           )}
         </div>
-
-        <Button
-          onClick={handleAddPatient}
-          size="icon"
-          className="rounded-full"
-        >
-          <PlusIcon className="w-5 h-5"/>
-        </Button>
       </div>
 
       <PatientTable

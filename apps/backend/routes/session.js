@@ -53,9 +53,14 @@ function signUserToken(user) {
   return token;
 }
 
-const { authenticateToken, requireRole } = require('./auth');
+// Registration is open by default so a clinic can onboard staff without an
+// existing account. Set ALLOW_OPEN_REGISTRATION=false to require a valid token
+// (any signed-in user can then create accounts).
+const { authenticateToken } = require('./auth');
+const registrationGuards =
+  process.env.ALLOW_OPEN_REGISTRATION === 'false' ? [authenticateToken] : [];
 
-router.post('/register', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/register', ...registrationGuards, async (req, res) => {
   const parsed = normalizeCredentials(req.body.username, req.body.password);
   if (parsed.error) {
     return res.status(400).json({ message: parsed.error });

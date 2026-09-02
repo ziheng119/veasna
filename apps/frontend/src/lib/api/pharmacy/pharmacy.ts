@@ -16,6 +16,17 @@ export function clearPharmacyCache() {
   Object.keys(cachedETags).forEach(key => delete cachedETags[Number(key)]);
 }
 
+// Invalidate just one location's cached drug list when we know it; otherwise
+// fall back to clearing everything.
+function invalidatePharmacyCache(locationId?: number) {
+  if (locationId === undefined) {
+    clearPharmacyCache();
+    return;
+  }
+  delete cachedDrugs[locationId];
+  delete cachedETags[locationId];
+}
+
 export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
@@ -80,14 +91,42 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     });
     if (!res.ok) throw new Error('Failed to add drug');
 
-    if (drugData.location_id) {
-        delete cachedDrugs[drugData.location_id];
-        delete cachedETags[drugData.location_id];
-    }
+    invalidatePharmacyCache(drugData.location_id);
     return res.json();
 }
 
-export async function updateDrugCount(drugId: number, stockCount: number): Promise<Drug> {
+export async function dispenseDrug(
+    drugId: number,
+    quantity: number,
+    opts: { visitId?: number; locationId?: number } = {}
+): Promise<Drug> {
+    const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
+    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/dispense`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity, visit_id: opts.visitId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+            throw new Error(
+                err.available !== undefined
+                    ? `Only ${err.available} in stock.`
+                    : 'Insufficient stock.'
+            );
+        }
+        throw new Error(err.error || 'Failed to dispense medication');
+    }
+
+    invalidatePharmacyCache(opts.locationId);
+    return res.json();
+}
+
+export async function updateDrugCount(drugId: number, stockCount: number, locationId?: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
@@ -100,11 +139,11 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
     });
     if (!res.ok) throw new Error('Failed to update drug stock');
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    invalidatePharmacyCache(locationId);
     return res.json();
 }
 
-export async function updateDrugName(drugId: number, drugName: string): Promise<Drug> {
+export async function updateDrugName(drugId: number, drugName: string, locationId?: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/name`, {
@@ -117,11 +156,11 @@ export async function updateDrugName(drugId: number, drugName: string): Promise<
     });
     if (!res.ok) throw new Error('Failed to update drug name');
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    invalidatePharmacyCache(locationId);
     return res.json();
 }
 
-export async function deleteDrug(drugId: number): Promise<void> {
+export async function deleteDrug(drugId: number, locationId?: number): Promise<void> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
     const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
@@ -130,5 +169,5 @@ export async function deleteDrug(drugId: number): Promise<void> {
     });
     if (!res.ok) throw new Error('Failed to delete drug');
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    invalidatePharmacyCache(locationId);
 }

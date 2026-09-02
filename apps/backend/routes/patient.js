@@ -329,6 +329,17 @@ router.get(
       const referralResult = await db.query(referralQuery, [id]);
       referrals = referralResult.rows;
 
+      // Medications dispensed against this visit
+      const dispensedResult = await db.query(
+        `SELECT dl.id, dl.quantity, dl.dispensed_at, p.drug_name
+           FROM dispense_log dl
+           JOIN pharmacy p ON p.id = dl.pharmacy_id
+          WHERE dl.visit_id = $1
+          ORDER BY dl.dispensed_at ASC`,
+        [id]
+      );
+      const dispensed = dispensedResult.rows;
+
       // Structure the response
       const response = {
         visit_id: visit.visit_id,
@@ -425,6 +436,8 @@ router.get(
 
         // Referrals are now at visit level, not nested in consultation
         referrals: referrals,
+
+        dispensed: dispensed,
       };
 
       // Generate ETag based on max timestamp across visit, referrals, and painpoints
@@ -436,6 +449,10 @@ router.get(
       for (const p of painpoints) {
         if (p.last_updated_at)
           allTimestamps.push(new Date(p.last_updated_at).getTime());
+      }
+      for (const d of dispensed) {
+        if (d.dispensed_at)
+          allTimestamps.push(new Date(d.dispensed_at).getTime());
       }
       const etag = `"${Math.max(...allTimestamps)}"`;
 

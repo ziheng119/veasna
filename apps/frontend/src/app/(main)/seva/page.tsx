@@ -38,7 +38,7 @@ export default function Seva() {
                   <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
                     <PatientContainer selectedPatient = {selectedPatient}/>
                     <TriageContainer selectedPatient = {selectedPatient}/>
-                    <SevaNotesContainer patient={selectedPatient}/>
+                    <SevaNotesContainer key={selectedPatient.visit_id} patient={selectedPatient}/>
                   </div>
                 )}
               </div>

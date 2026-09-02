@@ -12,14 +12,19 @@ Express + PostgreSQL API for clinic workflows (registration, queue, triage, visi
 
 ## Project Structure
 
-- `server.js`: app entrypoint, middleware, `/api` router, `/health`
-- `routes/api.js`: central router and several legacy inline routes
-- `routes/*.js`: feature routes (`visits`, `triage`, `pharmacy`, etc.)
-- `config/db.js`: PostgreSQL pool and DB helpers
-- `db_setup.sql`: schema bootstrap script
-- `migrations/`: incremental SQL for existing databases
+- `server.js`: app entrypoint, middleware, `/api` router, `/health`, startup migrations
+- `routes/api.js`: mounts the feature routers; also holds the `/api/users` roster endpoints
+- `routes/*.js`: feature routes (`session`, `locations`, `patients`/`patient`, `registration`, `queue`, `visits`, `triage`, `pharmacy`)
+- `config/db.js`: PostgreSQL pool and password helpers
+- `utils/ensureSchema.js`: runs the incremental migrations at boot
+- `db_setup.sql`: full schema for fresh installs
+- `migrations/`: incremental SQL (also auto-applied at startup)
 - `scripts/`: setup, admin seed, and optional demo seed
+- `tests/`: Jest + Supertest suite (runs against a throwaway `veasna_test` DB)
 - `API_DOCUMENTATION.md`: endpoint reference
+
+For the product-level picture (stations, patient journey, data model) see
+[`../../FEATURES.md`](../../FEATURES.md).
 
 ## Prerequisites
 
@@ -47,10 +52,13 @@ DB_PORT=5432
 PORT=3000
 NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin12345
 ```
+
+For LAN/offline deployment options (`CORS_ALLOWED_ORIGINS`, `OFFLINE_MODE`,
+rate-limit ceilings, `ALLOW_OPEN_REGISTRATION`) see
+[LAN / Offline Configuration](#lan--offline-configuration) and `.env.example`.
 
 ## Database Setup (First-Time)
 
@@ -130,15 +138,21 @@ If prompted for a password, enter the one you set in step 2.
 
 Fresh installs can skip the next step — `db_setup.sql` already includes the current schema.
 
-### 5. Apply incremental migrations (existing databases only)
+### 5. Incremental migrations
 
-If the database was initialized from an older schema, apply SQL files in `migrations/` in order. Do not re-run `db_setup.sql` on a database that already has data, and do not run these after a fresh `db_setup.sql` (they can reset pharmacy stock to 0).
+The server applies every file in `migrations/` at startup (idempotent), so a
+**fresh `db_setup.sql` install needs nothing here**. Migration `003` is the
+exception to "best effort": if a pre-existing database already has two active
+visits sharing a queue number it logs the offending rows and the server exits —
+fix the data and restart.
+
+If you are upgrading a database that predates these migrations and want to apply
+them by hand, run them in order (do not re-run `db_setup.sql` on a database with
+data):
 
 ```bash
-psql -U veasna_app -d veasna_screening -f migrations/001_pharmacy_numeric_stock.sql
+for f in migrations/*.sql; do psql -U veasna_app -d veasna_screening -f "$f"; done
 ```
-
-If prompted for a password, enter the one you set in step 2.
 
 ### 6. Run the setup script
 
@@ -216,10 +230,7 @@ npm run dev:backend
 
 # Backend setup/test
 npm run setup:backend
-npm run test
-
-# Apply incremental DB migrations (existing databases only)
-psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
+npm run test        # needs a veasna_test database — see "Testing and Formatting"
 
 # Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
 npm run seed:demo
@@ -227,10 +238,26 @@ npm run seed:demo
 
 ## Testing and Formatting
 
+The test suite runs against a throwaway PostgreSQL database (never your dev DB —
+the harness refuses any database whose name does not contain `test`). Create it
+once:
+
 ```bash
-npm test
+createdb veasna_test
+psql -d veasna_test -f db_setup.sql
+```
+
+Then:
+
+```bash
+npm test        # rebuilds the veasna_test schema, then runs jest
 npm run format
 ```
+
+Override the test DB connection with `TEST_DB_NAME`, `TEST_DB_USER`,
+`TEST_DB_PASSWORD`, `TEST_DB_HOST`, `TEST_DB_PORT` if needed. The suite sets
+`OFFLINE_MODE=true` and a high `AUTH_RATE_LIMIT_MAX` so rate limiting never
+interferes.
 
 ## API Overview
 
@@ -238,29 +265,42 @@ All routes are mounted under `/api`.
 
 Main route groups:
 
-- `/api/auth` (`routes/session.js`)
+- `/api/auth` — register / login (`routes/session.js`)
+- `/api/users` — user roster (`routes/api.js`)
 - `/api/locations`
-- `/api/registration`
+- `/api/patients`, `/api/patient` — patient reads + demographic update
+- `/api/registration` — patient deletion only (creation/updates are `POST /api/visits`)
 - `/api/queue`
-- `/api/visits`
-- `/api/patients`
-- `/api/patient`
-- `/api/pharmacy`
+- `/api/visits` — visit creation + per-visit clinical records
 - `/api/triage`
-- `/api/users` (in `routes/api.js`)
+- `/api/pharmacy` — stock, dispensing, `dispense_log`
 
 For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 ## Authentication Notes
 
-- Register endpoint: `POST /api/auth/register` with `{ username, password }`.
-- Login endpoint: `POST /api/auth/login` with `{ username, password }`.
-- Password must be at least 8 characters.
-- JWT expiry is currently `30d`.
-- All routes require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
+- Register: `POST /api/auth/register` with `{ username, password }` (password ≥ 8 chars). Public unless `ALLOW_OPEN_REGISTRATION=false`.
+- Login: `POST /api/auth/login` with `{ username, password }`.
+- JWT expiry is `7d`.
+- Every `/api` route except `/api/auth/*` requires the `authenticateToken` middleware. There is no role system — `requireRole(['any'])` (the only variant used) just means "any authenticated user".
+
+## LAN / Offline Configuration
+
+- `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins. If unset,
+  the server reflects the request origin, which is what LAN clients need (they
+  reach the app via the host's IP, not `localhost`). Set an explicit list to
+  lock it down.
+- `OFFLINE_MODE=true` — skips the general `/api/` rate limiter (abuse is not the
+  threat model on a trusted private network). The `/api/auth/` limiter still
+  applies.
+- `API_RATE_LIMIT_MAX` (default 1000) / `AUTH_RATE_LIMIT_MAX` (default 100) —
+  per-IP request ceilings per 15-minute window.
+- `ALLOW_OPEN_REGISTRATION` — set to `false` to require a valid token for
+  `POST /api/auth/register` (any signed-in user can then create accounts).
+  Defaults to open.
 
 ## Current Caveats
 
-- `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
+- `express-rate-limit` is keyed by client IP: `/api/` (`API_RATE_LIMIT_MAX`, default 1000 req/15 min, skipped when `OFFLINE_MODE=true`) and `/api/auth/` (`AUTH_RATE_LIMIT_MAX`, default 100 req/15 min, always on).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
-- The `password_hash` column, pharmacy `stock_count`, and visits `completed_at` migrations run once at server startup (idempotent SQL).
+- Migrations in `migrations/` are applied at server startup (idempotent SQL): `password_hash`, pharmacy `stock_count`, visits `completed_at`, the queue-number unique index (003), and `dispense_log` (004). The 003 index is not best-effort — if active visits already share a queue number the server logs the offending rows and exits; resolve them and restart.

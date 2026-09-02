@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster position="top-center" />
+        <ConfirmDialog />
       </body>
     </html>
   );

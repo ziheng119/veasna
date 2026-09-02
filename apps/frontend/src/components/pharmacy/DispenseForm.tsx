@@ -2,15 +2,18 @@
 
 import { useState } from "react"
 import { Drug } from "@/lib/types/drug"
+import { QueuedPatient } from "@/lib/types/patient"
 import { StockStatusBadge } from "./StockStatusBadge"
 
 interface DispenseFormProps {
     drugs: Drug[]
-    onDispense: (drugId: number, quantity: number) => void
+    patients?: QueuedPatient[]
+    onDispense: (drugId: number, quantity: number, visitId?: number) => void
 }
 
-export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
+export function DispenseForm({ drugs, patients = [], onDispense }: DispenseFormProps) {
     const [selectedDrugId, setSelectedDrugId] = useState<number | null>(null)
+    const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null)
     const [quantity, setQuantity] = useState(1)
 
     const selectedDrug = drugs.find(d => d.id === selectedDrugId) ?? null
@@ -19,8 +22,9 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
         e.preventDefault()
         if (!selectedDrugId || quantity <= 0) return
         if (selectedDrug && quantity > selectedDrug.stock_count) return
-        onDispense(selectedDrugId, quantity)
+        onDispense(selectedDrugId, quantity, selectedVisitId ?? undefined)
         setQuantity(1)
+        setSelectedVisitId(null)
     }
 
     const maxQuantity = selectedDrug?.stock_count ?? 0
@@ -44,6 +48,25 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
                     {drugs.map(drug => (
                         <option key={drug.id} value={drug.id} disabled={drug.stock_count === 0}>
                             {drug.drug_name} ({drug.stock_count} in stock)
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div>
+                <label htmlFor="dispense-patient" className="block text-sm font-medium text-foreground mb-1">
+                    Patient <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <select
+                    id="dispense-patient"
+                    value={selectedVisitId ?? ""}
+                    onChange={(e) => setSelectedVisitId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                    <option value="">No patient / stock adjustment</option>
+                    {patients.map(patient => (
+                        <option key={patient.visit_id} value={patient.visit_id}>
+                            {patient.queue_no} — {patient.english_name || patient.khmer_name || "Unknown"}
                         </option>
                     ))}
                 </select>

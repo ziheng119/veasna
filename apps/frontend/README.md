@@ -13,11 +13,18 @@ Next.js desktop/web UI for the Veasna clinical workflow.
 ## Project Structure
 
 - `src/app/(auth)/login`: login route
-- `src/app/(main)/*`: authenticated app pages
-- `src/app/wrappers/AuthWrapper.tsx`: client-side route guard
-- `src/lib/api/*`: backend API calls
-- `src/stores/*`: Zustand stores
+- `src/app/(main)/*`: authenticated app pages (one per station — see `FEATURES.md`)
+- `src/app/wrappers/AuthWrapper.tsx`: client-side route guard (JWT expiry check)
+- `src/app/layout.tsx`: mounts the global `<Toaster>` and `<ConfirmDialog>`
+- `src/lib/api/*`: backend API calls (native `fetch`, small per-resource caches)
+- `src/lib/queueOrder.ts`: shared queue-number comparator
+- `src/stores/*`: Zustand stores — `useUserStore` (session, persisted),
+  `useLocationStore` (location + list, persisted, expires at 6 AM),
+  `useLocationDataStore` (per-location patients/queue/stock),
+  `useConfirmStore` (`confirm()` promise API for `<ConfirmDialog>`)
 - `apps/desktop/main.js`: Electron entrypoint in this monorepo
+
+For the product-level picture see [`../../FEATURES.md`](../../FEATURES.md).
 
 ## Prerequisites
 
@@ -26,14 +33,17 @@ Next.js desktop/web UI for the Veasna clinical workflow.
 
 ## Environment
 
-Create `.env.local` in `apps/frontend` (or copy from `.env.example`):
+No env file is required for the default setup. `src/constants/env_variable.ts`
+resolves the backend URL at runtime in the browser:
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
-```
+1. `NEXT_PUBLIC_BACKEND_URL` if set — an explicit override, baked in at build time.
+2. Otherwise: `<same protocol/host as the page>:<NEXT_PUBLIC_BACKEND_PORT or 3000>`.
 
-`NEXT_PUBLIC_BACKEND_URL` is required by API modules (`src/constants/env_variable.ts`).
-If omitted, frontend now falls back to `http://localhost:3000` in development.
+Option 2 is what LAN clients need — every device loads the app from the host's
+IP and the API runs on that same host, so nothing has to be rebuilt when the
+host's IP changes. Only set `NEXT_PUBLIC_BACKEND_URL` (in `.env.local`) if the
+backend runs on a different host or a non-derivable URL; set
+`NEXT_PUBLIC_BACKEND_PORT` if the backend isn't on `3000`.
 
 ## Install and Run
 

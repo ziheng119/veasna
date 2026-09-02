@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import toast from "react-hot-toast";
 
 interface AddDrugSidebarProps {
   onSubmit: (newDrug: { drug_name: string; stock_count: number }) => void;
@@ -12,7 +13,7 @@ export function AddDrugSidebar({ onSubmit }: AddDrugSidebarProps) {
     e.preventDefault();
 
     if (!drugName.trim()) {
-      alert("Please enter a drug name");
+      toast.error("Please enter a drug name.");
       return;
     }
 

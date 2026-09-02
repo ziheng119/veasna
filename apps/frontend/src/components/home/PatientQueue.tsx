@@ -7,31 +7,9 @@ import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
 import { X } from "lucide-react";
 import { QueuedPatient } from "@/lib/types/patient";
+import { byQueueNumber } from "@/lib/queueOrder";
+import { confirm } from "@/stores/useConfirmStore";
 import { PageCard } from "../shared/PageCard";
-
-function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
-    // Extract the number and parts portion
-    const extractParts = (queueNum: string) => {
-        const match = queueNum.match(/^(\d+)([A-Za-z]?)$/);
-        if (match) {
-            return {
-                number: parseInt(match[1]),
-                letter: match[2] || 'ZZ' // put numbers without letters as last?
-            }
-        }
-        return { number: 999999, letter: queueNum };
-    };
-
-    const partsA = extractParts(a.queue_no);
-    const partsB = extractParts(b.queue_no);
-
-    // Sort by number first
-    if (partsA.number !== partsB.number) {
-        return partsA.number - partsB.number;
-    }
-
-    return partsA.letter.localeCompare(partsB.letter);
-}
 
 interface Props {
   patients: QueuedPatient[];
@@ -57,7 +35,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
     );
   });
 
-  const sortedPatients = [...filteredPatients].sort(sortQueueNumber);
+  const sortedPatients = [...filteredPatients].sort(byQueueNumber);
   const today = new Date().toLocaleDateString();
 
   return (
@@ -111,11 +89,14 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"
                     title="Discharge patient"
-                    onClick={() => {
-                      if (!window.confirm(`Discharge ${patient.english_name || 'this patient'}?`)) {
-                        return;
-                      }
-                      onRemovePatient(patient.visit_id);
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Discharge patient?",
+                        description: `${patient.english_name || "This patient"} will be removed from today's queue.`,
+                        confirmText: "Discharge",
+                        destructive: true,
+                      });
+                      if (ok) onRemovePatient(patient.visit_id);
                     }}
                   >
                     <X className="size-3.5" />

@@ -15,6 +15,7 @@ import { getPatient } from "@/lib/api/patient/getPatients";
 import { getVisit } from "@/lib/api/visit/getVisit";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
+import toast from "react-hot-toast";
 
 interface Visit {
   visit_id: number;
@@ -42,6 +43,8 @@ interface VisitDetails {
   seva?: any;
   physiotherapy?: any;
   consultation?: any;
+  referrals?: any[];
+  dispensed?: any[];
 }
 
 interface PatientData {
@@ -136,10 +139,10 @@ export default function PatientDetailsPage() {
         if (patientData) {
           setPatientData({ ...patientData, patient: result.data.patient });
         }
-        console.log('Patient updated successfully');
+        toast.success("Patient details updated.");
       } else {
         console.error('Failed to update patient:', result.error);
-        alert(`Failed to update patient: ${result.error}`);
+        toast.error(`Failed to update patient: ${result.error}`);
         setEditedPatient(patientData?.patient || null);
       }
     }
@@ -454,7 +457,7 @@ export default function PatientDetailsPage() {
                       <TabsTrigger value="physio" disabled={!visitDetails.physiotherapy}>
                         Physiotherapy
                       </TabsTrigger>
-                      <TabsTrigger value="consult" disabled={!visitDetails.consultation}>
+                      <TabsTrigger value="consult" disabled={!visitDetails.consultation && !(visitDetails.dispensed && visitDetails.dispensed.length > 0)}>
                         Consultation
                       </TabsTrigger>
                     </TabsList>
@@ -550,28 +553,56 @@ export default function PatientDetailsPage() {
 
                     {/* Consultation Tab */}
                     <TabsContent value="consult" className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto">
-                      {visitDetails.consultation ? (
+                      {visitDetails.consultation || (visitDetails.dispensed && visitDetails.dispensed.length > 0) ? (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">Consultation</h4>
-                          <DataField label="Notes" value={visitDetails.consultation.notes} />
-                          <DataField label="Prescription" value={visitDetails.consultation.prescription} />
-                          <DataField 
-                            label="Requires Referral" 
-                            value={visitDetails.consultation.require_referral ? 'Yes' : 'No'} 
-                          />
-                          
-                          {visitDetails.consultation.require_referral && visitDetails.consultation.referrals?.length > 0 && (
+                          {visitDetails.consultation ? (
+                            <>
+                              <DataField label="Notes" value={visitDetails.consultation.notes} />
+                              <DataField label="Prescription" value={visitDetails.consultation.prescription} />
+                              <DataField
+                                label="Requires Referral"
+                                value={visitDetails.consultation.require_referral ? 'Yes' : 'No'}
+                              />
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No consultation recorded for this visit.</p>
+                          )}
+
+                          {visitDetails.dispensed && visitDetails.dispensed.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground mb-3">Medications Dispensed</p>
+                              <div className="space-y-2">
+                                {visitDetails.dispensed.map((d: any) => (
+                                  <div key={d.id} className="flex justify-between bg-muted/40 p-3 rounded-md border border-border text-sm">
+                                    <span className="font-medium">{d.drug_name}</span>
+                                    <span className="text-muted-foreground">
+                                      Qty {d.quantity} · {formatDate(d.dispensed_at)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {visitDetails.referrals && visitDetails.referrals.length > 0 && (
                             <div>
                               <p className="text-sm font-medium text-muted-foreground mb-3">Referrals</p>
                               <div className="space-y-3">
-                                {visitDetails.consultation.referrals.map((referral: any) => (
+                                {visitDetails.referrals.map((referral: any) => (
                                   <div key={referral.id} className="bg-primary/5 p-4 rounded-md border border-primary/20">
                                     <div className="grid grid-cols-2 gap-3">
                                       <DataField label="Referral Date" value={formatDate(referral.referral_date)} />
-                                      <DataField label="Type" value={referral.referral_type} />
+                                      <DataField
+                                        label="Type"
+                                        value={(referral.referral_type || '')
+                                          .split('\n')
+                                          .map((t: string) => t.trim())
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      />
                                       <DataField label="Illness" value={referral.illness} />
                                       <DataField label="Duration" value={referral.duration} />
-                                      <DataField label="Doctor Name" value={referral.doctor_name} />
                                       <div className="col-span-2">
                                         <DataField label="Reason" value={referral.reason} />
                                       </div>
