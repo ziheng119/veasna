@@ -3,6 +3,7 @@
 -- =========================================
 
 -- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS dispense_log CASCADE;
 DROP TABLE IF EXISTS referral CASCADE;
 DROP TABLE IF EXISTS painpoints CASCADE;
 DROP TABLE IF EXISTS consultation CASCADE;

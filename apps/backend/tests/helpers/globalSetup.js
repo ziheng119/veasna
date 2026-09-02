@@ -34,8 +34,12 @@ module.exports = async () => {
   }
 
   try {
-    // db_setup.sql drops and recreates every table — safe here because the
-    // testEnv guard guarantees this is a throwaway database.
+    // Start from a pristine schema every run so the suite never depends on
+    // leftover state (and doesn't rely on db_setup.sql's hand-maintained DROP
+    // list staying complete). Safe because the testEnv guard guarantees this
+    // is a throwaway database.
+    await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+
     const schema = fs.readFileSync(path.join(BACKEND_ROOT, 'db_setup.sql'), 'utf8');
     await client.query(schema);
 
