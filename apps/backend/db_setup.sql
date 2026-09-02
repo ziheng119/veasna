@@ -73,6 +73,12 @@ CREATE TABLE visits (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- One queue number per location per day, ignoring discharged visits.
+-- Kept in sync with migrations/003_queue_number_unique.sql.
+CREATE UNIQUE INDEX visits_active_queue_no_unique
+    ON visits (location_id, visit_date, queue_no)
+    WHERE completed_at IS NULL;
+
 -- Vitals
 CREATE TABLE vitals (
     id SERIAL PRIMARY KEY,

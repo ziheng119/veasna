@@ -200,7 +200,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         if (err && err.code === '23505') {
-            return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
+            if (err.constraint === 'visits_active_queue_no_unique') {
+                return res.status(409).json({ error: 'That queue number is already in use for this location today.' });
+            }
+            if (err.constraint === 'patients_face_id_key') {
+                return res.status(409).json({ error: 'That Face ID is already registered to another patient.' });
+            }
+            return res.status(409).json({ error: 'That record already exists.' });
         }
         console.error('Error in registration transaction:', err);
         res.status(500).json({ error: 'Failed to register patient' });

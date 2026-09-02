@@ -59,10 +59,21 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Run schema migrations at startup
 const { ensurePasswordColumn } = require('./routes/session');
-const { ensurePharmacyNumericStock, ensureVisitsCompleted } = require('./utils/ensureSchema');
+const {
+  ensurePharmacyNumericStock,
+  ensureVisitsCompleted,
+  ensureQueueNumberUnique,
+} = require('./utils/ensureSchema');
 ensurePasswordColumn().catch(err => console.error('Migration warning:', err.message));
 ensurePharmacyNumericStock().catch(err => console.error('Migration warning:', err.message));
 ensureVisitsCompleted().catch(err => console.error('Migration warning:', err.message));
+
+// This one is not best-effort: if we cannot guarantee unique queue numbers,
+// two patients could silently share one. Fail startup rather than run without it.
+ensureQueueNumberUnique().catch(err => {
+  console.error('FATAL: could not enforce queue-number uniqueness.\n' + err.message);
+  if (process.env.NODE_ENV !== 'test') process.exit(1);
+});
 
 // API routes
 const apiRoutes = require('./routes/api');

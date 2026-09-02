@@ -130,6 +130,33 @@ describe('Visit workflow', () => {
     expect(Number(resave.body.left_without_pinhole)).toBe(6);
   });
 
+  test('a duplicate active queue number is rejected, and reusable after discharge', async () => {
+    const queueNo = `D${Date.now() % 100000}`;
+
+    const first = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, queueNo));
+    expect(first.status).toBe(201);
+
+    const clash = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, queueNo));
+    expect(clash.status).toBe(409);
+
+    // discharge the first, then the number is free again
+    await request(app)
+      .post(`/api/queue/${first.body.visit_id}/complete`)
+      .set('Authorization', `Bearer ${token}`);
+
+    const reused = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, queueNo));
+    expect(reused.status).toBe(201);
+  });
+
   test('POST /api/visits requires a token', async () => {
     const res = await request(app)
       .post('/api/visits')
