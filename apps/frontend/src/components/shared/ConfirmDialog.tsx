@@ -30,13 +30,17 @@ export default function ConfirmDialog() {
           )}
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => resolve(false)}>
+          <Button
+            variant="outline"
+            onClick={() => resolve(false)}
+            autoFocus={options?.destructive}
+          >
             {options?.cancelText ?? "Cancel"}
           </Button>
           <Button
             variant={options?.destructive ? "destructive" : "default"}
             onClick={() => resolve(true)}
-            autoFocus
+            autoFocus={!options?.destructive}
           >
             {options?.confirmText ?? "Confirm"}
           </Button>

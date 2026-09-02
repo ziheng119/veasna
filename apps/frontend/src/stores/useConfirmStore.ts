@@ -32,13 +32,15 @@ export const useConfirmStore = create<ConfirmState>((set, get) => ({
 
   resolve: (value) => {
     get()._resolve?.(value);
+    // Keep `options` set so the text doesn't flash blank during the dialog's
+    // close animation; the next confirm() call replaces it.
     set({ open: false, _resolve: null });
   },
 }));
 
 /**
  * Imperative confirm, a drop-in replacement for window.confirm() that returns
- * a Promise. Requires <ConfirmDialog /> to be mounted (see (main)/layout.tsx).
+ * a Promise. Requires <ConfirmDialog /> to be mounted (see app/layout.tsx).
  */
 export function confirm(options: ConfirmOptions): Promise<boolean> {
   return useConfirmStore.getState().confirm(options);
