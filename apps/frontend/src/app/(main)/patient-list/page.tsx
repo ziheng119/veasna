@@ -1,6 +1,5 @@
 "use client"
 
-import { PlusIcon } from "@/assets/icons";
 import { CrossIcon } from "@/assets/icons/CrossIcon";
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
@@ -71,11 +70,6 @@ export default function PatientListPage() {
     setSearchTerm(term);
   }
   
-  const handleAddPatient = () => {
-    console.log('Add new patient Clicked');
-    router.push('/patient-form?mode=new');
-  };
-
   const handleViewPatient = (patientId: number) => {
     console.log('Viewing Patient, ', patientId);
     router.push(`/patient-details?id=${patientId}`);
@@ -123,14 +117,6 @@ export default function PatientListPage() {
             </Button>
           )}
         </div>
-
-        <Button
-          onClick={handleAddPatient}
-          size="icon"
-          className="rounded-full"
-        >
-          <PlusIcon className="w-5 h-5"/>
-        </Button>
       </div>
 
       <PatientTable
