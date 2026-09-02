@@ -25,6 +25,7 @@ export type QueuedPatient = {
 }
 
 export type PatientFormData = {
+    id?: number;
     face_id?: string;
     english_name?: string;
     khmer_name?: string;

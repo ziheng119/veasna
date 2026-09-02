@@ -179,6 +179,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       if (found) {
         setPatientInfo(prev => ({
           ...prev,
+          id: found.id,
           face_id: found.face_id?.toString() ?? "",
           english_name: found.english_name || "",
           khmer_name: found.khmer_name || "",
@@ -331,7 +332,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     value={patientInfo.english_name}
                     aria-invalid={!!errors.english_name}
                     onChange={(e) => {
-                      setPatientInfo(prev => ({ ...prev, english_name: e.target.value }));
+                      // Editing the name means this is no longer the matched
+                      // existing patient — fall back to creating a new record.
+                      setPatientInfo(prev => ({ ...prev, id: undefined, english_name: e.target.value }));
                       clearFieldError("english_name");
                     }}
                     placeholder="Enter English name"
@@ -345,7 +348,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Input
                     id="khmerName"
                     value={patientInfo.khmer_name}
-                    onChange={(e) => setPatientInfo(prev => ({ ...prev, khmer_name: e.target.value }))}
+                    onChange={(e) => setPatientInfo(prev => ({ ...prev, id: undefined, khmer_name: e.target.value }))}
                     placeholder="Enter Khmer name"
                     className="mt-2"
                   />

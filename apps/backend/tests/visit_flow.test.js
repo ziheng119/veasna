@@ -207,6 +207,32 @@ describe('Visit workflow', () => {
     expect(hx.body.past).toBe('asthma');
   });
 
+  test('a second visit with patientInfo.id reuses the patient instead of duplicating', async () => {
+    const first = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, `R${Date.now() % 100000}`));
+    const patientId = first.body.patient_id;
+
+    const payload = visitPayload(locationId, `R${(Date.now() + 1) % 100000}`);
+    payload.patientInfo.id = patientId;
+    payload.patientInfo.phone_number = '+85599999999';
+
+    const second = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload);
+
+    expect(second.status).toBe(201);
+    expect(second.body.patient_id).toBe(patientId);
+
+    const details = await request(app)
+      .get(`/api/patient/${patientId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(details.body.patient.phone_number).toBe('+85599999999');
+    expect(details.body.visits.length).toBeGreaterThanOrEqual(2);
+  });
+
   test('POST /api/visits requires a token', async () => {
     const res = await request(app)
       .post('/api/visits')
