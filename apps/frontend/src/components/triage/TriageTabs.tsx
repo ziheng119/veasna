@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +9,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save } from "lucide-react";
 import toast from "react-hot-toast";
-import { saveVisualAcuity,savePresentingComplaint, saveMedicalHistory} from "@/lib/api/triage/triageService";   
+import { saveVisualAcuity,savePresentingComplaint, saveMedicalHistory, loadTriage} from "@/lib/api/triage/triageService";
 import { VisualAcuity } from "@/lib/types/visualAcuity";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
+import Loading from "@/components/shared/Loading";
 
 interface TriageTabsProps {
     visit_id: number;
+    patient_id: number;
 }
 
-export function TriageTabs({ visit_id }: TriageTabsProps) {
+const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+
+export function TriageTabs({ visit_id, patient_id }: TriageTabsProps) {
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingExisting, setIsLoadingExisting] = useState(true);
 
     const [visualAcuity, setVisualAcuity] = useState<VisualAcuity> ({
         left_with_pinhole: "",
@@ -44,6 +49,53 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
         social: "",
         systems_review: ""
     });
+
+    useEffect(() => {
+        let cancelled = false;
+        setIsLoadingExisting(true);
+
+        loadTriage(patient_id, visit_id)
+            .then(({ visualAcuity: va, presentingComplaint: pc, medicalHistory: hx }) => {
+                if (cancelled) return;
+                if (va) {
+                    setVisualAcuity({
+                        left_with_pinhole: str(va.left_with_pinhole),
+                        left_without_pinhole: str(va.left_without_pinhole),
+                        right_with_pinhole: str(va.right_with_pinhole),
+                        right_without_pinhole: str(va.right_without_pinhole),
+                        notes: str(va.notes),
+                    });
+                }
+                if (pc) {
+                    setPresentingComplaint({
+                        history: str(pc.history),
+                        red_flags: str(pc.red_flags),
+                        systems_review: str(pc.systems_review),
+                        drug_allergies: str(pc.drug_allergies),
+                    });
+                }
+                if (hx) {
+                    setMedicalHistory({
+                        past: str(hx.past),
+                        drug_and_treatment: str(hx.drug_and_treatment),
+                        family: str(hx.family),
+                        social: str(hx.social),
+                        systems_review: str(hx.systems_review),
+                    });
+                }
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    console.error("Failed to load existing triage data:", err);
+                    toast.error("Could not load existing triage data.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoadingExisting(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [patient_id, visit_id]);
 
     const handleSaveVisualAcuity = async () => {
         setIsLoading(true);
@@ -74,6 +126,10 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
             error: (err) => err.message,
         }).finally(() => setIsLoading(false));
     };
+
+    if (isLoadingExisting) {
+        return <Loading />;
+    }
 
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">

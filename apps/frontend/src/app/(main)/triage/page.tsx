@@ -45,7 +45,11 @@ export default function Traige() {
                   <PatientDetails patient={selectedPatient} />
                 </PageCard>
                 <div className="xl:col-span-8">
-                  <TriageTabs visit_id={selectedPatient.visit_id}/>
+                  <TriageTabs
+                    key={selectedPatient.visit_id}
+                    visit_id={selectedPatient.visit_id}
+                    patient_id={selectedPatient.patient_id}
+                  />
                 </div>
               </div>
             )}

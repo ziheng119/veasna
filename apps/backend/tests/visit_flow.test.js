@@ -157,6 +157,56 @@ describe('Visit workflow', () => {
     expect(reused.status).toBe(201);
   });
 
+  test('triage presenting-complaint and history save and read back for prefill', async () => {
+    const queueNo = `P${Date.now() % 100000}`;
+    const created = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, queueNo));
+    const { visit_id: visitId, patient_id: patientId } = created.body;
+
+    // nothing saved yet -> 404 (frontend treats this as "blank form")
+    const empty = await request(app)
+      .get(`/api/visits/presenting-complaint/${patientId}/${visitId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(empty.status).toBe(404);
+
+    await request(app)
+      .post('/api/triage/presenting-complaint')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        visit_id: visitId,
+        history: 'cough 3 days',
+        red_flags: 'none',
+        systems_review: 'unremarkable',
+        drug_allergies: 'penicillin',
+      });
+    await request(app)
+      .post('/api/triage/history')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        visit_id: visitId,
+        past: 'asthma',
+        drug_and_treatment: 'salbutamol',
+        family: 'nil',
+        social: 'non-smoker',
+        systems_review: 'nil',
+      });
+
+    const pc = await request(app)
+      .get(`/api/visits/presenting-complaint/${patientId}/${visitId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(pc.status).toBe(200);
+    expect(pc.body.history).toBe('cough 3 days');
+    expect(pc.body.drug_allergies).toBe('penicillin');
+
+    const hx = await request(app)
+      .get(`/api/visits/history/${patientId}/${visitId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(hx.status).toBe(200);
+    expect(hx.body.past).toBe('asthma');
+  });
+
   test('POST /api/visits requires a token', async () => {
     const res = await request(app)
       .post('/api/visits')

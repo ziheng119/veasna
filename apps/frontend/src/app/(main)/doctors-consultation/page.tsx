@@ -37,7 +37,7 @@ export default function DoctorsConsultation() {
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
               <PatientContainer selectedPatient = {selectedPatient}/>
               <TriageContainer selectedPatient = {selectedPatient}/>
-              <DoctorsNotesContainer patient={selectedPatient} />
+              <DoctorsNotesContainer key={selectedPatient.visit_id} patient={selectedPatient} />
             </div>
           )}
         </div>
