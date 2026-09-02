@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
-const { ensurePharmacyNumericStock } = require('../utils/ensureSchema');
+const { ensurePharmacyNumericStock, ensureDispenseLog } = require('../utils/ensureSchema');
 
 router.use(async (req, res, next) => {
     try {
         await ensurePharmacyNumericStock();
+        await ensureDispenseLog();
         next();
     } catch (err) {
         console.error('Pharmacy schema migration failed:', err);
@@ -152,6 +153,71 @@ router.patch('/:drugId/name', authenticateToken, async (req, res) => {
             return res.status(409).json({ error: 'A drug with this name already exists at this location.' });
         }
         console.error('Error updating drug name:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// POST dispense: atomically decrement stock and record it.
+// Unlike PATCH /:drugId (absolute overwrite), this is safe under concurrent
+// pharmacists — the decrement and the guard happen in one statement.
+router.post('/:drugId/dispense', authenticateToken, async (req, res) => {
+    const drugId = Number(req.params.drugId);
+    const quantity = Number(req.body.quantity);
+    const visitId = req.body.visit_id === undefined || req.body.visit_id === null
+        ? null
+        : Number(req.body.visit_id);
+    const dispensedBy = req.user.id;
+
+    if (!Number.isInteger(drugId) || drugId < 1) {
+        return res.status(400).json({ error: 'Invalid drug id' });
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+        return res.status(400).json({ error: 'quantity must be a positive integer' });
+    }
+    if (visitId !== null && (!Number.isInteger(visitId) || visitId < 1)) {
+        return res.status(400).json({ error: 'visit_id must be a positive integer' });
+    }
+
+    try {
+        // Cheap pre-check so "no such drug" and "not enough stock" give
+        // distinct messages (the CTE below can't tell them apart).
+        const existing = await db.query('SELECT stock_count FROM pharmacy WHERE id = $1', [drugId]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Drug not found' });
+        }
+
+        const { rows } = await db.query(
+            `
+            WITH upd AS (
+                UPDATE pharmacy
+                   SET stock_count = stock_count - $1,
+                       last_updated_at = NOW(),
+                       last_updated_by = $2
+                 WHERE id = $3 AND stock_count >= $1
+                RETURNING *
+            ), logged AS (
+                INSERT INTO dispense_log (pharmacy_id, visit_id, quantity, dispensed_by)
+                SELECT id, $4, $1, $2 FROM upd
+                RETURNING id
+            )
+            SELECT * FROM upd
+            `,
+            [quantity, dispensedBy, drugId, visitId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(409).json({
+                error: 'Insufficient stock',
+                available: existing.rows[0].stock_count,
+            });
+        }
+
+        res.status(200).json(rows[0]);
+    } catch (err) {
+        if (err.code === '23503') {
+            return res.status(400).json({ error: 'Unknown visit_id' });
+        }
+        console.error('Error dispensing drug:', err);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

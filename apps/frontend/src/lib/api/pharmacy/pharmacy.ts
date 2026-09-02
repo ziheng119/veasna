@@ -87,6 +87,42 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     return res.json();
 }
 
+export async function dispenseDrug(
+    drugId: number,
+    quantity: number,
+    opts: { visitId?: number; locationId?: number } = {}
+): Promise<Drug> {
+    const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
+    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/dispense`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity, visit_id: opts.visitId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+            throw new Error(
+                err.available !== undefined
+                    ? `Only ${err.available} in stock.`
+                    : 'Insufficient stock.'
+            );
+        }
+        throw new Error(err.error || 'Failed to dispense medication');
+    }
+
+    if (opts.locationId !== undefined) {
+        delete cachedDrugs[opts.locationId];
+        delete cachedETags[opts.locationId];
+    } else {
+        clearPharmacyCache();
+    }
+    return res.json();
+}
+
 export async function updateDrugCount(drugId: number, stockCount: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");

@@ -297,4 +297,4 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 - `express-rate-limit` is keyed by client IP: `/api/` (`API_RATE_LIMIT_MAX`, default 1000 req/15 min, skipped when `OFFLINE_MODE=true`) and `/api/auth/` (`AUTH_RATE_LIMIT_MAX`, default 100 req/15 min, always on).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
-- The `password_hash` column, pharmacy `stock_count`, and visits `completed_at` migrations run once at server startup (idempotent SQL).
+- Migrations in `migrations/` are applied at server startup (idempotent SQL): `password_hash`, pharmacy `stock_count`, visits `completed_at`, the queue-number unique index (003), and `dispense_log` (004). The 003 index is not best-effort — if active visits already share a queue number the server logs the offending rows and exits; resolve them and restart.

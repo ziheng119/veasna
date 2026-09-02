@@ -5,6 +5,7 @@ const db = require('../config/db');
 let ensurePharmacyNumericStockPromise = null;
 let ensureVisitsCompletedPromise = null;
 let ensureQueueNumberUniquePromise = null;
+let ensureDispenseLogPromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -42,8 +43,19 @@ function ensureQueueNumberUnique() {
   return ensureQueueNumberUniquePromise;
 }
 
+function ensureDispenseLog() {
+  if (!ensureDispenseLogPromise) {
+    ensureDispenseLogPromise = runMigration('004_dispense_log.sql').catch((err) => {
+      ensureDispenseLogPromise = null;
+      throw err;
+    });
+  }
+  return ensureDispenseLogPromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
   ensureQueueNumberUnique,
+  ensureDispenseLog,
 };

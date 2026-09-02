@@ -63,10 +63,12 @@ const {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
   ensureQueueNumberUnique,
+  ensureDispenseLog,
 } = require('./utils/ensureSchema');
 ensurePasswordColumn().catch(err => console.error('Migration warning:', err.message));
 ensurePharmacyNumericStock().catch(err => console.error('Migration warning:', err.message));
 ensureVisitsCompleted().catch(err => console.error('Migration warning:', err.message));
+ensureDispenseLog().catch(err => console.error('Migration warning:', err.message));
 
 // This one is not best-effort: if we cannot guarantee unique queue numbers,
 // two patients could silently share one. Fail startup rather than run without it.
