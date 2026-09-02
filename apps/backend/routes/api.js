@@ -50,7 +50,7 @@ router.get('/users', authenticateToken, async (req, res) => {
 router.post(
   '/users',
   authenticateToken,
-  requireRole(['admin']),
+  requireRole(['any']),
   [
     body('username')
       .isLength({ min: 2 })
@@ -116,7 +116,7 @@ router.post(
 router.patch(
   '/users/deactivate',
   authenticateToken,
-  requireRole(['admin']),
+  requireRole(['any']),
   [
     body('username')
       .isLength({ min: 2 })
@@ -359,7 +359,7 @@ router.put('/patients/:id', [
 });
 
 // Delete patient
-router.delete('/patients/:id', [authenticateToken, requireRole(['admin'])], async (req, res) => {
+router.delete('/patients/:id', [authenticateToken, requireRole(['any'])], async (req, res) => {
   try {
     const { rows } = await db.query('DELETE FROM patients WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Patient not found' });

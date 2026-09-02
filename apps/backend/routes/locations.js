@@ -21,7 +21,7 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
   try {
     const { name } = req.body;
 
@@ -46,7 +46,7 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
   }
 });
 
-router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole(['any']), async (req, res) => {
   try {
     const { id } = req.params;
     const checkResult = await db.query(

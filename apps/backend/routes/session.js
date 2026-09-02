@@ -53,9 +53,7 @@ function signUserToken(user) {
   return token;
 }
 
-const { authenticateToken, requireRole } = require('./auth');
-
-router.post('/register', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/register', async (req, res) => {
   const parsed = normalizeCredentials(req.body.username, req.body.password);
   if (parsed.error) {
     return res.status(400).json({ message: parsed.error });
