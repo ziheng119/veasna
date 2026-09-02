@@ -42,6 +42,7 @@ interface VisitDetails {
   seva?: any;
   physiotherapy?: any;
   consultation?: any;
+  referrals?: any[];
 }
 
 interface PatientData {
@@ -560,18 +561,24 @@ export default function PatientDetailsPage() {
                             value={visitDetails.consultation.require_referral ? 'Yes' : 'No'} 
                           />
                           
-                          {visitDetails.consultation.require_referral && visitDetails.consultation.referrals?.length > 0 && (
+                          {visitDetails.referrals && visitDetails.referrals.length > 0 && (
                             <div>
                               <p className="text-sm font-medium text-muted-foreground mb-3">Referrals</p>
                               <div className="space-y-3">
-                                {visitDetails.consultation.referrals.map((referral: any) => (
+                                {visitDetails.referrals.map((referral: any) => (
                                   <div key={referral.id} className="bg-primary/5 p-4 rounded-md border border-primary/20">
                                     <div className="grid grid-cols-2 gap-3">
                                       <DataField label="Referral Date" value={formatDate(referral.referral_date)} />
-                                      <DataField label="Type" value={referral.referral_type} />
+                                      <DataField
+                                        label="Type"
+                                        value={(referral.referral_type || '')
+                                          .split('\n')
+                                          .map((t: string) => t.trim())
+                                          .filter(Boolean)
+                                          .join(', ')}
+                                      />
                                       <DataField label="Illness" value={referral.illness} />
                                       <DataField label="Duration" value={referral.duration} />
-                                      <DataField label="Doctor Name" value={referral.doctor_name} />
                                       <div className="col-span-2">
                                         <DataField label="Reason" value={referral.reason} />
                                       </div>

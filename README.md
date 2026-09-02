@@ -40,14 +40,14 @@ DB_PORT=5432
 PORT=3000
 NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
 ```
 
-Frontend env (`apps/frontend/.env.local`):
+For LAN/offline deployment, also set `OFFLINE_MODE=true` (and optionally
+`CORS_ALLOWED_ORIGINS`) — see `apps/backend/.env.example` and the backend README.
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
-```
+Frontend env (`apps/frontend/.env.local`): none required. The app derives the
+backend URL from the page's host at runtime; set `NEXT_PUBLIC_BACKEND_URL` only
+for non-standard setups (see `apps/frontend/README.md`).
 
 Optional desktop env (`apps/desktop/.env`):
 
@@ -59,7 +59,6 @@ You can bootstrap from examples:
 
 ```bash
 cp apps/backend/.env.example apps/backend/.env
-cp apps/frontend/.env.example apps/frontend/.env.local
 cp apps/desktop/.env.example apps/desktop/.env
 ```
 
