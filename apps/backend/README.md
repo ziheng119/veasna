@@ -257,26 +257,24 @@ All routes are mounted under `/api`.
 
 Main route groups:
 
-- `/api/auth` (`routes/session.js`)
+- `/api/auth` — register / login (`routes/session.js`)
+- `/api/users` — user roster (`routes/api.js`)
 - `/api/locations`
-- `/api/registration`
+- `/api/patients`, `/api/patient` — patient reads + demographic update
+- `/api/registration` — patient deletion only (creation/updates are `POST /api/visits`)
 - `/api/queue`
-- `/api/visits`
-- `/api/patients`
-- `/api/patient`
-- `/api/pharmacy`
+- `/api/visits` — visit creation + per-visit clinical records
 - `/api/triage`
-- `/api/users` (in `routes/api.js`)
+- `/api/pharmacy` — stock, dispensing, `dispense_log`
 
 For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 ## Authentication Notes
 
-- Register endpoint: `POST /api/auth/register` with `{ username, password }`.
-- Login endpoint: `POST /api/auth/login` with `{ username, password }`.
-- Password must be at least 8 characters.
-- JWT expiry is currently `30d`.
-- All routes require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
+- Register: `POST /api/auth/register` with `{ username, password }` (password ≥ 8 chars). Public unless `ALLOW_OPEN_REGISTRATION=false`.
+- Login: `POST /api/auth/login` with `{ username, password }`.
+- JWT expiry is `7d`.
+- Every `/api` route except `/api/auth/*` requires the `authenticateToken` middleware. There is no role system — `requireRole(['any'])` (the only variant used) just means "any authenticated user".
 
 ## LAN / Offline Configuration
 
