@@ -13,11 +13,18 @@ Next.js desktop/web UI for the Veasna clinical workflow.
 ## Project Structure
 
 - `src/app/(auth)/login`: login route
-- `src/app/(main)/*`: authenticated app pages
-- `src/app/wrappers/AuthWrapper.tsx`: client-side route guard
-- `src/lib/api/*`: backend API calls
-- `src/stores/*`: Zustand stores
+- `src/app/(main)/*`: authenticated app pages (one per station — see `FEATURES.md`)
+- `src/app/wrappers/AuthWrapper.tsx`: client-side route guard (JWT expiry check)
+- `src/app/layout.tsx`: mounts the global `<Toaster>` and `<ConfirmDialog>`
+- `src/lib/api/*`: backend API calls (native `fetch`, small per-resource caches)
+- `src/lib/queueOrder.ts`: shared queue-number comparator
+- `src/stores/*`: Zustand stores — `useUserStore` (session, persisted),
+  `useLocationStore` (location + list, persisted, expires at 6 AM),
+  `useLocationDataStore` (per-location patients/queue/stock),
+  `useConfirmStore` (`confirm()` promise API for `<ConfirmDialog>`)
 - `apps/desktop/main.js`: Electron entrypoint in this monorepo
+
+For the product-level picture see [`../../FEATURES.md`](../../FEATURES.md).
 
 ## Prerequisites
 

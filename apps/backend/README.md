@@ -12,14 +12,19 @@ Express + PostgreSQL API for clinic workflows (registration, queue, triage, visi
 
 ## Project Structure
 
-- `server.js`: app entrypoint, middleware, `/api` router, `/health`
-- `routes/api.js`: central router and several legacy inline routes
-- `routes/*.js`: feature routes (`visits`, `triage`, `pharmacy`, etc.)
-- `config/db.js`: PostgreSQL pool and DB helpers
-- `db_setup.sql`: schema bootstrap script
-- `migrations/`: incremental SQL for existing databases
+- `server.js`: app entrypoint, middleware, `/api` router, `/health`, startup migrations
+- `routes/api.js`: mounts the feature routers; also holds the `/api/users` roster endpoints
+- `routes/*.js`: feature routes (`session`, `locations`, `patients`/`patient`, `registration`, `queue`, `visits`, `triage`, `pharmacy`)
+- `config/db.js`: PostgreSQL pool and password helpers
+- `utils/ensureSchema.js`: runs the incremental migrations at boot
+- `db_setup.sql`: full schema for fresh installs
+- `migrations/`: incremental SQL (also auto-applied at startup)
 - `scripts/`: setup, admin seed, and optional demo seed
+- `tests/`: Jest + Supertest suite (runs against a throwaway `veasna_test` DB)
 - `API_DOCUMENTATION.md`: endpoint reference
+
+For the product-level picture (stations, patient journey, data model) see
+[`../../FEATURES.md`](../../FEATURES.md).
 
 ## Prerequisites
 
@@ -133,15 +138,21 @@ If prompted for a password, enter the one you set in step 2.
 
 Fresh installs can skip the next step — `db_setup.sql` already includes the current schema.
 
-### 5. Apply incremental migrations (existing databases only)
+### 5. Incremental migrations
 
-If the database was initialized from an older schema, apply SQL files in `migrations/` in order. Do not re-run `db_setup.sql` on a database that already has data, and do not run these after a fresh `db_setup.sql` (they can reset pharmacy stock to 0).
+The server applies every file in `migrations/` at startup (idempotent), so a
+**fresh `db_setup.sql` install needs nothing here**. Migration `003` is the
+exception to "best effort": if a pre-existing database already has two active
+visits sharing a queue number it logs the offending rows and the server exits —
+fix the data and restart.
+
+If you are upgrading a database that predates these migrations and want to apply
+them by hand, run them in order (do not re-run `db_setup.sql` on a database with
+data):
 
 ```bash
-psql -U veasna_app -d veasna_screening -f migrations/001_pharmacy_numeric_stock.sql
+for f in migrations/*.sql; do psql -U veasna_app -d veasna_screening -f "$f"; done
 ```
-
-If prompted for a password, enter the one you set in step 2.
 
 ### 6. Run the setup script
 
@@ -219,10 +230,7 @@ npm run dev:backend
 
 # Backend setup/test
 npm run setup:backend
-npm run test
-
-# Apply incremental DB migrations (existing databases only)
-psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
+npm run test        # needs a veasna_test database — see "Testing and Formatting"
 
 # Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
 npm run seed:demo
