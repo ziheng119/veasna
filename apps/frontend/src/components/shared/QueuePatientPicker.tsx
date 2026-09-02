@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageCard } from "@/components/shared/PageCard";
 import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
+import { byQueueNumber } from "@/lib/queueOrder";
 import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -17,24 +18,6 @@ import toast from "react-hot-toast";
 interface QueuePatientPickerProps {
   onSelectPatient: (patient: QueuedPatient | null) => void;
   selectedVisitId?: number;
-}
-
-function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
-  const extractParts = (queueNum: string) => {
-    const match = queueNum.match(/^(\d+)([A-Za-z]?)$/);
-    if (match) {
-      return {
-        number: Number.parseInt(match[1], 10),
-        letter: match[2] || "ZZ",
-      };
-    }
-    return { number: Number.MAX_SAFE_INTEGER, letter: queueNum };
-  };
-
-  const partsA = extractParts(a.queue_no);
-  const partsB = extractParts(b.queue_no);
-  if (partsA.number !== partsB.number) return partsA.number - partsB.number;
-  return partsA.letter.localeCompare(partsB.letter);
 }
 
 export default function QueuePatientPicker({
@@ -93,7 +76,7 @@ export default function QueuePatientPicker({
         queueNo.includes(query)
       );
     });
-    return [...filtered].sort(sortQueueNumber);
+    return [...filtered].sort(byQueueNumber);
   }, [patients, searchQuery]);
 
   return (

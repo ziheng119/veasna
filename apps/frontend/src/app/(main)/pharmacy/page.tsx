@@ -54,7 +54,7 @@ export default function Pharmacy() {
     useEffect(() => {
       fetchData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location]);
+    }, [location, token]);
 
     const handleDispense = async (drugId: number, quantity: number, visitId?: number) => {
       const drug = drugs.find(d => d.id === drugId);

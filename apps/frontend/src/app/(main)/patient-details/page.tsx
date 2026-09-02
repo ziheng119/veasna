@@ -576,7 +576,7 @@ export default function PatientDetailsPage() {
                                   <div key={d.id} className="flex justify-between bg-muted/40 p-3 rounded-md border border-border text-sm">
                                     <span className="font-medium">{d.drug_name}</span>
                                     <span className="text-muted-foreground">
-                                      {d.quantity} · {formatDate(d.dispensed_at)}
+                                      Qty {d.quantity} · {formatDate(d.dispensed_at)}
                                     </span>
                                   </div>
                                 ))}
