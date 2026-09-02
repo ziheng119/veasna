@@ -47,10 +47,13 @@ DB_PORT=5432
 PORT=3000
 NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin12345
 ```
+
+For LAN/offline deployment options (`CORS_ALLOWED_ORIGINS`, `OFFLINE_MODE`,
+rate-limit ceilings, `ALLOW_OPEN_REGISTRATION`) see
+[LAN / Offline Configuration](#lan--offline-configuration) and `.env.example`.
 
 ## Database Setup (First-Time)
 
@@ -227,10 +230,26 @@ npm run seed:demo
 
 ## Testing and Formatting
 
+The test suite runs against a throwaway PostgreSQL database (never your dev DB —
+the harness refuses any database whose name does not contain `test`). Create it
+once:
+
 ```bash
-npm test
+createdb veasna_test
+psql -d veasna_test -f db_setup.sql
+```
+
+Then:
+
+```bash
+npm test        # rebuilds the veasna_test schema, then runs jest
 npm run format
 ```
+
+Override the test DB connection with `TEST_DB_NAME`, `TEST_DB_USER`,
+`TEST_DB_PASSWORD`, `TEST_DB_HOST`, `TEST_DB_PORT` if needed. The suite sets
+`OFFLINE_MODE=true` and a high `AUTH_RATE_LIMIT_MAX` so rate limiting never
+interferes.
 
 ## API Overview
 
@@ -259,8 +278,23 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 - JWT expiry is currently `30d`.
 - All routes require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
 
+## LAN / Offline Configuration
+
+- `CORS_ALLOWED_ORIGINS` — comma-separated allowlist of browser origins. If unset,
+  the server reflects the request origin, which is what LAN clients need (they
+  reach the app via the host's IP, not `localhost`). Set an explicit list to
+  lock it down.
+- `OFFLINE_MODE=true` — skips the general `/api/` rate limiter (abuse is not the
+  threat model on a trusted private network). The `/api/auth/` limiter still
+  applies.
+- `API_RATE_LIMIT_MAX` (default 1000) / `AUTH_RATE_LIMIT_MAX` (default 100) —
+  per-IP request ceilings per 15-minute window.
+- `ALLOW_OPEN_REGISTRATION` — set to `false` to require a valid token for
+  `POST /api/auth/register` (any signed-in user can then create accounts).
+  Defaults to open.
+
 ## Current Caveats
 
-- `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
+- `express-rate-limit` is keyed by client IP: `/api/` (`API_RATE_LIMIT_MAX`, default 1000 req/15 min, skipped when `OFFLINE_MODE=true`) and `/api/auth/` (`AUTH_RATE_LIMIT_MAX`, default 100 req/15 min, always on).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
 - The `password_hash` column, pharmacy `stock_count`, and visits `completed_at` migrations run once at server startup (idempotent SQL).

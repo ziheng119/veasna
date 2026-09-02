@@ -10,29 +10,48 @@ const app = express();
 app.set("etag", "strong");
 const PORT = process.env.PORT || 3000;
 
+// Treat these as "offline/LAN" deployments where abuse is not the threat model.
+const OFFLINE_MODE = process.env.OFFLINE_MODE === 'true';
+
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration.
+// LAN-first deployment: clients reach the app via the host's LAN IP, not
+// localhost, so a single hard-coded origin blocks every other device. By
+// default we reflect the request origin (safe on a trusted private network).
+// Set CORS_ALLOWED_ORIGINS (comma-separated) to restrict it.
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3001',
+  origin: allowedOrigins.length > 0 ? allowedOrigins : true,
   credentials: true
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000,
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api/', limiter);
+// Rate limiting.
+// Keyed by client IP. With clients on the LAN each device has its own source
+// IP, so the buckets are per-device. The general limiter is skipped in
+// OFFLINE_MODE; the auth limiter always applies so an accidental retry loop
+// can't flood the (openly registerable) users table.
+const apiRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX) || 1000;
+const authRateLimitMax = Number(process.env.AUTH_RATE_LIMIT_MAX) || 100;
 
-const authLimiter = rateLimit({
+if (!OFFLINE_MODE) {
+  app.use('/api/', rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: apiRateLimitMax,
+    message: 'Too many requests from this IP, please try again later.'
+  }));
+}
+
+app.use('/api/auth/', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: authRateLimitMax,
   message: 'Too many authentication attempts, please try again later.'
-});
-app.use('/api/auth/', authLimiter);
+}));
 
 // Body parsing middleware
 app.use(bodyParser.json());
@@ -62,7 +81,7 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : {}
   });
@@ -77,10 +96,13 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// When using 'npm test' comment out this part
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
+// Only start the HTTP listener when run directly (`node server.js`).
+// Under `npm test` the app is imported by supertest and must not bind a port.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}
 
 module.exports = app;
