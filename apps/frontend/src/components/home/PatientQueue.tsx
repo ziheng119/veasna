@@ -8,6 +8,7 @@ import { SearchIcon } from "@/assets/icons";
 import { X } from "lucide-react";
 import { QueuedPatient } from "@/lib/types/patient";
 import { byQueueNumber } from "@/lib/queueOrder";
+import { confirm } from "@/stores/useConfirmStore";
 import { PageCard } from "../shared/PageCard";
 
 interface Props {
@@ -88,11 +89,14 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"
                     title="Discharge patient"
-                    onClick={() => {
-                      if (!window.confirm(`Discharge ${patient.english_name || 'this patient'}?`)) {
-                        return;
-                      }
-                      onRemovePatient(patient.visit_id);
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Discharge patient?",
+                        description: `${patient.english_name || "This patient"} will be removed from today's queue.`,
+                        confirmText: "Discharge",
+                        destructive: true,
+                      });
+                      if (ok) onRemovePatient(patient.visit_id);
                     }}
                   >
                     <X className="size-3.5" />

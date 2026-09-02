@@ -8,6 +8,7 @@ import { PageCard } from "@/components/shared/PageCard";
 import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
 import { byQueueNumber } from "@/lib/queueOrder";
+import { confirm } from "@/stores/useConfirmStore";
 import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -47,9 +48,13 @@ export default function QueuePatientPicker({
 
   const handleRemovePatient = async (patient: QueuedPatient) => {
     if (!token) return;
-    if (!window.confirm(`Discharge ${patient.english_name || "this patient"}?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Discharge patient?",
+      description: `${patient.english_name || "This patient"} will be removed from today's queue.`,
+      confirmText: "Discharge",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await completeQueueVisit(patient.visit_id, token);

@@ -9,6 +9,7 @@ import { AddDrugSidebar } from "@/components/pharmacy/AddDrugSidebar"
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar"
 import { getDrugsByLocation, addDrug, updateDrugCount, updateDrugName, deleteDrug } from "@/lib/api/pharmacy/pharmacy"
 import { useLocationStore } from "@/stores/useLocationStore"
+import { confirm } from "@/stores/useConfirmStore"
 import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
 import { Button } from "@/components/ui/button"
@@ -84,14 +85,20 @@ export default function PharmacyDashboard() {
     }
 
     const handleDeleteDrug = async (drugId: number) => {
-        if (window.confirm('Are you sure you want to delete this drug?')) {
-          try {
-            await deleteDrug(drugId, location?.id);
-            setDrugs(prevDrugs => prevDrugs.filter(drug => drug.id !== drugId));
-            toast.success("Drug deleted successfully.");
-          } catch (error) {
-            toast.error("Failed to delete drug.");
-          }
+        const drug = drugs.find((d) => d.id === drugId);
+        const ok = await confirm({
+          title: "Delete medication?",
+          description: `Remove ${drug ? `"${drug.drug_name}"` : "this drug"} from the inventory. Stock history is kept.`,
+          confirmText: "Delete",
+          destructive: true,
+        });
+        if (!ok) return;
+        try {
+          await deleteDrug(drugId, location?.id);
+          setDrugs(prevDrugs => prevDrugs.filter(drug => drug.id !== drugId));
+          toast.success("Drug deleted successfully.");
+        } catch (error) {
+          toast.error("Failed to delete drug.");
         }
     }
 

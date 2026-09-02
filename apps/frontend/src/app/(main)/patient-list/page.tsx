@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
+import { confirm } from "@/stores/useConfirmStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -76,8 +77,14 @@ export default function PatientListPage() {
   }
 
   const handleDeletePatient = async (patientId: number) => {
-    if (!window.confirm('Are you sure you want to delete this patient?')) return;
     if (!token) return;
+    const ok = await confirm({
+      title: "Delete patient?",
+      description: "This permanently deletes the patient and every visit, vitals and clinical record attached to them.",
+      confirmText: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deletePatient(patientId, token);
       setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));

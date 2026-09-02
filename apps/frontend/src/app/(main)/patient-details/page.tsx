@@ -15,6 +15,7 @@ import { getPatient } from "@/lib/api/patient/getPatients";
 import { getVisit } from "@/lib/api/visit/getVisit";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
+import toast from "react-hot-toast";
 
 interface Visit {
   visit_id: number;
@@ -138,10 +139,10 @@ export default function PatientDetailsPage() {
         if (patientData) {
           setPatientData({ ...patientData, patient: result.data.patient });
         }
-        console.log('Patient updated successfully');
+        toast.success("Patient details updated.");
       } else {
         console.error('Failed to update patient:', result.error);
-        alert(`Failed to update patient: ${result.error}`);
+        toast.error(`Failed to update patient: ${result.error}`);
         setEditedPatient(patientData?.patient || null);
       }
     }
