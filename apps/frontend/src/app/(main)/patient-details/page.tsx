@@ -43,6 +43,7 @@ interface VisitDetails {
   physiotherapy?: any;
   consultation?: any;
   referrals?: any[];
+  dispensed?: any[];
 }
 
 interface PatientData {
@@ -455,7 +456,7 @@ export default function PatientDetailsPage() {
                       <TabsTrigger value="physio" disabled={!visitDetails.physiotherapy}>
                         Physiotherapy
                       </TabsTrigger>
-                      <TabsTrigger value="consult" disabled={!visitDetails.consultation}>
+                      <TabsTrigger value="consult" disabled={!visitDetails.consultation && !(visitDetails.dispensed && visitDetails.dispensed.length > 0)}>
                         Consultation
                       </TabsTrigger>
                     </TabsList>
@@ -551,16 +552,38 @@ export default function PatientDetailsPage() {
 
                     {/* Consultation Tab */}
                     <TabsContent value="consult" className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto">
-                      {visitDetails.consultation ? (
+                      {visitDetails.consultation || (visitDetails.dispensed && visitDetails.dispensed.length > 0) ? (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">Consultation</h4>
-                          <DataField label="Notes" value={visitDetails.consultation.notes} />
-                          <DataField label="Prescription" value={visitDetails.consultation.prescription} />
-                          <DataField 
-                            label="Requires Referral" 
-                            value={visitDetails.consultation.require_referral ? 'Yes' : 'No'} 
-                          />
-                          
+                          {visitDetails.consultation ? (
+                            <>
+                              <DataField label="Notes" value={visitDetails.consultation.notes} />
+                              <DataField label="Prescription" value={visitDetails.consultation.prescription} />
+                              <DataField
+                                label="Requires Referral"
+                                value={visitDetails.consultation.require_referral ? 'Yes' : 'No'}
+                              />
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No consultation recorded for this visit.</p>
+                          )}
+
+                          {visitDetails.dispensed && visitDetails.dispensed.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground mb-3">Medications Dispensed</p>
+                              <div className="space-y-2">
+                                {visitDetails.dispensed.map((d: any) => (
+                                  <div key={d.id} className="flex justify-between bg-muted/40 p-3 rounded-md border border-border text-sm">
+                                    <span className="font-medium">{d.drug_name}</span>
+                                    <span className="text-muted-foreground">
+                                      {d.quantity} · {formatDate(d.dispensed_at)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {visitDetails.referrals && visitDetails.referrals.length > 0 && (
                             <div>
                               <p className="text-sm font-medium text-muted-foreground mb-3">Referrals</p>

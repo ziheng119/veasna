@@ -233,6 +233,46 @@ describe('Visit workflow', () => {
     expect(details.body.visits.length).toBeGreaterThanOrEqual(2);
   });
 
+  test('medications dispensed against a visit show up in the visit detail', async () => {
+    const created = await request(app)
+      .post('/api/visits')
+      .set('Authorization', `Bearer ${token}`)
+      .send(visitPayload(locationId, `M${Date.now() % 100000}`));
+    const visitId = created.body.visit_id;
+
+    const drug = await request(app)
+      .post('/api/pharmacy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ location_id: locationId, drug_name: `Paracetamol ${Date.now()}`, stock_count: 20 });
+
+    const dispensed = await request(app)
+      .post(`/api/pharmacy/${drug.body.id}/dispense`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ quantity: 4, visit_id: visitId });
+    expect(dispensed.status).toBe(200);
+
+    const detail = await request(app)
+      .get(`/api/patient/visit/${visitId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.dispensed).toHaveLength(1);
+    expect(detail.body.dispensed[0].quantity).toBe(4);
+    expect(detail.body.dispensed[0].drug_name).toContain('Paracetamol');
+  });
+
+  test('dispensing against an unknown visit_id is rejected', async () => {
+    const drug = await request(app)
+      .post('/api/pharmacy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ location_id: locationId, drug_name: `Ibuprofen ${Date.now()}`, stock_count: 5 });
+
+    const res = await request(app)
+      .post(`/api/pharmacy/${drug.body.id}/dispense`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ quantity: 1, visit_id: 99999999 });
+    expect(res.status).toBe(400);
+  });
+
   test('POST /api/visits requires a token', async () => {
     const res = await request(app)
       .post('/api/visits')

@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState } from "react"
 import { Drug, PharmacyStats } from "@/lib/types/drug"
+import { QueuedPatient } from "@/lib/types/patient"
 import { getDrugsByLocation, getPharmacyStats, dispenseDrug } from "@/lib/api/pharmacy/pharmacy"
+import { getQueue } from "@/lib/api/queue/getQueue"
 import { useLocationStore } from "@/stores/useLocationStore"
+import { useUserStore } from "@/stores/useUserStore"
 import { DashboardStats } from "@/components/pharmacy/DashboardStats"
 import { StockStatusBadge } from "@/components/pharmacy/StockStatusBadge"
 import { DispenseForm } from "@/components/pharmacy/DispenseForm"
@@ -17,9 +20,11 @@ import { SET_LOCATION_MESSAGE } from "@/messages/info"
 export default function Pharmacy() {
     const [drugs, setDrugs] = useState<Drug[]>([])
     const [stats, setStats] = useState<PharmacyStats | null>(null)
+    const [queuePatients, setQueuePatients] = useState<QueuedPatient[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
     const location = useLocationStore((state) => state.currentLocation)
+    const token = useUserStore((state) => state.user?.token)
 
     useEffect(() => {
       if (!location) {
@@ -30,12 +35,15 @@ export default function Pharmacy() {
     async function fetchData() {
       if (!location) return;
       try {
-        const [drugsData, statsData] = await Promise.all([
+        const today = new Date().toISOString().slice(0, 10);
+        const [drugsData, statsData, queueData] = await Promise.all([
           getDrugsByLocation(location.id),
           getPharmacyStats(location.id),
+          token ? getQueue(location.id, today, token) : Promise.resolve([]),
         ]);
         setDrugs(drugsData);
         setStats(statsData);
+        setQueuePatients(Array.isArray(queueData) ? queueData : []);
       } catch (error) {
         toast.error("Failed to load pharmacy data.");
       } finally {
@@ -48,12 +56,12 @@ export default function Pharmacy() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);
 
-    const handleDispense = async (drugId: number, quantity: number) => {
+    const handleDispense = async (drugId: number, quantity: number, visitId?: number) => {
       const drug = drugs.find(d => d.id === drugId);
       if (!drug) return;
 
       try {
-        const updatedDrug = await dispenseDrug(drugId, quantity, { locationId: location?.id });
+        const updatedDrug = await dispenseDrug(drugId, quantity, { visitId, locationId: location?.id });
         setDrugs(prev => prev.map(d => d.id === drugId ? updatedDrug : d));
         if (stats && location) {
           const newStats = await getPharmacyStats(location.id);
@@ -158,7 +166,7 @@ export default function Pharmacy() {
           {/* Dispense Sidebar */}
           <div className="xl:col-span-4">
             <PageCard title="Dispense Medication">
-              <DispenseForm drugs={drugs} onDispense={handleDispense} />
+              <DispenseForm drugs={drugs} patients={queuePatients} onDispense={handleDispense} />
             </PageCard>
           </div>
         </div>

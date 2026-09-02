@@ -58,7 +58,7 @@ export default function PharmacyDashboard() {
 
     const handleStockCountChange = async (drugId: number, newCount: number) => {
       try {
-        const updatedDrug = await updateDrugCount(drugId, newCount);
+        const updatedDrug = await updateDrugCount(drugId, newCount, location?.id);
         setDrugs(prevDrugs =>
           prevDrugs.map((drug) =>
             drug.id === drugId ? updatedDrug : drug
@@ -71,7 +71,7 @@ export default function PharmacyDashboard() {
 
     const handleDrugNameChange = async (drugId: number, newName: string) => {
       try {
-        const updatedDrug = await updateDrugName(drugId, newName);
+        const updatedDrug = await updateDrugName(drugId, newName, location?.id);
         setDrugs(prevDrugs =>
           prevDrugs.map((drug) =>
             drug.id === drugId ? updatedDrug : drug
@@ -86,7 +86,7 @@ export default function PharmacyDashboard() {
     const handleDeleteDrug = async (drugId: number) => {
         if (window.confirm('Are you sure you want to delete this drug?')) {
           try {
-            await deleteDrug(drugId);
+            await deleteDrug(drugId, location?.id);
             setDrugs(prevDrugs => prevDrugs.filter(drug => drug.id !== drugId));
             toast.success("Drug deleted successfully.");
           } catch (error) {
