@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
+const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 
 // GET /api/queue?location_id=...&date=...
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -38,6 +39,23 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
         res.status(200).json(result.rows);
     } catch (err) {
         console.error('Error fetching queue:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/queue/next?location_id=... - Preview the next queue number for today
+router.get('/next', authenticateToken, requireRole(['any']), async (req, res) => {
+    const locationId = Number(req.query.location_id);
+
+    if (!Number.isInteger(locationId) || locationId < 1) {
+        return res.status(400).json({ error: 'location_id must be a positive integer' });
+    }
+
+    try {
+        const queueNo = await getNextQueueNo(db, locationId, currentVisitDate());
+        res.status(200).json({ queue_no: queueNo });
+    } catch (err) {
+        console.error('Error fetching next queue number:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

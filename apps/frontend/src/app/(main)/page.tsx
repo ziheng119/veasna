@@ -11,6 +11,7 @@ import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation"
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
+import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 export default function HomePage() {
   const token = useUserStore((state) => state.user?.token);
@@ -77,21 +78,22 @@ export default function HomePage() {
   }, [location, token]);
 
   return (
-    <div className="space-y-5">
-      <main className="w-full">
-        <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
-          <div className="xl:col-span-4 2xl:col-span-3">
-            <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
-          </div>
-          <div className="xl:col-span-8 2xl:col-span-9">
-            <PatientForm
-              existingPatients={patients}
-              onSubmit={refreshQueuePatients}
-              locationId={location?.id}
-            />
-          </div>
+    <div className={PAGE_SHELL}>
+      <div className={PANEL_GRID}>
+        <div className={`${PANEL_WRAPPER} xl:col-span-4 2xl:col-span-3`}>
+          <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
         </div>
-      </main>
+        <div className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
+          <PatientForm
+            existingPatients={patients}
+            onSubmit={() => {
+              refreshQueuePatients();
+              refreshAllPatients();
+            }}
+            locationId={location?.id}
+          />
+        </div>
+      </div>
     </div>
   );
 }

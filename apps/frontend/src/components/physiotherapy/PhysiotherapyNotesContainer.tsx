@@ -66,7 +66,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
-      <div className="flex w-full h-[40%]">
+      <div className="flex w-full">
         <VerticalLabelInputPair 
           onChangeFunction={setNotes}
           value={notes}

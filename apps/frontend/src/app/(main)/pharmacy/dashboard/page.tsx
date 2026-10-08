@@ -12,6 +12,7 @@ import { useLocationStore } from "@/stores/useLocationStore"
 import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
 import { Button } from "@/components/ui/button"
+import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 export default function PharmacyDashboard() {
     const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -111,7 +112,7 @@ export default function PharmacyDashboard() {
     }
 
     return (
-      <div className="space-y-5">
+      <div className={PAGE_SHELL}>
           <div>
             <PageHeader />
 
@@ -131,8 +132,8 @@ export default function PharmacyDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-            <div className={showAddTab ? "xl:col-span-8" : "xl:col-span-12"}>
+          <div className={PANEL_GRID}>
+            <div className={`${PANEL_WRAPPER} ${showAddTab ? "xl:col-span-8" : "xl:col-span-12"}`}>
               <DrugTable
                 drugs={filteredDrugs}
                 onStockCountChange={handleStockCountChange}
@@ -142,7 +143,7 @@ export default function PharmacyDashboard() {
             </div>
 
             {showAddTab && (
-              <div className="xl:col-span-4">
+              <div className={`${PANEL_WRAPPER} xl:col-span-4`}>
               <AddDrugSidebar
                 onSubmit={handleAddDrug}
               />

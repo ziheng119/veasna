@@ -1,11 +1,14 @@
 import { backend_url } from "@/constants/env_variable";
-import { User } from "@/lib/types/user";
+import { useUserStore } from "@/stores/useUserStore";
 
-export async function registerUser(username: string, password: string): Promise<User> {
+// Admin-only: creates an account for another staff member.
+export async function registerUser(username: string, password: string): Promise<string> {
+  const token = useUserStore.getState().user?.token;
   const res = await fetch(`${backend_url}/api/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify({ username, password }),
   });
@@ -15,10 +18,6 @@ export async function registerUser(username: string, password: string): Promise<
     throw new Error(errJson?.message || `Failed to register user: ${res.status} ${res.statusText}`);
   }
 
-  const { token, user: backendUser } = await res.json();
-  return {
-    id: backendUser.id,
-    username: backendUser.username,
-    token,
-  };
+  const { user } = await res.json();
+  return user.username;
 }

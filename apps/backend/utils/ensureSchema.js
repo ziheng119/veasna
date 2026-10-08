@@ -4,6 +4,7 @@ const db = require('../config/db');
 
 let ensurePharmacyNumericStockPromise = null;
 let ensureVisitsCompletedPromise = null;
+let ensureUserRolePromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -31,7 +32,18 @@ function ensureVisitsCompleted() {
   return ensureVisitsCompletedPromise;
 }
 
+function ensureUserRole() {
+  if (!ensureUserRolePromise) {
+    ensureUserRolePromise = runMigration('003_users_role.sql').catch((err) => {
+      ensureUserRolePromise = null;
+      throw err;
+    });
+  }
+  return ensureUserRolePromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
+  ensureUserRole,
 };

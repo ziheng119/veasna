@@ -140,7 +140,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             />
         </div>
 
-            <div className="flex w-full h-[40%]">
+            <div className="flex w-full">
                 <VerticalLabelInputPair 
                     label="Additional Notes"
                     onChangeFunction={setAdditionalNotes}

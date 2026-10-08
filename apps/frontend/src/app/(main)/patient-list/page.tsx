@@ -17,6 +17,7 @@ import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PAGE_SHELL } from "@/lib/pageLayout";
 
 export default function PatientListPage() {
 
@@ -94,7 +95,7 @@ export default function PatientListPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className={PAGE_SHELL}>
       <PatientPageHeader/>
 
       <div className='flex items-center justify-between gap-4'>

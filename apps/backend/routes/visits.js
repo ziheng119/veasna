@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
+const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueNumber');
 
 function parseOptionalPositiveInt(value) {
   if (value === null || value === undefined) return null;
@@ -34,14 +35,11 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const { patientInfo, visit, vitals, hef } = req.body;
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
     const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
-    const queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
+    // Optional: when omitted, the next sequential number for the location and date is assigned.
+    let queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
 
     if (!locationId) {
         return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
-    }
-
-    if (!queueNo) {
-        return res.status(400).json({ error: 'visit.queue_no is required.' });
     }
 
     if (!hef) {
@@ -135,6 +133,11 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         }
 
         // Step 2: Insert into visits table
+        const visitDate = currentVisitDate();
+        if (!queueNo) {
+            await lockQueue(client, locationId);
+            queueNo = await getNextQueueNo(client, locationId, visitDate);
+        }
         const visitQuery = `
             INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
             VALUES ($1, $2, $3, $4, $5)
@@ -144,7 +147,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             patientId,
             locationId,
             queueNo,
-            new Date().toISOString().slice(0, 10),
+            visitDate,
             last_updated_by
         ];
         const visitResult = await client.query(visitQuery, visitValues);
@@ -200,6 +203,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         if (err && err.code === '23505') {
+            if (err.constraint === 'patients_face_id_key') {
+                return res.status(409).json({ error: 'This Face ID already belongs to another patient.' });
+            }
             return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
         }
         console.error('Error in registration transaction:', err);

@@ -25,6 +25,7 @@ export type QueuedPatient = {
 }
 
 export type PatientFormData = {
+    id?: number;  // set when registering a visit for an existing patient
     face_id?: string;
     english_name?: string;
     khmer_name?: string;

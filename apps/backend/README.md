@@ -146,9 +146,9 @@ If prompted for a password, enter the one you set in step 2.
 npm run setup
 ```
 
-This verifies the database connection and creates the initial admin user using `ADMIN_USERNAME` and `ADMIN_PASSWORD` from your `.env`.
+This verifies the database connection and creates the initial admin user (with `role = 'admin'`) using `ADMIN_USERNAME` and `ADMIN_PASSWORD` from your `.env`.
 
-You can re-run this at any time. To seed just the admin user:
+You can re-run this at any time. To seed just the admin user (also run this once on existing databases to promote `ADMIN_USERNAME` to admin):
 
 ```bash
 npm run seed:admin
@@ -253,11 +253,12 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 ## Authentication Notes
 
-- Register endpoint: `POST /api/auth/register` with `{ username, password }`.
+- Register endpoint: `POST /api/auth/register` with `{ username, password }`. Admin only: requires a token for a user whose `role` is `admin`. In the web app, admins create accounts from the username menu → **Add User**; there is no self-registration on the login page.
+- Users have a `role` (`user` by default, `admin` for the seeded admin). The role is embedded in the JWT at login, so a role change takes effect on the user's next login.
 - Login endpoint: `POST /api/auth/login` with `{ username, password }`.
 - Password must be at least 8 characters.
 - JWT expiry is currently `30d`.
-- All routes require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
+- All routes except login require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
 
 ## Current Caveats
 

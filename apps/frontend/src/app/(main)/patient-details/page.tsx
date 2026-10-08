@@ -15,6 +15,7 @@ import { getPatient } from "@/lib/api/patient/getPatients";
 import { getVisit } from "@/lib/api/visit/getVisit";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
+import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 interface Visit {
   visit_id: number;
@@ -183,9 +184,9 @@ export default function PatientDetailsPage() {
   const displayPatient = isEditing ? editedPatient : patient;
 
   return (
-    <div>
+    <div className={PAGE_SHELL}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <Button
           variant="ghost"
           onClick={handleBack}
@@ -211,10 +212,10 @@ export default function PatientDetailsPage() {
       </div>
 
       {/* Main Layout: Patient Info (Left 1/3) + Visits/Details (Right 2/3) */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6 xl:grid-rows-1 xl:min-h-0 xl:flex-1">
         {/* Left Side: Patient Information */}
-        <div className="col-span-1">
-          <Card className="sticky top-6">
+        <div className={`col-span-1 ${PANEL_SCROLL}`}>
+          <Card>
             <CardHeader>
               <div className="flex items-center gap-3 mb-4">
                 <PersonIcon className="h-8 w-8 text-primary" />
@@ -340,10 +341,10 @@ export default function PatientDetailsPage() {
         </div>
 
         {/* Right Side: Visits List OR Visit Details */}
-        <div className="col-span-2">
+        <div className={`col-span-2 ${PANEL_WRAPPER}`}>
           {!selectedVisit ? (
             /* Visit List View */
-            <Card>
+            <Card className="xl:min-h-0 xl:max-h-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -363,8 +364,8 @@ export default function PatientDetailsPage() {
                   />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto">
+              <CardContent className={PANEL_SCROLL + " xl:flex-1"}>
+                <div className="space-y-3">
                   {filteredVisits.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">
                       {dateSearch ? 'No visits found for this date' : 'No visits recorded'}
@@ -414,7 +415,7 @@ export default function PatientDetailsPage() {
             </Card>
           ) : (
             /* Visit Details View */
-            <Card>
+            <Card className="xl:min-h-0 xl:max-h-full">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Button
@@ -434,7 +435,7 @@ export default function PatientDetailsPage() {
                   </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className={PANEL_SCROLL + " xl:flex-1"}>
                 {isLoadingVisit ? (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Loading visit details...</p>
@@ -460,7 +461,7 @@ export default function PatientDetailsPage() {
                     </TabsList>
 
                     {/* Triage Tab */}
-                    <TabsContent value="triage" className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto">
+                    <TabsContent value="triage" className="space-y-6">
                       {visitDetails.vitals && (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">Vitals</h4>
@@ -500,7 +501,7 @@ export default function PatientDetailsPage() {
                     </TabsContent>
 
                     {/* Seva Tab */}
-                    <TabsContent value="seva" className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto">
+                    <TabsContent value="seva" className="space-y-4">
                       {visitDetails.seva ? (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">SEVA Assessment</h4>
@@ -522,7 +523,7 @@ export default function PatientDetailsPage() {
                     </TabsContent>
 
                     {/* Physiotherapy Tab */}
-                    <TabsContent value="physio" className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto">
+                    <TabsContent value="physio" className="space-y-4">
                       {visitDetails.physiotherapy ? (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">Physiotherapy</h4>
@@ -549,7 +550,7 @@ export default function PatientDetailsPage() {
                     </TabsContent>
 
                     {/* Consultation Tab */}
-                    <TabsContent value="consult" className="space-y-4 max-h-[calc(100vh-400px)] overflow-y-auto">
+                    <TabsContent value="consult" className="space-y-4">
                       {visitDetails.consultation ? (
                         <div className="space-y-4">
                           <h4 className="font-semibold text-lg border-b pb-2">Consultation</h4>

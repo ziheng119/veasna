@@ -108,7 +108,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
-      <div className="flex w-full h-[40%]">
+      <div className="flex w-full">
         <VerticalLabelInputPair 
           value={notes}
           onChangeFunction={setNotes}
@@ -116,7 +116,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       </div>
 
       <h2 className="text-[20px] font-semibold">Prescription</h2>
-      <div className="flex w-full h-[40%]">
+      <div className="flex w-full">
         <VerticalLabelInputPair 
           value={prescription}
           onChangeFunction={setPrescription}

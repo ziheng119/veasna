@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const db = require('../config/db');
 const { hashPassword } = require('../config/db');
+const { ensureUserRole } = require('../utils/ensureSchema');
 
 async function seedAdminUser() {
   const adminUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
@@ -22,16 +23,18 @@ async function seedAdminUser() {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS password_hash TEXT;
   `);
+  await ensureUserRole();
   const passwordHash = await hashPassword(adminPassword);
 
   const upsertQuery = `
-    INSERT INTO users (username, password_hash, is_active)
-    VALUES ($1, $2, TRUE)
+    INSERT INTO users (username, password_hash, role, is_active)
+    VALUES ($1, $2, 'admin', TRUE)
     ON CONFLICT ((LOWER(username)))
     DO UPDATE SET
       is_active = TRUE,
+      role = 'admin',
       password_hash = COALESCE(users.password_hash, EXCLUDED.password_hash)
-    RETURNING id, username, is_active, created_at;
+    RETURNING id, username, role, is_active, created_at;
   `;
 
   const { rows } = await db.query(upsertQuery, [adminUsername, passwordHash]);

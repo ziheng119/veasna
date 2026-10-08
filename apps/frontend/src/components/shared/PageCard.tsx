@@ -22,7 +22,7 @@ export function PageCard({
   contentClassName,
 }: PageCardProps) {
   return (
-    <Card className={cn("border-border", className)}>
+    <Card className={cn("border-border xl:min-h-0 xl:max-h-full", className)}>
       <CardHeader className={cn("border-b border-border", headerClassName)}>
         <CardTitle className="flex items-center justify-between text-foreground">
           <span>{title}</span>
@@ -30,7 +30,7 @@ export function PageCard({
         </CardTitle>
         {headerExtra}
       </CardHeader>
-      <CardContent className={contentClassName}>{children}</CardContent>
+      <CardContent className={cn("xl:min-h-0 xl:flex-1 xl:overflow-y-auto", contentClassName)}>{children}</CardContent>
     </Card>
   );
 }
