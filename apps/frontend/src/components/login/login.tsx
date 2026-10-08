@@ -3,7 +3,6 @@
 "use client";
 
 import { loginUser } from "@/lib/api/user/loginUser";
-import { registerUser } from "@/lib/api/user/registerUser";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +23,6 @@ export default function Login() {
   const setUser = useUserStore((state) => state.setUser);
   const router = useRouter();
 
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,17 +47,10 @@ export default function Login() {
 
     try {
       setIsSubmitting(true);
-      const loggedInUser =
-        mode === "login"
-          ? await loginUser(normalizedUsername, password)
-          : await registerUser(normalizedUsername, password);
+      const loggedInUser = await loginUser(normalizedUsername, password);
       setUser(loggedInUser);
 
-      toast.success(
-        mode === "login"
-          ? `Welcome, ${loggedInUser.username}!`
-          : "Account created successfully!",
-      );
+      toast.success(`Welcome, ${loggedInUser.username}!`);
       router.push("/");
     } catch (error) {
       console.error(error);
@@ -81,30 +72,10 @@ export default function Login() {
     >
       <Card className="border-border/80 shadow-md">
         <CardHeader className="space-y-3 border-b border-border/70 pb-5">
-          <CardTitle className="text-2xl">
-            {mode === "login" ? "Welcome" : "Create Account"}
-          </CardTitle>
+          <CardTitle className="text-2xl">Welcome</CardTitle>
           <CardDescription>
-            {mode === "login"
-              ? "Sign in to continue to VEASNA."
-              : "Set up your account for local clinic use."}
+            Sign in to continue to VEASNA. Ask an admin if you need an account.
           </CardDescription>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant={mode === "login" ? "default" : "outline"}
-              onClick={() => setMode("login")}
-            >
-              Login
-            </Button>
-            <Button
-              type="button"
-              variant={mode === "register" ? "default" : "outline"}
-              onClick={() => setMode("register")}
-            >
-              Register
-            </Button>
-          </div>
         </CardHeader>
 
         <CardContent className="space-y-4 pt-5">
@@ -127,9 +98,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               placeholder="At least 8 characters"
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
+              autoComplete="current-password"
             />
             <p className="text-xs text-muted-foreground">
               Minimum 8 characters.
@@ -137,11 +106,7 @@ export default function Login() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting
-              ? "Please wait..."
-              : mode === "login"
-                ? "Login"
-                : "Create Account"}
+            {isSubmitting ? "Please wait..." : "Login"}
           </Button>
         </CardContent>
       </Card>

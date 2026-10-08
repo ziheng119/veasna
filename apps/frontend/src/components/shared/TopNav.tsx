@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import AddUserDialog from "./AddUserDialog";
 
 export default function TopNav() {
 
@@ -24,6 +25,7 @@ export default function TopNav() {
   const removeUser = useUserStore((state) => state.removeUser);
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   async function refreshLocations() {
     const locations = await getLocations();
@@ -140,6 +142,11 @@ export default function TopNav() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {user.role === "admin" && (
+                  <DropdownMenuItem onClick={() => setIsAddUserOpen(true)}>
+                    Add User
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleLogout}>
                   Logout
                 </DropdownMenuItem>
@@ -156,6 +163,7 @@ export default function TopNav() {
           )}
         </div>
       </div>
+      <AddUserDialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} />
     </nav>
   );
 }

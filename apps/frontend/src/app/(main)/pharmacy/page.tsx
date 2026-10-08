@@ -13,6 +13,7 @@ import Link from "next/link"
 import { Settings } from "lucide-react"
 import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
+import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 export default function Pharmacy() {
     const [drugs, setDrugs] = useState<Drug[]>([])
@@ -76,7 +77,7 @@ export default function Pharmacy() {
     };
 
     return (
-      <div className="space-y-6">
+      <div className={PAGE_SHELL}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <DrugIcon className="h-8 w-8 text-blue-600" />
@@ -93,9 +94,9 @@ export default function Pharmacy() {
 
         {stats && <DashboardStats stats={stats} />}
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className={PANEL_GRID}>
           {/* Medication Table */}
-          <div className="xl:col-span-8">
+          <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
             <PageCard
               title="All Medications"
               className="overflow-hidden"
@@ -103,7 +104,7 @@ export default function Pharmacy() {
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-muted">
+                  <thead className="bg-muted sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
                         Drug Name
@@ -157,7 +158,7 @@ export default function Pharmacy() {
           </div>
 
           {/* Dispense Sidebar */}
-          <div className="xl:col-span-4">
+          <div className={`${PANEL_WRAPPER} xl:col-span-4`}>
             <PageCard title="Dispense Medication">
               <DispenseForm drugs={drugs} onDispense={handleDispense} />
             </PageCard>

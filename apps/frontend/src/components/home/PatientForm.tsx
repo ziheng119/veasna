@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -17,9 +18,12 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
+import { calculateAge } from "@/helper/calculate_age";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
+import { ExistingPatientDialog } from "./ExistingPatientDialog";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -28,7 +32,6 @@ interface PatientFormProps {
 }
 
 type FormErrors = {
-    queue_no?: string;
     english_name?: string;
     sex?: string;
     face_id?: string;
@@ -41,6 +44,20 @@ type FormErrors = {
     know_of_hef?: string;
     has_hef?: string;
 };
+
+const emptyPatientInfo: PatientFormData = {
+    face_id: "",
+    english_name: "",
+    khmer_name: "",
+    date_of_birth: "",
+    sex: "",
+    phone_number: "",
+    address: "",
+    age: undefined,
+};
+
+const MAX_SUGGESTIONS = 8;
+const MAX_AGE = 130;
 
 const getBMICategory = (bmi: number) : string => {
     if (bmi < 18.5) return "Underweight";
@@ -56,17 +73,33 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState("patient-info");
     const [errors, setErrors] = useState<FormErrors>({});
+    const [nextQueueNo, setNextQueueNo] = useState("");
 
-    const [patientInfo, setPatientInfo] =  useState<PatientFormData>({
-        face_id: "",
-        english_name: "",
-        khmer_name: "",
-        date_of_birth: "",
-        sex: "",
-        phone_number: "",
-        address: "",
-        queue_no: "",
-    });
+    // The backend assigns the queue number on submit; this is only a preview.
+    const refreshNextQueueNo = useCallback(async () => {
+      if (!locationId || !token) {
+        setNextQueueNo("");
+        return;
+      }
+      try {
+        setNextQueueNo(await getNextQueueNo(locationId, token));
+      } catch (err) {
+        console.error("Failed to fetch next queue number:", err);
+        setNextQueueNo("");
+      }
+    }, [locationId, token]);
+
+    useEffect(() => {
+      refreshNextQueueNo();
+    }, [refreshNextQueueNo]);
+
+    const [patientInfo, setPatientInfo] =  useState<PatientFormData>(emptyPatientInfo);
+    // Existing patient this registration is for; null when registering a new patient.
+    const [linkedPatient, setLinkedPatient] = useState<PatientInfo | null>(null);
+    // Matches awaiting a choice. onSubmit: the prompt interrupted a submit and can continue it.
+    const [matchPrompt, setMatchPrompt] = useState<{ matches: PatientInfo[]; onSubmit: boolean } | null>(null);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
     const [vitals, setVitals] = useState<Vitals>({
         height: "",
@@ -95,39 +128,33 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       });
     };
 
-    const calculateAge = () => {
-        if (patientInfo.date_of_birth) {
-            const today = new Date();
-            const birthDate = new Date(patientInfo.date_of_birth);
-            const age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
+    // Age follows the date of birth once it is filled in.
+    useEffect(() => {
+      const age = calculateAge(patientInfo.date_of_birth ?? "");
+      if (age === null) return;
+      setPatientInfo(prev => ({ ...prev, age: age >= 0 && age <= MAX_AGE ? age.toString() : "" }));
+    }, [patientInfo.date_of_birth]);
 
-            const calculatedAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())
-                ? age - 1 : age;
-            
-            setPatientInfo(prev => ({ ...prev, age: calculatedAge.toString() }));
-        }
-    };
+    // BMI and its category follow height and weight once both are filled in.
+    useEffect(() => {
+      const heightM = parseFloat(vitals.height) / 100; // Convert cm to m
+      const weightKg = parseFloat(vitals.weight);
 
-    const calculateBMI = () => {
-        const heightM = parseFloat(vitals.height) / 100; // Convert cm to m
-        const weightKg = parseFloat(vitals.weight);
-        
-        if (heightM > 0 && weightKg > 0) {
-          const bmiValue = weightKg / (heightM * heightM);
-          const roundedBMI = Math.round(bmiValue * 10) / 10;
-          
-          setVitals(prev => ({
-            ...prev,
-            bmi: roundedBMI.toString(),
-            category: getBMICategory(roundedBMI)
-          }));
-        }
-      };
+      if (heightM > 0 && weightKg > 0) {
+        const roundedBMI = Math.round((weightKg / (heightM * heightM)) * 10) / 10;
+        setVitals(prev => ({
+          ...prev,
+          bmi: roundedBMI.toString(),
+          category: getBMICategory(roundedBMI)
+        }));
+        clearFieldError("bmi");
+      } else {
+        setVitals(prev => ({ ...prev, bmi: "", category: "" }));
+      }
+    }, [vitals.height, vitals.weight]);
 
     const validateForm = (): boolean => {
       const nextErrors: FormErrors = {};
-      const queueNo = patientInfo.queue_no?.trim() ?? "";
       const englishName = patientInfo.english_name?.trim() ?? "";
       const faceId = patientInfo.face_id?.trim() ?? "";
       const height = Number(vitals.height);
@@ -137,14 +164,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const bpDiastolic = Number(vitals.bp_diastolic);
       const temperature = Number(vitals.temperature);
 
-      if (!queueNo) nextErrors.queue_no = "Queue number is required.";
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
       if (faceId && !/^\d+$/.test(faceId)) nextErrors.face_id = "Face ID must be a positive integer.";
 
       if (!Number.isFinite(height) || height <= 0) nextErrors.height = "Enter a valid height greater than 0.";
       if (!Number.isFinite(weight) || weight <= 0) nextErrors.weight = "Enter a valid weight greater than 0.";
-      if (!Number.isFinite(bmi) || bmi <= 0) nextErrors.bmi = "BMI is required. Click Calculate after entering height and weight.";
+      if (!Number.isFinite(bmi) || bmi <= 0) nextErrors.bmi = "Enter height and weight to calculate BMI.";
       if (!Number.isInteger(bpSystolic) || bpSystolic <= 0) nextErrors.bp_systolic = "Systolic BP must be a positive whole number.";
       if (!Number.isInteger(bpDiastolic) || bpDiastolic <= 0) nextErrors.bp_diastolic = "Diastolic BP must be a positive whole number.";
       if (!Number.isFinite(temperature) || temperature <= 0) nextErrors.temperature = "Enter a valid temperature greater than 0.";
@@ -154,7 +180,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["queue_no", "english_name", "sex", "face_id"];
+      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex", "face_id"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
       const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef"];
 
@@ -165,49 +191,90 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       return Object.keys(nextErrors).length === 0;
     };
 
+    const normalizeName = (name?: string | null) => (name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+    // Links the form to an existing patient so the visit is added to their record
+    // instead of creating a duplicate patient.
+    const linkPatient = (found: PatientInfo) => {
+      setLinkedPatient(found);
+      setMatchPrompt(null);
+      setShowSuggestions(false);
+      setPatientInfo(prev => ({
+        ...prev,
+        face_id: found.face_id?.toString() ?? "",
+        english_name: found.english_name || "",
+        khmer_name: found.khmer_name || "",
+        date_of_birth: found.date_of_birth ? formatDate(found.date_of_birth) : "",
+        sex: found.sex,
+        address: found.address || "",
+        phone_number: found.phone_number || "",
+        age: undefined,
+      }));
+      setErrors((prev) => ({
+        ...prev,
+        english_name: undefined,
+        sex: undefined,
+        face_id: undefined,
+      }));
+    };
+
+    const unlinkPatient = () => {
+      setLinkedPatient(null);
+      setPatientInfo(emptyPatientInfo);
+    };
+
     const checkExistingPatient = () => {
       // Use either English or Khmer name for search
-      const name = patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim();
+      const name = normalizeName(patientInfo.english_name) || normalizeName(patientInfo.khmer_name);
       if (!name) return;
 
-      const found = existingPatients.find((p) => {
-        const engName = p.english_name?.toLowerCase() || "";
-        const khmerName = p.khmer_name?.toLowerCase() || "";
-        return engName.includes(name.toLowerCase()) || khmerName.includes(name.toLowerCase());
-      });
+      const matches = existingPatients.filter((p) =>
+        normalizeName(p.english_name).includes(name) || normalizeName(p.khmer_name).includes(name)
+      );
 
-      if (found) {
-        setPatientInfo(prev => ({
-          ...prev,
-          face_id: found.face_id?.toString() ?? "",
-          english_name: found.english_name || "",
-          khmer_name: found.khmer_name || "",
-          date_of_birth: formatDate(found.date_of_birth) || "",
-          sex: found.sex,
-          address: found.address || "",
-          phone_number: found.phone_number || "",
-        }));
-        setErrors((prev) => ({
-          ...prev,
-          english_name: undefined,
-          sex: undefined,
-          face_id: undefined,
-        }));
-      } else {
+      if (matches.length === 0) {
         alert("No existing patient found with that name");
+      } else if (matches.length === 1) {
+        linkPatient(matches[0]);
+      } else {
+        setMatchPrompt({ matches, onSubmit: false });
       }
     };
 
-    const handleSubmit = async () => {
+    // Existing patients whose name is identical to the one being registered.
+    const findSameNamePatients = () => {
+      const englishName = normalizeName(patientInfo.english_name);
+      const khmerName = normalizeName(patientInfo.khmer_name);
+      return existingPatients.filter((p) =>
+        (englishName && normalizeName(p.english_name) === englishName) ||
+        (khmerName && normalizeName(p.khmer_name) === khmerName)
+      );
+    };
+
+    const handleSubmit = () => {
         if (!locationId || !token) {
           alert("Location not selected or user not authenticated.");
           return;
         }
         if (!validateForm()) return;
 
+        if (!linkedPatient) {
+          const matches = findSameNamePatients();
+          if (matches.length > 0) {
+            setMatchPrompt({ matches, onSubmit: true });
+            return;
+          }
+        }
+        submitVisit(linkedPatient?.id);
+    };
+
+    const submitVisit = async (patientId?: number) => {
+        if (!locationId || !token) return;
+
+        setMatchPrompt(null);
         setIsSubmitting(true);
 
-        const completePatientInfo = { ...patientInfo, location_id: locationId };
+        const completePatientInfo = { ...patientInfo, location_id: locationId, id: patientId };
 
         try {
           const newQueuedPatient = await createVisit(
@@ -217,19 +284,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
+          toast.success(`Added to queue as number ${newQueuedPatient.queue_no}.`);
 
           // Reset form states
-          setPatientInfo({
-            face_id: "",
-            queue_no: "",
-            english_name: "",
-            khmer_name: "",
-            date_of_birth: "",
-            sex: "",
-            phone_number: "",
-            address: "",
-            age: undefined,
-          });
+          setLinkedPatient(null);
+          setPatientInfo(emptyPatientInfo);
           setVitals({
             height: "",
             weight: "",
@@ -248,6 +307,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           });
           setActiveTab("patient-info");
           setErrors({});
+          refreshNextQueueNo();
         } catch (error) {
           console.error("Submissio failed: ", error)
           alert(`Error: ${error instanceof Error ? error.message : "Could not add patient to queue."}`);
@@ -258,14 +318,44 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         
     };
 
+    // Autocomplete for returning patients: typing in the English name field matches
+    // existing patients by English name or by patient ID.
+    const nameQuery = normalizeName(patientInfo.english_name);
+    const suggestions = !linkedPatient && nameQuery
+      ? existingPatients
+          .filter((p) =>
+            /^\d+$/.test(nameQuery)
+              ? String(p.id).startsWith(nameQuery)
+              : normalizeName(p.english_name).includes(nameQuery)
+          )
+          .slice(0, MAX_SUGGESTIONS)
+      : [];
+    const suggestionsOpen = showSuggestions && suggestions.length > 0;
+
+    const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!suggestionsOpen) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev <= 0 ? suggestions.length - 1 : prev - 1));
+      } else if (e.key === "Enter" && highlightedIndex >= 0) {
+        e.preventDefault();
+        linkPatient(suggestions[highlightedIndex]);
+      } else if (e.key === "Escape") {
+        setShowSuggestions(false);
+      }
+    };
+
     return (
       <PageCard
         title="Patient Registration"
-        className="h-[800px] w-full flex flex-col"
+        className="h-[800px] xl:h-full w-full flex flex-col"
         headerClassName="py-3"
         contentClassName="flex-1 flex flex-col overflow-hidden"
       >
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 ">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
               
               <TabsTrigger 
@@ -285,23 +375,29 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               </TabsTrigger>
 
             </TabsList>
-            <div className="flex-1 w-full">
+            <div className="flex-1 w-full min-h-0 overflow-y-auto px-1">
               <TabsContent value="patient-info" className="space-y-4 mt-6 h-full">
+                {linkedPatient && (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
+                    <span>
+                      Returning patient: <span className="font-semibold">{linkedPatient.english_name || linkedPatient.khmer_name}</span> • Patient ID {linkedPatient.id}. This visit will be added to their record.
+                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={unlinkPatient}>
+                      Clear
+                    </Button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number *</Label>
+                    <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
                     <Input
                       id="queueNumber"
-                      value={patientInfo.queue_no}
-                      aria-invalid={!!errors.queue_no}
-                      onChange={(e) => {
-                        setPatientInfo(prev => ({ ...prev, queue_no: e.target.value }));
-                        clearFieldError("queue_no");
-                      }}
-                      placeholder="e.g., 12A"
-                      className="mt-2"
+                      value={nextQueueNo}
+                      readOnly
+                      placeholder="Assigned automatically"
+                      className="mt-2 bg-muted"
                       />
-                    {errors.queue_no && <p className="mt-1 text-xs text-destructive">{errors.queue_no}</p>}
+                    <p className="mt-1 text-xs text-muted-foreground">Assigned automatically when the patient is added.</p>
                   </div>
                   <div>
                     <Label htmlFor="sex" className="text-muted-foreground">Sex *</Label>
@@ -324,19 +420,56 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                 </div>
     
-                <div>
+                <div className="relative">
                   <Label htmlFor="englishName" className="text-muted-foreground">English Name *</Label>
                   <Input
                     id="englishName"
                     value={patientInfo.english_name}
                     aria-invalid={!!errors.english_name}
+                    autoComplete="off"
                     onChange={(e) => {
                       setPatientInfo(prev => ({ ...prev, english_name: e.target.value }));
                       clearFieldError("english_name");
+                      setShowSuggestions(true);
+                      setHighlightedIndex(-1);
                     }}
-                    placeholder="Enter English name"
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setShowSuggestions(false)}
+                    onKeyDown={handleNameKeyDown}
+                    placeholder="Enter English name, or patient ID for a returning patient"
                     className="mt-2"
                   />
+                  {suggestionsOpen && (
+                    <ul className="absolute z-10 bg-card border border-border rounded-md w-full mt-1 max-h-48 overflow-y-auto shadow-sm">
+                      {suggestions.map((patient, idx) => {
+                        const age = calculateAge(patient.date_of_birth);
+                        const summary = [
+                          patient.english_name,
+                          patient.khmer_name,
+                          patient.sex,
+                          age !== null ? `Age ${age}` : null,
+                        ].filter(Boolean).join(" • ");
+
+                        return (
+                        <li
+                          key={patient.id}
+                          className={`flex items-center justify-between gap-3 px-4 py-2 cursor-pointer text-sm ${
+                            idx === highlightedIndex ? "bg-accent font-medium" : "hover:bg-accent/70"
+                          }`}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          // mousedown fires before the input's blur closes the list
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            linkPatient(patient);
+                          }}
+                        >
+                          <span>{summary}</span>
+                          <span className="shrink-0 text-xs font-semibold text-muted-foreground">Patient ID {patient.id}</span>
+                        </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                   {errors.english_name && <p className="mt-1 text-xs text-destructive">{errors.english_name}</p>}
                 </div>
     
@@ -364,27 +497,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="age" className="text-muted-foreground">Age</Label>
-                    <div className="flex gap-2 mt-2">
-                      <Input
-                        id="age"
-                        type="number"
-                        value={patientInfo.age || ""}
-                        onChange={(e) => setPatientInfo(prev => ({ ...prev, age: e.target.value || "" }))}
-                        placeholder="Age"
-                        className=""
-                      />
-                      <Button 
-                        type="button" 
-                        onClick={calculateAge}
-                        className={`${
-                          patientInfo.date_of_birth 
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                            : "bg-muted text-muted-foreground border-border hover:bg-muted"
-                        }`}
-                      >
-                        Calculate
-                      </Button>
-                    </div>
+                    <Input
+                      id="age"
+                      type="number"
+                      value={patientInfo.age || ""}
+                      readOnly={!!patientInfo.date_of_birth}
+                      onChange={(e) => setPatientInfo(prev => ({ ...prev, age: e.target.value || "" }))}
+                      placeholder="Auto from date of birth"
+                      className={`mt-2 ${patientInfo.date_of_birth ? "bg-muted" : ""}`}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="phoneNumber" className="text-muted-foreground">Phone Number</Label>
@@ -464,27 +585,14 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="bmi" className="text-muted-foreground">BMI</Label>
-                    <div className="flex gap-2 mt-2">
-                      <Input
-                        id="bmi"
-                        value={vitals.bmi}
-                        aria-invalid={!!errors.bmi}
-                        readOnly
-                        placeholder="BMI"
-                        className=""
-                      />
-                      <Button 
-                        type="button" 
-                        onClick={calculateBMI}
-                        className={`${
-                          vitals.height && vitals.weight 
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                            : "bg-muted text-muted-foreground border-border hover:bg-muted"
-                        }`}
-                      >
-                        Calculate
-                      </Button>
-                    </div>
+                    <Input
+                      id="bmi"
+                      value={vitals.bmi}
+                      aria-invalid={!!errors.bmi}
+                      readOnly
+                      placeholder="Auto from height and weight"
+                      className="mt-2 bg-muted"
+                    />
                     {errors.bmi && <p className="mt-1 text-xs text-destructive">{errors.bmi}</p>}
                   </div>
                 </div>
@@ -645,14 +753,43 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             >
               Check Existing
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting}
-              className="px-8"
-            >
-              {isSubmitting ? "Submitting..." : "Submit & Add to Queue"}
-            </Button>
+            {activeTab === "patient-info" && (
+              <Button type="button" className="px-8" onClick={() => setActiveTab("vitals")}>
+                Next: Vitals
+              </Button>
+            )}
+            {activeTab === "vitals" && (
+              <Button type="button" className="px-8" onClick={() => setActiveTab("hef")}>
+                Next: HEF
+              </Button>
+            )}
+            {activeTab === "hef" && (
+              <Button 
+                onClick={handleSubmit} 
+                disabled={isSubmitting}
+                className="px-8"
+              >
+                {isSubmitting ? "Submitting..." : "Submit & Add to Queue"}
+              </Button>
+            )}
           </div>
+
+          <ExistingPatientDialog
+            open={!!matchPrompt}
+            matches={matchPrompt?.matches ?? []}
+            description={
+              matchPrompt?.onSubmit
+                ? "A patient with this name is already registered. Select them to add this visit to their record, or register a new patient if this is a different person."
+                : "More than one patient matches this name. Use the Patient ID and details to pick the right one."
+            }
+            onSelect={(patient) => {
+              const continueSubmit = matchPrompt?.onSubmit;
+              linkPatient(patient);
+              if (continueSubmit) submitVisit(patient.id);
+            }}
+            onRegisterNew={matchPrompt?.onSubmit ? () => submitVisit() : undefined}
+            onClose={() => setMatchPrompt(null)}
+          />
       </PageCard>
     );
 

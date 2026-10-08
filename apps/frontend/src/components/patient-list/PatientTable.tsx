@@ -13,11 +13,11 @@ interface PatientTableProps {
 export function PatientTable({ patients, onViewPatient, onDeletePatient}: PatientTableProps) {
   
     return (
-      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto xl:min-h-0 xl:overflow-y-auto">
           <table className="w-full table-fixed">
-            <thead className="bg-muted">
+            <thead className="bg-muted sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">English Name</th>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Khmer Name</th>

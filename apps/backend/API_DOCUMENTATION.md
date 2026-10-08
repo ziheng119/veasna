@@ -122,6 +122,9 @@ Update a patient’s demographic details (`english_name`, `khmer_name`, `date_of
 **GET** `queue?location_id={id}&date=YYYY-MM-DD`
 Today’s active queue for a location (visits with `completed_at` unset).
 
+**GET** `queue/next?location_id={id}`
+Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number when `visit.queue_no` is omitted.
+
 **POST** `queue/{visitId}/complete`
 Remove a visit from the active queue. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
 

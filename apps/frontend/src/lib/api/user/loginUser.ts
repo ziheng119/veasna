@@ -21,6 +21,7 @@ export async function loginUser(username: string, password: string): Promise<Use
         id: backendUser.id,
         username: backendUser.username,
         token,
+        role: backendUser.role,
       };
   
       return createdUser;

@@ -26,7 +26,7 @@ export function AddDrugSidebar({ onSubmit }: AddDrugSidebarProps) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm xl:max-h-full xl:overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Add New Drug</h3>
       </div>

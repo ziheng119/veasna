@@ -78,14 +78,14 @@ router.post('/register', authenticateToken, requireRole(['admin']), async (req, 
     const insertQuery = `
       INSERT INTO users (username, password_hash, is_active)
       VALUES ($1, $2, TRUE)
-      RETURNING id, username;
+      RETURNING id, username, role;
     `;
 
     const { rows } = await db.query(insertQuery, [username, passwordHash]);
     const user = rows[0];
     const token = signUserToken(user);
 
-    res.status(201).json({ token, user: { id: user.id, username: user.username } });
+    res.status(201).json({ token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ message: 'Internal server error' });
@@ -103,7 +103,7 @@ router.post('/login', async (req, res) => {
   try {
 
     const userQuery = `
-      SELECT id, username, password_hash, is_active
+      SELECT id, username, password_hash, role, is_active
       FROM users
       WHERE LOWER(username) = LOWER($1)
     `;
@@ -131,7 +131,7 @@ router.post('/login', async (req, res) => {
 
     const token = signUserToken(user);
 
-    res.json({ token, user: { id: user.id, username: user.username } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error' });
