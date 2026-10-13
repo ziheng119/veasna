@@ -6,6 +6,9 @@ let ensurePharmacyNumericStockPromise = null;
 let ensureVisitsCompletedPromise = null;
 let ensureUserRolePromise = null;
 let ensureVisitStationsPromise = null;
+let ensureSnellenFractionsPromise = null;
+let ensurePartialStationFormsPromise = null;
+let ensureGeneratedFaceIdPromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -56,9 +59,45 @@ function ensureVisitStations() {
   return ensureVisitStationsPromise;
 }
 
+function ensureSnellenFractions() {
+  if (!ensureSnellenFractionsPromise) {
+    ensureSnellenFractionsPromise = runMigration('005_snellen_fractions.sql').catch((err) => {
+      ensureSnellenFractionsPromise = null;
+      throw err;
+    });
+  }
+  return ensureSnellenFractionsPromise;
+}
+
+// Runs after the Snellen conversion so both alter the acuity columns in a fixed order.
+function ensurePartialStationForms() {
+  if (!ensurePartialStationFormsPromise) {
+    ensurePartialStationFormsPromise = ensureSnellenFractions()
+      .then(() => runMigration('006_partial_station_forms.sql'))
+      .catch((err) => {
+        ensurePartialStationFormsPromise = null;
+        throw err;
+      });
+  }
+  return ensurePartialStationFormsPromise;
+}
+
+function ensureGeneratedFaceId() {
+  if (!ensureGeneratedFaceIdPromise) {
+    ensureGeneratedFaceIdPromise = runMigration('007_generated_face_id.sql').catch((err) => {
+      ensureGeneratedFaceIdPromise = null;
+      throw err;
+    });
+  }
+  return ensureGeneratedFaceIdPromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
   ensureUserRole,
   ensureVisitStations,
+  ensureSnellenFractions,
+  ensurePartialStationForms,
+  ensureGeneratedFaceId,
 };

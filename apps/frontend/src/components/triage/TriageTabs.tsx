@@ -11,6 +11,8 @@ import { Save } from "lucide-react";
 import toast from "react-hot-toast";
 import { saveVisualAcuity,savePresentingComplaint, saveMedicalHistory} from "@/lib/api/triage/triageService";   
 import { VisualAcuity } from "@/lib/types/visualAcuity";
+import SnellenInput from "@/components/shared/SnellenInput";
+import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
 
@@ -46,8 +48,15 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
     });
 
     const handleSaveVisualAcuity = async () => {
+        const { notes, ...readings } = visualAcuity;
+        const fractions = normalizeSnellenFields(readings);
+        if (!fractions) {
+            toast.error(SNELLEN_ERROR);
+            return;
+        }
+        setVisualAcuity({ ...fractions, notes });
         setIsLoading(true);
-        const promise = saveVisualAcuity({ ...visualAcuity, visit_id: visit_id });
+        const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id });
         toast.promise(promise, {
             loading: 'Saving Visual Acuity data...',
             success: 'Data saved successfully!',
@@ -94,22 +103,22 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
                                     <h4 className="text-foreground">Left Eye</h4>
                                     <div>
                                         <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <Input value={visualAcuity.left_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_with_pinhole: e.target.value}))} className="mt-2" />
+                                        <SnellenInput value={visualAcuity.left_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_with_pinhole: value}))} className="mt-2" />
                                     </div>
                                     <div>
                                         <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <Input value={visualAcuity.left_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, left_without_pinhole: e.target.value}))} className="mt-2" />
+                                        <SnellenInput value={visualAcuity.left_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_without_pinhole: value}))} className="mt-2" />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
                                     <h4 className="text-foreground">Right Eye</h4>
                                     <div>
                                         <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <Input value={visualAcuity.right_with_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_with_pinhole: e.target.value}))} className="mt-2" />
+                                        <SnellenInput value={visualAcuity.right_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_with_pinhole: value}))} className="mt-2" />
                                     </div>
                                     <div>
                                         <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <Input value={visualAcuity.right_without_pinhole} onChange={(e) => setVisualAcuity(p => ({...p, right_without_pinhole: e.target.value}))} className="mt-2" />
+                                        <SnellenInput value={visualAcuity.right_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_without_pinhole: value}))} className="mt-2" />
                                     </div>
                                 </div>
                             </div>

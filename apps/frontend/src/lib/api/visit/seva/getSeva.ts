@@ -54,11 +54,11 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
 
     // Normalize backend (snake_case → camelCase)
     const data: Seva = {
-      leftWithPinholeNew: json.left_with_pinhole_new,
-      rightWithPinholeNew: json.right_with_pinhole_new,
-      leftWithoutPinholeNew: json.left_without_pinhole_new,
-      rightWithoutPinholeNew: json.right_without_pinhole_new,
-      diagnosis: json.diagnosis,
+      leftWithPinholeNew: json.left_with_pinhole_new ?? "",
+      rightWithPinholeNew: json.right_with_pinhole_new ?? "",
+      leftWithoutPinholeNew: json.left_without_pinhole_new ?? "",
+      rightWithoutPinholeNew: json.right_without_pinhole_new ?? "",
+      diagnosis: json.diagnosis ?? "",
       dateOfReferral: json.date_of_referral,
       notes: json.notes ?? "",
     };

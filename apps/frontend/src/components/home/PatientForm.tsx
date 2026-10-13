@@ -25,6 +25,7 @@ import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
+import { generateFaceId } from "@/lib/faceId";
 import { ALL_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 
 interface PatientFormProps {
@@ -36,7 +37,6 @@ interface PatientFormProps {
 type FormErrors = {
     english_name?: string;
     sex?: string;
-    face_id?: string;
     height?: string;
     weight?: string;
     bmi?: string;
@@ -49,7 +49,6 @@ type FormErrors = {
 };
 
 const emptyPatientInfo: PatientFormData = {
-    face_id: "",
     english_name: "",
     khmer_name: "",
     date_of_birth: "",
@@ -162,7 +161,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const validateForm = (): boolean => {
       const nextErrors: FormErrors = {};
       const englishName = patientInfo.english_name?.trim() ?? "";
-      const faceId = patientInfo.face_id?.trim() ?? "";
       const height = Number(vitals.height);
       const weight = Number(vitals.weight);
       const bmi = Number(vitals.bmi);
@@ -172,7 +170,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
-      if (faceId && !/^\d+$/.test(faceId)) nextErrors.face_id = "Face ID must be a positive integer.";
 
       if (!Number.isFinite(height) || height <= 0) nextErrors.height = "Enter a valid height greater than 0.";
       if (!Number.isFinite(weight) || weight <= 0) nextErrors.weight = "Enter a valid weight greater than 0.";
@@ -187,7 +184,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex", "face_id"];
+      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
       const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
 
@@ -208,7 +205,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       setShowSuggestions(false);
       setPatientInfo(prev => ({
         ...prev,
-        face_id: found.face_id?.toString() ?? "",
         english_name: found.english_name || "",
         khmer_name: found.khmer_name || "",
         date_of_birth: found.date_of_birth ? formatDate(found.date_of_birth) : "",
@@ -221,7 +217,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         ...prev,
         english_name: undefined,
         sex: undefined,
-        face_id: undefined,
       }));
     };
 
@@ -542,16 +537,12 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Label htmlFor="faceId" className="text-muted-foreground">Face ID</Label>
                   <Input
                     id="faceId"
-                    value={patientInfo.face_id}
-                    aria-invalid={!!errors.face_id}
-                    onChange={(e) => {
-                      setPatientInfo(prev => ({ ...prev, face_id: e.target.value || "" }));
-                      clearFieldError("face_id");
-                    }}
-                    placeholder="Face ID"
-                    className="mt-2"
+                    value={generateFaceId(patientInfo.english_name, patientInfo.khmer_name, patientInfo.date_of_birth)}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="Generated from names and date of birth"
+                    className="mt-2 bg-muted"
                   />
-                  {errors.face_id && <p className="mt-1 text-xs text-destructive">{errors.face_id}</p>}
                 </div>
               </TabsContent>
     

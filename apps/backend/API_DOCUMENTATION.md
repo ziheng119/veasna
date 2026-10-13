@@ -82,7 +82,7 @@ Fetches the current user’s profile.
 ### Patients
 
 **GET** `patients`
-List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date.
+List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date. Each patient includes `last_visit_date` (`YYYY-MM-DD`, or `null`): the most recent day they were seen at a screening.
 
 **POST** `patients`
 Create a new patient.
@@ -182,6 +182,11 @@ Add a visual acuity record.
 
 **GET** `patients/{id}/visual_acuity`
 List visual acuity records.
+
+**POST** `triage/visual-acuity`
+Save the Snellen's test for a visit. Body: `visit_id`, `left_with_pinhole`, `left_without_pinhole`, `right_with_pinhole`, `right_without_pinhole`, optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"6/6"` or `"6/9"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields.
+
+The triage, Seva, consultation and referral save endpoints accept partially filled forms: only the visit id is required. Blank dates are stored as `null` and missing text as an empty string.
 
 ---
 

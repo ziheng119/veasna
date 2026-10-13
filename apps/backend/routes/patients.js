@@ -35,7 +35,13 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
 
     const queryText = `
-      SELECT p.*, l.name AS location_name
+      SELECT p.*, l.name AS location_name,
+        -- Most recent day the patient was seen at a screening (YYYY-MM-DD), or null.
+        (
+          SELECT TO_CHAR(MAX(lv.visit_date), 'YYYY-MM-DD')
+          FROM visits lv
+          WHERE lv.patient_id = p.id
+        ) AS last_visit_date
       FROM patients p
       JOIN locations l ON l.id = p.location_id
       WHERE p.location_id = $1

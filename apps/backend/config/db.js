@@ -1,7 +1,11 @@
 // config/db.js
 
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const bcrypt = require('bcrypt');
+
+// Return DATE columns as plain 'YYYY-MM-DD' strings. The default parser builds a JS Date at
+// local midnight, which shifts the day when serialized to UTC (e.g. dates of birth one day early).
+types.setTypeParser(types.builtins.DATE, (value) => value);
 
 // The pool will use the environment variables (PGUSER, PGHOST, PGDATABASE, PGPASSWORD, PGPORT)
 // if they are set, or the connection object otherwise.

@@ -15,7 +15,7 @@ async function saveData(endpoint: string, data: any) {
 
     if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || `Failed to save ${endpoint} data.`);
+        throw new Error(error.error || error.message || `Failed to save ${endpoint} data.`);
     }
     return res.json();
 }
