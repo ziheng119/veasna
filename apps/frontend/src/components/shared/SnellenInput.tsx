@@ -23,7 +23,8 @@ export default function SnellenInput({ value, onChange, className }: Props) {
       <SelectTrigger className={cn("w-full", className)}>
         <SelectValue placeholder="Please select" />
       </SelectTrigger>
-      <SelectContent className="bg-popover border-border">
+      {/* Always open downwards; when space below is short the list scrolls instead of flipping up. */}
+      <SelectContent side="bottom" avoidCollisions={false} className="bg-popover border-border">
         <SelectItem value={UNSET}>Please select</SelectItem>
         {options.map((option) => (
           <SelectItem key={option} value={option}>{option}</SelectItem>

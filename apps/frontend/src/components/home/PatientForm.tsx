@@ -26,7 +26,7 @@ import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
 import { generateFaceId } from "@/lib/faceId";
-import { ALL_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -122,7 +122,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     })
 
     // Stations this visit is indicated for; the patient queues at each one in order.
-    const [stations, setStations] = useState<StationId[]>(ALL_STATION_IDS);
+    const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -291,7 +291,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           // Reset form states
           setLinkedPatient(null);
           setPatientInfo(emptyPatientInfo);
-          setStations(ALL_STATION_IDS);
+          setStations(DEFAULT_STATION_IDS);
           setVitals({
             height: "",
             weight: "",
@@ -744,7 +744,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="border-t border-border pt-4">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Untick any station this patient does not need. They will be queued at each ticked station in order.
+                    Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
                   </p>
                   <StationCheckboxes
                     idPrefix="station"

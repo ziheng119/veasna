@@ -21,6 +21,7 @@ export async function postSeva(data: Seva, visitId: number) {
       right_without_pinhole_new: data.rightWithoutPinholeNew,
       diagnosis: data.diagnosis,
       date_of_referral: data.dateOfReferral,
+      referral: data.referral || null,
       notes: data.notes ?? "",
     }),
   });

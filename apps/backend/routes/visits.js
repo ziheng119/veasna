@@ -9,6 +9,8 @@ const { STATIONS, normalizeStations, stationPosition } = require('../utils/stati
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 
+const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
+
 function parseOptionalPositiveInt(value) {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') {
@@ -366,6 +368,7 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
       right_without_pinhole_new,
       diagnosis,
       date_of_referral,
+      referral,
       notes,
       last_updated_by,
       last_updated_at,
@@ -388,6 +391,45 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
   }
 });
 
+// GET: patients at a location that Seva has marked for referral, newest visit first
+router.get('/seva-referrals', authenticateToken, async (req, res) => {
+  const locationId = parseOptionalPositiveInt(req.query.location_id);
+  if (!locationId) {
+    return res.status(400).json({ error: 'Valid location_id is required' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT
+        s.visit_id,
+        s.referral,
+        s.diagnosis,
+        s.date_of_referral,
+        v.visit_date,
+        v.queue_no,
+        p.id AS patient_id,
+        p.english_name,
+        p.khmer_name,
+        p.date_of_birth,
+        p.sex,
+        p.phone_number,
+        p.face_id
+      FROM seva s
+      JOIN visits v ON v.id = s.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE v.location_id = $1 AND s.referral IS NOT NULL
+      ORDER BY v.visit_date DESC, s.last_updated_at DESC
+      `,
+      [locationId]
+    );
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error fetching SEVA referrals:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // UPSERT: seva
 router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
   const { visit_id } = req.params;
@@ -402,6 +444,12 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     date_of_referral,
     notes = "",
   } = req.body;
+
+  // Who needs referring: null/blank means no referral.
+  const referral = req.body.referral === undefined || req.body.referral === '' ? null : req.body.referral;
+  if (referral !== null && !SEVA_REFERRALS.includes(referral)) {
+    return res.status(400).json({ error: `referral must be one of: ${SEVA_REFERRALS.join(', ')}, or blank.` });
+  }
 
   const acuity = normalizeSnellenFields(req.body, [
     'left_with_pinhole_new',
@@ -431,9 +479,10 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       diagnosis,
       date_of_referral,
       notes,
-      last_updated_by
+      last_updated_by,
+      referral
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     ON CONFLICT (visit_id) DO UPDATE SET
       left_with_pinhole_new = EXCLUDED.left_with_pinhole_new,
       right_with_pinhole_new = EXCLUDED.right_with_pinhole_new,
@@ -441,6 +490,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       right_without_pinhole_new = EXCLUDED.right_without_pinhole_new,
       diagnosis = EXCLUDED.diagnosis,
       date_of_referral = EXCLUDED.date_of_referral,
+      referral = EXCLUDED.referral,
       notes = EXCLUDED.notes,
       last_updated_by = EXCLUDED.last_updated_by,
       last_updated_at = NOW()
@@ -458,6 +508,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       dateOrNull(date_of_referral),
       textOrEmpty(notes),
       last_updated_by,
+      referral,
     ]);
 
     if (rows.length === 0) {

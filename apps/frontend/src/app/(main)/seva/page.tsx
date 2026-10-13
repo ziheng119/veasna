@@ -1,6 +1,7 @@
 "use client"
 
 import SevaNotesContainer from "@/components/seva/SevaNotesContainer";
+import SevaReferralListDialog from "@/components/seva/SevaReferralListDialog";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
@@ -26,7 +27,10 @@ export default function Seva() {
 
     return (
         <div className={PAGE_SHELL}>
-            <SearchBar onSelectPatient={setSelectedPatient} />
+            <div className="flex items-center gap-3">
+              <SearchBar onSelectPatient={setSelectedPatient} />
+              <SevaReferralListDialog />
+            </div>
             <div className={PANEL_GRID}>
               <QueuePatientPicker
                 station="seva"

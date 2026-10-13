@@ -9,6 +9,7 @@ let ensureVisitStationsPromise = null;
 let ensureSnellenFractionsPromise = null;
 let ensurePartialStationFormsPromise = null;
 let ensureGeneratedFaceIdPromise = null;
+let ensureSevaReferralPromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -92,6 +93,16 @@ function ensureGeneratedFaceId() {
   return ensureGeneratedFaceIdPromise;
 }
 
+function ensureSevaReferral() {
+  if (!ensureSevaReferralPromise) {
+    ensureSevaReferralPromise = runMigration('008_seva_referral.sql').catch((err) => {
+      ensureSevaReferralPromise = null;
+      throw err;
+    });
+  }
+  return ensureSevaReferralPromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
@@ -100,4 +111,5 @@ module.exports = {
   ensureSnellenFractions,
   ensurePartialStationForms,
   ensureGeneratedFaceId,
+  ensureSevaReferral,
 };

@@ -15,12 +15,27 @@ import SnellenInput from "@/components/shared/SnellenInput";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
+import { Checkbox } from "@/components/ui/checkbox";
+import { QueuedPatient } from "@/lib/types/patient";
+import { ALL_STATION_IDS, StationId } from "@/constants/stations";
+import { updateVisitStations } from "@/lib/api/queue/stations";
+import { useUserStore } from "@/stores/useUserStore";
 
 interface TriageTabsProps {
     visit_id: number;
+    // Stations indicated for the visit; lets triage send the patient to Seva.
+    stations?: QueuedPatient["stations"];
+    // Called with the visit's remaining stations after triage changes them.
+    onStationsChanged?: (remaining: StationId[]) => void;
 }
 
-export function TriageTabs({ visit_id }: TriageTabsProps) {
+export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabsProps) {
+    const token = useUserStore((state) => state.user?.token);
+    const remainingStations = (stations ?? []).filter((s) => !s.completed).map((s) => s.station);
+    const sevaQueued = remainingStations.includes("seva");
+    const sevaDone = (stations ?? []).some((s) => s.station === "seva" && s.completed);
+    // Seva is only for patients suspected of cataracts after the Snellen's test.
+    const [sendToSeva, setSendToSeva] = useState(sevaQueued);
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -56,7 +71,14 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
         }
         setVisualAcuity({ ...fractions, notes });
         setIsLoading(true);
-        const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id });
+        const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
+            if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
+            const remaining = ALL_STATION_IDS.filter((id) =>
+                id === "seva" ? sendToSeva : remainingStations.includes(id)
+            );
+            await updateVisitStations(visit_id, remaining, token);
+            onStationsChanged?.(remaining);
+        });
         toast.promise(promise, {
             loading: 'Saving Visual Acuity data...',
             success: 'Data saved successfully!',
@@ -122,6 +144,25 @@ export function TriageTabs({ visit_id }: TriageTabsProps) {
                                     </div>
                                 </div>
                             </div>
+                            {stations && (
+                                <div className="flex items-start space-x-2 rounded-md border border-border p-3">
+                                    <Checkbox
+                                        id="send-to-seva"
+                                        checked={sevaDone || sendToSeva}
+                                        disabled={sevaDone}
+                                        onCheckedChange={(checked) => setSendToSeva(checked === true)}
+                                        className="mt-0.5 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                    />
+                                    <div>
+                                        <Label htmlFor="send-to-seva" className="text-foreground">Suspected cataract: send to Seva</Label>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {sevaDone
+                                                ? "This patient has already been seen at Seva."
+                                                : "Adds Seva to this patient's stations when the visual acuity is saved."}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <Label className="text-muted-foreground">Notes</Label>
                                 <Textarea value={visualAcuity.notes} onChange={(e) => setVisualAcuity(p => ({...p, notes: e.target.value}))} rows={3} className="mt-2" />

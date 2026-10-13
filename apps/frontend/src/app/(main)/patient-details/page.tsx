@@ -16,6 +16,7 @@ import { getVisit } from "@/lib/api/visit/getVisit";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
 import DottedImage from "@/components/physiotherapy/DottedImage";
+import { sevaReferralLabel } from "@/constants/sevaReferral";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 interface Visit {
@@ -513,6 +514,7 @@ export default function PatientDetailsPage() {
                             <DataField label="Right (without pinhole)" value={visitDetails.seva.right_without_pinhole_new} />
                           </div>
                           <DataField label="Diagnosis" value={visitDetails.seva.diagnosis} />
+                          <DataField label="Referral needed" value={sevaReferralLabel(visitDetails.seva.referral) || "No referral"} />
                           <DataField label="Date of Referral" value={formatDate(visitDetails.seva.date_of_referral)} />
                           {visitDetails.seva.notes && (
                             <DataField label="Notes" value={visitDetails.seva.notes} />

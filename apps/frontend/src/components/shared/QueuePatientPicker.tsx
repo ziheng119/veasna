@@ -22,12 +22,15 @@ interface QueuePatientPickerProps {
   station: StationId;
   onSelectPatient: (patient: QueuedPatient | null) => void;
   selectedVisitId?: number;
+  // Change this value to make the queue reload (e.g. after another panel edits a visit's stations).
+  refreshKey?: number;
 }
 
 export default function QueuePatientPicker({
   station,
   onSelectPatient,
   selectedVisitId,
+  refreshKey,
 }: QueuePatientPickerProps) {
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
@@ -49,7 +52,7 @@ export default function QueuePatientPicker({
 
   useEffect(() => {
     loadQueue();
-  }, [loadQueue]);
+  }, [loadQueue, refreshKey]);
 
   // Station after this one for the patient, or null when this is their last.
   const nextStation = (patient: QueuedPatient): StationId | null => {

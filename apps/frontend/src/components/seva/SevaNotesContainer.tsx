@@ -11,7 +11,12 @@ import { postSeva } from "@/lib/api/visit/seva/postSeva"
 import formatDate from "@/helper/format_date"
 import { PageCard } from "../shared/PageCard"
 import SnellenInput from "../shared/SnellenInput"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral"
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen"
+
+// Radix Select items cannot have an empty value, so "no referral" needs a stand-in.
+const NO_REFERRAL = "none"
 
 interface Props {
     patient: QueuedPatient;
@@ -24,6 +29,7 @@ export default function SevaNotesContainer({ patient }: Props) {
     const [rightWithoutPinholeNew, setRightWithoutPinholeNew] = useState<string>("");
     const [diagnosis, setDiagnosis] = useState<string>("");
     const [dateOfReferral, setDateOfReferral] = useState<string>("");
+    const [referral, setReferral] = useState<SevaReferral | "">("");
     const [additionalNotes, setAdditionalNotes] = useState<string>("");
 
     const loadData = async () => {
@@ -37,6 +43,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             setRightWithoutPinholeNew("");
             setDiagnosis("");
             setDateOfReferral("");
+            setReferral("");
             setAdditionalNotes("");
             toast("No data loaded")
             return;
@@ -48,6 +55,7 @@ export default function SevaNotesContainer({ patient }: Props) {
         setRightWithoutPinholeNew(data.rightWithoutPinholeNew);
         setDiagnosis(data.diagnosis);
         setDateOfReferral(data.dateOfReferral ? formatDate(data.dateOfReferral) : "");
+        setReferral(data.referral);
         setAdditionalNotes(data.notes ?? "");
 
         toast.success("Load success")
@@ -74,6 +82,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             ...fractions,
             diagnosis: diagnosis,
             dateOfReferral: dateOfReferral,
+            referral: referral,
             notes: additionalNotes
         }
         
@@ -120,6 +129,21 @@ export default function SevaNotesContainer({ patient }: Props) {
                 />
 
             </div>
+
+        <div className="flex flex-col gap-2 w-full">
+            <h2 className="text-[15px] font-semibold">Referral needed</h2>
+            <Select value={referral || NO_REFERRAL} onValueChange={(value) => setReferral(value === NO_REFERRAL ? "" : (value as SevaReferral))}>
+                <SelectTrigger className="w-full">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent side="bottom" avoidCollisions={false} className="bg-popover border-border">
+                    <SelectItem value={NO_REFERRAL}>No referral</SelectItem>
+                    {SEVA_REFERRALS.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
 
         <div className="flex flex-col gap-2 w-full">
             <h2 className="text-[15px] font-semibold">Date of Referral</h2>

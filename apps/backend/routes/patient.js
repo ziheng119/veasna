@@ -262,6 +262,7 @@ router.get(
           s.right_without_pinhole_new AS seva_right_without_pinhole,
           s.diagnosis AS seva_diagnosis,
           s.date_of_referral AS seva_referral_date,
+          s.referral AS seva_referral,
           s.notes AS seva_notes,
           
           -- Physiotherapy
@@ -406,6 +407,7 @@ router.get(
                 right_without_pinhole_new: visit.seva_right_without_pinhole,
                 diagnosis: visit.seva_diagnosis,
                 date_of_referral: visit.seva_referral_date,
+                referral: visit.seva_referral,
                 notes: visit.seva_notes,
               }
             : null,

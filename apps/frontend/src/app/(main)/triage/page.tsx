@@ -12,11 +12,25 @@ import toast from "react-hot-toast";
 import { PageCard } from "@/components/shared/PageCard";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import { StationId } from "@/constants/stations";
 
 export default function Traige() {
   const location = useLocationStore((state) => state.currentLocation);
 
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
+  const [queueVersion, setQueueVersion] = useState(0);
+
+  // Triage changed which stations the selected patient still has to visit.
+  const handleStationsChanged = (remaining: StationId[]) => {
+    setSelectedPatient((prev) => prev && {
+      ...prev,
+      stations: [
+        ...(prev.stations ?? []).filter((s) => s.completed),
+        ...remaining.map((station) => ({ station, completed: false })),
+      ],
+    });
+    setQueueVersion((version) => version + 1);
+  };
 
   useEffect(() => {
     if (!location) {
@@ -33,6 +47,7 @@ export default function Traige() {
             station="triage"
             onSelectPatient={setSelectedPatient}
             selectedVisitId={selectedPatient?.visit_id}
+            refreshKey={queueVersion}
           />
           <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
             {!selectedPatient ? (
@@ -47,7 +62,12 @@ export default function Traige() {
                   <PatientDetails patient={selectedPatient} />
                 </PageCard>
                 <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-                  <TriageTabs visit_id={selectedPatient.visit_id}/>
+                  <TriageTabs
+                    key={selectedPatient.visit_id}
+                    visit_id={selectedPatient.visit_id}
+                    stations={selectedPatient.stations}
+                    onStationsChanged={handleStationsChanged}
+                  />
                 </div>
               </div>
             )}

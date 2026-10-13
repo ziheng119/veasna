@@ -186,6 +186,11 @@ List visual acuity records.
 **POST** `triage/visual-acuity`
 Save the Snellen's test for a visit. Body: `visit_id`, `left_with_pinhole`, `left_without_pinhole`, `right_with_pinhole`, `right_without_pinhole`, optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"6/6"` or `"6/9"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields.
 
+`POST visits/seva/{visit_id}` also takes `referral`: `"cataract_surgery"`, `"seva_general"`, or blank/`null` for no referral.
+
+**GET** `visits/seva-referrals?location_id={id}`
+Patients at the location that Seva marked for referral (any date, newest visit first), with `referral`, `diagnosis`, `visit_date` and patient details.
+
 The triage, Seva, consultation and referral save endpoints accept partially filled forms: only the visit id is required. Blank dates are stored as `null` and missing text as an empty string.
 
 ---

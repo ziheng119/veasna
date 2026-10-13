@@ -11,6 +11,9 @@ export type StationId = (typeof STATIONS)[number]["id"];
 
 export const ALL_STATION_IDS: StationId[] = STATIONS.map((station) => station.id);
 
+// Ticked by default at registration. Seva is added at Triage when a cataract is suspected.
+export const DEFAULT_STATION_IDS: StationId[] = ALL_STATION_IDS.filter((id) => id !== "seva");
+
 export function stationLabel(id?: string | null): string {
   return STATIONS.find((station) => station.id === id)?.label ?? "";
 }

@@ -207,6 +207,8 @@ CREATE TABLE seva (
     right_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
     diagnosis TEXT NOT NULL,
     date_of_referral DATE,
+    referral VARCHAR(30)                               -- NULL = no referral
+        CHECK (referral IN ('cataract_surgery', 'seva_general')),
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
