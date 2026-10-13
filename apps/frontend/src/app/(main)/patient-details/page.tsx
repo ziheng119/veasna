@@ -15,6 +15,7 @@ import { getPatient } from "@/lib/api/patient/getPatients";
 import { getVisit } from "@/lib/api/visit/getVisit";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
+import DottedImage from "@/components/physiotherapy/DottedImage";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 interface Visit {
@@ -529,20 +530,20 @@ export default function PatientDetailsPage() {
                           <h4 className="font-semibold text-lg border-b pb-2">Physiotherapy</h4>
                           <DataField label="Notes" value={visitDetails.physiotherapy.notes} />
                           
-                          {visitDetails.physiotherapy.painpoints?.length > 0 && (
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground mb-3">Pain Points</p>
-                              <div className="space-y-2">
-                                {visitDetails.physiotherapy.painpoints.map((point: any, index: number) => (
-                                  <div key={point.id} className="bg-muted/40 p-3 rounded-md border border-border">
-                                    <p className="text-sm">
-                                      <span className="font-medium">Point {index + 1}:</span> X: {point.x_coord.toFixed(2)}, Y: {point.y_coord.toFixed(2)}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-3">Body Chart Indication</p>
+                            <DottedImage
+                              imageUrl="/bodychart.jpg"
+                              readOnly
+                              positions={(visitDetails.physiotherapy.painpoints ?? []).map((point: any) => ({
+                                xCoord: point.x_coord,
+                                yCoord: point.y_coord,
+                              }))}
+                            />
+                            {!visitDetails.physiotherapy.painpoints?.length && (
+                              <p className="mt-2 text-sm text-muted-foreground">No pain points marked.</p>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <p className="text-center text-muted-foreground py-8">No physiotherapy data available</p>

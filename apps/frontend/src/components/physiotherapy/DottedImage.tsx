@@ -3,11 +3,13 @@ import React, { useState, useEffect } from "react";
 
 type Props = {
   imageUrl: string;
-  onClickFunction: (positions: PainPoint[]) => void;
+  onClickFunction?: (positions: PainPoint[]) => void;
   positions?: PainPoint[] | undefined;
+  // Shows the marked points without allowing them to be added or removed.
+  readOnly?: boolean;
 };
 
-export default function DottedImage({ imageUrl, positions: initialPositions, onClickFunction }: Props) {
+export default function DottedImage({ imageUrl, positions: initialPositions, onClickFunction, readOnly = false }: Props) {
   const [clickPositions, setClickPositions] = useState<PainPoint[]>([]);
 
   useEffect(() => {
@@ -35,37 +37,39 @@ export default function DottedImage({ imageUrl, positions: initialPositions, onC
     const newPos: PainPoint = { xCoord: x, yCoord: y };
     const updated = [...clickPositions, newPos];
     setClickPositions(updated);
-    onClickFunction(updated);
+    onClickFunction?.(updated);
   };
 
   const handleRemoveDot = (indexToRemove: number) => {
     const updated = clickPositions.filter((_, i) => i !== indexToRemove);
     setClickPositions(updated);
-    onClickFunction(updated);
+    onClickFunction?.(updated);
   };
 
   const handleClearAll = () => {
     setClickPositions([]);
-    onClickFunction([]);
+    onClickFunction?.([]);
   };
 
   return (
     <div className="max-w-[600px] w-full">
-      <div className="flex items-end justify-end">
-        <button
-          onClick={handleClearAll}
-          className="rounded-md p-2 hover:cursor-pointer text-sm"
-        >
-          Clear All
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-end justify-end">
+          <button
+            onClick={handleClearAll}
+            className="rounded-md p-2 hover:cursor-pointer text-sm"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
       <div
-        onClick={handleClick}
-        className="relative inline-block cursor-crosshair w-full"
+        onClick={readOnly ? undefined : handleClick}
+        className={`relative inline-block w-full ${readOnly ? "" : "cursor-crosshair"}`}
       >
         <img
           src={imageUrl}
-          alt="Clickable"
+          alt="Body chart"
           className="block w-full h-auto items-center"
         />
 
@@ -73,16 +77,16 @@ export default function DottedImage({ imageUrl, positions: initialPositions, onC
           <div
             key={index}
             data-dot="true"
-            onClick={(e) => {
+            onClick={readOnly ? undefined : (e) => {
               e.stopPropagation();
               handleRemoveDot(index);
             }}
-            className="absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2 cursor-pointer border-2 border-white box-border"
+            className={`absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2 -translate-y-1/2 border-2 border-white box-border ${readOnly ? "" : "cursor-pointer"}`}
             style={{
               left: `${pos.xCoord}%`,
               top: `${pos.yCoord}%`,
             }}
-            title="Click to remove this dot"
+            title={readOnly ? undefined : "Click to remove this dot"}
           />
         ))}
       </div>
