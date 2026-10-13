@@ -3,9 +3,10 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { Vitals } from "@/lib/types/vitals";
 import { HEF } from "@/lib/types/hef";
+import { StationId } from "@/constants/stations";
 
 export async function createVisit(
-    data: { patientInfo: PatientFormData; vitals: Vitals; hef: HEF },
+    data: { patientInfo: PatientFormData; vitals: Vitals; hef: HEF; stations: StationId[] },
     token: string
 ): Promise<QueuedPatient> {
     
@@ -14,6 +15,7 @@ export async function createVisit(
         visit: { queue_no: data.patientInfo.queue_no },
         vitals: data.vitals,
         hef: data.hef,
+        stations: data.stations,
     };
 
     try {

@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS presenting_complaint CASCADE;
 DROP TABLE IF EXISTS visual_acuity CASCADE;
 DROP TABLE IF EXISTS hef CASCADE;
 DROP TABLE IF EXISTS vitals CASCADE;
+DROP TABLE IF EXISTS visit_stations CASCADE;
 DROP TABLE IF EXISTS visits CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS pharmacy CASCADE;
@@ -73,6 +74,26 @@ CREATE TABLE visits (
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Visit stations: the stations a visit is indicated for, in order.
+-- The first one not yet completed is the queue the patient is currently in.
+CREATE TABLE visit_stations (
+    id SERIAL PRIMARY KEY,
+    visit_id INT NOT NULL REFERENCES visits(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    station VARCHAR(30) NOT NULL
+        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation')),
+    position INT NOT NULL,
+    entered_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (visit_id, station)
+);
+
+CREATE INDEX visit_stations_pending_idx
+    ON visit_stations (visit_id, position) WHERE completed_at IS NULL;
 
 -- Vitals
 CREATE TABLE vitals (

@@ -29,6 +29,7 @@ export default function Physiotherapy() {
       <SearchBar onSelectPatient={setSelectedPatient} />
       <div className={PANEL_GRID}>
         <QueuePatientPicker
+          station="physiotherapy"
           onSelectPatient={setSelectedPatient}
           selectedVisitId={selectedPatient?.visit_id}
         />

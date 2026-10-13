@@ -264,4 +264,5 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 - `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
 - There is no ORM and no migration framework; schema changes are managed via SQL scripts.
-- The `password_hash` column, pharmacy `stock_count`, and visits `completed_at` migrations run once at server startup (idempotent SQL).
+- The `password_hash` column, pharmacy `stock_count`, visits `completed_at`, users `role`, and `visit_stations` migrations run once at server startup (idempotent SQL).
+- Station queues: each visit is routed through the stations it is indicated for (`triage`, `seva`, `physiotherapy`, `consultation`), one queue at a time. See `API_DOCUMENTATION.md`. Visits that were already open when the `visit_stations` migration first ran are routed through every station.

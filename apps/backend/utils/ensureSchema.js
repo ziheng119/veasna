@@ -5,6 +5,7 @@ const db = require('../config/db');
 let ensurePharmacyNumericStockPromise = null;
 let ensureVisitsCompletedPromise = null;
 let ensureUserRolePromise = null;
+let ensureVisitStationsPromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -42,8 +43,22 @@ function ensureUserRole() {
   return ensureUserRolePromise;
 }
 
+// Depends on visits.completed_at, so it runs after ensureVisitsCompleted.
+function ensureVisitStations() {
+  if (!ensureVisitStationsPromise) {
+    ensureVisitStationsPromise = ensureVisitsCompleted()
+      .then(() => runMigration('004_visit_stations.sql'))
+      .catch((err) => {
+        ensureVisitStationsPromise = null;
+        throw err;
+      });
+  }
+  return ensureVisitStationsPromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
   ensureUserRole,
+  ensureVisitStations,
 };

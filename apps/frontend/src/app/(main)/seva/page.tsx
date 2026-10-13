@@ -29,6 +29,7 @@ export default function Seva() {
             <SearchBar onSelectPatient={setSelectedPatient} />
             <div className={PANEL_GRID}>
               <QueuePatientPicker
+                station="seva"
                 onSelectPatient={setSelectedPatient}
                 selectedVisitId={selectedPatient?.visit_id}
               />

@@ -6,6 +6,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
 import { X } from "lucide-react";
+import { stationLabel } from "@/constants/stations";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 
@@ -97,6 +98,11 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                   <div className="text-sm text-muted-foreground truncate">
                     {patient.khmer_name}
                   </div>
+                  {patient.current_station && (
+                    <div className="text-xs font-medium text-primary truncate">
+                      At {stationLabel(patient.current_station)}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">

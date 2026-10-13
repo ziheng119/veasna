@@ -5,6 +5,7 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
 const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueNumber');
+const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 
 function parseOptionalPositiveInt(value) {
   if (value === null || value === undefined) return null;
@@ -33,6 +34,8 @@ function parseRequiredInt(value) {
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
+    // Stations the patient is indicated for. Optional: defaults to every station.
+    const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
     const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
     // Optional: when omitted, the next sequential number for the location and date is assigned.
@@ -44,6 +47,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     if (!hef) {
         return res.status(400).json({ error: 'hef is required.' });
+    }
+
+    if (!stations || stations.length === 0) {
+        return res.status(400).json({ error: `stations must be a non-empty list of: ${STATIONS.join(', ')}.` });
     }
 
     if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
@@ -154,6 +161,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const visitId = visitResult.rows[0].id;
         const visitTimestamp = visitResult.rows[0].created_at;
 
+        // Step 2b: Queue the visit at its first station; later stations are entered as each one completes
+        for (const [index, station] of stations.entries()) {
+            await client.query(
+                `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
+                 VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)`,
+                [visitId, station, stationPosition(station), index === 0, last_updated_by]
+            );
+        }
+
         // Step 3: Insert into vitals table
         const vitalsQuery = `
             INSERT INTO vitals (visit_id, height, weight, bmi, below_3rd_percentile, bp_systolic, bp_diastolic, temperature, notes, last_updated_by)
@@ -193,6 +209,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             visit_id: visitId,
             patient_id: patientId,
             queue_no: queueNo,
+            current_station: stations[0],
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
             age: patientInfo.age,

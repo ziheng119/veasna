@@ -9,35 +9,23 @@ import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
 import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
+import { completeStation } from "@/lib/api/queue/stations";
+import { StationId, stationLabel } from "@/constants/stations";
+import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { X } from "lucide-react";
+import { Check, ListChecks, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface QueuePatientPickerProps {
+  // The queue shown is only the patients currently waiting at this station.
+  station: StationId;
   onSelectPatient: (patient: QueuedPatient | null) => void;
   selectedVisitId?: number;
 }
 
-function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
-  const extractParts = (queueNum: string) => {
-    const match = queueNum.match(/^(\d+)([A-Za-z]?)$/);
-    if (match) {
-      return {
-        number: Number.parseInt(match[1], 10),
-        letter: match[2] || "ZZ",
-      };
-    }
-    return { number: Number.MAX_SAFE_INTEGER, letter: queueNum };
-  };
-
-  const partsA = extractParts(a.queue_no);
-  const partsB = extractParts(b.queue_no);
-  if (partsA.number !== partsB.number) return partsA.number - partsB.number;
-  return partsA.letter.localeCompare(partsB.letter);
-}
-
 export default function QueuePatientPicker({
+  station,
   onSelectPatient,
   selectedVisitId,
 }: QueuePatientPickerProps) {
@@ -46,6 +34,7 @@ export default function QueuePatientPicker({
 
   const [patients, setPatients] = useState<QueuedPatient[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
   const loadQueue = useCallback(async () => {
     if (!location || !token) {
@@ -54,13 +43,40 @@ export default function QueuePatientPicker({
     }
 
     const date = new Date().toISOString().slice(0, 10);
-    const queuePatients = await getQueue(location.id, date, token);
+    const queuePatients = await getQueue(location.id, date, token, station);
     setPatients(Array.isArray(queuePatients) ? queuePatients : []);
-  }, [location, token]);
+  }, [location, token, station]);
 
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
+
+  // Station after this one for the patient, or null when this is their last.
+  const nextStation = (patient: QueuedPatient): StationId | null => {
+    const pending = (patient.stations ?? []).filter((s) => !s.completed).map((s) => s.station);
+    return pending[pending.indexOf(station) + 1] ?? null;
+  };
+
+  const handleCompleteStation = async (patient: QueuedPatient) => {
+    if (!token) return;
+
+    try {
+      const next = await completeStation(patient.visit_id, station, token);
+      if (selectedVisitId === patient.visit_id) {
+        onSelectPatient(null);
+      }
+      toast.success(
+        next
+          ? `${patient.english_name || "Patient"} moved to ${stationLabel(next)}.`
+          : `${patient.english_name || "Patient"} has finished all stations.`
+      );
+    } catch (err) {
+      console.error("Failed to complete station:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to complete station");
+    } finally {
+      await loadQueue();
+    }
+  };
 
   const handleRemovePatient = async (patient: QueuedPatient) => {
     if (!token) return;
@@ -93,13 +109,13 @@ export default function QueuePatientPicker({
         queueNo.includes(query)
       );
     });
-    return [...filtered].sort(sortQueueNumber);
+    return filtered;
   }, [patients, searchQuery]);
 
   return (
     <PageCard
-      title="Queue Patients"
-      action={<Badge variant="inactive">Today</Badge>}
+      title={`${stationLabel(station)} Queue`}
+      action={<Badge variant="inactive">{patients.length} waiting</Badge>}
       className="xl:col-span-4"
       contentClassName="space-y-3"
       headerExtra={
@@ -116,11 +132,12 @@ export default function QueuePatientPicker({
     >
       {sortedPatients.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {searchQuery ? "No patients match this search." : "No patients in queue today."}
+          {searchQuery ? "No patients match this search." : `No patients waiting at ${stationLabel(station)}.`}
         </p>
       ) : (
         sortedPatients.map((patient) => {
           const isSelected = selectedVisitId === patient.visit_id;
+          const next = nextStation(patient);
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -141,21 +158,51 @@ export default function QueuePatientPicker({
                 </div>
                 <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
                 <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {next ? `Next: ${stationLabel(next)}` : "Last station"}
+                </p>
               </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
-                title="Discharge patient"
-                onClick={() => handleRemovePatient(patient)}
-              >
-                <X className="size-3.5" />
-              </Button>
+              <div className="flex shrink-0 items-start">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
+                  title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
+                  onClick={() => handleCompleteStation(patient)}
+                >
+                  <Check className="size-3.5" />
+                  {next ? "Next" : "Finish"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
+                  title="Change which stations this patient still has to visit"
+                  onClick={() => setEditingPatient(patient)}
+                >
+                  <ListChecks className="size-3.5" />
+                  Stations
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-destructive"
+                  title="Discharge patient from every queue"
+                  onClick={() => handleRemovePatient(patient)}
+                >
+                  <X className="size-3.5" />
+                  Discharge
+                </Button>
+              </div>
             </div>
           );
         })
       )}
+      <EditStationsDialog
+        patient={editingPatient}
+        onClose={() => setEditingPatient(null)}
+        onSaved={loadQueue}
+      />
     </PageCard>
   );
 }

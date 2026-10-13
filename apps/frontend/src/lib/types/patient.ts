@@ -1,4 +1,5 @@
 import { VisitSummary } from "./visit";
+import { StationId } from "@/constants/stations";
 
 export type PatientInfo = {
     id: number;
@@ -17,6 +18,9 @@ export type QueuedPatient = {
     visit_id: number;
     patient_id: number;
     queue_no: string;
+    // Station the patient is currently waiting at, and every station indicated for the visit.
+    current_station?: StationId | null;
+    stations?: { station: StationId; completed: boolean }[];
     english_name?: string;
     khmer_name?: string;
     age?: number;

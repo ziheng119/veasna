@@ -1,4 +1,5 @@
 import { backend_url } from "@/constants/env_variable";
+import { StationId } from "@/constants/stations";
 
 // Cache for queue per location + date
 const cachedQueues: Record<string, any> = {};
@@ -9,8 +10,9 @@ export function clearQueueCache() {
   Object.keys(cachedETags).forEach(key => delete cachedETags[key]);
 }
 
-export async function getQueue(locationId: number, date: string, token: string) {
-  const cacheKey = `${locationId}_${date}`;
+// With a station, returns only the visits currently waiting at that station, in arrival order.
+export async function getQueue(locationId: number, date: string, token: string, station?: StationId) {
+  const cacheKey = `${locationId}_${date}_${station ?? "all"}`;
 
   try {
     const headers: HeadersInit = {
@@ -22,7 +24,8 @@ export async function getQueue(locationId: number, date: string, token: string) 
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/queue?location_id=${locationId}&date=${date}`, {
+    const stationParam = station ? `&station=${station}` : "";
+    const res = await fetch(`${backend_url}/api/queue?location_id=${locationId}&date=${date}${stationParam}`, {
       cache: "no-cache",
       headers,
     });
