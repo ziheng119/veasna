@@ -16,18 +16,18 @@ export function PatientTable({ patients, onViewPatient, onDeletePatient}: Patien
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
 
         <div className="overflow-x-auto xl:min-h-0 xl:overflow-y-auto">
-          <table className="w-full table-fixed">
+          <table className="w-full min-w-[1180px] table-fixed">
             <thead className="bg-muted sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">English Name</th>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Khmer Name</th>
-                <th className="w-2/22 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Date of Birth</th>
+                <th className="w-[9%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Date of Birth</th>
                 <th className="w-1/20 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Age</th>
                 <th className="w-1/20 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Sex</th>
-                <th className="w-2/18 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Phone No.</th>
+                <th className="w-[10%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Phone No.</th>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Address</th>
-                <th className="w-1/20 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Face ID</th>
-                <th className="w-2/18 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Last Updated</th>
+                <th className="w-[14%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Face ID</th>
+                <th className="w-[9%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Last Seen</th>
                 <th className="w-22 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Actions</th>
               </tr>
             </thead>

@@ -28,6 +28,7 @@ export default function DoctorsConsultation() {
       <SearchBar onSelectPatient={setSelectedPatient} />
       <div className={PANEL_GRID}>
         <QueuePatientPicker
+          station="consultation"
           onSelectPatient={setSelectedPatient}
           selectedVisitId={selectedPatient?.visit_id}
         />

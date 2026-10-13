@@ -27,16 +27,14 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
         <tr className="h-16 align-middle hover:bg-accent/50 transition-colors duration-150">
                 <td className="px-4 py-3 text-sm text-foreground">{patient.english_name}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{patient.khmer_name}</td>
-                <td className="px-4 py-3 text-sm text-foreground">{formatDate(patient.date_of_birth)}</td>
+                <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">{formatDate(patient.date_of_birth)}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{calculateAge(patient.date_of_birth)}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{patient.sex}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{patient.phone_number}</td>
                 <td className="px-4 py-3 text-sm text-foreground">{patient.address}</td>
-                <td className="px-4 py-3 text-sm text-foreground">{patient.face_id}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {patient.lastUpdated
-                        ? new Date(patient.lastUpdated).toLocaleString()
-                        : "-"}
+                <td className="px-4 py-3 text-sm text-foreground break-all">{patient.face_id}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                    {patient.last_visit_date || "-"}
                 </td>
                 <td className="py-3 text-sm text-foreground">
                     <div className="flex items-center gap-2">

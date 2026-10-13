@@ -10,6 +10,8 @@ import { getSeva } from "@/lib/api/visit/seva/getSeva"
 import { postSeva } from "@/lib/api/visit/seva/postSeva"
 import formatDate from "@/helper/format_date"
 import { PageCard } from "../shared/PageCard"
+import SnellenInput from "../shared/SnellenInput"
+import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen"
 
 interface Props {
     patient: QueuedPatient;
@@ -45,7 +47,7 @@ export default function SevaNotesContainer({ patient }: Props) {
         setRightWithPinholeNew(data.rightWithPinholeNew);
         setRightWithoutPinholeNew(data.rightWithoutPinholeNew);
         setDiagnosis(data.diagnosis);
-        setDateOfReferral(formatDate(data.dateOfReferral));
+        setDateOfReferral(data.dateOfReferral ? formatDate(data.dateOfReferral) : "");
         setAdditionalNotes(data.notes ?? "");
 
         toast.success("Load success")
@@ -57,11 +59,19 @@ export default function SevaNotesContainer({ patient }: Props) {
     };
 
     const handleSave = async () => {
+        const fractions = normalizeSnellenFields({
+            leftWithPinholeNew,
+            leftWithoutPinholeNew,
+            rightWithPinholeNew,
+            rightWithoutPinholeNew,
+        });
+        if (!fractions) {
+            toast.error(SNELLEN_ERROR);
+            return;
+        }
+
         const data: Seva = {
-            leftWithPinholeNew: leftWithPinholeNew,
-            leftWithoutPinholeNew: leftWithoutPinholeNew,
-            rightWithPinholeNew: rightWithPinholeNew,
-            rightWithoutPinholeNew: rightWithoutPinholeNew,
+            ...fractions,
             diagnosis: diagnosis,
             dateOfReferral: dateOfReferral,
             notes: additionalNotes
@@ -87,38 +97,20 @@ export default function SevaNotesContainer({ patient }: Props) {
         >
             <h2 className="text-[20px] font-semibold text-foreground">New Snellen&apos;s Test</h2>
             <div className="min-h-70 flex flex-col">
-                <div className="grid grid-cols-3 gap-x-4 gap-y-2 mb-[30px] items-center">
-                    {/* Header Row */}
-                    <p className="font-semibold text-start">Visual Acuity</p>
-                    <p className="text-center">Left (OS)</p>
-                    <p className="text-center">Right (OD)</p>
+                {/* One reading per row so the dropdown has room in the narrow panel */}
+                <p className="font-semibold text-start mb-2">Visual Acuity</p>
+                <div className="grid grid-cols-[1fr_9rem] gap-x-3 gap-y-2 mb-[30px] items-center">
+                    <p className="text-start">Left (OS), with pinhole</p>
+                    <SnellenInput value={leftWithPinholeNew} onChange={setLeftWithPinholeNew} />
 
-                    {/* With Pinhole Row */}
-                    <p className="text-start">With Pinhole</p>
-                    <input 
-                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
-                        onChange={e => setLeftWithPinholeNew(e.target.value)}
-                        value={leftWithPinholeNew}
-                    ></input>
-                    <input 
-                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
-                        onChange={e => setRightWithPinholeNew(e.target.value)}
-                        value={rightWithPinholeNew}
-                    ></input>
-                    
+                    <p className="text-start">Right (OD), with pinhole</p>
+                    <SnellenInput value={rightWithPinholeNew} onChange={setRightWithPinholeNew} />
 
-                    {/* Without Pinhole Row */}
-                    <p className="text-start" >Without Pinhole</p>
-                    <input 
-                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
-                        onChange={e => setLeftWithoutPinholeNew(e.target.value)}
-                        value={leftWithoutPinholeNew}
-                    ></input>
-                    <input 
-                        className="bg-background border border-input block rounded-sm p-0.5 text-foreground"
-                        onChange={e => setRightWithoutPinholeNew(e.target.value)}
-                        value={rightWithoutPinholeNew}
-                    ></input>
+                    <p className="text-start">Left (OS), without pinhole</p>
+                    <SnellenInput value={leftWithoutPinholeNew} onChange={setLeftWithoutPinholeNew} />
+
+                    <p className="text-start">Right (OD), without pinhole</p>
+                    <SnellenInput value={rightWithoutPinholeNew} onChange={setRightWithoutPinholeNew} />
                 </div>
 
                 <VerticalLabelInputPair 

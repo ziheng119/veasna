@@ -118,7 +118,7 @@ INSERT INTO visual_acuity (
     visit_id, left_with_pinhole, left_without_pinhole,
     right_with_pinhole, right_without_pinhole, notes, last_updated_by
 )
-SELECT v.id, 6, 12, 6, 9, 'Reduced acuity left eye without pinhole',
+SELECT v.id, '6/6', '6/12', '6/6', '6/9', 'Reduced acuity left eye without pinhole',
        (SELECT id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1)
 FROM patients p
 JOIN visits v ON v.patient_id = p.id AND v.visit_date = CURRENT_DATE
@@ -160,7 +160,7 @@ INSERT INTO seva (
     right_with_pinhole_new, right_without_pinhole_new,
     diagnosis, date_of_referral, notes, last_updated_by
 )
-SELECT v.id, 6, 9, 6, 6, 'Refractive error — left eye', CURRENT_DATE,
+SELECT v.id, '6/6', '6/9', '6/6', '6/6', 'Refractive error — left eye', CURRENT_DATE,
        'Advised spectacle referral.',
        (SELECT id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1)
 FROM patients p

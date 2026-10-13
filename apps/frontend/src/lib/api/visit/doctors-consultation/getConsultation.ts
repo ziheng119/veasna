@@ -67,7 +67,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
         .filter(line => line.length > 0);  
 
       modified_referral = { 
-        referralDate: formatDate(json.referral_date),
+        referralDate: json.referral_date ? formatDate(json.referral_date) : "",
         referralType: modified_types,
         illness: json.illness,
         duration: json.duration,

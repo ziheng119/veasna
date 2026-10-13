@@ -2,13 +2,20 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken } = require('./auth');
+const { normalizeSnellenFields } = require('../utils/snellen');
+const { textOrEmpty } = require('../utils/partialFields');
 
 // UPSERT Visual Acuity (Snellen's Test)
 router.post('/visual-acuity', authenticateToken, async (req, res) => {
-    const { visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes } = req.body;
+    const { visit_id, notes } = req.body;
     if (!visit_id || !Number.isInteger(Number(visit_id))) {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
+    const acuity = normalizeSnellenFields(req.body, ['left_with_pinhole', 'left_without_pinhole', 'right_with_pinhole', 'right_without_pinhole']);
+    if (acuity.error) {
+        return res.status(400).json({ error: acuity.error });
+    }
+    const { left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole } = acuity.values;
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by)
@@ -24,7 +31,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
         RETURNING *;
     `;
     try {
-        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by]);
+        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by]);
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting visual acuity:', err);
@@ -48,7 +55,7 @@ router.post('/presenting-complaint', authenticateToken, async (req, res) => {
         RETURNING *;
     `;
     try {
-        const { rows } = await db.query(query, [visit_id, history, red_flags, systems_review, drug_allergies, last_updated_by]);
+        const { rows } = await db.query(query, [visit_id, ...[history, red_flags, systems_review, drug_allergies].map(textOrEmpty), last_updated_by]);
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting presenting complaint:', err);
@@ -72,7 +79,7 @@ router.post('/history', authenticateToken, async (req, res) => {
         RETURNING *;
     `;
     try {
-        const { rows } = await db.query(query, [visit_id, past, drug_and_treatment, family, social, systems_review, last_updated_by]);
+        const { rows } = await db.query(query, [visit_id, ...[past, drug_and_treatment, family, social, systems_review].map(textOrEmpty), last_updated_by]);
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting history:', err);

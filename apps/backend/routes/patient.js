@@ -234,6 +234,7 @@ router.get(
           h.notes AS hef_notes,
           
           -- Visual Acuity
+          va.id AS visual_acuity_id,
           va.left_with_pinhole,
           va.left_without_pinhole,
           va.right_with_pinhole,
@@ -254,6 +255,7 @@ router.get(
           hist.systems_review AS history_systems_review,
           
           -- SEVA
+          s.id AS seva_id,
           s.left_with_pinhole_new AS seva_left_with_pinhole,
           s.left_without_pinhole_new AS seva_left_without_pinhole,
           s.right_with_pinhole_new AS seva_right_with_pinhole,
@@ -363,7 +365,7 @@ router.get(
             : null,
 
         visual_acuity:
-          visit.left_with_pinhole !== null
+          visit.visual_acuity_id !== null
             ? {
                 left_with_pinhole: visit.left_with_pinhole,
                 left_without_pinhole: visit.left_without_pinhole,
@@ -396,7 +398,7 @@ router.get(
             : null,
 
         seva:
-          visit.seva_left_with_pinhole !== null
+          visit.seva_id !== null
             ? {
                 left_with_pinhole_new: visit.seva_left_with_pinhole,
                 left_without_pinhole_new: visit.seva_left_without_pinhole,

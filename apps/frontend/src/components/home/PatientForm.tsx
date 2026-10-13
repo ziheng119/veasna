@@ -24,6 +24,9 @@ import { calculateAge } from "@/helper/calculate_age";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
+import { StationCheckboxes } from "../shared/StationCheckboxes";
+import { generateFaceId } from "@/lib/faceId";
+import { ALL_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -34,7 +37,6 @@ interface PatientFormProps {
 type FormErrors = {
     english_name?: string;
     sex?: string;
-    face_id?: string;
     height?: string;
     weight?: string;
     bmi?: string;
@@ -43,10 +45,10 @@ type FormErrors = {
     temperature?: string;
     know_of_hef?: string;
     has_hef?: string;
+    stations?: string;
 };
 
 const emptyPatientInfo: PatientFormData = {
-    face_id: "",
     english_name: "",
     khmer_name: "",
     date_of_birth: "",
@@ -119,6 +121,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         notes: ""
     })
 
+    // Stations this visit is indicated for; the patient queues at each one in order.
+    const [stations, setStations] = useState<StationId[]>(ALL_STATION_IDS);
+
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
         if (!prev[field]) return prev;
@@ -156,7 +161,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const validateForm = (): boolean => {
       const nextErrors: FormErrors = {};
       const englishName = patientInfo.english_name?.trim() ?? "";
-      const faceId = patientInfo.face_id?.trim() ?? "";
       const height = Number(vitals.height);
       const weight = Number(vitals.weight);
       const bmi = Number(vitals.bmi);
@@ -166,7 +170,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
-      if (faceId && !/^\d+$/.test(faceId)) nextErrors.face_id = "Face ID must be a positive integer.";
 
       if (!Number.isFinite(height) || height <= 0) nextErrors.height = "Enter a valid height greater than 0.";
       if (!Number.isFinite(weight) || weight <= 0) nextErrors.weight = "Enter a valid weight greater than 0.";
@@ -177,12 +180,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
+      if (stations.length === 0) nextErrors.stations = "Select at least one station.";
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex", "face_id"];
+      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
-      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef"];
+      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
 
       if (patientInfoFields.some((field) => nextErrors[field])) setActiveTab("patient-info");
       else if (vitalsFields.some((field) => nextErrors[field])) setActiveTab("vitals");
@@ -201,7 +205,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       setShowSuggestions(false);
       setPatientInfo(prev => ({
         ...prev,
-        face_id: found.face_id?.toString() ?? "",
         english_name: found.english_name || "",
         khmer_name: found.khmer_name || "",
         date_of_birth: found.date_of_birth ? formatDate(found.date_of_birth) : "",
@@ -214,7 +217,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         ...prev,
         english_name: undefined,
         sex: undefined,
-        face_id: undefined,
       }));
     };
 
@@ -278,17 +280,18 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
         try {
           const newQueuedPatient = await createVisit(
-            { patientInfo: completePatientInfo, vitals ,hef },
+            { patientInfo: completePatientInfo, vitals, hef, stations },
             token
           );
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
-          toast.success(`Added to queue as number ${newQueuedPatient.queue_no}.`);
+          toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
 
           // Reset form states
           setLinkedPatient(null);
           setPatientInfo(emptyPatientInfo);
+          setStations(ALL_STATION_IDS);
           setVitals({
             height: "",
             weight: "",
@@ -534,16 +537,12 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Label htmlFor="faceId" className="text-muted-foreground">Face ID</Label>
                   <Input
                     id="faceId"
-                    value={patientInfo.face_id}
-                    aria-invalid={!!errors.face_id}
-                    onChange={(e) => {
-                      setPatientInfo(prev => ({ ...prev, face_id: e.target.value || "" }));
-                      clearFieldError("face_id");
-                    }}
-                    placeholder="Face ID"
-                    className="mt-2"
+                    value={generateFaceId(patientInfo.english_name, patientInfo.khmer_name, patientInfo.date_of_birth)}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="Generated from names and date of birth"
+                    className="mt-2 bg-muted"
                   />
-                  {errors.face_id && <p className="mt-1 text-xs text-destructive">{errors.face_id}</p>}
                 </div>
               </TabsContent>
     
@@ -740,6 +739,22 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     placeholder="Explain patient's HEF usage and reasoning"
                     className=""
                   />
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Untick any station this patient does not need. They will be queued at each ticked station in order.
+                  </p>
+                  <StationCheckboxes
+                    idPrefix="station"
+                    selected={stations}
+                    onChange={(next) => {
+                      setStations(next);
+                      clearFieldError("stations");
+                    }}
+                  />
+                  {errors.stations && <p className="mt-2 text-xs text-destructive">{errors.stations}</p>}
                 </div>
               </TabsContent>
             </div>
