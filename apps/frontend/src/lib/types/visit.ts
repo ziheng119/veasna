@@ -1,3 +1,4 @@
+import { TbStatus } from "@/constants/tb";
 import { HEF } from "./hef";
 import { VisualAcuity } from "./visualAcuity";
 import { PresentingComplaint } from "./medicalHistory";
@@ -46,4 +47,14 @@ export interface VisitSummary {
     seva?: Seva;
     physiotherapy?: Physiotherapy;
     consultation?: Consultation;
+    tb?: VisitTb | null;
   }
+
+// TB screening of a visit flagged for suspected TB.
+export interface VisitTb {
+    red_flags: string[];
+    flag_notes: string;
+    status: TbStatus;
+    doctor_notes: string;
+    reviewed_at: string | null;
+}

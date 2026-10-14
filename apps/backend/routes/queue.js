@@ -5,6 +5,7 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
+const { TB_STATION, TB_HOLD_MESSAGE, flagTb } = require('../utils/tb');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
@@ -37,6 +38,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 EXTRACT(YEAR FROM AGE(p.date_of_birth)) AS age,
                 TO_CHAR(v.created_at, 'HH:MI AM') AS timestamp,
                 cur.station AS current_station,
+                tb.status AS tb_status,
                 (
                     SELECT COALESCE(json_agg(json_build_object(
                         'station', s.station,
@@ -47,6 +49,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 ) AS stations
             FROM visits v
             JOIN patients p ON v.patient_id = p.id
+            LEFT JOIN tb_screening tb ON tb.visit_id = v.id
             LEFT JOIN LATERAL (
                 SELECT s.station, s.entered_at
                 FROM visit_stations s
@@ -98,6 +101,10 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
     }
     if (!STATIONS.includes(station)) {
         return res.status(400).json({ error: `station must be one of: ${STATIONS.join(', ')}` });
+    }
+    // Leaving the TB tent needs the TB doctor's decision, recorded through /api/tb/:visitId/review
+    if (station === TB_STATION) {
+        return res.status(409).json({ error: "Record the TB doctor's decision on the TB Tent page to move this patient on.", code: 'TB_HOLD' });
     }
 
     let client;
@@ -196,6 +203,11 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
         const completed = existing.rows.filter((row) => row.completed_at).map((row) => row.station);
         const pending = existing.rows.filter((row) => !row.completed_at).map((row) => row.station);
         const wanted = stations.filter((station) => !completed.includes(station));
+        // A patient on TB hold keeps the TB tent until a TB doctor clears them
+        if (pending.includes(TB_STATION) && !wanted.includes(TB_STATION)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: TB_HOLD_MESSAGE, code: 'TB_HOLD' });
+        }
         if (wanted.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Every selected station is already completed. To end the visit, discharge the patient.' });
@@ -210,6 +222,10 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
                 'INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES ($1, $2, $3, $4)',
                 [visitId, station, stationPosition(station), last_updated_by]
             );
+        }
+        // Adding the TB tent flags the visit for TB; it becomes the patient's current station
+        if (wanted.includes(TB_STATION) && !pending.includes(TB_STATION)) {
+            await flagTb(client, visitId, {}, last_updated_by);
         }
         // Whichever station is now first in line is the one the patient is waiting at
         await client.query(

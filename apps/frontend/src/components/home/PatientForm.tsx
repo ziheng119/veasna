@@ -27,6 +27,8 @@ import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { TB_RED_FLAGS } from "@/constants/tb";
+import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -123,6 +125,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
+    // TB red flags. Ticking any of them sends the patient to the TB tent first, where they are
+    // held until a TB doctor clears them.
+    const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
+    const [tbNotes, setTbNotes] = useState("");
+    const tbFlagged = tbRedFlags.length > 0;
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -280,18 +287,33 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
         try {
           const newQueuedPatient = await createVisit(
-            { patientInfo: completePatientInfo, vitals, hef, stations },
+            {
+              patientInfo: completePatientInfo,
+              vitals,
+              hef,
+              stations,
+              tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
+            },
             token
           );
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
-          toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
+          if (newQueuedPatient.current_station === "tb") {
+            toast.error(
+              `Suspected TB: take number ${newQueuedPatient.queue_no} to the TB tent, away from other villagers, and inform a TB doctor.`,
+              { duration: 10000 }
+            );
+          } else {
+            toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
+          }
 
           // Reset form states
           setLinkedPatient(null);
           setPatientInfo(emptyPatientInfo);
           setStations(DEFAULT_STATION_IDS);
+          setTbRedFlags([]);
+          setTbNotes("");
           setVitals({
             height: "",
             weight: "",
@@ -742,13 +764,55 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   />
                 </div>
 
+                <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
+                  <Label className="text-muted-foreground block mb-1">TB red flags</Label>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Tick any that apply. A patient with a red flag goes to the TB tent first and cannot go to other stations until a TB doctor clears them.
+                  </p>
+                  <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                    {TB_RED_FLAGS.map((flag) => (
+                      <div key={flag.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`tb-flag-${flag.id}`}
+                          checked={tbRedFlags.includes(flag.id)}
+                          onCheckedChange={(checked) =>
+                            setTbRedFlags((prev) =>
+                              checked === true
+                                ? TB_RED_FLAGS.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
+                                : prev.filter((id) => id !== flag.id)
+                            )
+                          }
+                          className="border-border bg-background data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                        />
+                        <Label htmlFor={`tb-flag-${flag.id}`} className="text-muted-foreground">{flag.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  {tbFlagged && (
+                    <div className="mt-3 space-y-3">
+                      <p className="flex items-start gap-2 text-sm font-medium text-destructive">
+                        <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                        Suspected TB: isolate the patient in the TB tent and inform a TB doctor.
+                      </p>
+                      <Textarea
+                        id="tb-notes"
+                        value={tbNotes}
+                        onChange={(e) => setTbNotes(e.target.value)}
+                        placeholder="TB notes for the doctor (e.g. how long the cough has lasted)"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="border-t border-border pt-4">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
+                    {tbFlagged ? " These stations only start once the TB doctor has cleared the patient." : ""}
                   </p>
                   <StationCheckboxes
                     idPrefix="station"
+                    exclude={["tb"]}
                     selected={stations}
                     onChange={(next) => {
                       setStations(next);

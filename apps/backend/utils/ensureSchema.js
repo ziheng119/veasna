@@ -10,6 +10,7 @@ let ensureSnellenFractionsPromise = null;
 let ensurePartialStationFormsPromise = null;
 let ensureGeneratedFaceIdPromise = null;
 let ensureSevaReferralPromise = null;
+let ensureTbScreeningPromise = null;
 
 function runMigration(fileName) {
   const sqlPath = path.join(__dirname, '../migrations', fileName);
@@ -103,6 +104,18 @@ function ensureSevaReferral() {
   return ensureSevaReferralPromise;
 }
 
+function ensureTbScreening() {
+  if (!ensureTbScreeningPromise) {
+    ensureTbScreeningPromise = ensureVisitStations()
+      .then(() => runMigration('009_tb_screening.sql'))
+      .catch((err) => {
+        ensureTbScreeningPromise = null;
+        throw err;
+      });
+  }
+  return ensureTbScreeningPromise;
+}
+
 module.exports = {
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
@@ -112,4 +125,5 @@ module.exports = {
   ensurePartialStationForms,
   ensureGeneratedFaceId,
   ensureSevaReferral,
+  ensureTbScreening,
 };

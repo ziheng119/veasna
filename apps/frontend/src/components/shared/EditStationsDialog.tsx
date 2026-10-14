@@ -30,6 +30,8 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
   const [isSaving, setIsSaving] = useState(false);
 
   const completed = (patient?.stations ?? []).filter((s) => s.completed).map((s) => s.station);
+  // On TB hold the TB tent stays until a TB doctor clears the patient.
+  const onTbHold = (patient?.stations ?? []).some((s) => s.station === "tb" && !s.completed);
 
   useEffect(() => {
     setRemaining((patient?.stations ?? []).filter((s) => !s.completed).map((s) => s.station));
@@ -63,6 +65,9 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
           <DialogTitle>Stations for {patient?.english_name || "this patient"}</DialogTitle>
           <DialogDescription>
             Tick the stations this patient still needs. They will be queued at each one in order.
+            {onTbHold
+              ? " This patient is on TB hold and will stay in the TB tent until a TB doctor clears them."
+              : " Tick TB Tent if TB is suspected: the patient will be sent there first and held until cleared."}
           </DialogDescription>
         </DialogHeader>
 
@@ -71,6 +76,7 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
           selected={remaining}
           onChange={setRemaining}
           locked={completed}
+          held={onTbHold ? ["tb"] : []}
         />
 
         <DialogFooter>

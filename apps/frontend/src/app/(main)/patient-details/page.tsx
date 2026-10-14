@@ -17,6 +17,8 @@ import { updatePatient } from "@/lib/api/patient/updatePatient";
 import formatDate from "@/helper/format_date";
 import DottedImage from "@/components/physiotherapy/DottedImage";
 import { sevaReferralLabel } from "@/constants/sevaReferral";
+import { TB_STATUS_LABELS, tbRedFlagLabel } from "@/constants/tb";
+import { VisitTb } from "@/lib/types/visit";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
 
 interface Visit {
@@ -45,6 +47,7 @@ interface VisitDetails {
   seva?: any;
   physiotherapy?: any;
   consultation?: any;
+  tb?: VisitTb | null;
 }
 
 interface PatientData {
@@ -444,7 +447,10 @@ export default function PatientDetailsPage() {
                   </div>
                 ) : visitDetails ? (
                   <Tabs defaultValue="triage" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className={`grid w-full ${visitDetails.tb ? "grid-cols-5" : "grid-cols-4"}`}>
+                      {visitDetails.tb && (
+                        <TabsTrigger value="tb">TB Tent</TabsTrigger>
+                      )}
                       <TabsTrigger 
                         value="triage" 
                         disabled={!visitDetails.vitals && !visitDetails.presenting_complaint}
@@ -524,6 +530,26 @@ export default function PatientDetailsPage() {
                         <p className="text-center text-muted-foreground py-8">No SEVA data available</p>
                       )}
                     </TabsContent>
+
+                    {/* TB Tab: only for visits flagged for suspected TB */}
+                    {visitDetails.tb && (
+                      <TabsContent value="tb" className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <DataField label="Result" value={TB_STATUS_LABELS[visitDetails.tb.status]} />
+                          <DataField label="Reviewed" value={visitDetails.tb.reviewed_at ? new Date(visitDetails.tb.reviewed_at).toLocaleString() : "Not yet"} />
+                        </div>
+                        <DataField
+                          label="Red flags"
+                          value={visitDetails.tb.red_flags.length > 0 ? visitDetails.tb.red_flags.map(tbRedFlagLabel).join(", ") : "None ticked"}
+                        />
+                        {visitDetails.tb.flag_notes && (
+                          <DataField label="Registration notes" value={visitDetails.tb.flag_notes} />
+                        )}
+                        {visitDetails.tb.doctor_notes && (
+                          <DataField label="TB doctor's notes" value={visitDetails.tb.doctor_notes} />
+                        )}
+                      </TabsContent>
+                    )}
 
                     {/* Physiotherapy Tab */}
                     <TabsContent value="physio" className="space-y-4">

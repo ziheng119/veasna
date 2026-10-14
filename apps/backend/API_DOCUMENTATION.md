@@ -123,22 +123,33 @@ Update a patient’s demographic details (`english_name`, `khmer_name`, `date_of
 Today’s active queue for a location (visits with `completed_at` unset).
 
 **Station queues**
-Each visit lists the stations it is indicated for (`triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station).
+Each visit lists the stations it is indicated for (`tb`, `triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station except `tb`) and an optional `tb` object (see TB Tent).
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD&station={station}`
-Visits currently waiting at one station, ordered by when they arrived there. Without `station`, the endpoint returns every active visit as before. Each row includes `current_station` and `stations` (`[{ "station": "triage", "completed": true }, ...]`).
+Visits currently waiting at one station, ordered by when they arrived there. Without `station`, the endpoint returns every active visit as before. Each row includes `current_station`, `stations` (`[{ "station": "triage", "completed": true }, ...]`) and `tb_status` (`null` unless the visit was flagged for TB).
 
 **POST** `queue/{visitId}/stations/{station}/complete`
-Finish a station and move the visit to its next indicated station: `{ "next_station": "consultation" }`. Finishing the last station completes the visit (`next_station` is `null`). Returns `409` if the visit is not currently waiting at that station.
+Finish a station and move the visit to its next indicated station: `{ "next_station": "consultation" }`. Finishing the last station completes the visit (`next_station` is `null`). Returns `409` if the visit is not currently waiting at that station. The `tb` station cannot be completed here (`409`, `code: "TB_HOLD"`); use `tb/{visitId}/review`.
 
 **PUT** `queue/{visitId}/stations`
-Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still has to go through. Completed stations are kept; pending ones are added or removed to match.
+Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still has to go through. Completed stations are kept; pending ones are added or removed to match. Including `tb` flags the visit for suspected TB. While the visit is on TB hold, leaving `tb` out returns `409` (`code: "TB_HOLD"`).
 
 **GET** `queue/next?location_id={id}`
 Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number when `visit.queue_no` is omitted.
 
 **POST** `queue/{visitId}/complete`
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
+
+**TB Tent**
+A visit flagged for suspected TB is queued at the `tb` station first and is on **TB hold** until a TB doctor clears it: it cannot move to, or be saved at, any other station. Saving triage, Seva, physiotherapy, consultation or referral data for a visit on TB hold returns `409` with `code: "TB_HOLD"`.
+
+Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2_weeks", "night_sweats"], "notes": "..." }` (red flags are short keys, see `apps/frontend/src/constants/tb.ts`), or later by adding `tb` through `PUT queue/{visitId}/stations`.
+
+**GET** `tb/{visitId}`
+The visit's TB screening (`red_flags`, `flag_notes`, `status`, `doctor_notes`, `flagged_by`, `flagged_at`, `reviewed_by`, `reviewed_at`), or `null` if the visit was never flagged. `status` is `suspected`, `cleared` or `tb_likely`.
+
+**POST** `tb/{visitId}/review`
+Body `{ "decision": "cleared" | "tb_likely", "doctor_notes": "..." }`. `cleared` completes the TB tent and moves the visit to its next station (or finishes the visit): `{ "status": "cleared", "next_station": "triage", "visit_completed": false }`. `tb_likely` (TB not ruled out) keeps the visit at the TB tent until it is discharged. Returns `409` if the visit is not waiting at the TB tent.
 
 ---
 

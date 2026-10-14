@@ -1,5 +1,6 @@
 import { VisitSummary } from "./visit";
 import { StationId } from "@/constants/stations";
+import { TbStatus } from "@/constants/tb";
 
 export type PatientInfo = {
     id: number;
@@ -23,6 +24,8 @@ export type QueuedPatient = {
     // Station the patient is currently waiting at, and every station indicated for the visit.
     current_station?: StationId | null;
     stations?: { station: StationId; completed: boolean }[];
+    // Set when the visit was flagged for suspected TB.
+    tb_status?: TbStatus | null;
     english_name?: string;
     khmer_name?: string;
     age?: number;

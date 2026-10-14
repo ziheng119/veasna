@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { authenticateToken } = require('./auth');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty } = require('../utils/partialFields');
+const { rejectIfTbHold } = require('../utils/tb');
 
 // UPSERT Visual Acuity (Snellen's Test)
 router.post('/visual-acuity', authenticateToken, async (req, res) => {
@@ -11,6 +12,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
     if (!visit_id || !Number.isInteger(Number(visit_id))) {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
+    if (await rejectIfTbHold(db, res, visit_id)) return;
     const acuity = normalizeSnellenFields(req.body, ['left_with_pinhole', 'left_without_pinhole', 'right_with_pinhole', 'right_without_pinhole']);
     if (acuity.error) {
         return res.status(400).json({ error: acuity.error });
@@ -45,6 +47,7 @@ router.post('/presenting-complaint', authenticateToken, async (req, res) => {
     if (!visit_id || !Number.isInteger(Number(visit_id))) {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
+    if (await rejectIfTbHold(db, res, visit_id)) return;
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO presenting_complaint (visit_id, history, red_flags, systems_review, drug_allergies, last_updated_by)
@@ -69,6 +72,7 @@ router.post('/history', authenticateToken, async (req, res) => {
     if (!visit_id || !Number.isInteger(Number(visit_id))) {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
+    if (await rejectIfTbHold(db, res, visit_id)) return;
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO history (visit_id, past, drug_and_treatment, family, social, systems_review, last_updated_by)
