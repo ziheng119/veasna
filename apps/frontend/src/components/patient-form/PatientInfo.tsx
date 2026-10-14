@@ -225,7 +225,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode}: Pro
 
                 <div className='flex items-center gap-4'>
                   <label className='min-w-[120px] text-sm font-medium'>
-                        Face ID
+                        Unique ID
                     </label>
                     <input
                         {...inputProps}

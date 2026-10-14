@@ -1,4 +1,4 @@
-// Face ID: first 3 characters of the English name + first 3 of the Khmer name + date of birth
+// Unique ID (stored as face_id): first 3 characters of the English name + first 3 of the Khmer name + date of birth
 // (DDMMYYYY), upper-cased with spaces removed. A missing part is left out.
 // The server generates the stored value with the same rule (see migration 007); this is the preview.
 export function generateFaceId(englishName?: string | null, khmerName?: string | null, dateOfBirth?: string | null): string {
