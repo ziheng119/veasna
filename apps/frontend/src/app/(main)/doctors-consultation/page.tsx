@@ -7,6 +7,7 @@ import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useEffect, useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
+import TbHoldNotice from "@/components/shared/TbHoldNotice";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -35,6 +36,8 @@ export default function DoctorsConsultation() {
         <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
           {!selectedPatient ? (
             <NoPatientSelected />
+          ) : selectedPatient.current_station === "tb" ? (
+            <TbHoldNotice patient={selectedPatient} />
           ) : (
             <div className={PANEL_GRID}>
               <PatientContainer selectedPatient = {selectedPatient}/>

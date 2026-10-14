@@ -8,6 +8,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueN
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
+const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../utils/tb');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
@@ -38,8 +39,14 @@ function parseRequiredInt(value) {
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
-    // Stations the patient is indicated for. Optional: defaults to every station.
-    const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
+    // Stations the patient is indicated for. Optional: defaults to every station except the TB tent.
+    let stations = req.body.stations === undefined
+        ? STATIONS.filter((station) => station !== TB_STATION)
+        : normalizeStations(req.body.stations);
+    // Optional TB flag: { red_flags: [...], notes }. A flagged visit starts at the TB tent and is
+    // held there until a TB doctor clears it.
+    const tb = req.body.tb ?? null;
+    const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
     const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
     // Optional: when omitted, the next sequential number for the location and date is assigned.
@@ -55,6 +62,14 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     if (!stations || stations.length === 0) {
         return res.status(400).json({ error: `stations must be a non-empty list of: ${STATIONS.join(', ')}.` });
+    }
+
+    if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
+        return res.status(400).json({ error: 'tb must be an object with red_flags as a list of text.' });
+    }
+    const tbFlagged = tb !== null || stations.includes(TB_STATION);
+    if (tbFlagged && !stations.includes(TB_STATION)) {
+        stations = [TB_STATION, ...stations];
     }
 
     if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
@@ -167,6 +182,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             );
         }
 
+        if (tbFlagged) {
+            await flagTb(client, visitId, { redFlags: tbRedFlags, notes: textOrEmpty(tb?.notes) }, last_updated_by);
+        }
+
         // Step 3: Insert into vitals table
         const vitalsQuery = `
             INSERT INTO vitals (visit_id, height, weight, bmi, below_3rd_percentile, bp_systolic, bp_diastolic, temperature, notes, last_updated_by)
@@ -207,6 +226,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             patient_id: patientId,
             queue_no: queueNo,
             current_station: stations[0],
+            tb_status: tbFlagged ? 'suspected' : null,
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
             age: patientInfo.age,
@@ -438,6 +458,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
+  if (await rejectIfTbHold(db, res, visit_id)) return;
 
   const {
     diagnosis,
@@ -605,6 +626,7 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
+  if (await rejectIfTbHold(db, res, visit_id)) return;
 
   const { notes = "", painpoints = [] } = req.body;
   if (painpoints !== undefined && !Array.isArray(painpoints)) {
@@ -745,6 +767,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
+  if (await rejectIfTbHold(db, res, visit_id)) return;
 
   const {
     notes,
@@ -799,6 +822,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
+  if (await rejectIfTbHold(db, res, visit_id)) return;
 
   const { referralDate, referralType, illness, duration, reason } = req.body;
   const last_updated_by = req.user.id;

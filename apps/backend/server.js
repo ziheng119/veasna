@@ -40,7 +40,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Run schema migrations at startup
 const { ensurePasswordColumn } = require('./routes/session');
-const { ensurePharmacyNumericStock, ensureVisitsCompleted, ensureUserRole, ensureVisitStations, ensureSnellenFractions, ensurePartialStationForms, ensureGeneratedFaceId, ensureSevaReferral } = require('./utils/ensureSchema');
+const { ensurePharmacyNumericStock, ensureVisitsCompleted, ensureUserRole, ensureVisitStations, ensureSnellenFractions, ensurePartialStationForms, ensureGeneratedFaceId, ensureSevaReferral, ensureTbScreening } = require('./utils/ensureSchema');
 ensurePasswordColumn().catch(err => console.error('Migration warning:', err.message));
 ensurePharmacyNumericStock().catch(err => console.error('Migration warning:', err.message));
 ensureVisitsCompleted().catch(err => console.error('Migration warning:', err.message));
@@ -50,6 +50,7 @@ ensureSnellenFractions().catch(err => console.error('Migration warning:', err.me
 ensurePartialStationForms().catch(err => console.error('Migration warning:', err.message));
 ensureGeneratedFaceId().catch(err => console.error('Migration warning:', err.message));
 ensureSevaReferral().catch(err => console.error('Migration warning:', err.message));
+ensureTbScreening().catch(err => console.error('Migration warning:', err.message));
 
 // API routes
 const apiRoutes = require('./routes/api');

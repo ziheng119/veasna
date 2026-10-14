@@ -5,6 +5,7 @@ import PatientDetails from "@/components/shared/read-only/patient-container/Pati
 import { QueuedPatient } from "@/lib/types/patient";
 import { useEffect, useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
+import TbHoldNotice from "@/components/shared/TbHoldNotice";
 import { TriageTabs } from "@/components/triage/TriageTabs";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
@@ -52,6 +53,8 @@ export default function Traige() {
           <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
             {!selectedPatient ? (
               <NoPatientSelected />
+            ) : selectedPatient.current_station === "tb" ? (
+              <TbHoldNotice patient={selectedPatient} />
             ) : (
               <div className={PANEL_GRID}>
                 <PageCard

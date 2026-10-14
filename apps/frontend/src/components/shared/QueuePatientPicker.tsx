@@ -11,6 +11,7 @@ import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
+import { TB_STATUS_LABELS } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -161,21 +162,30 @@ export default function QueuePatientPicker({
                 </div>
                 <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
                 <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {next ? `Next: ${stationLabel(next)}` : "Last station"}
-                </p>
+                {station === "tb" && patient.tb_status ? (
+                  <p className={`mt-1 text-xs font-medium ${patient.tb_status === "tb_likely" ? "text-destructive" : "text-muted-foreground"}`}>
+                    {TB_STATUS_LABELS[patient.tb_status]}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {next ? `Next: ${stationLabel(next)}` : "Last station"}
+                  </p>
+                )}
               </button>
               <div className="flex shrink-0 items-start">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
-                  title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
-                  onClick={() => handleCompleteStation(patient)}
-                >
-                  <Check className="size-3.5" />
-                  {next ? "Next" : "Finish"}
-                </Button>
+                {/* Leaving the TB tent needs the TB doctor's decision, made in the panel */}
+                {station !== "tb" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
+                    title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
+                    onClick={() => handleCompleteStation(patient)}
+                  >
+                    <Check className="size-3.5" />
+                    {next ? "Next" : "Finish"}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"

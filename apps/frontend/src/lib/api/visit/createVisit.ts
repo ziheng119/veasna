@@ -6,7 +6,14 @@ import { HEF } from "@/lib/types/hef";
 import { StationId } from "@/constants/stations";
 
 export async function createVisit(
-    data: { patientInfo: PatientFormData; vitals: Vitals; hef: HEF; stations: StationId[] },
+    data: {
+        patientInfo: PatientFormData;
+        vitals: Vitals;
+        hef: HEF;
+        stations: StationId[];
+        // Set when TB red flags were ticked: the patient starts at the TB tent.
+        tb?: { red_flags: string[]; notes: string } | null;
+    },
     token: string
 ): Promise<QueuedPatient> {
     
@@ -16,6 +23,7 @@ export async function createVisit(
         vitals: data.vitals,
         hef: data.hef,
         stations: data.stations,
+        ...(data.tb ? { tb: data.tb } : {}),
     };
 
     try {

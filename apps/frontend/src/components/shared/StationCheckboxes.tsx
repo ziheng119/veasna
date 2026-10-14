@@ -10,9 +10,14 @@ interface StationCheckboxesProps {
   onChange: (stations: StationId[]) => void;
   // Stations that can no longer be changed (already completed for the visit).
   locked?: StationId[];
+  // Stations that must stay ticked (the TB tent until a TB doctor clears the patient).
+  held?: StationId[];
+  // Stations not offered here.
+  exclude?: StationId[];
 }
 
-export function StationCheckboxes({ idPrefix, selected, onChange, locked = [] }: StationCheckboxesProps) {
+export function StationCheckboxes({ idPrefix, selected, onChange, locked = [], held = [], exclude = [] }: StationCheckboxesProps) {
+  const shown = STATIONS.filter((station) => !exclude.includes(station.id));
   const toggle = (id: StationId, checked: boolean) => {
     // Keep station order regardless of the order boxes are ticked in
     onChange(
@@ -24,8 +29,9 @@ export function StationCheckboxes({ idPrefix, selected, onChange, locked = [] }:
 
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-3">
-      {STATIONS.map((station) => {
-        const isLocked = locked.includes(station.id);
+      {shown.map((station) => {
+        const isHeld = held.includes(station.id);
+        const isLocked = locked.includes(station.id) || isHeld;
         return (
           <div key={station.id} className="flex items-center space-x-2">
             <Checkbox
@@ -37,7 +43,7 @@ export function StationCheckboxes({ idPrefix, selected, onChange, locked = [] }:
             />
             <Label htmlFor={`${idPrefix}-${station.id}`} className="text-muted-foreground">
               {station.label}
-              {isLocked ? " (done)" : ""}
+              {isHeld ? " (until cleared)" : isLocked ? " (done)" : ""}
             </Label>
           </div>
         );

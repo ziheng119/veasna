@@ -99,7 +99,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     {patient.khmer_name}
                   </div>
                   {patient.current_station && (
-                    <div className="text-xs font-medium text-primary truncate">
+                    <div className={`text-xs font-medium truncate ${patient.current_station === "tb" ? "text-destructive" : "text-primary"}`}>
                       At {stationLabel(patient.current_station)}
                     </div>
                   )}

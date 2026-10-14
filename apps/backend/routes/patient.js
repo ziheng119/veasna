@@ -273,8 +273,16 @@ router.get(
           c.id AS consultation_id,
           c.notes AS consultation_notes,
           c.prescription,
-          c.require_referral
-          
+          c.require_referral,
+
+          -- TB screening
+          tb.id AS tb_id,
+          tb.red_flags AS tb_red_flags,
+          tb.flag_notes AS tb_flag_notes,
+          tb.status AS tb_status,
+          tb.doctor_notes AS tb_doctor_notes,
+          tb.reviewed_at AS tb_reviewed_at
+
         FROM visits v
         LEFT JOIN locations l ON v.location_id = l.id
         LEFT JOIN vitals vt ON v.id = vt.visit_id
@@ -285,6 +293,7 @@ router.get(
         LEFT JOIN seva s ON v.id = s.visit_id
         LEFT JOIN physiotherapy pt ON v.id = pt.visit_id
         LEFT JOIN consultation c ON v.id = c.visit_id
+        LEFT JOIN tb_screening tb ON v.id = tb.visit_id
         WHERE v.id = $1
       `;
       const visitResult = await db.query(visitQuery, [id]);
@@ -411,6 +420,16 @@ router.get(
                 notes: visit.seva_notes,
               }
             : null,
+
+        tb: visit.tb_id
+          ? {
+              red_flags: visit.tb_red_flags,
+              flag_notes: visit.tb_flag_notes,
+              status: visit.tb_status,
+              doctor_notes: visit.tb_doctor_notes,
+              reviewed_at: visit.tb_reviewed_at,
+            }
+          : null,
 
         physiotherapy: visit.physio_id
           ? {
