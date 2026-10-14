@@ -26,7 +26,7 @@ export function PatientTable({ patients, onViewPatient, onDeletePatient}: Patien
                 <th className="w-1/20 px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Sex</th>
                 <th className="w-[10%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Phone No.</th>
                 <th className="px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Address</th>
-                <th className="w-[14%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Face ID</th>
+                <th className="w-[14%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Unique ID</th>
                 <th className="w-[9%] px-4 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Last Seen</th>
                 <th className="w-22 py-3 uppercase text-left text-xs font-medium text-muted-foreground tracking-wider">Actions</th>
               </tr>

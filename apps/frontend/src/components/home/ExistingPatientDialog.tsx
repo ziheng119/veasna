@@ -47,7 +47,6 @@ export function ExistingPatientDialog({
               age !== null ? `Age ${age}` : null,
               patient.sex || null,
               patient.phone_number || null,
-              patient.face_id ? `Face ID ${patient.face_id}` : null,
             ].filter(Boolean).join(" • ");
 
             return (
@@ -62,9 +61,11 @@ export function ExistingPatientDialog({
                     {patient.english_name || patient.khmer_name}
                     {patient.english_name && patient.khmer_name ? ` (${patient.khmer_name})` : ""}
                   </span>
-                  <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                    Patient ID {patient.id}
-                  </span>
+                  {patient.face_id && (
+                    <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+                      Unique ID {patient.face_id}
+                    </span>
+                  )}
                 </div>
                 {details && <p className="mt-1 text-xs text-muted-foreground">{details}</p>}
                 {patient.address && <p className="mt-1 text-xs text-muted-foreground">{patient.address}</p>}

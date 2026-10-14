@@ -322,14 +322,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     // Autocomplete for returning patients: typing in the English name field matches
-    // existing patients by English name or by patient ID.
+    // existing patients by English name or by Unique ID (face_id).
     const nameQuery = normalizeName(patientInfo.english_name);
     const suggestions = !linkedPatient && nameQuery
       ? existingPatients
           .filter((p) =>
-            /^\d+$/.test(nameQuery)
-              ? String(p.id).startsWith(nameQuery)
-              : normalizeName(p.english_name).includes(nameQuery)
+            normalizeName(p.english_name).includes(nameQuery) ||
+            normalizeName(p.face_id ?? "").includes(nameQuery)
           )
           .slice(0, MAX_SUGGESTIONS)
       : [];
@@ -383,7 +382,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 {linkedPatient && (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
                     <span>
-                      Returning patient: <span className="font-semibold">{linkedPatient.english_name || linkedPatient.khmer_name}</span> • Patient ID {linkedPatient.id}. This visit will be added to their record.
+                      Returning patient: <span className="font-semibold">{linkedPatient.english_name || linkedPatient.khmer_name}</span>{linkedPatient.face_id ? ` • Unique ID ${linkedPatient.face_id}` : ""}. This visit will be added to their record.
                     </span>
                     <Button type="button" variant="outline" size="sm" onClick={unlinkPatient}>
                       Clear
@@ -439,7 +438,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setShowSuggestions(false)}
                     onKeyDown={handleNameKeyDown}
-                    placeholder="Enter English name, or patient ID for a returning patient"
+                    placeholder="Enter English name, or Unique ID for a returning patient"
                     className="mt-2"
                   />
                   {suggestionsOpen && (
@@ -467,7 +466,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                           }}
                         >
                           <span>{summary}</span>
-                          <span className="shrink-0 text-xs font-semibold text-muted-foreground">Patient ID {patient.id}</span>
+                          {patient.face_id && (
+                            <span className="shrink-0 text-xs font-semibold text-muted-foreground">Unique ID {patient.face_id}</span>
+                          )}
                         </li>
                         );
                       })}
@@ -534,7 +535,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 </div>
     
                 <div>
-                  <Label htmlFor="faceId" className="text-muted-foreground">Face ID</Label>
+                  <Label htmlFor="faceId" className="text-muted-foreground">Unique ID</Label>
                   <Input
                     id="faceId"
                     value={generateFaceId(patientInfo.english_name, patientInfo.khmer_name, patientInfo.date_of_birth)}
@@ -795,7 +796,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             description={
               matchPrompt?.onSubmit
                 ? "A patient with this name is already registered. Select them to add this visit to their record, or register a new patient if this is a different person."
-                : "More than one patient matches this name. Use the Patient ID and details to pick the right one."
+                : "More than one patient matches this name. Use the Unique ID and details to pick the right one."
             }
             onSelect={(patient) => {
               const continueSubmit = matchPrompt?.onSubmit;

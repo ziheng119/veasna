@@ -313,7 +313,7 @@ export default function PatientDetailsPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Face ID</label>
+                  <label className="text-sm font-medium text-muted-foreground">Unique ID</label>
                   <p className="mt-1">{patient.face_id || 'N/A'}</p>
                 </div>
 
