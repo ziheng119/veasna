@@ -9,6 +9,7 @@ import { Location } from "@/lib/types/location";
 import { PatientInfo } from "@/lib/types/patient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
@@ -72,11 +73,6 @@ export default function PatientListPage() {
     setSearchTerm(term);
   }
   
-  const handleAddPatient = () => {
-    console.log('Add new patient Clicked');
-    router.push('/patient-form?mode=new');
-  };
-
   const handleViewPatient = (patientId: number) => {
     console.log('Viewing Patient, ', patientId);
     router.push(`/patient-details?id=${patientId}`);
@@ -126,11 +122,13 @@ export default function PatientListPage() {
         </div>
 
         <Button
-          onClick={handleAddPatient}
+          asChild
           size="icon"
           className="rounded-full"
         >
-          <PlusIcon className="w-5 h-5"/>
+          <Link href="/#patient-registration" aria-label="Add patient" title="Add patient">
+            <PlusIcon className="w-5 h-5" />
+          </Link>
         </Button>
       </div>
 
