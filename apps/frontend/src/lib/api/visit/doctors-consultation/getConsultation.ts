@@ -71,6 +71,10 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
         referralType: modified_types,
         illness: json.illness,
         duration: json.duration,
+        signature: json.signature ?? null,
+        signerName: json.signer_name,
+        signerId: json.signer_id,
+        signedAt: json.signed_at,
         reason: json.reason
       }
     }
@@ -79,7 +83,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
     const data: Consultation = {
       notes: json.notes ?? "",
       prescription: json.prescription ?? "",
-      requireReferral: json.require_referral ?? false,
+      requireReferral: json.require_referral ?? modified_referral !== null,
       referral:  modified_referral
     };
 

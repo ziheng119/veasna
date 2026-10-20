@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react";
-import SaveButton from "../shared/SaveButton";
-import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
+import { useEffect, useId, useState } from "react";
+import GlassButton from "../shared/GlassButton";
+import { ChevronDown } from "lucide-react";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -18,14 +18,20 @@ interface Props {
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
+  const referralPanelId = useId();
+  const notesId = useId();
+  const prescriptionId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [notes, setNotes] = useState<string>("")
   const [prescription, setPrescription] = useState<string>("")
   const [referralNeeded, setReferralNeeded] = useState<boolean>(false)
+  const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null)
 
 
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
     const data: Consultation = {
       notes: notes,
       prescription: prescription,
@@ -37,7 +43,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       await postConsultation(data, patient.visit_id)
       toast.success("Save Success")
     } catch (error) {
+      console.error("Consultation save failed:", error);
       toast.error("An error has occurred")
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -105,68 +114,56 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   return (
     <PageCard
       title="Consultation Notes"
-      className="xl:col-span-4"
-      contentClassName="space-y-4"
+      className="min-w-0 xl:col-span-8"
+      headerClassName="text-base"
+      contentClassName="space-y-4 text-sm leading-5"
     >
-      <div className="flex w-full">
-        <VerticalLabelInputPair 
-          value={notes}
-          onChangeFunction={setNotes}
-        />
+      <div className="space-y-2">
+        <label htmlFor={notesId} className="font-semibold">Consultation notes</label>
+        <textarea id={notesId} rows={6} value={notes} onChange={event => setNotes(event.target.value)}
+          className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor={prescriptionId} className="font-semibold">Prescription</label>
+        <textarea id={prescriptionId} rows={4} value={prescription} onChange={event => setPrescription(event.target.value)}
+          className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
 
-      <h2 className="text-[20px] font-semibold">Prescription</h2>
-      <div className="flex w-full">
-        <VerticalLabelInputPair 
-          value={prescription}
-          onChangeFunction={setPrescription}
-        />
-      </div>
-
-      <div className="flex gap-4">
-        <h2 className="text-[20px] font-semibold">Referral Needed</h2>
-        
-        <div className="flex gap-2 items-center">
-          <input
-            type="radio"
-            name="referralNeeded"
-            value="yes"
-            checked={referralNeeded === true}
-            onChange={() => setReferralNeeded(true)}
-            className="accent-primary"
-          />
-          <p>Yes</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <GlassButton type="button" className="h-10" disabled={saving} onClick={handleSave}>
+          {saving ? "Saving..." : "Save consultation notes"}
+        </GlassButton>
+        <div className="ml-auto w-full overflow-hidden rounded-[1.25rem] bg-gradient-to-b from-background/90 to-muted/30 shadow-sm ring-1 ring-foreground/10 sm:w-72">
+          <GlassButton
+            type="button"
+            className="h-10 w-full justify-between bg-none shadow-none ring-0 hover:shadow-none"
+            aria-pressed={referralNeeded}
+            aria-expanded={referralNeeded}
+            aria-controls={referralPanelId}
+            onClick={() => setReferralNeeded(value => !value)}
+          >
+            <span>Referral needed</span>
+            <span className="ml-auto text-xs text-muted-foreground">{referralNeeded ? "Yes" : "No"}</span>
+            <ChevronDown aria-hidden="true" className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${referralNeeded ? "rotate-180" : ""}`} />
+          </GlassButton>
+          {/* Keep the panel mounted for a smooth height transition; closed actions cannot receive focus. */}
+          <div id={referralPanelId} aria-hidden={!referralNeeded} inert={!referralNeeded}
+            className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${referralNeeded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className="flex flex-col items-end gap-2 border-t border-border/50 p-3">
+                {patientInfo === null ? <Loading /> : (
+                  <ReferralButton
+                    patient={patient}
+                    patientInfo={patientInfo}
+                    retrievedReferral={referral}
+                    onSaved={setReferral}
+                  />
+                )}
+                <p className="text-right text-xs text-muted-foreground">Referral choice is saved with consultation notes.</p>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="flex gap-2 items-center">
-          <input
-            type="radio"
-            name="referralNeeded"
-            value="no"
-            checked={referralNeeded === false}
-            onChange={() => setReferralNeeded(false)}
-            className="accent-primary"
-          />
-          <p>No</p>
-        </div>
-      </div>
-
-      {patientInfo === null && (
-        <Loading />
-      )}
-      
-      {referralNeeded && patientInfo !== null && (
-        <ReferralButton 
-          patient={patient}
-          patientInfo={patientInfo}
-          retrievedReferral={referral}
-        />
-      )}
-
-      <div className="flex items-center justify-end">
-        <SaveButton 
-          onClick={handleSave}
-        />
       </div>
     </PageCard>
   )

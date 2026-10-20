@@ -26,6 +26,7 @@ export async function postReferral(data: Referral, visitId: number) {
       illness: data.illness,
       duration: data.duration,
       reason: data.reason,
+      signature: data.signature ?? null,
     }),
   });
 

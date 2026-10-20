@@ -15,6 +15,7 @@ interface Props {
   retrievedReferral: Referral | null;
   setShowPopUp: Dispatch<SetStateAction<boolean>>;
   showPopUp: boolean;
+  onSaved?: (referral: Referral) => void;
 }
 
 export default function ReferralPopUp({ 
@@ -22,15 +23,18 @@ export default function ReferralPopUp({
   patientInfo, 
   retrievedReferral, 
   setShowPopUp,
-  showPopUp 
+  showPopUp,
+  onSaved
 }: Props) {
   return (
     <Dialog open={showPopUp} onOpenChange={setShowPopUp}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-none opacity-100 [&>*]:opacity-100">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border-border bg-card p-0">
         <VisuallyHidden>
           <DialogTitle>Referral Form</DialogTitle>
         </VisuallyHidden>
         <ReferralForm
+          key={patient.visit_id}
+          onSaved={onSaved}
           patient={patient}
           patientInfo={patientInfo}
           retrievedReferral={retrievedReferral}

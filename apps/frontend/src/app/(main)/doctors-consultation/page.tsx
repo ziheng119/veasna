@@ -40,9 +40,12 @@ export default function DoctorsConsultation() {
             <TbHoldNotice patient={selectedPatient} />
           ) : (
             <div className={PANEL_GRID}>
-              <PatientContainer selectedPatient = {selectedPatient}/>
-              <TriageContainer selectedPatient = {selectedPatient}/>
-              <DoctorsNotesContainer patient={selectedPatient} />
+              {/* Equal-height summaries share the original snapshot column. */}
+              <div key={selectedPatient.visit_id} className="grid h-[40rem] min-h-0 min-w-0 grid-rows-2 gap-4 xl:col-span-4 xl:h-full">
+                <PatientContainer selectedPatient={selectedPatient} compact />
+                <TriageContainer selectedPatient={selectedPatient} compact />
+              </div>
+              <DoctorsNotesContainer key={selectedPatient.visit_id} patient={selectedPatient} />
             </div>
           )}
         </div>
