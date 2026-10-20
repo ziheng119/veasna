@@ -6,6 +6,7 @@ import { registerUser } from "@/lib/api/user/registerUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ROLE_OPTIONS } from "@/lib/permissions";
 import {
   Dialog,
   DialogContent,
@@ -23,12 +24,14 @@ interface AddUserDialogProps {
 export default function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("registration");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setUsername("");
       setPassword("");
+      setRole("registration");
     }
     onOpenChange(nextOpen);
   };
@@ -47,7 +50,7 @@ export default function AddUserDialog({ open, onOpenChange }: AddUserDialogProps
 
     try {
       setIsSubmitting(true);
-      const createdUsername = await registerUser(normalizedUsername, password);
+      const createdUsername = await registerUser(normalizedUsername, password, role);
       toast.success(`Account created for ${createdUsername}.`);
       handleOpenChange(false);
     } catch (error) {
@@ -100,6 +103,13 @@ export default function AddUserDialog({ open, onOpenChange }: AddUserDialogProps
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="new-role">Assigned role</Label>
+            <select id="new-role" value={role} onChange={event => setRole(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Please wait..." : "Create Account"}

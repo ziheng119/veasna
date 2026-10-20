@@ -5,6 +5,7 @@ const router = express.Router();
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 const { hashPassword, comparePassword } = require('../config/db');
+const { ROLES } = require('../utils/permissions');
 
 let ensurePasswordColumnPromise = null;
 
@@ -55,6 +56,11 @@ function signUserToken(user) {
 
 const { authenticateToken, requireRole } = require('./auth');
 
+router.get('/me', authenticateToken, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ id: req.user.id, username: req.user.username, role: req.user.role });
+});
+
 router.post('/register', authenticateToken, requireRole(['admin']), async (req, res) => {
   const parsed = normalizeCredentials(req.body.username, req.body.password);
   if (parsed.error) {
@@ -62,6 +68,8 @@ router.post('/register', authenticateToken, requireRole(['admin']), async (req, 
   }
 
   const { username, password } = parsed;
+  const role = req.body.role || 'registration';
+  if (!ROLES.includes(role)) return res.status(400).json({ message: 'Invalid role' });
 
   try {
 
@@ -76,12 +84,12 @@ router.post('/register', authenticateToken, requireRole(['admin']), async (req, 
 
     const passwordHash = await hashPassword(password);
     const insertQuery = `
-      INSERT INTO users (username, password_hash, is_active)
-      VALUES ($1, $2, TRUE)
+      INSERT INTO users (username, password_hash, role, is_active)
+      VALUES ($1, $2, $3, TRUE)
       RETURNING id, username, role;
     `;
 
-    const { rows } = await db.query(insertQuery, [username, passwordHash]);
+    const { rows } = await db.query(insertQuery, [username, passwordHash, role]);
     const user = rows[0];
     const token = signUserToken(user);
 

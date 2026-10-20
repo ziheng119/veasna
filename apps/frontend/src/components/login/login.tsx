@@ -17,6 +17,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { defaultPage } from "@/lib/permissions";
 
 export default function Login() {
   const user = useUserStore((state) => state.user);
@@ -29,7 +30,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user?.token) {
-      router.replace("/");
+      router.replace(defaultPage(user.role));
     }
   }, [user, router]);
 
@@ -51,7 +52,7 @@ export default function Login() {
       setUser(loggedInUser);
 
       toast.success(`Welcome, ${loggedInUser.username}!`);
-      router.push("/");
+      router.push(defaultPage(loggedInUser.role));
     } catch (error) {
       console.error(error);
       const message =

@@ -2,6 +2,8 @@
 
 const express = require('express');
 const router = express.Router();
+const { authorizeApi } = require('../middleware/authorizeApi');
+router.use(authorizeApi);
 
 const sessionRoutes = require('./session');
 const patientRoutes = require('./patient');
