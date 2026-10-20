@@ -13,6 +13,7 @@ const visitRoutes = require('./visits');
 const pharmacyRoutes = require('./pharmacy');
 const triageRoutes = require('./triage');
 const tbRoutes = require('./tb');
+const analyticsRoutes = require('./analytics');
 
 router.use('/auth', sessionRoutes);
 router.use('/locations', locationRoutes);
@@ -22,6 +23,7 @@ router.use('/visits', visitRoutes);
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/triage', triageRoutes);
 router.use('/tb', tbRoutes);
+router.use('/analytics', analyticsRoutes);
 router.use('/patient', patientRoutes);
 
 const { body, query } = require('express-validator');

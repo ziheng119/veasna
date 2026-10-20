@@ -96,6 +96,8 @@ npm run lint
 
 ## Notes
 
+- Admins can open the **Analytics** draft from the user menu. See [metric definitions and proposed next steps](docs/analytics.md).
+
 - Consultation referrals support saved eSignatures, individual printing and **Print today's referrals** for the selected location. See [referral workflow and setup](docs/consultation-referrals.md).
 
 - Queues offer **Queue number / Arrival time** sorting, remembered per user and queue on this browser. See [queue ordering](docs/queue-ordering.md).
