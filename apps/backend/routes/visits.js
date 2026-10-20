@@ -1,3 +1,4 @@
+const { validateSignature } = require('../utils/referralSignature');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
@@ -731,10 +732,12 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       r.illness,
       r.duration,
       r.reason,
-      r.referral_date
+      r.referral_date,
+      r.signature, r.signer_name, r.signer_id, r.signed_at,
+      r.last_updated_at AS referral_updated_at
     FROM consultation c
-    LEFT JOIN referral r ON r.visit_id = c.visit_id
-    WHERE c.visit_id = $1;
+    FULL JOIN referral r ON r.visit_id = c.visit_id
+    WHERE COALESCE(c.visit_id, r.visit_id) = $1;
   `;
 
   try {
@@ -747,7 +750,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
     const row = rows[0];
 
     // Optional: generate a weak ETag based on last_updated_at + id
-    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}"`;
+    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}-${new Date(row.referral_updated_at).getTime()}"`;
     if (req.headers["if-none-match"] === etag) {
       return res.status(304).end();
     }
@@ -824,7 +827,8 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   }
   if (await rejectIfTbHold(db, res, visit_id)) return;
 
-  const { referralDate, referralType, illness, duration, reason } = req.body;
+  const { referralDate, referralType, illness, duration, reason, signature } = req.body;
+  if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
   const last_updated_by = req.user.id;
 
   const query = `
@@ -835,9 +839,12 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       illness,
       duration,
       reason,
-      last_updated_by
+      last_updated_by, signature, signer_id, signer_name, signed_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE $7::integer END,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE (SELECT username FROM users WHERE id = $7::integer) END,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END)
     ON CONFLICT (visit_id) DO UPDATE SET
       referral_date = EXCLUDED.referral_date,
       referral_type = EXCLUDED.referral_type,
@@ -845,6 +852,10 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       duration = EXCLUDED.duration,
       reason = EXCLUDED.reason,
       last_updated_by = EXCLUDED.last_updated_by,
+      signature = EXCLUDED.signature,
+      signer_id = EXCLUDED.signer_id,
+      signer_name = EXCLUDED.signer_name,
+      signed_at = EXCLUDED.signed_at,
       last_updated_at = NOW()
     RETURNING *;
   `;
@@ -858,6 +869,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       textOrEmpty(duration),
       textOrEmpty(reason),
       last_updated_by,
+      signature == null ? null : JSON.stringify(signature),
     ]);
 
     if (rows.length === 0) {
