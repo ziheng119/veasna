@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react";
-import SaveButton from "../shared/SaveButton";
-import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
+import { useEffect, useId, useState } from "react";
+import GlassButton from "../shared/GlassButton";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -18,18 +17,24 @@ interface Props {
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
+  const notesId = useId();
+  const prescriptionId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [notes, setNotes] = useState<string>("")
   const [prescription, setPrescription] = useState<string>("")
-  const [referralNeeded, setReferralNeeded] = useState<boolean>(false)
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null)
 
 
   const handleSave = async () => {
+    if (saving || !loaded) return;
+    setSaving(true);
     const data: Consultation = {
       notes: notes,
       prescription: prescription,
-      requireReferral: referralNeeded,
+      requireReferral: referral !== null,
       referral: referral      // is ignored by postConsultation
     }
     
@@ -37,7 +42,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       await postConsultation(data, patient.visit_id)
       toast.success("Save Success")
     } catch (error) {
+      console.error("Consultation save failed:", error);
       toast.error("An error has occurred")
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -77,20 +85,20 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         const data: Consultation | null = await getConsultation(patient.visit_id);
         if (cancelled) return;
 
+        setLoaded(true);
         if (!data) {
           setNotes("");
           setPrescription("");
-          setReferralNeeded(false);
           setReferral(null);
           return;
         }
 
         setNotes(data.notes);
         setPrescription(data.prescription);
-        setReferralNeeded(data.requireReferral);
         setReferral(data.referral);
       } catch (error) {
         if (!cancelled) {
+          setLoadFailed(true);
           toast.error("Failed to load consultation data");
           console.error("Error loading consultation:", error);
         }
@@ -105,68 +113,36 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   return (
     <PageCard
       title="Consultation Notes"
-      className="xl:col-span-4"
-      contentClassName="space-y-4"
+      className="min-w-0 xl:col-span-8"
+      headerClassName="text-base"
+      contentClassName="space-y-4 text-sm leading-5"
     >
-      <div className="flex w-full">
-        <VerticalLabelInputPair 
-          value={notes}
-          onChangeFunction={setNotes}
-        />
+      <div className="space-y-2">
+        <label htmlFor={notesId} className="font-semibold">Consultation notes</label>
+        <textarea id={notesId} rows={6} value={notes} onChange={event => setNotes(event.target.value)}
+          className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor={prescriptionId} className="font-semibold">Prescription</label>
+        <textarea id={prescriptionId} rows={4} value={prescription} onChange={event => setPrescription(event.target.value)}
+          className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
 
-      <h2 className="text-[20px] font-semibold">Prescription</h2>
-      <div className="flex w-full">
-        <VerticalLabelInputPair 
-          value={prescription}
-          onChangeFunction={setPrescription}
-        />
-      </div>
-
-      <div className="flex gap-4">
-        <h2 className="text-[20px] font-semibold">Referral Needed</h2>
-        
-        <div className="flex gap-2 items-center">
-          <input
-            type="radio"
-            name="referralNeeded"
-            value="yes"
-            checked={referralNeeded === true}
-            onChange={() => setReferralNeeded(true)}
-            className="accent-primary"
-          />
-          <p>Yes</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <GlassButton type="button" className="h-10" disabled={saving || !loaded} onClick={handleSave}>
+          {saving ? "Saving..." : "Save consultation notes"}
+        </GlassButton>
+        <div className="ml-auto">
+          {loadFailed ? <p role="alert" className="text-sm text-destructive">Unable to load consultation. Switch patients and try again.</p> : !loaded || patientInfo === null ? <Loading /> : (
+            <ReferralButton
+              patient={patient}
+              patientInfo={patientInfo}
+              retrievedReferral={referral}
+              onSaved={setReferral}
+              onDeleted={() => setReferral(null)}
+            />
+          )}
         </div>
-
-        <div className="flex gap-2 items-center">
-          <input
-            type="radio"
-            name="referralNeeded"
-            value="no"
-            checked={referralNeeded === false}
-            onChange={() => setReferralNeeded(false)}
-            className="accent-primary"
-          />
-          <p>No</p>
-        </div>
-      </div>
-
-      {patientInfo === null && (
-        <Loading />
-      )}
-      
-      {referralNeeded && patientInfo !== null && (
-        <ReferralButton 
-          patient={patient}
-          patientInfo={patientInfo}
-          retrievedReferral={referral}
-        />
-      )}
-
-      <div className="flex items-center justify-end">
-        <SaveButton 
-          onClick={handleSave}
-        />
       </div>
     </PageCard>
   )

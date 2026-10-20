@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import PrintDailyReferrals from "@/components/doctors-consultation/PrintDailyReferrals";
 
 export default function DoctorsConsultation() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -26,7 +27,10 @@ export default function DoctorsConsultation() {
 
   return (
     <div className={PAGE_SHELL}>
-      <SearchBar onSelectPatient={setSelectedPatient} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1"><SearchBar onSelectPatient={setSelectedPatient} /></div>
+        <PrintDailyReferrals locationId={location?.id} />
+      </div>
       <div className={PANEL_GRID}>
         <QueuePatientPicker
           station="consultation"
@@ -40,9 +44,12 @@ export default function DoctorsConsultation() {
             <TbHoldNotice patient={selectedPatient} />
           ) : (
             <div className={PANEL_GRID}>
-              <PatientContainer selectedPatient = {selectedPatient}/>
-              <TriageContainer selectedPatient = {selectedPatient}/>
-              <DoctorsNotesContainer patient={selectedPatient} />
+              {/* Equal-height summaries share the original snapshot column. */}
+              <div className="grid h-[40rem] min-h-0 min-w-0 grid-rows-2 gap-4 xl:col-span-4 xl:h-full">
+                <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
+                <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
+              </div>
+              <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
             </div>
           )}
         </div>

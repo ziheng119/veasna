@@ -7,6 +7,11 @@ import { useUserStore } from "@/stores/useUserStore";
 const cachedConsultation: Record<number, Consultation | null> = {};
 const cachedETags: Record<number, string> = {};
 
+export function invalidateConsultation(visitId: number) {
+  delete cachedConsultation[visitId];
+  delete cachedETags[visitId];
+}
+
 /**
  * Fetch consultation + referral data for a given visit.
  * Uses ETag-based caching and 304 handling.
@@ -71,6 +76,10 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
         referralType: modified_types,
         illness: json.illness,
         duration: json.duration,
+        signature: json.signature ?? null,
+        signerName: json.signer_name,
+        signerId: json.signer_id,
+        signedAt: json.signed_at,
         reason: json.reason
       }
     }
@@ -79,7 +88,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
     const data: Consultation = {
       notes: json.notes ?? "",
       prescription: json.prescription ?? "",
-      requireReferral: json.require_referral ?? false,
+      requireReferral: json.require_referral ?? modified_referral !== null,
       referral:  modified_referral
     };
 
@@ -91,12 +100,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
   } catch (err) {
     console.error("GET Consultation (Error):", err);
 
-    // Fallback to cached data if available
-    if (cachedConsultation[visitId] !== undefined) {
-      console.warn(`⚠️ Returning cached consultation for visit ${visitId} due to fetch failure.`);
-      return cachedConsultation[visitId];
-    }
-
-    return null;
+    // An unavailable record must not be mistaken for a new/empty consultation.
+    throw err;
   }
 }

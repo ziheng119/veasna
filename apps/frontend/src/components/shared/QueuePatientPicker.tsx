@@ -149,7 +149,11 @@ export default function QueuePatientPicker({
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
-              className={`flex items-start gap-2 rounded-lg border p-3 transition-colors ${
+              onClick={(event) => {
+                // The native buttons handle their own actions; all remaining card space selects.
+                if (!(event.target as Element).closest("button")) onSelectPatient(patient);
+              }}
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
                 isSelected
                   ? "border-primary bg-primary/10"
                   : "border-border hover:bg-accent/60"
@@ -157,15 +161,15 @@ export default function QueuePatientPicker({
             >
               <button
                 type="button"
+                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}`}
+                aria-pressed={isSelected}
                 onClick={() => onSelectPatient(patient)}
                 className="min-w-0 flex-1 text-left"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
-                  <span className="text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
-                </div>
+                <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
                 <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
-                <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
+                {patient.khmer_name?.trim() && <p className="text-sm text-muted-foreground">{patient.khmer_name}</p>}
+                <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
                 {station === "tb" && patient.tb_status ? (
                   <p className={`mt-1 text-xs font-medium ${patient.tb_status === "tb_likely" ? "text-destructive" : "text-muted-foreground"}`}>
                     {TB_STATUS_LABELS[patient.tb_status]}
@@ -176,7 +180,7 @@ export default function QueuePatientPicker({
                   </p>
                 )}
               </button>
-              <div className="flex shrink-0 items-start">
+              <div className="flex shrink-0 items-center">
                 {/* Leaving the TB tent needs the TB doctor's decision, made in the panel */}
                 {station !== "tb" && (
                   <Button

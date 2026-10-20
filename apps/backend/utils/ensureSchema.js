@@ -126,7 +126,17 @@ function ensureStationRouteHistory() {
   return ensureStationRouteHistoryPromise;
 }
 
+let referralSignaturePromise = null;
+function ensureReferralSignature() {
+  if (!referralSignaturePromise) {
+    referralSignaturePromise = runMigration('011_referral_signature.sql')
+      .catch(err => { referralSignaturePromise = null; throw err; });
+  }
+  return referralSignaturePromise;
+}
+
 module.exports = {
+  ensureReferralSignature,
   ensureStationRouteHistory,
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,

@@ -1,3 +1,4 @@
+const { validateSignature } = require('../utils/referralSignature');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
@@ -11,6 +12,36 @@ const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../utils/tb');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
+
+// Include completed visits and unsigned drafts, not just patients still queued.
+router.get('/referrals', authenticateToken, async (req, res) => {
+  const locationId = Number(req.query.location_id);
+  const date = req.query.date;
+  if (!Number.isSafeInteger(locationId) || locationId <= 0 ||
+      typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+    return res.status(400).json({ error: 'A valid location_id and date (YYYY-MM-DD) are required' });
+  }
+  try {
+    const { rows } = await db.query(`
+      SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
+        TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
+        r.signature, r.signer_name, r.signer_id, r.signed_at,
+        p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
+        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
+      FROM referral r
+      JOIN visits v ON v.id = r.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE v.location_id = $1 AND COALESCE(r.referral_date, v.visit_date) = $2::date
+      ORDER BY v.created_at ASC, v.id ASC
+    `, [locationId, date]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(rows);
+  } catch (error) {
+    console.error('Daily referral retrieval failed:', error);
+    res.status(500).json({ error: 'Unable to load referrals' });
+  }
+});
 
 function parseOptionalPositiveInt(value) {
   if (value === null || value === undefined) return null;
@@ -731,10 +762,12 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       r.illness,
       r.duration,
       r.reason,
-      r.referral_date
+      r.referral_date,
+      r.signature, r.signer_name, r.signer_id, r.signed_at,
+      r.last_updated_at AS referral_updated_at
     FROM consultation c
-    LEFT JOIN referral r ON r.visit_id = c.visit_id
-    WHERE c.visit_id = $1;
+    FULL JOIN referral r ON r.visit_id = c.visit_id
+    WHERE COALESCE(c.visit_id, r.visit_id) = $1;
   `;
 
   try {
@@ -747,7 +780,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
     const row = rows[0];
 
     // Optional: generate a weak ETag based on last_updated_at + id
-    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}"`;
+    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}-${new Date(row.referral_updated_at).getTime()}"`;
     if (req.headers["if-none-match"] === etag) {
       return res.status(304).end();
     }
@@ -772,7 +805,6 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
   const {
     notes,
     prescription,
-    require_referral,
   } = req.body;
 
   const last_updated_by = req.user.id;
@@ -785,7 +817,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       require_referral,
       last_updated_by
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, EXISTS (SELECT 1 FROM referral WHERE visit_id = $1), $4)
     ON CONFLICT (visit_id) DO UPDATE SET
       notes = EXCLUDED.notes,
       prescription = EXCLUDED.prescription,
@@ -800,7 +832,6 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       visit_id,
       textOrEmpty(notes),
       textOrEmpty(prescription),
-      require_referral === true,
       last_updated_by,
     ]);
 
@@ -824,20 +855,24 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   }
   if (await rejectIfTbHold(db, res, visit_id)) return;
 
-  const { referralDate, referralType, illness, duration, reason } = req.body;
+  const { referralDate, referralType, illness, duration, reason, signature } = req.body;
+  if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
   const last_updated_by = req.user.id;
 
   const query = `
-    INSERT INTO referral (
+    WITH saved AS (INSERT INTO referral (
       visit_id,
       referral_date,
       referral_type,
       illness,
       duration,
       reason,
-      last_updated_by
+      last_updated_by, signature, signer_id, signer_name, signed_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE $7::integer END,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE (SELECT username FROM users WHERE id = $7::integer) END,
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END)
     ON CONFLICT (visit_id) DO UPDATE SET
       referral_date = EXCLUDED.referral_date,
       referral_type = EXCLUDED.referral_type,
@@ -845,8 +880,16 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       duration = EXCLUDED.duration,
       reason = EXCLUDED.reason,
       last_updated_by = EXCLUDED.last_updated_by,
+      signature = EXCLUDED.signature,
+      -- Preserve attribution when saving existing strokes unchanged.
+      signer_id = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_id ELSE EXCLUDED.signer_id END,
+      signer_name = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_name ELSE EXCLUDED.signer_name END,
+      signed_at = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signed_at ELSE EXCLUDED.signed_at END,
       last_updated_at = NOW()
-    RETURNING *;
+    RETURNING *), updated AS (
+      UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()
+      WHERE visit_id = $1 RETURNING visit_id
+    ) SELECT * FROM saved;
   `;
 
   try {
@@ -858,6 +901,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       textOrEmpty(duration),
       textOrEmpty(reason),
       last_updated_by,
+      signature == null ? null : JSON.stringify(signature),
     ]);
 
     if (rows.length === 0) {
@@ -871,5 +915,24 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   }
 });
 
+
+// Delete the visit's referral and clear its consultation flag atomically.
+// Notes/prescription stay intact; repeating a successful deletion is harmless.
+router.delete("/referral/:visit_id", authenticateToken, async (req, res) => {
+  const visitId = Number(req.params.visit_id);
+  if (!Number.isSafeInteger(visitId) || visitId <= 0) return res.status(400).json({ error: "Invalid visit_id" });
+  try {
+    if (await rejectIfTbHold(db, res, visitId)) return;
+    await db.query(`
+      WITH deleted AS (DELETE FROM referral WHERE visit_id = $1 RETURNING id)
+      UPDATE consultation SET require_referral = FALSE, last_updated_by = $2, last_updated_at = NOW()
+      WHERE visit_id = $1
+    `, [visitId, req.user.id]);
+    res.sendStatus(204);
+  } catch (error) {
+    console.error("Referral deletion failed:", error);
+    res.status(500).json({ error: "Unable to delete referral" });
+  }
+});
 
 module.exports = router;

@@ -1,5 +1,10 @@
 # Queue display ordering
 
+Station cards select the patient when clicking anywhere outside their action
+buttons. The native selection button also supports keyboard use. Next/Finish,
+Stations and Discharge remain independent actions; card content and actions are
+vertically centered.
+
 Each queue has a full-width glass-style **Queue number / Arrival time** control
 labelled **Sort queue by** above its search field, with equal-width options.
 The glass highlight slides between options; sorting updates immediately.

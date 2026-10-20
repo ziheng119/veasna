@@ -4,7 +4,7 @@ interface Props {
 
 export default function NoDataAvailable({ dataString }: Props) {
   return (
-    <div className="flex justify-center items-center h-40 text-gray-500 border-2 border-dashed rounded-lg bg-gray-50">
+    <div className="flex justify-center items-center h-40 px-4 text-center text-muted-foreground border border-dashed border-border rounded-lg bg-muted/20">
       No {dataString} data available for this patient's visit
     </div>
   )

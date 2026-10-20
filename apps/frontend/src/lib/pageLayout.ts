@@ -14,3 +14,9 @@ export const PANEL_WRAPPER = "xl:min-h-0";
 
 // For a panel that is not a PageCard (PageCard scrolls its content by default).
 export const PANEL_SCROLL = "xl:min-h-0 xl:overflow-y-auto";
+
+// Opt-in compact summaries: headers stay visible while each body scrolls independently.
+export const COMPACT_SUMMARY_CARD = "min-h-0 min-w-0 overflow-hidden gap-3 py-4";
+export const COMPACT_SUMMARY_HEADER = "shrink-0 px-4 text-base [.border-b]:pb-3";
+export const COMPACT_SUMMARY_CONTENT =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 text-sm leading-5 break-words [&_h1]:text-sm [&_h2]:text-sm [&_textarea]:text-sm";
