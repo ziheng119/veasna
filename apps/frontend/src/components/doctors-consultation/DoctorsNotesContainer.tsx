@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useState } from "react";
 import GlassButton from "../shared/GlassButton";
-import { ChevronDown } from "lucide-react";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -18,24 +17,24 @@ interface Props {
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
-  const referralPanelId = useId();
   const notesId = useId();
   const prescriptionId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [notes, setNotes] = useState<string>("")
   const [prescription, setPrescription] = useState<string>("")
-  const [referralNeeded, setReferralNeeded] = useState<boolean>(false)
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null)
 
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || !loaded) return;
     setSaving(true);
     const data: Consultation = {
       notes: notes,
       prescription: prescription,
-      requireReferral: referralNeeded,
+      requireReferral: referral !== null,
       referral: referral      // is ignored by postConsultation
     }
     
@@ -86,20 +85,20 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         const data: Consultation | null = await getConsultation(patient.visit_id);
         if (cancelled) return;
 
+        setLoaded(true);
         if (!data) {
           setNotes("");
           setPrescription("");
-          setReferralNeeded(false);
           setReferral(null);
           return;
         }
 
         setNotes(data.notes);
         setPrescription(data.prescription);
-        setReferralNeeded(data.requireReferral);
         setReferral(data.referral);
       } catch (error) {
         if (!cancelled) {
+          setLoadFailed(true);
           toast.error("Failed to load consultation data");
           console.error("Error loading consultation:", error);
         }
@@ -130,39 +129,19 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <GlassButton type="button" className="h-10" disabled={saving} onClick={handleSave}>
+        <GlassButton type="button" className="h-10" disabled={saving || !loaded} onClick={handleSave}>
           {saving ? "Saving..." : "Save consultation notes"}
         </GlassButton>
-        <div className="ml-auto w-full overflow-hidden rounded-[1.25rem] bg-gradient-to-b from-background/90 to-muted/30 shadow-sm ring-1 ring-foreground/10 sm:w-72">
-          <GlassButton
-            type="button"
-            className="h-10 w-full justify-between bg-none shadow-none ring-0 hover:shadow-none"
-            aria-pressed={referralNeeded}
-            aria-expanded={referralNeeded}
-            aria-controls={referralPanelId}
-            onClick={() => setReferralNeeded(value => !value)}
-          >
-            <span>Referral needed</span>
-            <span className="ml-auto text-xs text-muted-foreground">{referralNeeded ? "Yes" : "No"}</span>
-            <ChevronDown aria-hidden="true" className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${referralNeeded ? "rotate-180" : ""}`} />
-          </GlassButton>
-          {/* Keep the panel mounted for a smooth height transition; closed actions cannot receive focus. */}
-          <div id={referralPanelId} aria-hidden={!referralNeeded} inert={!referralNeeded}
-            className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${referralNeeded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-            <div className="min-h-0 overflow-hidden">
-              <div className="flex flex-col items-end gap-2 border-t border-border/50 p-3">
-                {patientInfo === null ? <Loading /> : (
-                  <ReferralButton
-                    patient={patient}
-                    patientInfo={patientInfo}
-                    retrievedReferral={referral}
-                    onSaved={setReferral}
-                  />
-                )}
-                <p className="text-right text-xs text-muted-foreground">Referral choice is saved with consultation notes.</p>
-              </div>
-            </div>
-          </div>
+        <div className="ml-auto">
+          {loadFailed ? <p role="alert" className="text-sm text-destructive">Unable to load consultation. Switch patients and try again.</p> : !loaded || patientInfo === null ? <Loading /> : (
+            <ReferralButton
+              patient={patient}
+              patientInfo={patientInfo}
+              retrievedReferral={referral}
+              onSaved={setReferral}
+              onDeleted={() => setReferral(null)}
+            />
+          )}
         </div>
       </div>
     </PageCard>

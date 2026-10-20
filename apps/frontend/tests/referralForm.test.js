@@ -1,6 +1,24 @@
 const React = require('react');
 const { act, create } = require('react-test-renderer');
+// Keep portal mechanics out of renderer tests while exercising controlled dialog state.
+jest.mock('../src/components/ui/dialog', () => {
+  const React = require('react');
+  const Context = React.createContext(null);
+  return {
+    Dialog: ({ children, ...state }) => React.createElement(Context.Provider, { value: state }, children),
+    DialogTrigger: ({ children }) => {
+      const state = React.useContext(Context);
+      return React.cloneElement(children, { onClick: () => state.onOpenChange(true) });
+    },
+    DialogContent: ({ children, ...props }) => React.useContext(Context).open ? React.createElement('section', { ...props, role: 'dialog' }, children) : null,
+    DialogHeader: ({ children }) => React.createElement('header', null, children),
+    DialogFooter: ({ children }) => React.createElement('footer', null, children),
+    DialogTitle: ({ children }) => React.createElement('h2', null, children),
+    DialogDescription: ({ children }) => React.createElement('p', null, children),
+  };
+});
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { id: 1, username: 'Clinician' } }) }));
+jest.mock('../src/lib/api/visit/deleteReferral', () => ({ deleteReferral: jest.fn() }));
 jest.mock('../src/lib/api/visit/postReferral', () => ({ postReferral: jest.fn() }));
 jest.mock('../src/components/doctors-consultation/SignaturePad', () => ({ __esModule: true, default: props => React.createElement('signature-pad', props) }));
 jest.mock('../src/components/doctors-consultation/ReferralDocument', () => ({ referralDocumentHtml: () => '<html>Referral</html>' }));
@@ -64,5 +82,39 @@ test('editing clears signature; print saves first, uses saved record, and save f
   } finally {
     if (renderer) await act(async () => renderer.unmount());
     log.mockRestore(); delete global.window;
+  }
+});
+
+test('deletion needs confirmation, keeps editor on failure, and closes only after success', async () => {
+  const { deleteReferral } = require('../src/lib/api/visit/deleteReferral');
+  deleteReferral.mockReset();
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const onDeleted = jest.fn(), onClose = jest.fn();
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(ReferralForm, {
+      patient: { visit_id: 7 }, patientInfo: { english_name: 'Patient', date_of_birth: '2000-01-01' },
+      retrievedReferral: { referralDate: '2026-10-20', referralType: [], illness: '', duration: '', reason: '' }, onDeleted, onClose,
+    })); });
+    const remove = () => renderer.root.findAllByType('button').find(n => n.children.join('') === 'Delete referral').props.onClick();
+    await act(async () => remove());
+    expect(deleteReferral).not.toHaveBeenCalled();
+    const action = label => renderer.root.findAllByType('button').find(n => n.children.join('') === label);
+    expect(action('Confirm deletion')).toBeDefined();
+    await act(async () => action('Cancel').props.onClick());
+    expect(action('Confirm deletion')).toBeUndefined();
+    expect(deleteReferral).not.toHaveBeenCalled();
+    await act(async () => remove());
+    deleteReferral.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => action('Confirm deletion').props.onClick());
+    expect(onDeleted).not.toHaveBeenCalled(); expect(onClose).not.toHaveBeenCalled();
+    expect(renderer.root.findByProps({ role: 'alert' }).children.join('')).toContain('Unable to delete');
+    deleteReferral.mockResolvedValueOnce(undefined);
+    await act(async () => action('Confirm deletion').props.onClick());
+    expect(deleteReferral).toHaveBeenLastCalledWith(7);
+    expect(onDeleted).toHaveBeenCalledTimes(1); expect(onClose).toHaveBeenCalledTimes(1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    delete global.window; log.mockRestore();
   }
 });

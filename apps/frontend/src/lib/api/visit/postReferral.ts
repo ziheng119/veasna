@@ -1,3 +1,4 @@
+import { invalidateConsultation } from "./doctors-consultation/getConsultation";
 import { backend_url } from "@/constants/env_variable";
 import { Referral } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
@@ -35,5 +36,6 @@ export async function postReferral(data: Referral, visitId: number) {
     throw new Error(`Failed to save referral: ${res.status} ${text}`);
   }
 
+  invalidateConsultation(visitId);
   return res.json();
 }

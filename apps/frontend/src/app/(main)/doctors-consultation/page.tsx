@@ -41,11 +41,11 @@ export default function DoctorsConsultation() {
           ) : (
             <div className={PANEL_GRID}>
               {/* Equal-height summaries share the original snapshot column. */}
-              <div key={selectedPatient.visit_id} className="grid h-[40rem] min-h-0 min-w-0 grid-rows-2 gap-4 xl:col-span-4 xl:h-full">
-                <PatientContainer selectedPatient={selectedPatient} compact />
-                <TriageContainer selectedPatient={selectedPatient} compact />
+              <div className="grid h-[40rem] min-h-0 min-w-0 grid-rows-2 gap-4 xl:col-span-4 xl:h-full">
+                <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
+                <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
               </div>
-              <DoctorsNotesContainer key={selectedPatient.visit_id} patient={selectedPatient} />
+              <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
             </div>
           )}
         </div>

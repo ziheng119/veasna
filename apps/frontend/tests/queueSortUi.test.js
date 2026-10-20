@@ -52,6 +52,15 @@ test('station queue defaults to arrival, shows station time, and keeps number mo
   try {
     await act(async () => { renderer = create(React.createElement(QueuePatientPicker, props)); });
     expect(numbers()).toEqual(['10', '2']);
+    const card = renderer.root.findAllByType('div').find(n => n.props.onClick && n.props.className?.includes('cursor-pointer'));
+    await act(async () => card.props.onClick({ target: { closest: () => null } }));
+    expect(props.onSelectPatient).toHaveBeenCalledWith(stationPatients[0]);
+    props.onSelectPatient.mockClear();
+    // Bubbling events from action buttons must not also select a patient.
+    await act(async () => card.props.onClick({ target: { closest: () => ({ tagName: 'BUTTON' }) } }));
+    expect(props.onSelectPatient).not.toHaveBeenCalled();
+    await act(async () => card.findAllByType('button').find(n => n.props['aria-label']?.startsWith('Select ')).props.onClick());
+    expect(props.onSelectPatient).toHaveBeenCalledWith(stationPatients[0]);
     expect(renderer.root.findAllByType('span').some(n => n.children.join('') === 'Arrived 09:00 AM')).toBe(true);
     const toggle = renderer.root.findAllByType('button').find(n => n.children.join('') === 'Queue number');
     await act(async () => toggle.props.onClick()); expect(numbers()).toEqual(['2', '10']);

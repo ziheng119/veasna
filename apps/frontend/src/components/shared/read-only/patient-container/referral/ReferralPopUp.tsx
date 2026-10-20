@@ -16,6 +16,7 @@ interface Props {
   setShowPopUp: Dispatch<SetStateAction<boolean>>;
   showPopUp: boolean;
   onSaved?: (referral: Referral) => void;
+  onDeleted?: () => void;
 }
 
 export default function ReferralPopUp({ 
@@ -24,7 +25,8 @@ export default function ReferralPopUp({
   retrievedReferral, 
   setShowPopUp,
   showPopUp,
-  onSaved
+  onSaved,
+  onDeleted
 }: Props) {
   return (
     <Dialog open={showPopUp} onOpenChange={setShowPopUp}>
@@ -35,6 +37,7 @@ export default function ReferralPopUp({
         <ReferralForm
           key={patient.visit_id}
           onSaved={onSaved}
+          onDeleted={onDeleted}
           patient={patient}
           patientInfo={patientInfo}
           retrievedReferral={retrievedReferral}

@@ -27,7 +27,7 @@ const db = require('../config/db');
       CREATE TEMP TABLE visits (id INT PRIMARY KEY);
       INSERT INTO visits VALUES (1);
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, completed_at TIMESTAMP);
-      CREATE TEMP TABLE consultation (id SERIAL, visit_id INT, notes TEXT, prescription TEXT, require_referral BOOLEAN, last_updated_by INT, last_updated_at TIMESTAMP, created_at TIMESTAMP);
+      CREATE TEMP TABLE consultation (id SERIAL, visit_id INT UNIQUE, notes TEXT, prescription TEXT, require_referral BOOLEAN, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW());
     `);
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8');
     // Start with the old schema to exercise upgrading existing installations.
@@ -64,5 +64,28 @@ const db = require('../config/db');
   test('rejects invalid signatures and unauthenticated requests', async () => {
     expect((await save({ ...draft, signature: '<svg/>' })).status).toBe(400);
     expect((await request(app).post('/referral/1').send(draft)).status).toBe(401);
+  });
+  test('deletes only the selected visit, preserves notes, clears flag and supports recreation', async () => {
+    await client.query("INSERT INTO visits VALUES (2); INSERT INTO referral (visit_id, referral_type, illness, duration, reason, last_updated_by) VALUES (2,'Dentist','','','Other patient',1)");
+    await save(draft);
+    const notes = await request(app).post('/consultation/1').set('Authorization', `Bearer ${token}`)
+      .send({ notes: 'Keep notes', prescription: 'Keep prescription', require_referral: false });
+    expect(notes.status).toBe(200);
+    expect(notes.body.require_referral).toBe(true); // Derived from the saved record.
+    const before = await get();
+    const remove = () => request(app).delete('/referral/1').set('Authorization', `Bearer ${token}`);
+    expect((await request(app).delete('/referral/1')).status).toBe(401);
+    expect((await request(app).delete('/referral/invalid').set('Authorization', `Bearer ${token}`)).status).toBe(400);
+    await client.query("INSERT INTO visit_stations VALUES (1,'tb',NULL)");
+    expect((await remove()).status).toBe(409);
+    await client.query("DELETE FROM visit_stations");
+    expect((await remove()).status).toBe(204);
+    const after = await get().set('If-None-Match', before.headers.etag);
+    expect(after.status).toBe(200);
+    expect(after.body).toMatchObject({ notes: 'Keep notes', prescription: 'Keep prescription', require_referral: false, referral_type: null, last_updated_by: 1 });
+    expect((await client.query('SELECT visit_id FROM referral')).rows).toEqual([{ visit_id: 2 }]);
+    expect((await remove()).status).toBe(204);
+    expect((await save(draft)).status).toBe(200);
+    expect((await get()).body.require_referral).toBe(true);
   });
 });

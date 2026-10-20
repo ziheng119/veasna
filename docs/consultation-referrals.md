@@ -14,15 +14,19 @@ retain their existing summary layout. Panel titles use 16px text and body text
 and section headings use 14px.
 
 The left-aligned **Save consultation notes** action shares a row with the
-right-aligned **Referral needed** control (wrapping on narrow screens).
-Clicking Referral needed switches between No and Yes and animates the referral
-actions open/closed within the same connected glass surface. Closed controls cannot receive keyboard focus. Save the
-consultation notes to persist this choice; collapsing does not delete a saved
-referral or clear notes. Animations respect reduced-motion preferences.
+right-aligned **Create referral** / **Edit referral** action. Its label follows the
+saved referral for the selected patient visit, not a separate toggle. Creating,
+editing, or deleting a referral never transfers it to another selected patient.
+The one-referral-per-visit database constraint remains in place; this is not an
+exclusive clinician editing lock.
+
+The summary column stays mounted when switching patients. Its patient/triage
+children and the notes editor have distinct patient-specific React keys, preventing
+duplicate panels while resetting drafts and pending loads on a patient switch.
 
 ## Signing and printing
 
-1. Open **Create/Edit Referral**, select destinations and complete relevant fields.
+1. Open **Create referral** (or **Edit referral** for a saved record), select destinations and complete relevant fields.
    The wider editor groups patient details, destinations, clinical details and
    signing into sections. New referrals default to today's local date; saved dates
    are preserved and remain editable.
@@ -45,6 +49,26 @@ never reused to attest new edits. The authenticated account's username is used
 because user profiles currently have no separate clinician full-name field.
 Signatures are handwritten electronic marks, not cryptographic digital signatures.
 
+## Deleting a referral
+
+The saved referral editor has a pastel-red **Delete referral** action at the left
+of the Save row. A styled confirmation card names the patient and explains what
+will be removed. Cancel receives initial focus; confirming disables the controls
+until the request finishes. Cancellation changes nothing, and a
+failed request keeps the editor and referral available for retry.
+
+Authenticated `DELETE /api/visits/referral/:visit_id` removes that visit's referral
+and signature, and clears its consultation flag in one SQL statement. Notes and
+prescription are preserved. Consultation audit metadata records the deleting
+account and timestamp when a consultation exists. TB holds still prevent deletion.
+Repeated deletion is safe. There is no restore action or new schema migration.
+
+After success the editor closes and the page shows **Create referral**. Local
+consultation caches are invalidated on referral save/delete; failed consultation
+loads disable actions rather than showing a false empty record. Referral saves
+set the consultation flag, and note saves derive it from the existing referral,
+so an obsolete client toggle cannot restore a deleted referral flag.
+
 ## Storage and compatibility
 
 - Restart the backend to apply additive, idempotent migration
@@ -64,8 +88,10 @@ Signatures are handwritten electronic marks, not cryptographic digital signature
 ## Verification
 
 Frontend tests cover print-field selection, text escaping, signature invalidation,
-successful save-before-print, and failed-save behavior. Backend tests validate
-signature limits and authenticated signer attribution. Run:
+successful save-before-print, failed-save behavior, repeated patient switches,
+Create/Edit transitions, confirmation, and failed/successful deletion.
+Backend tests validate signature limits, authenticated signer attribution,
+visit-isolated deletion, preserved notes, TB holds, cache refresh and recreation. Run:
 
 ```powershell
 npm.cmd test --workspace apps/frontend -- --runInBand

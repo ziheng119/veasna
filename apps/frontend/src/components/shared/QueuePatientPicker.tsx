@@ -149,7 +149,11 @@ export default function QueuePatientPicker({
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
-              className={`flex items-start gap-2 rounded-lg border p-3 transition-colors ${
+              onClick={(event) => {
+                // The native buttons handle their own actions; all remaining card space selects.
+                if (!(event.target as Element).closest("button")) onSelectPatient(patient);
+              }}
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
                 isSelected
                   ? "border-primary bg-primary/10"
                   : "border-border hover:bg-accent/60"
@@ -157,6 +161,8 @@ export default function QueuePatientPicker({
             >
               <button
                 type="button"
+                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}`}
+                aria-pressed={isSelected}
                 onClick={() => onSelectPatient(patient)}
                 className="min-w-0 flex-1 text-left"
               >
@@ -176,7 +182,7 @@ export default function QueuePatientPicker({
                   </p>
                 )}
               </button>
-              <div className="flex shrink-0 items-start">
+              <div className="flex shrink-0 items-center">
                 {/* Leaving the TB tent needs the TB doctor's decision, made in the panel */}
                 {station !== "tb" && (
                   <Button

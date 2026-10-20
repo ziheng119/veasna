@@ -775,7 +775,6 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
   const {
     notes,
     prescription,
-    require_referral,
   } = req.body;
 
   const last_updated_by = req.user.id;
@@ -788,7 +787,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       require_referral,
       last_updated_by
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, EXISTS (SELECT 1 FROM referral WHERE visit_id = $1), $4)
     ON CONFLICT (visit_id) DO UPDATE SET
       notes = EXCLUDED.notes,
       prescription = EXCLUDED.prescription,
@@ -803,7 +802,6 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       visit_id,
       textOrEmpty(notes),
       textOrEmpty(prescription),
-      require_referral === true,
       last_updated_by,
     ]);
 
@@ -832,7 +830,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   const last_updated_by = req.user.id;
 
   const query = `
-    INSERT INTO referral (
+    WITH saved AS (INSERT INTO referral (
       visit_id,
       referral_date,
       referral_type,
@@ -857,7 +855,10 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       signer_name = EXCLUDED.signer_name,
       signed_at = EXCLUDED.signed_at,
       last_updated_at = NOW()
-    RETURNING *;
+    RETURNING *), updated AS (
+      UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()
+      WHERE visit_id = $1 RETURNING visit_id
+    ) SELECT * FROM saved;
   `;
 
   try {
@@ -883,5 +884,24 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   }
 });
 
+
+// Delete the visit's referral and clear its consultation flag atomically.
+// Notes/prescription stay intact; repeating a successful deletion is harmless.
+router.delete("/referral/:visit_id", authenticateToken, async (req, res) => {
+  const visitId = Number(req.params.visit_id);
+  if (!Number.isSafeInteger(visitId) || visitId <= 0) return res.status(400).json({ error: "Invalid visit_id" });
+  try {
+    if (await rejectIfTbHold(db, res, visitId)) return;
+    await db.query(`
+      WITH deleted AS (DELETE FROM referral WHERE visit_id = $1 RETURNING id)
+      UPDATE consultation SET require_referral = FALSE, last_updated_by = $2, last_updated_at = NOW()
+      WHERE visit_id = $1
+    `, [visitId, req.user.id]);
+    res.sendStatus(204);
+  } catch (error) {
+    console.error("Referral deletion failed:", error);
+    res.status(500).json({ error: "Unable to delete referral" });
+  }
+});
 
 module.exports = router;

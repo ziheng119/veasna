@@ -5,11 +5,13 @@ import { postReferral } from "@/lib/api/visit/postReferral";
 import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad, { SignatureImage } from "./SignaturePad";
 import { referralDocumentHtml } from "./ReferralDocument";
+import { deleteReferral } from "@/lib/api/visit/deleteReferral";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 
 interface Props {
   patient: QueuedPatient;
@@ -17,9 +19,10 @@ interface Props {
   retrievedReferral: Referral | null
   onClose: () => void;
   onSaved?: (referral: Referral) => void;
+  onDeleted?: () => void;
 }
 
-export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved }: Props) {
+export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved, onDeleted }: Props) {
 
   const [referralDate, setReferralDate] = useState<string>(() => {
     if (retrievedReferral?.referralDate) return retrievedReferral.referralDate;
@@ -38,6 +41,27 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
   const [signature, setSignature] = useState<Signature | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const handleDelete = async () => {
+    if (saving || !retrievedReferral || !confirmDelete) return;
+    setDeleteError("");
+    setSaving(true);
+    try {
+      await deleteReferral(patient.visit_id);
+      setConfirmDelete(false);
+      onDeleted?.();
+      toast.success("Referral deleted");
+      onClose();
+    } catch (error) {
+      console.error("Referral deletion failed:", error);
+      setDeleteError("Unable to delete referral. Please try again.");
+      toast.error("Unable to delete referral. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
   // A fresh signature confirms the current user's edited content; never reuse another user's signature.
   const handleSave = async (print = false) => {
     if (saving) return;
@@ -144,6 +168,39 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             </details>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
+            {retrievedReferral && <Dialog open={confirmDelete} onOpenChange={open => {
+              if (saving) return;
+              setDeleteError("");
+              setConfirmDelete(open);
+            }}>
+              <DialogTrigger asChild>
+                <GlassButton type="button" disabled={saving}
+                  className="mr-auto bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                  Delete referral
+                </GlassButton>
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl border-border bg-card sm:max-w-md" showCloseButton={!saving}
+                onOpenAutoFocus={event => { event.preventDefault(); cancelDeleteRef.current?.focus(); }}
+                onEscapeKeyDown={event => { if (saving) event.preventDefault(); }}
+                onInteractOutside={event => event.preventDefault()}>
+                <DialogHeader>
+                  <DialogTitle>Delete referral?</DialogTitle>
+                  <DialogDescription>
+                    Delete the referral for {patientInfo.english_name || "this patient"}?
+                    This also removes its saved signature and cannot be undone.
+                    Consultation notes and prescriptions will be kept.
+                  </DialogDescription>
+                </DialogHeader>
+                {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+                <DialogFooter>
+                  <GlassButton ref={cancelDeleteRef} type="button" disabled={saving} onClick={() => setConfirmDelete(false)}>Cancel</GlassButton>
+                  <GlassButton type="button" disabled={saving} onClick={() => void handleDelete()}
+                    className="bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                    {saving ? "Deleting..." : "Confirm deletion"}
+                  </GlassButton>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>}
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving..." : "Save referral"}</GlassButton>
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>
           </div>
