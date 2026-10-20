@@ -4,7 +4,8 @@ const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
-const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
+const { STATIONS } = require('../utils/stations');
+const { planStationRoute } = require('../utils/stationRoute');
 const { TB_STATION, TB_HOLD_MESSAGE, flagTb } = require('../utils/tb');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
@@ -43,7 +44,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                     SELECT COALESCE(json_agg(json_build_object(
                         'station', s.station,
                         'completed', s.completed_at IS NOT NULL
-                    ) ORDER BY s.position), '[]'::json)
+                    ) ORDER BY s.position, s.id), '[]'::json)
                     FROM visit_stations s
                     WHERE s.visit_id = v.id
                 ) AS stations
@@ -162,20 +163,13 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
     }
 });
 
-// PUT /api/queue/:visitId/stations - Change which stations a visit still has to go through.
-// Body: { stations: [...] } = the stations still to do. Completed stations are kept as they are.
+// PUT /api/queue/:visitId/stations
+// ordered=true treats stations as the explicit remaining route (including repeat stations).
+// The UI supplies its original snapshot to reject stale edits from concurrent users.
 router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = Number(req.params.visitId);
-    const last_updated_by = req.user.id;
-    const stations = normalizeStations(req.body.stations);
-
-    if (!Number.isInteger(visitId) || visitId < 1) {
-        return res.status(400).json({ error: 'Visit ID must be a positive integer' });
-    }
-    if (!stations || stations.length === 0) {
-        return res.status(400).json({ error: `stations must be a non-empty list of: ${STATIONS.join(', ')}. To end the visit, discharge the patient.` });
-    }
-
+    const userId = req.user.id;
+    if (!Number.isInteger(visitId) || visitId < 1) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
     let client;
     try {
         client = await db.pool.connect();
@@ -185,65 +179,54 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
     }
     try {
         await client.query('BEGIN');
-
+        // This is the same row lock used by completion/TB review, so routing cannot
+        // race with another device moving or discharging the patient.
         const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
-        if (visit.rows.length === 0) {
+        if (!visit.rows.length || visit.rows[0].completed_at) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Visit not found' });
+            return res.status(visit.rows.length ? 409 : 404).json({ error: visit.rows.length ? 'Visit is already completed' : 'Visit not found' });
         }
-        if (visit.rows[0].completed_at) {
+        const existing = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
+        const plan = planStationRoute(existing.rows, req.body);
+        if (plan.error) {
             await client.query('ROLLBACK');
-            return res.status(409).json({ error: 'Visit is already completed' });
+            return res.status(plan.status).json({ error: plan.error });
         }
-
-        const existing = await client.query(
-            'SELECT station, completed_at FROM visit_stations WHERE visit_id = $1',
-            [visitId]
-        );
-        const completed = existing.rows.filter((row) => row.completed_at).map((row) => row.station);
-        const pending = existing.rows.filter((row) => !row.completed_at).map((row) => row.station);
-        const wanted = stations.filter((station) => !completed.includes(station));
-        // A patient on TB hold keeps the TB tent until a TB doctor clears them
-        if (pending.includes(TB_STATION) && !wanted.includes(TB_STATION)) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: TB_HOLD_MESSAGE, code: 'TB_HOLD' });
-        }
-        if (wanted.length === 0) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'Every selected station is already completed. To end the visit, discharge the patient.' });
-        }
-
+        const { wanted, previousCurrent, reopened } = plan;
+        // Save the original completion/arrival timestamps before reopening or removing
+        // a station. Clinical forms are deliberately untouched by route edits.
         await client.query(
-            'DELETE FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL AND NOT (station = ANY($2))',
+            'INSERT INTO visit_station_route_history (visit_id, previous_stations, requested_stations, last_updated_by) VALUES ($1, $2::jsonb, $3::jsonb, $4)',
+            [visitId, JSON.stringify(existing.rows), JSON.stringify(wanted), userId]
+        );
+        await client.query(
+            'DELETE FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL AND NOT (station = ANY($2::text[]))',
             [visitId, wanted]
         );
-        for (const station of wanted.filter((s) => !pending.includes(s))) {
+        for (const [index, station] of wanted.entries()) {
+            const old = existing.rows.find(row => row.station === station);
+            // Keep arrival time only if the patient stays at the same active station.
+            // A deferred station gets a new arrival when it becomes current again.
+            const enteredAt = index === 0 && station === previousCurrent ? old?.entered_at : null;
             await client.query(
-                'INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES ($1, $2, $3, $4)',
-                [visitId, station, stationPosition(station), last_updated_by]
+                `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
+                 VALUES ($1, $2, $3, CASE WHEN $4 THEN COALESCE($5::timestamp, NOW()) ELSE NULL END, $6)
+                 ON CONFLICT (visit_id, station) DO UPDATE SET
+                    position = EXCLUDED.position, entered_at = EXCLUDED.entered_at, completed_at = NULL,
+                    last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
+                [visitId, station, index + 1, index === 0, enteredAt, userId]
             );
         }
-        // Adding the TB tent flags the visit for TB; it becomes the patient's current station
-        if (wanted.includes(TB_STATION) && !pending.includes(TB_STATION)) {
-            await flagTb(client, visitId, {}, last_updated_by);
+        if (wanted.includes(TB_STATION) && (!existing.rows.some(row => row.station === TB_STATION) || reopened.includes(TB_STATION))) {
+            await flagTb(client, visitId, {}, userId);
         }
-        // Whichever station is now first in line is the one the patient is waiting at
-        await client.query(
-            `UPDATE visit_stations SET entered_at = NOW(), last_updated_by = $2, last_updated_at = NOW()
-             WHERE id = (
-                 SELECT id FROM visit_stations
-                 WHERE visit_id = $1 AND completed_at IS NULL
-                 ORDER BY position LIMIT 1
-             ) AND entered_at IS NULL`,
-            [visitId, last_updated_by]
-        );
-
+        await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, userId]);
         await client.query('COMMIT');
-        res.status(200).json({ visit_id: visitId, current_station: wanted[0], stations: [...completed, ...wanted] });
+        res.status(200).json({ visit_id: visitId, current_station: wanted[0], stations: [...existing.rows.filter(row => row.completed_at && !wanted.includes(row.station)).map(row => row.station), ...wanted], reopened_stations: reopened });
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error updating visit stations:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Unable to update stations' });
     } finally {
         client.release();
     }

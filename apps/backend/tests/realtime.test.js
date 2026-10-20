@@ -104,6 +104,29 @@ describe('Live list notifications', () => {
     await changed;
   });
 
+  test('a route edit notifies another user after commit', async () => {
+    let committed = false;
+    const transaction = { release: jest.fn(), query: jest.fn(async sql => {
+      if (sql === 'COMMIT') committed = true;
+      if (sql.includes('FROM visits')) return { rows: [{ id: 1, completed_at: null }] };
+      if (sql.includes('SELECT * FROM visit_stations')) return { rows: [
+        { station: 'triage', completed_at: '2026-10-20T01:00:00Z' },
+        { station: 'seva', completed_at: null },
+      ] };
+      return { rows: [] };
+    }) };
+    db.pool.connect.mockResolvedValue(transaction);
+    const observer = client(); await ready(observer);
+    const changed = event(observer, 'lists:changed');
+    const response = await request(app).put('/api/queue/1/stations').set('Authorization', `Bearer ${token()}`).send({
+      stations: ['triage', 'seva'], ordered: true,
+      expected_stations: [{ station: 'triage', completed: true }, { station: 'seva', completed: false }],
+    });
+    expect(response.status).toBe(200); await changed;
+    expect(committed).toBe(true);
+    expect(response.body.current_station).toBe('triage');
+  });
+
   test('patient deletion notifies other users', async () => {
     db.query.mockResolvedValue({ rows: [{ id: 5 }] });
     const observer = client(); await ready(observer);

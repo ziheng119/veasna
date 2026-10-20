@@ -116,7 +116,18 @@ function ensureTbScreening() {
   return ensureTbScreeningPromise;
 }
 
+let ensureStationRouteHistoryPromise = null;
+function ensureStationRouteHistory() {
+  if (!ensureStationRouteHistoryPromise) {
+    ensureStationRouteHistoryPromise = ensureVisitStations()
+      .then(() => runMigration('010_station_route_history.sql'))
+      .catch(err => { ensureStationRouteHistoryPromise = null; throw err; });
+  }
+  return ensureStationRouteHistoryPromise;
+}
+
 module.exports = {
+  ensureStationRouteHistory,
   ensurePharmacyNumericStock,
   ensureVisitsCompleted,
   ensureUserRole,
