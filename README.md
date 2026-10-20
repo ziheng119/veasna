@@ -96,6 +96,8 @@ npm run lint
 
 ## Notes
 
+- Active visits can revisit or defer stations using **Stations**. See [station routing](docs/station-routing.md) for workflow, migration, and tests.
+
 - Desktop mode currently wraps the running frontend URL and does not yet package a fully offline app.
 - Backend and frontend app-specific documentation is in:
   - `apps/backend/README.md`
