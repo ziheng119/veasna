@@ -96,6 +96,8 @@ npm run lint
 
 ## Notes
 
+- Queues offer **Queue number / Arrival time** sorting, remembered per user and queue on this browser. See [queue ordering](docs/queue-ordering.md).
+
 - Active visits can revisit or defer stations using **Stations**. See [station routing](docs/station-routing.md) for workflow, migration, and tests.
 
 - Desktop mode currently wraps the running frontend URL and does not yet package a fully offline app.

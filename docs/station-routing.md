@@ -1,7 +1,7 @@
 # Returning to and deferring stations
 
-This change controls the order of stops for an **active visit**. It does not change
-how patients are sorted within a queue; arrival-order sorting is a separate task.
+This change controls the order of stops for an **active visit**. Patient ordering within each queue is controlled separately; see
+[queue display ordering](queue-ordering.md).
 
 ## Clinic workflow
 
@@ -59,7 +59,7 @@ update metadata is maintained. Audit failure rolls back the route change.
 
 The current station keeps its arrival timestamp if it remains current. When moving to
 another stop, that stop receives a new arrival timestamp; deferred stops receive theirs
-when they become current again. Queue sorting logic is unchanged. Successful writes use
+when they become current again. Arrival display ordering uses these timestamps. Successful writes use
 the existing Socket.IO notification to refresh other users' lists.
 
 ## Setup and validation
