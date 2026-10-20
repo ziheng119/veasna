@@ -17,7 +17,8 @@ export function clearPatientsByLocationCache() {
 export async function getPatientsByLocation(
   locationId: number,
   token: string,
-  visitDate?: string
+  visitDate?: string,
+  signal?: AbortSignal
 ): Promise<PatientInfo[]> {
   const key = cacheKey(locationId, visitDate);
 
@@ -26,7 +27,7 @@ export async function getPatientsByLocation(
       'Authorization': `Bearer ${token}`,
     };
 
-    if (cachedETags[key]) {
+    if (!signal && cachedETags[key]) {
       headers['If-None-Match'] = cachedETags[key];
     }
 
@@ -36,8 +37,9 @@ export async function getPatientsByLocation(
     }
 
     const res = await fetch(`${backend_url}/api/patients?${params.toString()}`, {
-      cache: "no-cache",
+      cache: signal ? "no-store" : "no-cache",
       headers,
+      signal,
     });
 
     if (res.status === 304 && cachedPatients[key]) {
@@ -51,12 +53,15 @@ export async function getPatientsByLocation(
 
     const data: PatientInfo[] = await res.json();
 
-    cachedPatients[key] = data;
-    cachedETags[key] = res.headers.get('ETag') || '';
+    if (!signal) {
+      cachedPatients[key] = data;
+      cachedETags[key] = res.headers.get('ETag') || '';
+    }
 
     console.log(`✅ GET Patients for location ${locationId} (Success): ${data.length}`);
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (signal) throw err;
     console.error('❌ GET Patients (Error):', err);
 
     if (cachedPatients[key]) {

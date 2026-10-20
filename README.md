@@ -100,3 +100,16 @@ npm run lint
 - Backend and frontend app-specific documentation is in:
   - `apps/backend/README.md`
   - `apps/frontend/README.md`
+
+### Live queue and patient lists
+
+- Queue and patient lists update across users through authenticated Socket.IO connections on the existing backend port. Reconnecting reloads missed changes without replacing open form drafts.
+- For LAN access, set `NEXT_PUBLIC_BACKEND_URL` to the host laptop's IP and API port, and list allowed frontend origins in the backend's `NEXT_PUBLIC_FRONTEND_URL` (comma-separated). Restart both services after configuration changes.
+- Uses one backend instance with no Internet or extra service required. Direct SQL edits do not trigger updates.
+
+Run isolated tests (no clinic database writes):
+
+```bash
+npm run test --workspace apps/backend -- --runInBand tests/realtime.test.js
+npm run test --workspace apps/frontend -- --runInBand
+```

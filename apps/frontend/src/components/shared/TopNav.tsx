@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import AddUserDialog from "./AddUserDialog";
 
 export default function TopNav() {
@@ -39,6 +40,7 @@ export default function TopNav() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    useRealtimeStore.getState().invalidate();
     try {
       await fetchData();
     } finally {

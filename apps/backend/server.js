@@ -5,17 +5,23 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bodyParser = require('body-parser');
+const { createServer } = require('http');
+const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
 app.set("etag", "strong");
 const PORT = process.env.PORT || 3000;
+const origins = (process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3001')
+  .split(',').map(origin => origin.trim()).filter(Boolean);
+const server = createServer(app);
+const io = attachRealtime(server, { origins, secret: process.env.JWT_SECRET });
 
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3001',
+  origin: origins,
   credentials: true
 }));
 
@@ -54,7 +60,7 @@ ensureTbScreening().catch(err => console.error('Migration warning:', err.message
 
 // API routes
 const apiRoutes = require('./routes/api');
-app.use('/api', apiRoutes);
+app.use('/api', notifyListChanges(io), apiRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -85,7 +91,7 @@ process.on('uncaughtException', (err) => {
 });
 
 // When using 'npm test' comment out this part
-app.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });
