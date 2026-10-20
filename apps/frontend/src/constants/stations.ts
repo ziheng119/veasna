@@ -1,4 +1,4 @@
-// Stations a visit can be routed through, in the order patients move through them.
+// Default order for registration. Active visit routes can be rearranged.
 // Must match apps/backend/utils/stations.js.
 // The TB tent comes first: a patient flagged for suspected TB waits there and cannot be seen at
 // any other station until a TB doctor clears them.

@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StationCheckboxes } from "./StationCheckboxes";
+import StationRouteEditor from "./StationRouteEditor";
 
 interface EditStationsDialogProps {
   // Patient whose remaining stations are being edited; null closes the dialog.
@@ -46,7 +46,7 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
 
     try {
       setIsSaving(true);
-      await updateVisitStations(patient.visit_id, remaining, token);
+      await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
       toast.success("Stations updated.");
       onSaved();
       onClose();
@@ -59,28 +59,30 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
   };
 
   return (
-    <Dialog open={!!patient} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open={!!patient} onOpenChange={(open) => { if (!open && !isSaving) onClose(); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Stations for {patient?.english_name || "this patient"}</DialogTitle>
           <DialogDescription>
-            Tick the stations this patient still needs. They will be queued at each one in order.
+            Set the remaining stops in order. Return to a completed station, or use Skip for now
+            to move a stop to the end without completing it. Remove drops a stop from this route.
+            Changes take effect when you save; existing clinical notes are kept.
             {onTbHold
               ? " This patient is on TB hold and will stay in the TB tent until a TB doctor clears them."
-              : " Tick TB Tent if TB is suspected: the patient will be sent there first and held until cleared."}
+              : " Add TB Tent if TB is suspected: the patient will be sent there first and held until cleared."}
           </DialogDescription>
         </DialogHeader>
 
-        <StationCheckboxes
-          idPrefix="edit-station"
-          selected={remaining}
+        <StationRouteEditor
+          route={remaining}
+          completed={completed}
           onChange={setRemaining}
-          locked={completed}
-          held={onTbHold ? ["tb"] : []}
+          onTbHold={onTbHold}
+          disabled={isSaving}
         />
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
