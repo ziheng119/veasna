@@ -1,5 +1,5 @@
 // utils/stations.js
-// Stations a visit can be routed through, in the order patients move through them.
+// Default order for newly registered visits. Active visits may have a custom route.
 // A visit only queues at the stations it was indicated for.
 // The TB tent comes first: a visit with the TB tent still pending is on TB hold and cannot
 // be seen at, or moved to, any other station until a TB doctor clears it (see utils/tb.js).

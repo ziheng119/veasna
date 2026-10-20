@@ -17,7 +17,7 @@ import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QueuedPatient } from "@/lib/types/patient";
-import { ALL_STATION_IDS, StationId } from "@/constants/stations";
+import { StationId } from "@/constants/stations";
 import { updateVisitStations } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 
@@ -73,10 +73,10 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
         setIsLoading(true);
         const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
             if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
-            const remaining = ALL_STATION_IDS.filter((id) =>
-                id === "seva" ? sendToSeva : remainingStations.includes(id)
-            );
-            await updateVisitStations(visit_id, remaining, token);
+            // Add Seva after triage without discarding a previously customized route.
+            const remaining: StationId[] = remainingStations.filter(id => id !== "seva");
+            if (sendToSeva) remaining.splice(Math.max(0, remaining.indexOf("triage") + 1), 0, "seva");
+            await updateVisitStations(visit_id, remaining, token, stations);
             onStationsChanged?.(remaining);
         });
         toast.promise(promise, {

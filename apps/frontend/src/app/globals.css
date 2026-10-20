@@ -1,6 +1,36 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Transparent tracks blend into each surface. Firefox uses native thin thumbs;
+   Chromium/WebKit get explicitly rounded thumbs without overriding scroll behavior. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
 :root {
   --radius: 0.65rem;
   --background: oklch(0.97 0.004 286.2);

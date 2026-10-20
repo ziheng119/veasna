@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS visual_acuity CASCADE;
 DROP TABLE IF EXISTS hef CASCADE;
 DROP TABLE IF EXISTS vitals CASCADE;
 DROP TABLE IF EXISTS tb_screening CASCADE;
+DROP TABLE IF EXISTS visit_station_route_history CASCADE;
 DROP TABLE IF EXISTS visit_stations CASCADE;
 DROP TABLE IF EXISTS visits CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
@@ -111,7 +112,7 @@ CREATE TABLE visit_stations (
     station VARCHAR(30) NOT NULL
         CONSTRAINT visit_stations_station_check
         CHECK (station IN ('tb', 'triage', 'seva', 'physiotherapy', 'consultation')),
-    position INT NOT NULL,                 -- tb 0, triage 1, seva 2, physiotherapy 3, consultation 4
+    position INT NOT NULL,                 -- remaining route order; may change when a station is deferred or revisited
     entered_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -315,3 +316,15 @@ CREATE TRIGGER trg_delete_referrals
 AFTER DELETE ON consultation
 FOR EACH ROW
 EXECUTE FUNCTION delete_referrals_on_consultation_delete();
+
+-- Audit route edits before reopening completed stations or removing pending ones.
+CREATE TABLE IF NOT EXISTS visit_station_route_history (
+    id SERIAL PRIMARY KEY,
+    visit_id INT NOT NULL REFERENCES visits(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    previous_stations JSONB NOT NULL,
+    requested_stations JSONB NOT NULL,
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS visit_station_route_history_visit_idx
+    ON visit_station_route_history (visit_id, created_at);

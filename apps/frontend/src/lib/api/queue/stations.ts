@@ -26,11 +26,13 @@ export async function completeStation(
   return data.next_station;
 }
 
-// Sets the stations a visit still has to go through. Completed stations are kept.
+// With a snapshot, saves the explicit route and permits revisits. Without one,
+// preserves legacy callers: completed stations stay completed and pending order is retained.
 export async function updateVisitStations(
   visitId: number,
   stations: StationId[],
-  token: string
+  token: string,
+  expectedStations?: { station: StationId; completed: boolean }[]
 ): Promise<void> {
   const res = await fetch(`${backend_url}/api/queue/${visitId}/stations`, {
     method: "PUT",
@@ -38,7 +40,7 @@ export async function updateVisitStations(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ stations }),
+    body: JSON.stringify({ stations, ...(expectedStations ? { ordered: true, expected_stations: expectedStations } : {}) }),
   });
 
   if (!res.ok) {
