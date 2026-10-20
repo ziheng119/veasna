@@ -31,9 +31,11 @@ duplicate panels while resetting drafts and pending loads on a patient switch.
    signing into sections. New referrals default to today's local date; saved dates
    are preserved and remain editable.
 2. Draw your eSignature using a mouse, finger, or stylus. **Clear signature**
-   allows another attempt. Editing referral fields clears the working signature.
+   allows another attempt. Saved strokes reopen directly in the editable signature
+   box. Drawing adds strokes; Clear signature removes them. Save referral persists
+   these changes. Editing other referral fields does not clear the signature.
 3. **Save referral** saves a draft, with or without a signature.
-4. **Save & print referral** requires a fresh signature and saves successfully
+4. **Save & print referral** requires a saved or newly drawn signature and saves successfully
    before opening the print dialog. Allow pop-ups for the host's LAN URL.
    The print window remains available for preview/reprinting.
 
@@ -44,10 +46,36 @@ referral, not a medical leave certificate. It has no invented licence number or
 verification QR code. Browser-added print headers/footers can be disabled in the
 print dialog.
 
-Each editor session requires signing again, so another user's saved signature is
-never reused to attest new edits. The authenticated account's username is used
-because user profiles currently have no separate clinician full-name field.
+An unchanged signature retains its original signer and signing time, even if a
+second user edits the referral text. Drawing a changed signature attributes the
+new strokes to the authenticated saving user. Clearing and saving removes the
+signature and signer metadata. `last_updated_by` still records every saving user.
+The account username is used because profiles have no separate clinician name.
 Signatures are handwritten electronic marks, not cryptographic digital signatures.
+
+## Printing today's referrals
+
+**Print today's referrals** sits at the right of the consultation search row and
+works without selecting a patient. Select a clinic location first.
+
+- The button fetches saved referrals afresh for that location and today's local
+  calendar date. The referral date determines inclusion; an undated draft falls
+  back to its visit date. Unsaved edits are not included.
+- Completed visits are included. Deleted referrals, other locations and other
+  dates are excluded. Ordering follows visit creation time, then visit ID.
+- All saved records are included. Saved signatures and signer names are retained;
+  unsigned drafts are explicitly marked **Unsigned draft**, not silently omitted.
+  Batch printing does not save, sign, or otherwise change any record.
+- One print window uses the same monochrome A4 template as individual printing.
+  Each referral starts a new page. Long clinical text may continue onto more pages
+  rather than being clipped. The preview remains open for reprinting.
+- Empty results and failures show a message and close the temporary window.
+  Allow pop-ups for the host LAN URL. Repeated clicks are blocked while loading.
+
+The authenticated, read-only endpoint is
+`GET /api/visits/referrals?location_id=<id>&date=YYYY-MM-DD`. It validates both
+parameters and returns non-cached data. Restart the backend for this route;
+no database migration or internet service is required.
 
 ## Deleting a referral
 
@@ -87,11 +115,13 @@ so an obsolete client toggle cannot restore a deleted referral flag.
 
 ## Verification
 
-Frontend tests cover print-field selection, text escaping, signature invalidation,
+Frontend tests cover print-field selection, text escaping, signature reload/edit/clear,
 successful save-before-print, failed-save behavior, repeated patient switches,
 Create/Edit transitions, confirmation, and failed/successful deletion.
 Backend tests validate signature limits, authenticated signer attribution,
 visit-isolated deletion, preserved notes, TB holds, cache refresh and recreation. Run:
+Daily batch tests also cover date/location filtering, completed visits, unsigned
+drafts, page boundaries, popup blocking, empty results and request failures.
 
 ```powershell
 npm.cmd test --workspace apps/frontend -- --runInBand

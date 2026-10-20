@@ -65,6 +65,19 @@ const db = require('../config/db');
     expect((await save({ ...draft, signature: '<svg/>' })).status).toBe(400);
     expect((await request(app).post('/referral/1').send(draft)).status).toBe(401);
   });
+  test('unchanged signature preserves original signer; edited and cleared signatures persist', async () => {
+    await client.query("INSERT INTO users VALUES (2,'Clinician Two')");
+    const signature = [[[0, 0], [1, 1]]];
+    const original = await save({ ...draft, signature });
+    const secondToken = jwt.sign({ id: 2, role: 'user' }, secret);
+    const edit = data => request(app).post('/referral/1').set('Authorization', `Bearer ${secondToken}`).send({ ...draft, ...data });
+    const unchanged = await edit({ reason: 'Changed text', signature });
+    expect(unchanged.body).toMatchObject({ signature, signer_id: 1, signer_name: 'Clinician One', signed_at: original.body.signed_at, last_updated_by: 2 });
+    const changed = [[[0.1, 0.2], [0.5, 0.6]]];
+    expect((await edit({ signature: changed })).body).toMatchObject({ signature: changed, signer_id: 2, signer_name: 'Clinician Two' });
+    expect((await get()).body.signature).toEqual(changed);
+    expect((await edit({ signature: null })).body).toMatchObject({ signature: null, signer_id: null, signer_name: null, signed_at: null });
+  });
   test('deletes only the selected visit, preserves notes, clears flag and supports recreation', async () => {
     await client.query("INSERT INTO visits VALUES (2); INSERT INTO referral (visit_id, referral_type, illness, duration, reason, last_updated_by) VALUES (2,'Dentist','','','Other patient',1)");
     await save(draft);
@@ -87,5 +100,32 @@ const db = require('../config/db');
     expect((await remove()).status).toBe(204);
     expect((await save(draft)).status).toBe(200);
     expect((await get()).body.require_referral).toBe(true);
+  });
+  test('daily batch filters location/date, includes completed and undated drafts, and validates input', async () => {
+    await client.query(`
+      ALTER TABLE visits ADD COLUMN location_id INT DEFAULT 1, ADD COLUMN patient_id INT DEFAULT 1,
+        ADD COLUMN visit_date DATE DEFAULT '2026-10-20', ADD COLUMN created_at TIMESTAMP DEFAULT NOW(),
+        ADD COLUMN completed_at TIMESTAMP;
+      CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, address TEXT, date_of_birth DATE);
+      INSERT INTO patients VALUES (1,'Patient','','F','Address','2000-01-01');
+      UPDATE visits SET completed_at=NOW() WHERE id=1;
+      UPDATE visits SET location_id=2 WHERE id=2;
+      INSERT INTO visits (id) VALUES (3),(4),(5);
+      UPDATE visits SET visit_date='2026-10-19' WHERE id=4;
+      INSERT INTO referral (visit_id, referral_type, illness, duration, reason, last_updated_by) VALUES
+        (3,'Dentist','','','Undated draft',1), (4,'Dentist','','','Yesterday',1);
+    `);
+    const daily = (query) => request(app).get('/referrals').set('Authorization', `Bearer ${token}`).query(query);
+    const response = await daily({ location_id: 1, date: '2026-10-20' });
+    expect(response.status).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.map(row => row.visit_id)).toEqual([1, 3]);
+    expect(response.body[0]).toMatchObject({ patient_id: 1, date_of_birth: '2000-01-01', referral_date: '2026-10-20' });
+    expect(response.body[1].signature).toBeNull();
+    expect((await daily({ location_id: 1, date: '2026-10-22' })).body).toEqual([]);
+    for (const query of [{}, { location_id: -1, date: '2026-10-20' }, { location_id: 1, date: '2026-02-30' }]) {
+      expect((await daily(query)).status).toBe(400);
+    }
+    expect((await request(app).get('/referrals').query({ location_id: 1, date: '2026-10-20' })).status).toBe(401);
   });
 });

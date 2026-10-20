@@ -166,12 +166,10 @@ export default function QueuePatientPicker({
                 onClick={() => onSelectPatient(patient)}
                 className="min-w-0 flex-1 text-left"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
-                  <span className="text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
-                </div>
+                <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
                 <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
-                <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>
+                {patient.khmer_name?.trim() && <p className="text-sm text-muted-foreground">{patient.khmer_name}</p>}
+                <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
                 {station === "tb" && patient.tb_status ? (
                   <p className={`mt-1 text-xs font-medium ${patient.tb_status === "tb_likely" ? "text-destructive" : "text-muted-foreground"}`}>
                     {TB_STATUS_LABELS[patient.tb_status]}

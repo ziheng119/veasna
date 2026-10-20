@@ -96,7 +96,7 @@ npm run lint
 
 ## Notes
 
-- Consultation referrals support saved eSignatures and a clean Project Battambang print layout. See [referral workflow and setup](docs/consultation-referrals.md).
+- Consultation referrals support saved eSignatures, individual printing and **Print today's referrals** for the selected location. See [referral workflow and setup](docs/consultation-referrals.md).
 
 - Queues offer **Queue number / Arrival time** sorting, remembered per user and queue on this browser. See [queue ordering](docs/queue-ordering.md).
 

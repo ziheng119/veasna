@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import PrintDailyReferrals from "@/components/doctors-consultation/PrintDailyReferrals";
 
 export default function DoctorsConsultation() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -26,7 +27,10 @@ export default function DoctorsConsultation() {
 
   return (
     <div className={PAGE_SHELL}>
-      <SearchBar onSelectPatient={setSelectedPatient} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1"><SearchBar onSelectPatient={setSelectedPatient} /></div>
+        <PrintDailyReferrals locationId={location?.id} />
+      </div>
       <div className={PANEL_GRID}>
         <QueuePatientPicker
           station="consultation"

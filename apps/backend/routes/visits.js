@@ -13,6 +13,36 @@ const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../ut
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
+// Include completed visits and unsigned drafts, not just patients still queued.
+router.get('/referrals', authenticateToken, async (req, res) => {
+  const locationId = Number(req.query.location_id);
+  const date = req.query.date;
+  if (!Number.isSafeInteger(locationId) || locationId <= 0 ||
+      typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+    return res.status(400).json({ error: 'A valid location_id and date (YYYY-MM-DD) are required' });
+  }
+  try {
+    const { rows } = await db.query(`
+      SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
+        TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
+        r.signature, r.signer_name, r.signer_id, r.signed_at,
+        p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
+        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
+      FROM referral r
+      JOIN visits v ON v.id = r.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE v.location_id = $1 AND COALESCE(r.referral_date, v.visit_date) = $2::date
+      ORDER BY v.created_at ASC, v.id ASC
+    `, [locationId, date]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(rows);
+  } catch (error) {
+    console.error('Daily referral retrieval failed:', error);
+    res.status(500).json({ error: 'Unable to load referrals' });
+  }
+});
+
 function parseOptionalPositiveInt(value) {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') {
@@ -851,9 +881,10 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       reason = EXCLUDED.reason,
       last_updated_by = EXCLUDED.last_updated_by,
       signature = EXCLUDED.signature,
-      signer_id = EXCLUDED.signer_id,
-      signer_name = EXCLUDED.signer_name,
-      signed_at = EXCLUDED.signed_at,
+      -- Preserve attribution when saving existing strokes unchanged.
+      signer_id = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_id ELSE EXCLUDED.signer_id END,
+      signer_name = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_name ELSE EXCLUDED.signer_name END,
+      signed_at = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signed_at ELSE EXCLUDED.signed_at END,
       last_updated_at = NOW()
     RETURNING *), updated AS (
       UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()

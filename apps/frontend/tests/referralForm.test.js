@@ -48,7 +48,7 @@ test.each([null, '2025-04-12'])('referral date defaults locally and preserves sa
   }
 });
 
-test('editing clears signature; print saves first, uses saved record, and save failures do not print', async () => {
+test('editing retains signature; print saves first, uses saved record, and save failures do not print', async () => {
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   const popup = { document: { open: jest.fn(), write: jest.fn(), close: jest.fn() }, focus: jest.fn(), print: jest.fn(), close: jest.fn() };
   global.window = { open: jest.fn(() => popup) };
@@ -65,8 +65,8 @@ test('editing clears signature; print saves first, uses saved record, and save f
     await act(async () => print());
     expect(window.open).not.toHaveBeenCalled(); // Unsigned printing is blocked.
     await act(async () => sign());
-    await act(async () => renderer.root.findByType('form').props.onChange());
-    expect(renderer.root.findByType('signature-pad').props.value).toBeNull();
+    await act(async () => renderer.root.findByType('textarea').props.onChange({ target: { value: 'Updated reason' } }));
+    expect(renderer.root.findByType('signature-pad').props.value).toEqual(signature);
     await act(async () => sign());
     postReferral.mockRejectedValueOnce(new Error('offline'));
     await act(async () => print());
@@ -116,5 +116,34 @@ test('deletion needs confirmation, keeps editor on failure, and closes only afte
   } finally {
     if (renderer) await act(async () => renderer.unmount());
     delete global.window; log.mockRestore();
+  }
+});
+
+test('saved signature reloads into the editable pad and explicit clearing is saved', async () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const signature = [[[0, 0], [1, 1]]];
+  const edited = [...signature, [[0.2, 0.3], [0.4, 0.5]]];
+  let renderer;
+  const props = { patient: { visit_id: 1 }, patientInfo: { date_of_birth: '2000-01-01' },
+    retrievedReferral: { referralDate: '2026-10-21', referralType: [], illness: '', duration: '', reason: '', signature }, onClose: jest.fn() };
+  try {
+    await act(async () => { renderer = create(React.createElement(ReferralForm, props)); });
+    const pad = () => renderer.root.findByType('signature-pad');
+    expect(pad().props.value).toEqual(signature);
+    await act(async () => pad().props.onChange(edited));
+    postReferral.mockResolvedValueOnce({ signature: edited });
+    const save = () => renderer.root.findAllByType('button').find(n => n.children.join('') === 'Save referral').props.onClick();
+    await act(async () => save());
+    expect(postReferral).toHaveBeenLastCalledWith(expect.objectContaining({ signature: edited }), 1);
+    await act(async () => renderer.unmount());
+    await act(async () => { renderer = create(React.createElement(ReferralForm, { ...props, retrievedReferral: { ...props.retrievedReferral, signature: edited } })); });
+    expect(pad().props.value).toEqual(edited);
+    await act(async () => pad().props.onChange(null));
+    postReferral.mockResolvedValueOnce({ signature: null });
+    await act(async () => save());
+    expect(postReferral).toHaveBeenLastCalledWith(expect.objectContaining({ signature: null }), 1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    log.mockRestore();
   }
 });

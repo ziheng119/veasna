@@ -8,7 +8,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
-import SignaturePad, { SignatureImage } from "./SignaturePad";
+import SignaturePad from "./SignaturePad";
 import { referralDocumentHtml } from "./ReferralDocument";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
@@ -39,7 +39,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
   const user = useUserStore((state) => state.user)
 
-  const [signature, setSignature] = useState<Signature | null>(null);
+  const [signature, setSignature] = useState<Signature | null>(retrievedReferral?.signature ?? null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -62,7 +62,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       setSaving(false);
     }
   };
-  // A fresh signature confirms the current user's edited content; never reuse another user's signature.
+  // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
     if (saving) return;
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
@@ -109,7 +109,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
-      <form onSubmit={event => event.preventDefault()} onChange={() => setSignature(null)}>
+      <form onSubmit={event => event.preventDefault()}>
         <fieldset disabled={saving} className="space-y-6 px-6 py-6 sm:px-8">
           <section className="grid gap-5 sm:grid-cols-[1fr_13rem]">
             <div className="min-w-0 rounded-xl bg-muted/30 p-4">
@@ -160,12 +160,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
           <section className="space-y-3 border-t border-border pt-5">
             <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{user?.username}</span></p>
             <SignaturePad value={signature} onChange={setSignature} disabled={saving} />
-            <p className="text-xs text-muted-foreground">Sign after completing your edits. Editing clears the signature. Unsigned drafts can be saved; printing requires a signature.</p>
-            {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Previously signed by {retrievedReferral.signerName}. Sign again to confirm this version.</p>}
-            {retrievedReferral?.signature && <details>
-              <summary className="cursor-pointer">View saved signature</summary>
-              <div className="h-24 max-w-xs"><SignatureImage value={retrievedReferral.signature} /></div>
-            </details>}
+            <p className="text-xs text-muted-foreground">Your saved signature stays in this box. Draw to add strokes, or clear it to start again. Save referral to keep your changes.</p>
+            {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
             {retrievedReferral && <Dialog open={confirmDelete} onOpenChange={open => {
