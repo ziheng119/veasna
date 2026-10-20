@@ -151,6 +151,11 @@ export default function TopNav() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {user.role === "admin" && (
+                  <DropdownMenuItem onClick={() => router.push("/analytics")}>
+                    Analytics
+                  </DropdownMenuItem>
+                )}
+                {user.role === "admin" && (
                   <DropdownMenuItem onClick={() => setIsAddUserOpen(true)}>
                     Add User
                   </DropdownMenuItem>
