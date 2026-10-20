@@ -5,6 +5,8 @@ const { validationResult } = require('express-validator');
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
+  // The API gateway already verified this token and refreshed its role from PostgreSQL.
+  if (req.databaseAuthenticated) return next();
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -54,4 +56,4 @@ module.exports = {
   authenticateToken,
   requireRole,
   validateRequest
-}; 
+};

@@ -3,8 +3,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocationStore } from '@/stores/useLocationStore';
 import { LocationIcon, PlusIcon, TrashIcon } from '@/assets/icons';
 import { Location } from '@/lib/types/location';
+import { useUserStore } from '@/stores/useUserStore';
 
 export default function LocationDropdown() {
+  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const { 
     locations, 
     currentLocation, 
@@ -137,13 +139,13 @@ export default function LocationDropdown() {
             <span className="text-sm font-medium text-foreground">
               {isEditMode ? 'Edit Locations' : 'Select Location'}
             </span>
-            <button
+            {isAdmin && <button
               onClick={handleEditModeToggle}
               disabled={isLoading}
               className="text-sm text-primary hover:text-primary/80 font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isEditMode ? 'Done' : 'Edit'}
-            </button>
+            </button>}
           </div>
 
           {/* Location Options */}

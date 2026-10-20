@@ -17,6 +17,7 @@ import {
 } from "../ui/dropdown-menu";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import AddUserDialog from "./AddUserDialog";
+import { NAVIGATION, canAccessPage } from "@/lib/permissions";
 
 export default function TopNav() {
 
@@ -72,55 +73,12 @@ export default function TopNav() {
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-3">
         {/* Navigation Links */}
         <div className="flex flex-wrap items-center gap-1">
-          <Link
-            href="/"
-            className={`${linkBaseClass} ${isActive("/") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/patient-list"
-            className={`${linkBaseClass} ${isActive("/patient-list") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Patient List
-          </Link>
-          <Link
-            href="/tb-tent"
-            className={`${linkBaseClass} ${isActive("/tb-tent") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            TB Tent
-          </Link>
-          <Link
-            href="/triage"
-            className={`${linkBaseClass} ${isActive("/triage") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Triage
-          </Link>
-          <Link
-            href="/seva"
-            className={`${linkBaseClass} ${isActive("/seva") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Seva
-          </Link>
-          <Link
-            href="/physiotherapy"
-            className={`${linkBaseClass} ${isActive("/physiotherapy") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Physiotherapy
-          </Link>
-          <Link
-            href="/doctors-consultation"
-            className={`${linkBaseClass} ${isActive("/doctors-consultation") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Consult
-          </Link>
-          
-          <Link
-            href="/pharmacy"
-            className={`${linkBaseClass} ${pathname.startsWith("/pharmacy") ? activeLinkClass : inactiveLinkClass}`}
-          >
-            Pharmacy
-          </Link>
+          {NAVIGATION.filter(item => canAccessPage(user?.role, item.href)).map(item => (
+            <Link key={item.href} href={item.href}
+              className={`${linkBaseClass} ${isActive(item.href) || (item.href === "/pharmacy" && pathname.startsWith("/pharmacy/")) ? activeLinkClass : inactiveLinkClass}`}>
+              {item.label}
+            </Link>
+          ))}
         </div>
 
         {/* Refresh Button */}

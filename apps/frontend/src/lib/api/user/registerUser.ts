@@ -2,7 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 
 // Admin-only: creates an account for another staff member.
-export async function registerUser(username: string, password: string): Promise<string> {
+export async function registerUser(username: string, password: string, role = "registration"): Promise<string> {
   const token = useUserStore.getState().user?.token;
   const res = await fetch(`${backend_url}/api/auth/register`, {
     method: "POST",
@@ -10,7 +10,7 @@ export async function registerUser(username: string, password: string): Promise<
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, role }),
   });
 
   if (!res.ok) {

@@ -1,3 +1,4 @@
+import { canAccessPage } from "@/lib/permissions";
 import { create } from "zustand";
 import { useUserStore } from "./useUserStore";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
@@ -33,7 +34,7 @@ export const useLocationDataStore = create<LocationDataStore>((set, get) => ({
       const results = await Promise.allSettled([
         getPatientsByLocation(locationId, token),
         getQueue(locationId, today.toString(), token),
-        getDrugsByLocation(locationId),
+        canAccessPage(useUserStore.getState().user?.role, "/pharmacy") ? getDrugsByLocation(locationId) : Promise.resolve([]),
       ]);
 
       const patients = results[0].status === 'fulfilled' ? results[0].value : get().all_patients;
