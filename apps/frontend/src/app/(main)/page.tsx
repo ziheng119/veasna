@@ -83,7 +83,7 @@ export default function HomePage() {
         <div className={`${PANEL_WRAPPER} xl:col-span-4 2xl:col-span-3`}>
           <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
         </div>
-        <div className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
+        <div id="patient-registration" className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
           <PatientForm
             existingPatients={patients}
             onSubmit={() => {

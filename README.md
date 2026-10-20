@@ -65,6 +65,10 @@ cp apps/desktop/.env.example apps/desktop/.env
 
 ## Common Commands
 
+Patient registration is available on Home. The **+ (Add patient)** link on Patient List
+opens the same form, using the selected location and the same validation and queue workflow.
+Older `/patient-form?mode=new` links redirect to the registration form on Home.
+
 From repo root:
 
 ```bash
