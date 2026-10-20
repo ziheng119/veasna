@@ -19,6 +19,10 @@ import { Check, ListChecks, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
 
+import QueueSortControl from "./QueueSortControl";
+import { useQueueSort } from "@/hooks/useQueueSort";
+import { sortQueuePatients } from "@/lib/queueSort";
+
 interface QueuePatientPickerProps {
   // The queue shown is only the patients currently waiting at this station.
   station: StationId;
@@ -34,6 +38,7 @@ export default function QueuePatientPicker({
   selectedVisitId,
   refreshKey,
 }: QueuePatientPickerProps) {
+  const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
 
@@ -109,8 +114,8 @@ export default function QueuePatientPicker({
         queueNo.includes(query)
       );
     });
-    return filtered;
-  }, [patients, searchQuery]);
+    return sortQueuePatients(filtered, mode);
+  }, [patients, searchQuery, mode]);
 
   return (
     <PageCard
@@ -119,7 +124,9 @@ export default function QueuePatientPicker({
       className="xl:col-span-4"
       contentClassName="space-y-3"
       headerExtra={
-        <div className="relative mt-4">
+        <div className="mt-4 space-y-3">
+          <QueueSortControl mode={mode} onChange={setMode} />
+          <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -127,6 +134,7 @@ export default function QueuePatientPicker({
             placeholder="Search by queue or name"
             className="pl-10"
           />
+          </div>
         </div>
       }
     >
@@ -154,7 +162,7 @@ export default function QueuePatientPicker({
               >
                 <div className="flex items-center justify-between gap-3">
                   <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
-                  <span className="text-xs text-muted-foreground">{patient.timestamp}</span>
+                  <span className="text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
                 </div>
                 <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
                 <p className="text-sm text-muted-foreground">{patient.khmer_name || "-"}</p>

@@ -10,29 +10,9 @@ import { stationLabel } from "@/constants/stations";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 
-function sortQueueNumber(a: QueuedPatient, b: QueuedPatient) {
-    // Extract the number and parts portion
-    const extractParts = (queueNum: string) => {
-        const match = queueNum.match(/^(\d+)([A-Za-z]?)$/);
-        if (match) {
-            return {
-                number: parseInt(match[1]),
-                letter: match[2] || 'ZZ' // put numbers without letters as last?
-            }
-        }
-        return { number: 999999, letter: queueNum };
-    };
-
-    const partsA = extractParts(a.queue_no);
-    const partsB = extractParts(b.queue_no);
-
-    // Sort by number first
-    if (partsA.number !== partsB.number) {
-        return partsA.number - partsB.number;
-    }
-
-    return partsA.letter.localeCompare(partsB.letter);
-}
+import QueueSortControl from "../shared/QueueSortControl";
+import { useQueueSort } from "@/hooks/useQueueSort";
+import { sortQueuePatients } from "@/lib/queueSort";
 
 interface Props {
   patients: QueuedPatient[];
@@ -40,6 +20,7 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
+  const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");  
 
   const filteredPatients = patients.filter((patient) => {
@@ -58,7 +39,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
     );
   });
 
-  const sortedPatients = [...filteredPatients].sort(sortQueueNumber);
+  const sortedPatients = sortQueuePatients(filteredPatients, mode);
   const today = new Date().toLocaleDateString();
 
   return (
@@ -68,7 +49,9 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
       className="h-full flex flex-col"
       contentClassName="flex-1 overflow-y-auto space-y-3 bg-card"
       headerExtra={
-        <div className="relative mt-4">
+        <div className="mt-4 space-y-3">
+          <QueueSortControl mode={mode} onChange={setMode} />
+          <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search by name or queue number..."
@@ -76,6 +59,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-background border-input text-foreground placeholder-muted-foreground"
           />
+          </div>
         </div>
       }
     >

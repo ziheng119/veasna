@@ -31,6 +31,8 @@ export type QueuedPatient = {
     age?: number;
     sex?: "M" | "F";
     timestamp: string;
+    // Station arrival display time from the API; optional for older servers.
+    station_arrival_time?: string;
 }
 
 export type PatientFormData = {
