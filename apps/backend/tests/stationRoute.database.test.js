@@ -32,7 +32,9 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     await client.query('SET search_path TO pg_temp');
     await client.query(`
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, completed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW());
+      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE);
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, completed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(),
+        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (
         id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
         entered_at TIMESTAMP, completed_at TIMESTAMP, last_updated_by INT,
@@ -45,11 +47,13 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     `);
     const migration = fs.readFileSync(path.join(__dirname, '../migrations/010_station_route_history.sql'), 'utf8');
     await client.query(migration.replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMP TABLE IF NOT EXISTS'));
+    db.query.mockImplementation((...args) => client.query(...args));
     db.pool.connect.mockResolvedValue({ query: (...args) => client.query(...args), release: () => {} });
     app = express(); app.use(express.json()); app.use('/api/queue', require('../routes/queue'));
   });
   beforeEach(async () => {
-    await client.query(`TRUNCATE pg_temp.visit_station_route_history, pg_temp.visit_stations, pg_temp.visits, pg_temp.users, pg_temp.tb_screening RESTART IDENTITY CASCADE;
+    await client.query(`TRUNCATE pg_temp.visit_station_route_history, pg_temp.visit_stations, pg_temp.visits, pg_temp.users, pg_temp.tb_screening, pg_temp.patients RESTART IDENTITY CASCADE;
+      INSERT INTO patients VALUES (1, 'Test', '', 'F', '2000-01-01');
       INSERT INTO users VALUES (1); INSERT INTO visits (id) VALUES (1);
       INSERT INTO visit_stations (visit_id, station, position, entered_at, completed_at, last_updated_by) VALUES
         (1,'triage',1,'2026-10-20 08:00','2026-10-20 08:10',1),
@@ -61,6 +65,26 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
   });
+  test('Home uses clinic arrival; station queues use station arrival and display that same time', async () => {
+    await client.query(`UPDATE visits SET created_at='2026-10-20 08:00', visit_date='2026-10-20', queue_no='1' WHERE id=1;
+      UPDATE visit_stations SET entered_at='2026-10-20 10:00' WHERE station='seva';
+      INSERT INTO visits (id, created_at, visit_date, queue_no) VALUES (2, '2026-10-20 09:00', '2026-10-20', '99');
+      INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (2,'seva',1,'2026-10-20 09:00',1);`);
+    const get = station => request(app).get('/api/queue').query({ location_id: 1, date: '2026-10-20', ...(station ? { station } : {}) })
+      .set('Authorization', `Bearer ${token}`);
+    const home = await get(); const station = await get('seva');
+    expect(home.status).toBe(200); expect(station.status).toBe(200);
+    expect(home.body.map(p => p.visit_id)).toEqual([1, 2]);
+    expect(station.body.map(p => p.visit_id)).toEqual([2, 1]);
+    expect(station.body[1].station_arrival_time).toBe('10:00 AM');
+    expect(station.body[1].timestamp).toBe('08:00 AM');
+    await client.query("UPDATE visit_stations SET entered_at='2026-10-20 10:00' WHERE station='seva'");
+    expect((await get('seva')).body.map(p => p.visit_id)).toEqual([1, 2]);
+    await client.query("UPDATE visit_stations SET entered_at=NULL WHERE visit_id=1 AND station='seva'");
+    const fallback = await get('seva');
+    expect(fallback.body[0].station_arrival_time).toBe('08:00 AM');
+  });
+
   test('return to a completed station, retain its history, then resume the route', async () => {
     const response = await save(['triage', 'seva', 'consultation']);
     expect(response.status).toBe(200);

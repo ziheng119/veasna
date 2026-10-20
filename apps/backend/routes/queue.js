@@ -38,6 +38,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 p.sex,
                 EXTRACT(YEAR FROM AGE(p.date_of_birth)) AS age,
                 TO_CHAR(v.created_at, 'HH:MI AM') AS timestamp,
+                -- Display the same station-arrival value used by the queue ordering.
+                TO_CHAR(COALESCE(cur.entered_at, v.created_at), 'HH:MI AM') AS station_arrival_time,
                 cur.station AS current_station,
                 tb.status AS tb_status,
                 (
