@@ -10,7 +10,7 @@ import { PatientInfo } from "@/lib/types/patient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PAGE_SHELL } from "@/lib/pageLayout";
 
+import { useLiveList } from "@/hooks/useLiveList";
+
 export default function PatientListPage() {
 
   const router = useRouter();
@@ -27,7 +29,6 @@ export default function PatientListPage() {
   const location: Location | null = useLocationStore((state) => state.currentLocation)
   const token = useUserStore((state) => state.user?.token)
 
-  const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [visitDate, setVisitDate] = useState<string>("");
 
@@ -37,22 +38,13 @@ export default function PatientListPage() {
     }
   }, [location]);
 
-  // API helper functions
-  async function refreshAllPatients() {
-    if (token && location) {
-      const db_patients = await getPatientsByLocation(location.id, token, visitDate || undefined);
-      setPatients(db_patients);
-    }
-  }
+  const locationId = location?.id;
+  const loadPatients = useCallback(async (signal: AbortSignal): Promise<PatientInfo[]> => {
+    if (!token || !locationId) return [];
+    return getPatientsByLocation(locationId, token, visitDate || undefined, signal);
+  }, [token, locationId, visitDate]);
+  const { data: patients, refresh: refreshAllPatients } = useLiveList(loadPatients);
 
-  // API useEffects
-  useEffect(() => {
-    if (token && location) {
-      refreshAllPatients();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, token, visitDate])
-  
   const filteredPatients: PatientInfo[] = useMemo(() => {
     if (!searchTerm.trim()) {
       return patients;
@@ -83,7 +75,7 @@ export default function PatientListPage() {
     if (!token) return;
     try {
       await deletePatient(patientId, token);
-      setPatients(prevPatients => prevPatients.filter(patient => patient.id !== patientId));
+      await refreshAllPatients();
     } catch (error) {
       console.error('Delete patient error:', error);
       toast.error('Failed to delete patient');

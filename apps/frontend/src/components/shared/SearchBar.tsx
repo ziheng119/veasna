@@ -1,15 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { SearchIcon } from "@/assets/icons/SearchIcon"
 import { CrossIcon } from "@/assets/icons/CrossIcon"
-import { useLocationDataStore } from "@/stores/useLocationDataStore"
 import { QueuedPatient } from "@/lib/types/patient"
 import { Location } from "@/lib/types/location"
 import { useLocationStore } from "@/stores/useLocationStore"
-import { SET_LOCATION_MESSAGE } from "@/messages/info"
-import toast from "react-hot-toast"
-import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation"
+import { useLiveList } from "@/hooks/useLiveList"
 import { getQueue } from "@/lib/api/queue/getQueue"
 import { useUserStore } from "@/stores/useUserStore"
 
@@ -21,7 +18,12 @@ export default function SearchBar({ onSelectPatient }: SearchBarProps) {
   const token = useUserStore((state) => state.user?.token)
   const location: Location | null = useLocationStore(state => state.currentLocation)
 
-  const [patients, setPatients] = useState<QueuedPatient[]>([])
+  const locationId = location?.id;
+  const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
+    if (!locationId || !token) return [];
+    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, undefined, signal);
+  }, [locationId, token]);
+  const { data: patients } = useLiveList(load);
   const [query, setQuery] = useState<string>("")
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false)
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1)
@@ -63,23 +65,6 @@ export default function SearchBar({ onSelectPatient }: SearchBarProps) {
     setQuery("")
     setHighlightedIndex(-1)
   }
-
-  useEffect(() => {
-    async function getAllPatients() {
-      if (!token) {
-        return
-      }
-      if (!location) {
-        toast(SET_LOCATION_MESSAGE)
-        return
-      }
-      const date = new Date().toISOString().slice(0, 10);
-      const db_patients = await getQueue(location.id, date.toString(), token);
-      setPatients(db_patients)
-    }
-
-    getAllPatients();
-  }, [location, token])
 
   return (
     <div className="relative w-full text-foreground">

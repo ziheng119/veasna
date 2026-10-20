@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
@@ -27,6 +27,7 @@ import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_RED_FLAGS } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
 
@@ -74,20 +75,28 @@ const getBMICategory = (bmi: number) : string => {
 export function PatientForm({ existingPatients, onSubmit, locationId }: PatientFormProps) {
     const token = useUserStore((state) => state.user?.token);
 
+    const revision = useRealtimeStore(state => state.revision);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState("patient-info");
     const [errors, setErrors] = useState<FormErrors>({});
     const [nextQueueNo, setNextQueueNo] = useState("");
 
+    const previewRequest = useRef<AbortController | null>(null);
+
     // The backend assigns the queue number on submit; this is only a preview.
     const refreshNextQueueNo = useCallback(async () => {
+      previewRequest.current?.abort();
+      const controller = new AbortController();
+      previewRequest.current = controller;
       if (!locationId || !token) {
         setNextQueueNo("");
         return;
       }
       try {
-        setNextQueueNo(await getNextQueueNo(locationId, token));
+        const next = await getNextQueueNo(locationId, token, controller.signal);
+        if (!controller.signal.aborted) setNextQueueNo(next);
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Failed to fetch next queue number:", err);
         setNextQueueNo("");
       }
@@ -95,7 +104,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     useEffect(() => {
       refreshNextQueueNo();
-    }, [refreshNextQueueNo]);
+      return () => previewRequest.current?.abort();
+    }, [refreshNextQueueNo, revision]);
 
     const [patientInfo, setPatientInfo] =  useState<PatientFormData>(emptyPatientInfo);
     // Existing patient this registration is for; null when registering a new patient.

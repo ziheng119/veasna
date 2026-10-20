@@ -17,6 +17,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { Check, ListChecks, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { useLiveList } from "@/hooks/useLiveList";
 
 interface QueuePatientPickerProps {
   // The queue shown is only the patients currently waiting at this station.
@@ -36,23 +37,18 @@ export default function QueuePatientPicker({
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
 
-  const [patients, setPatients] = useState<QueuedPatient[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
-  const loadQueue = useCallback(async () => {
-    if (!location || !token) {
-      setPatients([]);
-      return;
-    }
-
-    const date = new Date().toISOString().slice(0, 10);
-    const queuePatients = await getQueue(location.id, date, token, station);
-    setPatients(Array.isArray(queuePatients) ? queuePatients : []);
-  }, [location, token, station]);
+  const locationId = location?.id;
+  const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
+    if (!locationId || !token) return [];
+    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, station, signal);
+  }, [locationId, token, station]);
+  const { data: patients, refresh: loadQueue } = useLiveList(load);
 
   useEffect(() => {
-    loadQueue();
+    if (refreshKey !== undefined) void loadQueue();
   }, [loadQueue, refreshKey]);
 
   // Station after this one for the patient, or null when this is their last.

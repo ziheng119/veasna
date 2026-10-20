@@ -4,7 +4,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 
 import { PatientQueue } from "@/components/home/PatientQueue";
 import { PatientForm } from "@/components/home/PatientForm";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
@@ -13,12 +13,23 @@ import { getQueue } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 
+import { useLiveList } from "@/hooks/useLiveList";
+
 export default function HomePage() {
   const token = useUserStore((state) => state.user?.token);
   const location = useLocationStore((state) => state.currentLocation);
 
-  const [patients, setPatients] = useState<PatientInfo[]>([]);
-  const [queuePatients, setQueuePatients] = useState<QueuedPatient[]>([]);
+  const locationId = location?.id;
+  const loadPatients = useCallback(async (signal: AbortSignal): Promise<PatientInfo[]> => {
+    if (!token || !locationId) return [];
+    return getPatientsByLocation(locationId, token, undefined, signal);
+  }, [token, locationId]);
+  const loadQueue = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
+    if (!token || !locationId) return [];
+    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, undefined, signal);
+  }, [token, locationId]);
+  const { data: patients, refresh: refreshAllPatients } = useLiveList(loadPatients);
+  const { data: queuePatients, refresh: refreshQueuePatients } = useLiveList(loadQueue);
   const hasShownLocationToast = useRef(false);
 
   useEffect(() => {
@@ -31,32 +42,6 @@ export default function HomePage() {
     }
   }, [location]);
 
-  // API helper functions
-  async function refreshAllPatients() {
-    if (token && location) {
-      try {
-        const db_patients = await getPatientsByLocation(location.id, token);
-        setPatients(db_patients);
-      } catch (err) {
-        console.error("Failed to fetch patients:", err);
-        toast.error("Failed to load patients");
-      }
-    }
-  }
-
-  async function refreshQueuePatients() {
-    if (token && location) {
-      try {
-        const date = new Date().toISOString().slice(0, 10);
-        const db_patients = await getQueue(location.id, date.toString(), token);
-        setQueuePatients(db_patients);
-      } catch (err) {
-        console.error("Failed to fetch queue:", err);
-        toast.error("Failed to load queue");
-      }
-    }
-  }
-
   async function handleRemoveFromQueue(visitId: number) {
     if (!token) return;
     try {
@@ -67,15 +52,6 @@ export default function HomePage() {
       toast.error("Failed to remove patient from queue");
     }
   }
-
-  // API useEffects
-  useEffect(() => {
-    if (token && location) {
-      refreshAllPatients();
-      refreshQueuePatients();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, token]);
 
   return (
     <div className={PAGE_SHELL}>
