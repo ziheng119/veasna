@@ -96,6 +96,8 @@ npm run lint
 
 ## Notes
 
+- For clinic use, run `npm run build` then `npm start` to avoid development-time page compilation. See [performance, LAN setup and recovery](docs/performance-and-lan.md).
+
 - Station-specific accounts and page/API permissions are available. See [starter accounts and roles](docs/user-roles.md); run `npm run seed:stations --workspace apps/backend` to create missing starter accounts.
 
 - Admins can open the **Analytics** draft from the user menu. See [metric definitions and proposed next steps](docs/analytics.md).

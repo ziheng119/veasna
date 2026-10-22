@@ -33,12 +33,8 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: 'Too many authentication attempts, please try again later.'
-});
-app.use('/api/auth/', authLimiter);
+const createAuthRateLimit = require('./middleware/authRateLimit');
+app.use('/api/auth/', createAuthRateLimit());
 
 // Body parsing middleware
 app.use(bodyParser.json());

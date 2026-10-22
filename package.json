@@ -6,6 +6,8 @@
     "apps/*"
   ],
   "scripts": {
+    "build": "npm run build --workspace apps/frontend",
+    "start": "concurrently --kill-others \"npm run start:backend\" \"npm run start:frontend\"",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace apps/backend",
     "dev:frontend": "npm run dev --workspace apps/frontend",
