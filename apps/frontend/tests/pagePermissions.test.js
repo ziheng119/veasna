@@ -1,19 +1,11 @@
-const { canAccessPage, defaultPage, NAVIGATION } = require('../src/lib/permissions');
-
-test.each(['registration', 'triage', 'tb', 'seva', 'physiotherapy', 'consultation', 'pharmacy'])('%s sees only assigned navigation', role => {
-  const allowed = NAVIGATION.filter(item => canAccessPage(role, item.href));
-  expect(allowed.length).toBe(role === 'registration' ? 2 : 1);
-  expect(allowed.every(item => item.role === role)).toBe(true);
-  expect(canAccessPage(role, defaultPage(role))).toBe(true);
-  expect(canAccessPage(role, '/analytics')).toBe(false);
+const { canAccessPage, defaultPage, canEditSavedData, NAVIGATION, ROLE_OPTIONS } = require('../src/lib/permissions');
+test.each(['admin','user'])('%s can observe every page', role => {
+ for (const path of [...NAVIGATION.map(item => item.href), '/analytics','/patient-details','/pharmacy/dashboard']) expect(canAccessPage(role,path)).toBe(true);
+ expect(defaultPage(role)).toBe('/');
+ expect(canEditSavedData(role)).toBe(role === 'admin');
 });
-test('admin and legacy access, nested pharmacy routes and unknown roles', () => {
-  expect(NAVIGATION.every(item => canAccessPage('admin', item.href))).toBe(true);
-  expect(NAVIGATION.every(item => canAccessPage('user', item.href))).toBe(true);
-  expect(canAccessPage('user', '/analytics')).toBe(false);
-  expect(canAccessPage('pharmacy', '/pharmacy/dashboard')).toBe(true);
-  expect(canAccessPage('triage', '/pharmacy/dashboard')).toBe(false);
-  expect(canAccessPage('registration', '/patient-details')).toBe(true);
-  expect(canAccessPage('consultation', '/patient-details')).toBe(false);
-  expect(canAccessPage(undefined, '/')).toBe(false);
+test('only two roles can be assigned', () => {
+ expect(ROLE_OPTIONS.map(item => item.value)).toEqual(['user','admin']);
+ expect(canAccessPage(undefined,'/')).toBe(false);
+ expect(canEditSavedData('triage')).toBe(false);
 });

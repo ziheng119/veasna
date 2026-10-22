@@ -9,6 +9,7 @@ import { EditIcon, PersonIcon } from "@/assets/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import DisabledActionHint from "@/components/shared/DisabledActionHint";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getPatient } from "@/lib/api/patient/getPatients";
@@ -75,6 +76,7 @@ export default function PatientDetailsPage() {
   const [isLoadingVisit, setIsLoadingVisit] = useState(false);
   const [dateSearch, setDateSearch] = useState("");
   
+  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const [isEditing, setIsEditing] = useState(false);
   const [editedPatient, setEditedPatient] = useState<PatientInfo | null>(null);
 
@@ -207,12 +209,15 @@ export default function PatientDetailsPage() {
               Cancel
             </Button>
           )}
+          <DisabledActionHint disabled={!isAdmin} message="Only admins can edit patient details.">
           <Button 
+            disabled={!isAdmin}
             onClick={handleEditToggle}
             className="">
             <EditIcon className="w-4 h-4 mr-2"/>
             {isEditing ? 'Save Changes' : 'Edit Patient'}
           </Button>
+          </DisabledActionHint>
         </div>
       </div>
 

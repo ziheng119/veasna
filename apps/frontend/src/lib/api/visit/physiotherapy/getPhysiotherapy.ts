@@ -62,11 +62,7 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
     return data;
 
   } catch (err) {
-    console.error("GET PhysiotherapyWithPainpoints (Error):", err);
-    if (cachedPhysio[visitId] !== undefined) {
-      console.warn(`⚠️ Returning cached physiotherapy for visit ${visitId} due to fetch failure.`);
-      return cachedPhysio[visitId];
-    }
-    return null;
+    // A failed load must not be treated as a new record that can be edited.
+    throw err;
   }
 }

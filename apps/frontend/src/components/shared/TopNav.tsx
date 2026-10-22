@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import AddUserDialog from "./AddUserDialog";
 import { NAVIGATION, canAccessPage } from "@/lib/permissions";
 
 export default function TopNav() {
@@ -27,7 +26,6 @@ export default function TopNav() {
   const removeUser = useUserStore((state) => state.removeUser);
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   async function refreshLocations() {
     const locations = await getLocations();
@@ -108,14 +106,9 @@ export default function TopNav() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {user.role === "admin" && (
+                {(
                   <DropdownMenuItem onClick={() => router.push("/analytics")}>
                     Analytics
-                  </DropdownMenuItem>
-                )}
-                {user.role === "admin" && (
-                  <DropdownMenuItem onClick={() => setIsAddUserOpen(true)}>
-                    Add User
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={handleLogout}>
@@ -134,7 +127,7 @@ export default function TopNav() {
           )}
         </div>
       </div>
-      <AddUserDialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} />
+      {user?.role === "user" && <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages and create new records. Ask an admin to change saved data or queues.</p>}
     </nav>
   );
 }

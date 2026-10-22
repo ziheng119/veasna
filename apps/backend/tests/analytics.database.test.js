@@ -51,8 +51,8 @@ const db = require('../config/db');
   });
   test('enforces authentication and current active admin permissions', async () => {
     expect((await get(null)).status).toBe(401);
-    expect((await get(token(2, 'user'))).status).toBe(403);
-    expect((await get(token(2))).status).toBe(403); // Stale admin token.
+    expect((await get(token(2, 'user'))).status).toBe(200);
+    expect((await get(token(2))).status).toBe(200); // Stale admin token.
     expect((await get(token(3))).status).toBe(403);
   });
   test('counts distinct people, visits, current queues and multi-destination referrals without join inflation', async () => {

@@ -4,7 +4,7 @@ require('dotenv').config();
 const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
-const { seedAdminUser } = require('./seedAdmin');
+const { setupAccounts } = require('./setupAccounts');
 
 async function runSetup() {
   console.log('🔧 Veasna Backend Setup');
@@ -58,8 +58,8 @@ async function runSetup() {
 
   // Seed default admin user
   try {
-    const adminUser = await seedAdminUser();
-    console.log(`Admin user seeded/verified: ${adminUser.username}`);
+    const accounts = await setupAccounts();
+    console.log(`Active accounts: ${accounts.map(account => account.username).join(", ")}`);
   } catch (error) {
     console.error(`Admin user seed failed: ${error.message}`);
     process.exit(1);
@@ -69,7 +69,7 @@ async function runSetup() {
   console.log('\nNext steps:');
   console.log('1. Start the server: npm run dev');
   console.log('2. Test the API: curl http://localhost:3000/health');
-  console.log('3. Create your first user: POST /api/auth/register (body: { "username": "yourname", "password": "yourpassword" })');
+  console.log('3. Sign in as admin (password: admin12345) or user (password: user).');
 }
 
 runSetup()

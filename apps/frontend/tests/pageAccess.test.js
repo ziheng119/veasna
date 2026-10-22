@@ -19,13 +19,14 @@ test('direct unauthorized URL never renders its page and permissions come from t
   const originalFetch = global.fetch;
   const token = `x.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64')}.x`;
   useUserStore.setState({ user: { id: 1, username: 'Doctor', role: 'admin', token } });
-  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1, username: 'Doctor', role: 'triage' }) });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1, username: 'Doctor', role: 'invalid' }) });
   let renderer;
   try {
     await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement('protected-page'))); });
     expect(renderer.root.findAllByType('protected-page')).toHaveLength(0);
-    expect(replace).toHaveBeenCalledWith('/triage');
-    expect(useUserStore.getState().user.role).toBe('triage');
+    expect(replace).toHaveBeenCalledWith('/login');
+    expect(useUserStore.getState().user.role).toBe('invalid');
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: 1, username: 'Doctor', role: 'user' }) });
     pathname = '/triage';
     await act(async () => renderer.update(React.createElement(AuthWrapper, null, React.createElement('protected-page'))));
     expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);

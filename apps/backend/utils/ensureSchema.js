@@ -40,7 +40,7 @@ function ensureVisitsCompleted() {
 
 function ensureUserRole() {
   if (!ensureUserRolePromise) {
-    ensureUserRolePromise = runMigration('003_users_role.sql').catch((err) => {
+    ensureUserRolePromise = runMigration('003_users_role.sql').then(() => runMigration('014_two_user_roles.sql')).catch((err) => {
       ensureUserRolePromise = null;
       throw err;
     });

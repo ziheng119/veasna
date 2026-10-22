@@ -1,34 +1,16 @@
-const { canAccessApi } = require('../utils/permissions');
-
-test.each([
-  ['registration', 'POST', '/registration', true],
-  ['registration', 'PUT', '/patient/12', true],
-  ['registration', 'POST', '/visits/consultation/12', false],
-  ['triage', 'POST', '/triage/history', true],
-  ['triage', 'POST', '/patients/12/history', true],
-  ['triage', 'POST', '/visits/seva/12', false],
-  ['tb', 'POST', '/tb/12/review', true],
-  ['consultation', 'POST', '/tb/12/review', false],
-  ['seva', 'POST', '/visits/seva/12', true],
-  ['physiotherapy', 'POST', '/visits/physiotherapy/12', true],
-  ['consultation', 'DELETE', '/visits/referral/12', true],
-  ['triage', 'DELETE', '/visits/referral/12', false],
-  ['consultation', 'GET', '/visits/referrals', true],
-  ['pharmacy', 'PATCH', '/pharmacy/12', true],
-  ['seva', 'PATCH', '/pharmacy/12', false],
-  ['triage', 'POST', '/queue/12/stations/triage/complete', true],
-  ['triage', 'POST', '/queue/12/stations/consultation/complete', false],
-  ['pharmacy', 'POST', '/queue/12/complete', false],
-  ['consultation', 'PUT', '/queue/12/stations', true],
-  ['triage', 'GET', '/patient/visit/12', true],
-  ['seva', 'GET', '/visits/history/1/12', true],
-  ['pharmacy', 'GET', '/locations', true],
-  ['triage', 'POST', '/locations', false],
-  ['user', 'GET', '/analytics', false],
-  ['user', 'POST', '/auth/register', false],
-  ['admin', 'GET', '/analytics', true],
-  ['triage', 'POST', '/unknown', false],
-  ['invalid', 'GET', '/queue', false],
-])('%s %s %s => %s', (role, method, path, allowed) => {
-  expect(canAccessApi(role, method, path)).toBe(allowed);
+const { canAccessApi, ROLES, normalizeRole } = require('../utils/permissions');
+test('only two assignable roles, with legacy account compatibility', () => {
+ expect(ROLES).toEqual(['admin','user']); expect(normalizeRole('triage')).toBe('user');
 });
+test.each(['/patients/1','/visits/consultation/1','/queue','/pharmacy','/analytics','/users','/auth/me'])('both roles can read %s', path => {
+ for (const role of ROLES) expect(canAccessApi(role,'GET',path)).toBe(true);
+ expect(canAccessApi('invalid','GET',path)).toBe(false);
+});
+test.each(['/patients/1','/registration/1','/visits/1','/queue/1/stations','/pharmacy/1','/visits/referral/1'])('only admins can mutate saved data via %s', path => {
+ for (const method of ['PUT','PATCH','DELETE']) {
+  expect(canAccessApi('user',method,path)).toBe(false);
+  expect(canAccessApi('admin',method,path)).toBe(true);
+ }
+});
+test.each(['/visits','/registration','/patients','/pharmacy','/triage/history','/visits/consultation/1','/visits/referral/1','/tb/1/review'])('users can reach guarded creation endpoint %s', path => expect(canAccessApi('user','POST',path)).toBe(true));
+test.each(['/auth/register','/users','/locations','/queue/1/complete','/queue/1/stations/triage/complete','/patients/1/history','/unknown'])('users cannot bypass via POST %s', path => expect(canAccessApi('user','POST',path)).toBe(false));

@@ -39,13 +39,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
   const user = useUserStore((state) => state.user)
 
+  const readOnly = user?.role !== "admin" && retrievedReferral !== null;
   const [signature, setSignature] = useState<Signature | null>(retrievedReferral?.signature ?? null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const handleDelete = async () => {
-    if (saving || !retrievedReferral || !confirmDelete) return;
+    if (user?.role !== "admin" || saving || !retrievedReferral || !confirmDelete) return;
     setDeleteError("");
     setSaving(true);
     try {
@@ -64,7 +65,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   };
   // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
-    if (saving) return;
+    if (saving || readOnly) return;
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
     const printWindow = print ? window.open("", "_blank") : null;
     if (print && !printWindow) { toast.error("Allow pop-ups to print this referral."); return; }
@@ -109,8 +110,18 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
+      {readOnly && <div className="px-6 py-3">
+        <p>Read-only. Only an admin can change a saved referral.</p>
+        <GlassButton type="button" onClick={() => {
+          const popup = window.open("", "_blank");
+          if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
+          popup.document.open();
+          popup.document.write(referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id));
+          popup.document.close(); popup.focus(); popup.print();
+        }}>Print saved referral</GlassButton>
+      </div>}
       <form onSubmit={event => event.preventDefault()}>
-        <fieldset disabled={saving} className="space-y-6 px-6 py-6 sm:px-8">
+        <fieldset disabled={saving || readOnly} className="space-y-6 px-6 py-6 sm:px-8">
           <section className="grid gap-5 sm:grid-cols-[1fr_13rem]">
             <div className="min-w-0 rounded-xl bg-muted/30 p-4">
               <h3 className="mb-3 font-semibold">Patient details</h3>
@@ -164,7 +175,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
-            {retrievedReferral && <Dialog open={confirmDelete} onOpenChange={open => {
+            {retrievedReferral && user?.role === "admin" && <Dialog open={confirmDelete} onOpenChange={open => {
               if (saving) return;
               setDeleteError("");
               setConfirmDelete(open);

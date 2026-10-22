@@ -4,7 +4,7 @@ const { authenticateToken, requireRole } = require('./auth');
 const router = express.Router();
 
 // Read-only aggregates for a clinic-day cohort, never patient names or clinical notes.
-router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['admin', 'user']), async (req, res) => {
   const locationId = Number(req.query.location_id);
   const date = req.query.date;
   if (!Number.isSafeInteger(locationId) || locationId <= 0 ||
@@ -13,9 +13,9 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
     return res.status(400).json({ error: 'Select a valid location and date (YYYY-MM-DD).' });
   }
   try {
-    // Recheck current permissions: a previously issued admin token must not bypass demotion.
-    const admin = await db.query("SELECT id FROM users WHERE id=$1 AND role='admin' AND is_active=TRUE", [req.user.id]);
-    if (!admin.rows.length) return res.status(403).json({ error: 'Administrator access required.' });
+    // Recheck account activity even when this router is mounted independently.
+    const admin = await db.query("SELECT id FROM users WHERE id=$1 AND role IN ('admin', 'user') AND is_active=TRUE", [req.user.id]);
+    if (!admin.rows.length) return res.status(403).json({ error: 'Active account required.' });
     const { rows } = await db.query(`
       WITH cohort AS (
         SELECT id, patient_id, completed_at FROM visits WHERE location_id=$1 AND visit_date=$2::date

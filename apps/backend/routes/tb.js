@@ -71,6 +71,12 @@ router.post('/:visitId/review', authenticateToken, requireRole(['any']), async (
             return res.status(404).json({ error: 'Visit not found' });
         }
 
+        const existingReview = await client.query('SELECT reviewed_at FROM tb_screening WHERE visit_id = $1', [visitId]);
+        if (req.user.role !== 'admin' && existingReview.rows[0]?.reviewed_at) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Only admins can edit a saved TB review.' });
+        }
+
         const pending = await client.query(
             'SELECT id, station FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL ORDER BY position',
             [visitId]

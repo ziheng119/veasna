@@ -11,7 +11,7 @@ const db = require('../config/db');
 (process.env.RUN_DB_TESTS === '1' ? describe : describe.skip)('Referral persistence', () => {
   let client, app, previousSecret;
   const secret = 'referral-test-secret';
-  const token = jwt.sign({ id: 1, role: 'user' }, secret);
+  const token = jwt.sign({ id: 1, role: 'admin' }, secret);
   const get = () => request(app).get('/consultation/1').set('Authorization', `Bearer ${token}`);
   const save = data => request(app).post('/referral/1').set('Authorization', `Bearer ${token}`).send(data);
   const draft = { referralType: 'Dentist\n', reason: 'Assessment', illness: '', duration: '', referralDate: '2026-10-20' };
@@ -69,7 +69,7 @@ const db = require('../config/db');
     await client.query("INSERT INTO users VALUES (2,'Clinician Two')");
     const signature = [[[0, 0], [1, 1]]];
     const original = await save({ ...draft, signature });
-    const secondToken = jwt.sign({ id: 2, role: 'user' }, secret);
+    const secondToken = jwt.sign({ id: 2, role: 'admin' }, secret);
     const edit = data => request(app).post('/referral/1').set('Authorization', `Bearer ${secondToken}`).send({ ...draft, ...data });
     const unchanged = await edit({ reason: 'Changed text', signature });
     expect(unchanged.body).toMatchObject({ signature, signer_id: 1, signer_name: 'Clinician One', signed_at: original.body.signed_at, last_updated_by: 2 });
@@ -100,6 +100,24 @@ const db = require('../config/db');
     expect((await remove()).status).toBe(204);
     expect((await save(draft)).status).toBe(200);
     expect((await get()).body.require_referral).toBe(true);
+  });
+  test('user first save is allowed, concurrent overwrite is denied without changing referral metadata', async () => {
+    await client.query('INSERT INTO visits (id) VALUES (50)');
+    const userToken = jwt.sign({ id: 1, role: 'user' }, secret);
+    const submit = reason => request(app).post('/referral/50').set('Authorization', `Bearer ${userToken}`).send({ ...draft, reason });
+    const results = await Promise.all([submit('First'), submit('Other')]);
+    expect(results.map(result => result.status).sort()).toEqual([200, 403]);
+    const before = (await client.query('SELECT * FROM referral WHERE visit_id=50')).rows[0];
+    expect((await submit('Overwrite')).status).toBe(403);
+    expect((await client.query('SELECT * FROM referral WHERE visit_id=50')).rows[0]).toEqual(before);
+    const notes = data => request(app).post('/consultation/50').set('Authorization', `Bearer ${userToken}`).send(data);
+    expect((await notes({ notes: 'Initial notes' })).status).toBe(200);
+    expect((await notes({ notes: 'Changed notes' })).status).toBe(403);
+    expect((await client.query('SELECT notes FROM consultation WHERE visit_id=50')).rows[0].notes).toBe('Initial notes');
+    expect((await request(app).post('/referral/50').set('Authorization', `Bearer ${token}`).send({ ...draft, reason: 'Admin edit' })).status).toBe(200);
+    await client.query('DELETE FROM referral WHERE visit_id=50');
+    await client.query('DELETE FROM consultation WHERE visit_id=50');
+    await client.query('DELETE FROM visits WHERE id=50');
   });
   test('daily batch filters location/date, includes completed and undated drafts, and validates input', async () => {
     await client.query(`

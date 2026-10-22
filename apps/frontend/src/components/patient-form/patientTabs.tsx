@@ -2,6 +2,7 @@
 
 import { PatientListTab, PATIENTINFO_TAB, VITALS_TAB, HEF_TAB } from '@/models/patient-list/patientlist_tab';
 import Tab from '@/components/shared/Tab';
+import { useUserStore } from "@/stores/useUserStore";
 import PatientInfo from './PatientInfo';
 import Vitals from './Vitals';
 import HEF from './HEF';
@@ -20,6 +21,8 @@ interface Props {
 
 export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel, isSaving, mode }: Props) {
 
+    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    const effectiveMode = !isAdmin && mode === "edit" ? "view" : mode;
     const [activeTab, setActiveTab] = useState<PatientListTab>(PATIENTINFO_TAB);
 
     const applyTab = (activeTab: PatientListTab) => {
@@ -28,32 +31,29 @@ export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel
                 return <PatientInfo 
                             patient={patient} 
                             onUpdatePatient={onUpdatePatient}
-                            isViewMode={mode === 'view'}
+                            isViewMode={effectiveMode === 'view'}
                         />
             case VITALS_TAB:
                 return <Vitals 
                             patient={patient} 
                             onUpdatePatient={onUpdatePatient} 
-                            isViewMode={mode === 'view'}
+                            isViewMode={effectiveMode === 'view'}
                         />
             case HEF_TAB:
                 return <HEF 
                             patient={patient} 
                             onUpdatePatient={onUpdatePatient} 
-                            isViewMode={mode === 'view'}
+                            isViewMode={effectiveMode === 'view'}
                         />
             default:
                 return <PatientInfo 
                             patient={patient} 
                             onUpdatePatient={onUpdatePatient} 
-                            isViewMode={mode === 'view'}
+                            isViewMode={effectiveMode === 'view'}
                         />
         }
     }
 
-    useEffect(() => {
-        applyTab(activeTab)
-    }, [activeTab])
 
 
     // Allow users to cancel by simply clicking escape key
@@ -103,7 +103,7 @@ export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel
                     Cancel
                 </button>
                 
-                {mode !== 'view' && (
+                {effectiveMode !== 'view' && (
                     <SaveButton
                     onClick={onSave}
                     mode={mode}

@@ -65,7 +65,7 @@ export default function Traige() {
                   <PatientDetails patient={selectedPatient} />
                 </PageCard>
                 <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-                  <TriageTabs
+                  <TriageTabs patient_id={selectedPatient.patient_id!}
                     key={selectedPatient.visit_id}
                     visit_id={selectedPatient.visit_id}
                     stations={selectedPatient.stations}

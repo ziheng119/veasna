@@ -7,6 +7,7 @@
     "dev": "nodemon server.js",
     "start": "node scripts/startProduction.js",
     "setup": "node scripts/setup.js",
+    "setup:accounts": "node scripts/setupAccounts.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:stations": "node scripts/seedStationUsers.js",
     "seed:demo": "node scripts/seedDemo.js",

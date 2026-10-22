@@ -1,3 +1,4 @@
+jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { role: 'admin' } }) }));
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 jest.mock('../src/lib/api/patients/getPatient', () => ({ getPatient: jest.fn().mockResolvedValue({ id: 1, english_name: 'Patient' }) }));

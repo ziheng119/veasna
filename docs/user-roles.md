@@ -1,83 +1,83 @@
-# Station accounts and permissions
+# Admin and user access
 
-VEASNA supports a single assigned role per account, with local PostgreSQL
-authentication. Admins retain all pages. Registration shares Home and Patient List;
-each clinical station has its own assigned account. This controls pages and
-clinical writes, not exclusive ownership of a particular patient.
+Only two roles are assignable: **admin** and **user**. Both can view every page,
+including patient details, clinical stations, Pharmacy and Analytics. Users can
+create records; only admins can change or delete saved data, including their own
+previous entries. There is no same-day exception.
 
-## Starter accounts
-
-For this initial setup, **each password is exactly the username** below. Passwords
-are stored as bcrypt hashes, not plaintext.
-
-| Username | Role | Pages |
+| Action | User | Admin |
 | --- | --- | --- |
-| `clinic_admin` | `admin` | All pages, Analytics, user and location management |
-| `registration` | `registration` | Home/registration, Patient List, patient details |
-| `triage_doctor` | `triage` | Triage |
-| `tb_doctor` | `tb` | TB Tent |
-| `seva_doctor` | `seva` | Seva |
-| `physio_doctor` | `physiotherapy` | Physiotherapy |
-| `consult_doctor` | `consultation` | Consult, referral editing/deletion and printing |
-| `pharmacist` | `pharmacy` | Pharmacy and its dashboard |
+| View/search all pages, queues, current/past records and Analytics | Yes | Yes |
+| Print saved referrals, individually or by day | Yes | Yes |
+| Register a patient or create a new visit | Yes | Yes |
+| Enter a previously absent triage section or station note | First save only | Yes |
+| Create a referral and initial signature | First save only | Yes |
+| Revise demographics, queue numbers, vitals/HEF or saved clinical notes | No | Yes |
+| Edit/clear a saved signature or delete a referral | No | Yes |
+| Change queue routing, complete stations or discharge | No | Yes |
+| Create a new inventory item | Yes | Yes |
+| Change existing stock/name or delete inventory | No | Yes |
+| Create accounts | No | No |
+| Manage locations | No | Yes |
 
-These are starter/shared station accounts. For individual attribution, an admin
-can use **Add User**, set a username/password, and select the assigned role.
-Custom passwords still have the existing eight-character minimum. Use individual
-credentials in place of these temporary matching passwords when moving beyond
-this initial setup.
+A first TB review is initial clinical data even though registration already
+created its screening row. It may advance the queue as part of recording that
+first decision. A subsequent review requires an admin. Creating a new referral
+also synchronizes the consultation's derived referral flag without granting
+permission to change saved notes or prescriptions.
 
-Run from the repository root:
+Each triage section, consultation, SEVA note, physiotherapy record and referral
+has its own first-save boundary. Empty/partial saved records count as saved.
+A referral created before consultation notes does not prevent initial notes.
+When creating a new visit for an existing patient, a user's submitted demographic
+changes are ignored; existing patient details are preserved. Ask an admin to
+correct them. New visit vitals and HEF remain new records.
 
-```powershell
-npm.cmd run seed:stations --workspace apps/backend
-```
+## Fixed accounts and setup
 
-The script creates missing accounts only, preserves existing passwords, roles and
-disabled states, and reports collisions without modifying them. It is never run
-automatically at startup. It ensures the existing password/role columns are
-present; no new schema migration is required. Restart the backend after deploying
-the API changes. Existing admin accounts are untouched.
+The only active sign-ins are **admin / admin12345** and **user / user** (username / password).
+They have the Admin and User permissions above. There is no Add User menu, and
+both POST /api/auth/register and POST /api/users reject account creation even for admins.
 
-## Enforcement
+Run from the repository root: npm run setup:accounts --workspace apps/backend.
+This explicit command resets those two passwords, corrects their roles, enables
+them and retires every other login in one transaction. Repeating it preserves
+the two account IDs. Existing inactive account rows remain to preserve clinical
+author/signature foreign keys; they cannot log in or use previously issued tokens.
+No clinical records or author IDs are reassigned or deleted.
 
-- The user menu/navigation shows permitted pages, and login goes straight to the
-  role's default page. Direct URLs are guarded too.
-- `/api/auth/me` refreshes the current role for page access. The API gateway checks
-  the active account and role in PostgreSQL on **every** request, rather than
-  trusting a stale JWT role or any role submitted in the request body.
-- Only admins can register accounts, manage locations/users, access Analytics, or
-  use existing admin-only deletion operations.
-- Station roles can save only their own station's forms. Completing another
-  station through a crafted queue API request is denied.
-- Clinical station staff can edit routing and discharge patients; existing TB
-  holds remain enforced. Registration retains queue/visit administration.
-- Shared authenticated patient snapshots, histories, locations and queue reads
-  remain available across clinical roles because each station requires that
-  context. This is not field-by-field clinical-data segregation.
-- Pharmacy inventory operations belong to Pharmacy/Admin; the existing
-  admin-only inventory deletion rule is retained.
-- Referrals belong to Consultation/Admin. Analytics remains admin-only.
-- New/unknown API writes default to denied for assigned station roles.
-- Existing `user` accounts retain legacy general-clinic access for compatibility,
-  but never admin tools. They are not created by the new role picker or starter
-  setup; replace them with assigned accounts when restricting existing staff.
-- `last_updated_by` continues to record the authenticated user's ID. Role checks
-  do not change patient data or audit IDs.
+The old seed:admin and seed:stations commands now call the same fixed-account
+setup for compatibility. Backend setup also configures these two accounts.
+This is not run automatically during normal server startup.
 
-The backend policy lives in `utils/permissions.js` and its gateway middleware.
-Frontend route mappings live in `src/lib/permissions.ts`; tests cover both.
-No cloud identity provider or internet connection is required.
+Restart the backend and rebuild/restart the frontend to load the removed account
+creation functionality. API requests still verify the current active database
+account and role on every request. No cloud service is required.
 
-## Verification
+## Enforcement and verification
+
+The gateway allowlists creation-capable POST endpoints and denies user
+PUT/PATCH/DELETE and administrative POST operations. Legacy clinical write aliases
+are admin-only so they cannot bypass visit-based protections.
+Clinical upserts use PostgreSQL's unique visit constraint and an admin-only
+ON CONFLICT UPDATE condition. Two concurrent first saves cannot overwrite one
+another: one succeeds, the other receives 403. Physiotherapy rolls back before
+changing pain points; a denied referral save cannot change its consultation flag.
+TB reviews check reviewed_at while holding the visit row lock. Audit authors and
+timestamps only change on authorized successful writes.
+
+Forms load saved data before enabling first entry and become read-only after
+save. The backend remains authoritative if another device saves first. Users can
+open a saved referral to view/print without issuing a write. Failed clinical data
+loads must not be treated as empty editable records.
+
+Tests cover page access, editable/locked UI transitions, permission matrices,
+stale/forged token roles, disabled accounts, account setup, simultaneous first
+referral saves, clinical sections and signatures. Database tests use only
+connection-local temporary tables:
 
 ```powershell
 npm.cmd test --workspace apps/frontend -- --runInBand
 $env:RUN_DB_TESTS='1'
-npm.cmd test --workspace apps/backend -- --runInBand tests/permissions.test.js tests/stationUsers.database.test.js
+npm.cmd test --workspace apps/backend -- --runInBand permissions.test.js stationUsers.database.test.js savedRecords.database.test.js referral.database.test.js analytics.database.test.js
 ```
-
-Database tests use temporary tables only. They cover all starter logins, password
-hashing, repeatable setup, existing-account preservation, inactive accounts,
-role changes with old tokens, admin-only registration and cross-station denials.
-Frontend tests cover navigation mappings, default pages and direct-URL guards.

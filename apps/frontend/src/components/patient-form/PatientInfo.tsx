@@ -1,3 +1,4 @@
+import { useUserStore } from '@/stores/useUserStore';
 import React from 'react';
 import { PatientFormData } from '@/lib/types/patient';
 
@@ -7,8 +8,10 @@ interface Props {
     isViewMode: boolean;
 }
 
-export default function PatientInfo({ patient, onUpdatePatient, isViewMode}: Props) {
+export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requestedViewMode}: Props) {
 
+    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    const isViewMode = requestedViewMode || (Boolean(patient.id) && !isAdmin);
     const inputProps = {
         disabled: isViewMode,
         readOnly: isViewMode,

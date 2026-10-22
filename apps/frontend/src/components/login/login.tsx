@@ -41,8 +41,8 @@ export default function Login() {
       return;
     }
 
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    if (!password) {
+      toast.error("Enter your password.");
       return;
     }
 
@@ -98,11 +98,11 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
-              placeholder="At least 8 characters"
+              placeholder="Password"
               autoComplete="current-password"
             />
             <p className="text-xs text-muted-foreground">
-              Minimum 8 characters.
+              Enter your account password.
             </p>
           </div>
 

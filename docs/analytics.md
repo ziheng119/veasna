@@ -1,14 +1,12 @@
 # Analytics draft
 
-Admins can open **Analytics** from the user menu. `/analytics` is outside the
-station layout: it has a Return link to Home, analytics filters, and the dashboard,
-without the main navigation or footer. Other users do not see the menu item and
-direct navigation redirects them home.
+Both Admin and User can open **Analytics** from the user menu. `/analytics` is
+outside the station layout: it has a Return link to Home, filters and dashboard,
+without the main navigation or footer.
 
 The read-only `GET /api/analytics?location_id=<id>&date=YYYY-MM-DD` requires a valid
-admin JWT **and** an active admin account in PostgreSQL, so demoted/deactivated
-accounts cannot use an old admin token. The response contains aggregates only, not
-patient names, IDs, clinical notes or signatures, and uses `Cache-Control: no-store`.
+authenticated, active account. Both roles can read the aggregates; patient names,
+IDs, clinical notes and signatures are excluded. Responses use `Cache-Control: no-store`.
 
 ## Metrics and denominators
 
@@ -71,5 +69,5 @@ npm.cmd test --workspace apps/backend -- --runInBand tests/analytics.database.te
 
 Database tests use temporary tables only and verify authorization, demotion,
 location/date isolation, unique-person counts, waiting stations, multi-destination
-referrals, invalid filters and empty results. UI tests cover admin-only entry,
+referrals, invalid filters and empty results. UI tests cover available to both admin and user entry,
 direct-route access, filter changes, failures and stale-request cancellation.

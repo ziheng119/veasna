@@ -52,71 +52,8 @@ router.get('/users', authenticateToken, async (req, res) => {
   }
 });
 
-// POST create a new user
-router.post(
-  '/users',
-  authenticateToken,
-  requireRole(['admin']),
-  [
-    body('username')
-      .isLength({ min: 2 })
-      .withMessage('Username must be at least 2 characters'),
-  ],
-  validateRequest,
-  async (req, res) => {
-    const { username } = req.body;
-    const normalizedUsername = username.trim();
-
-    try {
-      // 1️⃣ Check if user already exists
-      const checkQuery = 'SELECT id, username, is_active FROM users WHERE LOWER(username) = LOWER($1)';
-      const { rows: existingUsers } = await db.query(checkQuery, [normalizedUsername]);
-
-      if (existingUsers.length === 0) {
-        // 2️⃣ User does not exist → create
-        const insertQuery = `
-          INSERT INTO users (username, is_active)
-          VALUES ($1, TRUE)
-          RETURNING id, username, is_active, created_at;
-        `;
-        const { rows } = await db.query(insertQuery, [normalizedUsername]);
-        return res.status(201).json({
-          message: 'User successfully created',
-          user: rows[0],
-        });
-      }
-
-      // 3️⃣ User exists
-      const existingUser = existingUsers[0];
-
-      if (!existingUser.is_active) {
-        // 4️⃣ User exists but inactive → activate
-        const updateQuery = `
-          UPDATE users
-          SET is_active = TRUE,
-              last_updated_at = NOW()
-          WHERE id = $1
-          RETURNING id, username, is_active, created_at;
-        `;
-        const { rows } = await db.query(updateQuery, [existingUser.id]);
-        return res.status(200).json({
-          message: 'User successfully activated',
-          user: rows[0],
-        });
-      }
-
-      // 5️⃣ User exists and already active → just return
-      return res.status(200).json({
-        message: 'User already active',
-        user: existingUser,
-      });
-
-    } catch (error) {
-      console.error('Create/Activate User Error:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-);
+// Fixed accounts cannot be created or reactivated through legacy APIs.
+router.post('/users', authenticateToken, (_req, res) => res.status(403).json({ message: 'Account creation is disabled.' }));
 
 // PATCH /users/deactivate
 router.patch(
