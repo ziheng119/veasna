@@ -32,6 +32,10 @@
 }
 
 :root {
+  /* Installed system fonts keep builds and LAN clients independent of font CDNs. */
+  --font-geist-sans: Arial, Helvetica, sans-serif;
+  --font-geist-mono: Consolas, "Courier New", monospace;
+  --font-inter: Arial, Helvetica, sans-serif;
   --radius: 0.65rem;
   --background: oklch(0.97 0.004 286.2);
   --foreground: oklch(0.141 0.005 285.823);
