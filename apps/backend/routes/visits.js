@@ -158,7 +158,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             ];
             const patientResult = await client.query(patientQuery, patientValues);
             patientId = patientResult.rows[0].id;
-        } else {
+        } else if (req.user.role === 'admin') {
             await client.query(
                 `UPDATE patients SET
                     english_name = COALESCE($1, english_name),
@@ -546,6 +546,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       notes = EXCLUDED.notes,
       last_updated_by = EXCLUDED.last_updated_by,
       last_updated_at = NOW()
+    -- Only the verified admin role may update a conflicting saved row.
+    WHERE ${req.user.role === 'admin'}
     RETURNING *;
   `;
 
@@ -564,7 +566,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "SEVA record not found or not created" });
+      return res.status(403).json({ error: "Only admins can edit saved SEVA notes." });
     }
 
     res.status(200).json(rows[0]);
@@ -682,9 +684,14 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
         notes = EXCLUDED.notes,
         last_updated_by = EXCLUDED.last_updated_by,
         last_updated_at = NOW()
-      RETURNING id, visit_id, notes, last_updated_by, last_updated_at, created_at;
+      WHERE ${req.user.role === 'admin'}
+    RETURNING id, visit_id, notes, last_updated_by, last_updated_at, created_at;
     `;
     const { rows } = await client.query(physioQuery, [visit_id, notes, last_updated_by]);
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only admins can edit saved records.' });
+    }
     const physio = rows[0];
 
     await client.query("DELETE FROM painpoints WHERE physiotherapy_id = $1", [physio.id]);
@@ -824,6 +831,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       require_referral = EXCLUDED.require_referral,
       last_updated_by = EXCLUDED.last_updated_by,
       last_updated_at = NOW()
+    WHERE ${req.user.role === 'admin'}
     RETURNING *;
   `;
 
@@ -836,7 +844,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Consultation record not found or not created" });
+      return res.status(403).json({ error: "Only admins can edit saved consultation notes." });
     }
 
     res.status(200).json(rows[0]);
@@ -886,9 +894,10 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       signer_name = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_name ELSE EXCLUDED.signer_name END,
       signed_at = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signed_at ELSE EXCLUDED.signed_at END,
       last_updated_at = NOW()
+    WHERE ${req.user.role === 'admin'}
     RETURNING *), updated AS (
       UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()
-      WHERE visit_id = $1 RETURNING visit_id
+      WHERE visit_id = $1 AND EXISTS (SELECT 1 FROM saved) RETURNING visit_id
     ) SELECT * FROM saved;
   `;
 
@@ -905,7 +914,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Referral record not created or found" });
+      return res.status(403).json({ error: "Only admins can edit saved referrals." });
     }
 
     res.status(200).json(rows[0]);

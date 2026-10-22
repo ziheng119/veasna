@@ -98,9 +98,9 @@ npm run lint
 
 - For clinic use, run `npm run build` then `npm start` to avoid development-time page compilation. See [performance, LAN setup and recovery](docs/performance-and-lan.md).
 
-- Station-specific accounts and page/API permissions are available. See [starter accounts and roles](docs/user-roles.md); run `npm run seed:stations --workspace apps/backend` to create missing starter accounts.
+- Admin and User accounts can view every page; users can create new records, while only admins can edit saved data. The two sign-ins are `admin` / `admin12345` and `user` / `user`; account creation is disabled. See [accounts and permissions](docs/user-roles.md).
 
-- Admins can open the **Analytics** draft from the user menu. See [metric definitions and proposed next steps](docs/analytics.md).
+- Both roles can open the **Analytics** draft from the user menu. See [metric definitions and proposed next steps](docs/analytics.md).
 
 - Consultation referrals support saved eSignatures, individual printing and **Print today's referrals** for the selected location. See [referral workflow and setup](docs/consultation-referrals.md).
 

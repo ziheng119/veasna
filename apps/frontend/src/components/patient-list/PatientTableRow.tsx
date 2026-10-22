@@ -1,4 +1,5 @@
-import { EditIcon, EyeIcon, TrashIcon } from "@/assets/icons";
+import { useUserStore } from "@/stores/useUserStore";
+import { EyeIcon, TrashIcon } from "@/assets/icons";
 import formatDate from "@/helper/format_date";
 import { PatientInfo } from "@/lib/types/patient";
 
@@ -9,7 +10,7 @@ interface PatientTableRowProps {
 }
 
 export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: PatientTableRowProps) {
-    
+    const isAdmin = useUserStore(state => state.user?.role === "admin");
 
     const calculateAge = (birthDate: string): number => {
             const today = new Date();
@@ -50,6 +51,7 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
 
                         {/* Delete Patient*/}
                         <button
+                        disabled={!isAdmin}
                         onClick={() => patient.id && onDeletePatient?.(patient.id)}
                         className="text-red-600 hover:text-red-800"
                         title="Delete Patient"

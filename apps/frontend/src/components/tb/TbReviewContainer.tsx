@@ -22,6 +22,8 @@ interface TbReviewContainerProps {
 // TB doctor's review: the red flags from registration and the decision that releases the patient.
 export default function TbReviewContainer({ patient, onDecided }: TbReviewContainerProps) {
   const token = useUserStore((state) => state.user?.token);
+  const isAdmin = useUserStore(state => state.user?.role === "admin");
+  const [reviewSaved, setReviewSaved] = useState(false);
   const [screening, setScreening] = useState<TbScreening | null>(null);
   const [doctorNotes, setDoctorNotes] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +37,7 @@ export default function TbReviewContainer({ patient, onDecided }: TbReviewContai
       .then((data) => {
         if (cancelled) return;
         setScreening(data);
+        setReviewSaved(Boolean(data?.reviewed_at));
         setDoctorNotes(data?.doctor_notes ?? "");
       })
       .catch((err) => {
@@ -77,6 +80,7 @@ export default function TbReviewContainer({ patient, onDecided }: TbReviewContai
         );
       } else {
         toast.success(`${name} stays in the TB tent. Discharge them when they leave.`);
+        setReviewSaved(true);
         setScreening((prev) => prev && { ...prev, status: decision, doctor_notes: doctorNotes });
       }
       onDecided(decision);
@@ -136,6 +140,7 @@ export default function TbReviewContainer({ patient, onDecided }: TbReviewContai
           <div>
             <Label htmlFor="tb-doctor-notes" className="mb-2 block text-muted-foreground">TB doctor&apos;s notes</Label>
             <Textarea
+              readOnly={!isAdmin && reviewSaved}
               id="tb-doctor-notes"
               value={doctorNotes}
               onChange={(e) => setDoctorNotes(e.target.value)}
@@ -154,7 +159,7 @@ export default function TbReviewContainer({ patient, onDecided }: TbReviewContai
                 type="button"
                 variant="outline"
                 className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                disabled={isSaving}
+                disabled={isSaving || (!isAdmin && reviewSaved)}
                 onClick={() => handleDecision("tb_likely")}
               >
                 TB not ruled out: keep isolated

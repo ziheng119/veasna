@@ -71,14 +71,7 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
     return data;
 
   } catch (err) {
-    console.error("GET SEVA (Error):", err);
-
-    // Fallback to cached data if available
-    if (cachedSeva[visitId] !== undefined) {
-      console.warn(`⚠️ Returning cached SEVA for visit ${visitId} due to fetch failure.`);
-      return cachedSeva[visitId];
-    }
-
-    return null;
+    // A failed load must not be treated as a new record that can be edited.
+    throw err;
   }
 }

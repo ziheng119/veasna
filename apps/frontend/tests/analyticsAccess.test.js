@@ -9,7 +9,6 @@ jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector 
 jest.mock('../src/stores/useLocationDataStore', () => ({ useLocationDataStore: selector => selector({ fetchData: jest.fn() }) }));
 jest.mock('../src/lib/api/location', () => ({ getLocations: jest.fn().mockResolvedValue([]) }));
 jest.mock('../src/components/shared/LocationDropdown', () => ({ __esModule: true, default: () => null }));
-jest.mock('../src/components/shared/AddUserDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/components/ui/dropdown-menu', () => {
   const wrap = ({ children, ...props }) => React.createElement('div', props, children);
   return { DropdownMenu: wrap, DropdownMenuContent: wrap, DropdownMenuItem: wrap, DropdownMenuTrigger: wrap };
@@ -27,13 +26,15 @@ test.each(['admin', 'user'])('menu and direct page access for %s', async role =>
   let nav, page;
   try {
     await act(async () => { nav = create(React.createElement(TopNav)); page = create(React.createElement(Page)); });
+    expect(JSON.stringify(nav.toJSON())).not.toContain('Add User');
     const entry = nav.root.findAll(n => n.type === 'div' && n.children.join('') === 'Analytics');
-    expect(entry).toHaveLength(role === 'admin' ? 1 : 0);
-    expect(page.root.findAllByType('analytics-dashboard')).toHaveLength(role === 'admin' ? 1 : 0);
+    expect(entry).toHaveLength(1);
+    expect(page.root.findAllByType('analytics-dashboard')).toHaveLength(1);
     if (role === 'admin') {
       await act(async () => entry[0].props.onClick());
       expect(push).toHaveBeenCalledWith('/analytics');
-    } else expect(replace).toHaveBeenCalledWith('/');
+    }
+    expect(replace).not.toHaveBeenCalled();
   } finally {
     if (nav) await act(async () => nav.unmount());
     if (page) await act(async () => page.unmount());

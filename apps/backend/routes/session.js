@@ -4,8 +4,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
-const { hashPassword, comparePassword } = require('../config/db');
-const { ROLES } = require('../utils/permissions');
+const { comparePassword } = require('../config/db');
+const { normalizeRole } = require('../utils/permissions');
 
 let ensurePasswordColumnPromise = null;
 
@@ -34,8 +34,8 @@ function normalizeCredentials(username, password) {
     return { error: 'username (>=3 chars) is required' };
   }
 
-  if (!password || password.length < 8) {
-    return { error: 'password (>=8 chars) is required' };
+  if (typeof password !== 'string' || !password) {
+    return { error: 'Password is required' };
   }
 
   return {
@@ -54,51 +54,15 @@ function signUserToken(user) {
   return token;
 }
 
-const { authenticateToken, requireRole } = require('./auth');
+const { authenticateToken } = require('./auth');
 
 router.get('/me', authenticateToken, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ id: req.user.id, username: req.user.username, role: req.user.role });
 });
 
-router.post('/register', authenticateToken, requireRole(['admin']), async (req, res) => {
-  const parsed = normalizeCredentials(req.body.username, req.body.password);
-  if (parsed.error) {
-    return res.status(400).json({ message: parsed.error });
-  }
-
-  const { username, password } = parsed;
-  const role = req.body.role || 'registration';
-  if (!ROLES.includes(role)) return res.status(400).json({ message: 'Invalid role' });
-
-  try {
-
-    const existing = await db.query(
-      'SELECT id FROM users WHERE LOWER(username) = LOWER($1)',
-      [username]
-    );
-
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ message: 'Username already exists' });
-    }
-
-    const passwordHash = await hashPassword(password);
-    const insertQuery = `
-      INSERT INTO users (username, password_hash, role, is_active)
-      VALUES ($1, $2, $3, TRUE)
-      RETURNING id, username, role;
-    `;
-
-    const { rows } = await db.query(insertQuery, [username, passwordHash, role]);
-    const user = rows[0];
-    const token = signUserToken(user);
-
-    res.status(201).json({ token, user: { id: user.id, username: user.username, role: user.role } });
-  } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
+// Fixed deployment accounts: registration is deliberately unavailable, including to admins.
+router.post('/register', authenticateToken, (_req, res) => res.status(403).json({ message: 'Account creation is disabled.' }));
 
 router.post('/login', async (req, res) => {
   const parsed = normalizeCredentials(req.body.username, req.body.password);
@@ -121,7 +85,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    const user = rows[0];
+    const user = { ...rows[0], role: normalizeRole(rows[0].role) };
     if (!user.is_active) {
       return res.status(403).json({ message: 'User account is inactive' });
     }

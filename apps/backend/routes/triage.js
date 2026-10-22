@@ -30,10 +30,13 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
             notes = EXCLUDED.notes,
             last_updated_by = EXCLUDED.last_updated_by,
             last_updated_at = NOW()
-        RETURNING *;
+        -- Only the verified admin role may update a conflicting saved row.
+    WHERE ${req.user.role === 'admin'}
+    RETURNING *;
     `;
     try {
         const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by]);
+        if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved records.' });
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting visual acuity:', err);
@@ -55,10 +58,12 @@ router.post('/presenting-complaint', authenticateToken, async (req, res) => {
         ON CONFLICT (visit_id) DO UPDATE SET
             history = EXCLUDED.history, red_flags = EXCLUDED.red_flags, systems_review = EXCLUDED.systems_review, 
             drug_allergies = EXCLUDED.drug_allergies, last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()
-        RETURNING *;
+        WHERE ${req.user.role === 'admin'}
+    RETURNING *;
     `;
     try {
         const { rows } = await db.query(query, [visit_id, ...[history, red_flags, systems_review, drug_allergies].map(textOrEmpty), last_updated_by]);
+        if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved records.' });
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting presenting complaint:', err);
@@ -80,10 +85,12 @@ router.post('/history', authenticateToken, async (req, res) => {
         ON CONFLICT (visit_id) DO UPDATE SET
             past = EXCLUDED.past, drug_and_treatment = EXCLUDED.drug_and_treatment, family = EXCLUDED.family, social = EXCLUDED.social,
             systems_review = EXCLUDED.systems_review, last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()
-        RETURNING *;
+        WHERE ${req.user.role === 'admin'}
+    RETURNING *;
     `;
     try {
         const { rows } = await db.query(query, [visit_id, ...[past, drug_and_treatment, family, social, systems_review].map(textOrEmpty), last_updated_by]);
+        if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved records.' });
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error upserting history:', err);

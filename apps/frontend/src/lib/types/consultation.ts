@@ -13,6 +13,7 @@ export interface Referral {
 }
 
 export interface Consultation {
+    hasSavedNotes?: boolean;
     notes: string;
     prescription: string;
     requireReferral: boolean;

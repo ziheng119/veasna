@@ -86,6 +86,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
 
     // Normalize backend snake_case → camelCase
     const data: Consultation = {
+      hasSavedNotes: json.id != null,
       notes: json.notes ?? "",
       prescription: json.prescription ?? "",
       requireReferral: json.require_referral ?? modified_referral !== null,

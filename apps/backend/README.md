@@ -253,7 +253,7 @@ For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
 
 ## Authentication Notes
 
-- Register endpoint: `POST /api/auth/register` with `{ username, password }`. Admin only: requires a token for a user whose `role` is `admin`. In the web app, admins create accounts from the username menu → **Add User**; there is no self-registration on the login page.
+- Account creation is disabled, including for admins. Run `npm run setup:accounts` to configure the two fixed accounts (`admin` / `admin12345`, `user` / `user`) and retire other logins while retaining historical attribution.
 - Users have a `role` (`user` by default, `admin` for the seeded admin). The role is embedded in the JWT at login, so a role change takes effect on the user's next login.
 - Login endpoint: `POST /api/auth/login` with `{ username, password }`.
 - Password must be at least 8 characters.

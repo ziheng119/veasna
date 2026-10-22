@@ -1,4 +1,5 @@
-"use client"
+"use client";
+import { useUserStore } from "@/stores/useUserStore";
 
 import { Badge } from "../ui/badge";
 import { useState } from "react";
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
+  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");  
 
@@ -96,7 +98,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                 </div>
                 {onRemovePatient && (
                   <Button
-                    type="button"
+                    disabled={!isAdmin}                     type="button"
                     variant="ghost"
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"

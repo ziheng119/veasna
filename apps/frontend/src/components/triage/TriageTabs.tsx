@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react";
+import SavedRecordFields from "@/components/shared/SavedRecordFields";
+import { getTriageRecord } from "@/lib/api/triage/triageService";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,13 +25,41 @@ import { useUserStore } from "@/stores/useUserStore";
 
 interface TriageTabsProps {
     visit_id: number;
+    patient_id: number;
     // Stations indicated for the visit; lets triage send the patient to Seva.
     stations?: QueuedPatient["stations"];
     // Called with the visit's remaining stations after triage changes them.
     onStationsChanged?: (remaining: StationId[]) => void;
 }
 
-export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabsProps) {
+export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
+    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
+    const [loadedVisit, setLoadedVisit] = useState<number | null>(null);
+    const [loadError, setLoadError] = useState(false);
+    const [retry, setRetry] = useState(0);
+    const locked = (section: string) => loadedVisit !== visit_id || (!isAdmin && savedSections[section]);
+    const saved = (section: string) => setSavedSections(previous => ({ ...previous, [section]: true }));
+    useEffect(() => {
+      let cancelled = false;
+      setLoadedVisit(null); setLoadError(false);
+      Promise.all([
+        getTriageRecord<VisualAcuity>("visual-acuity", patient_id, visit_id),
+        getTriageRecord<PresentingComplaint>("presenting-complaint", patient_id, visit_id),
+        getTriageRecord<MedicalHistory>("history", patient_id, visit_id),
+      ]).then(([acuity, complaint, history]) => {
+        if (cancelled) return;
+        setVisualAcuity({
+          left_with_pinhole: acuity?.left_with_pinhole ?? "", left_without_pinhole: acuity?.left_without_pinhole ?? "",
+          right_with_pinhole: acuity?.right_with_pinhole ?? "", right_without_pinhole: acuity?.right_without_pinhole ?? "", notes: acuity?.notes ?? "",
+        });
+        setPresentingComplaint({ history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "" });
+        setMedicalHistory({ past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "" });
+        setSavedSections({ acuity: acuity !== null, complaint: complaint !== null, history: history !== null });
+        setLoadedVisit(visit_id);
+      }).catch(() => { if (!cancelled) setLoadError(true); });
+      return () => { cancelled = true; };
+    }, [patient_id, visit_id, retry]);
     const token = useUserStore((state) => state.user?.token);
     const remainingStations = (stations ?? []).filter((s) => !s.completed).map((s) => s.station);
     const sevaQueued = remainingStations.includes("seva");
@@ -63,6 +93,7 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
     });
 
     const handleSaveVisualAcuity = async () => {
+        if (locked("acuity")) return;
         const { notes, ...readings } = visualAcuity;
         const fractions = normalizeSnellenFields(readings);
         if (!fractions) {
@@ -72,7 +103,8 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
         setVisualAcuity({ ...fractions, notes });
         setIsLoading(true);
         const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
-            if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
+            saved("acuity");
+            if (!isAdmin || !stations || !token || sevaDone || sendToSeva === sevaQueued) return;
             // Add Seva after triage without discarding a previously customized route.
             const remaining: StationId[] = remainingStations.filter(id => id !== "seva");
             if (sendToSeva) remaining.splice(Math.max(0, remaining.indexOf("triage") + 1), 0, "seva");
@@ -87,8 +119,9 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
     };
 
     const handleSavePresentingComplaint = async () => {
+        if (locked("complaint")) return;
         setIsLoading(true);
-        const promise = savePresentingComplaint({ ...presentingComplaint, visit_id: visit_id });
+        const promise = savePresentingComplaint({ ...presentingComplaint, visit_id: visit_id }).then(() => saved("complaint"));
         toast.promise(promise, {
             loading: 'Saving Presenting Complaints...',
             success: 'Data saved successfully!',
@@ -97,8 +130,9 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
     };
 
     const handleSaveMedicalHistory = async () => {
+        if (locked("history")) return;
         setIsLoading(true);
-        const promise = saveMedicalHistory({ ...medicalHistory, visit_id: visit_id });
+        const promise = saveMedicalHistory({ ...medicalHistory, visit_id: visit_id }).then(() => saved("history"));
         toast.promise(promise, {
             loading: 'Saving Medical History...',
             success: 'Data saved successfully!',
@@ -108,6 +142,7 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
 
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
+            {loadError && <p role="alert">Unable to load saved data. <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
                 <TabsTrigger value="visual-acuity" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Visual Acuity</TabsTrigger>
                 <TabsTrigger value="presenting-complaint" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Presenting Complaints</TabsTrigger>
@@ -116,7 +151,7 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
 
             <div className="flex-1 overflow-y-auto mt-6">
                 {/* Visual Acuity Form */}
-                <TabsContent value="visual-acuity" className="mt-0">
+                <TabsContent value="visual-acuity" className="mt-0"><SavedRecordFields locked={locked("acuity")}>
                     <Card className="bg-card border-border">
                         <CardHeader><CardTitle className="text-foreground">Snellen's Test (Visual Acuity)</CardTitle></CardHeader>
                         <CardContent className="space-y-6">
@@ -149,7 +184,7 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
                                     <Checkbox
                                         id="send-to-seva"
                                         checked={sevaDone || sendToSeva}
-                                        disabled={sevaDone}
+                                        disabled={sevaDone || !isAdmin}
                                         onCheckedChange={(checked) => setSendToSeva(checked === true)}
                                         className="mt-0.5 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                     />
@@ -172,10 +207,10 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
                             <Button onClick={handleSaveVisualAcuity} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
                         </CardFooter>
                     </Card>
-                </TabsContent>
+                </SavedRecordFields></TabsContent>
 
                 {/* Presenting Complaints Form */}
-                <TabsContent value="presenting-complaint" className="mt-0">
+                <TabsContent value="presenting-complaint" className="mt-0"><SavedRecordFields locked={locked("complaint")}>
                      <Card className="bg-card border-border">
                         <CardHeader><CardTitle className="text-foreground">Presenting Complaints</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -200,10 +235,10 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
                             <Button onClick={handleSavePresentingComplaint} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
                         </CardFooter>
                     </Card>
-                </TabsContent>
+                </SavedRecordFields></TabsContent>
 
                 {/* Medical History Form */}
-                <TabsContent value="medical-history" className="mt-0">
+                <TabsContent value="medical-history" className="mt-0"><SavedRecordFields locked={locked("history")}>
                     <Card className="bg-card border-border">
                         <CardHeader><CardTitle className="text-foreground">Medical History</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -232,7 +267,7 @@ export function TriageTabs({ visit_id, stations, onStationsChanged }: TriageTabs
                             <Button onClick={handleSaveMedicalHistory} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save History"}</Button>
                         </CardFooter>
                     </Card>
-                </TabsContent>
+                </SavedRecordFields></TabsContent>
             </div>
         </Tabs>
     );

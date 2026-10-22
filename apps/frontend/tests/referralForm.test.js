@@ -1,4 +1,6 @@
 const React = require('react');
+let currentRole = 'admin';
+beforeEach(() => { currentRole = 'admin'; });
 const { act, create } = require('react-test-renderer');
 // Keep portal mechanics out of renderer tests while exercising controlled dialog state.
 jest.mock('../src/components/ui/dialog', () => {
@@ -17,7 +19,7 @@ jest.mock('../src/components/ui/dialog', () => {
     DialogDescription: ({ children }) => React.createElement('p', null, children),
   };
 });
-jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { id: 1, username: 'Clinician' } }) }));
+jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { id: 1, username: 'Clinician', role: currentRole } }) }));
 jest.mock('../src/lib/api/visit/deleteReferral', () => ({ deleteReferral: jest.fn() }));
 jest.mock('../src/lib/api/visit/postReferral', () => ({ postReferral: jest.fn() }));
 jest.mock('../src/components/doctors-consultation/SignaturePad', () => ({ __esModule: true, default: props => React.createElement('signature-pad', props) }));
@@ -145,5 +147,32 @@ test('saved signature reloads into the editable pad and explicit clearing is sav
   } finally {
     if (renderer) await act(async () => renderer.unmount());
     log.mockRestore();
+  }
+});
+
+test('user can view and print a saved referral without saving or deleting it', async () => {
+  currentRole = 'user';
+  const { postReferral } = require('../src/lib/api/visit/postReferral');
+  postReferral.mockClear();
+  const popup = { document: { open: jest.fn(), write: jest.fn(), close: jest.fn() }, focus: jest.fn(), print: jest.fn() };
+  const previousWindow = global.window;
+  global.window = { open: jest.fn(() => popup) };
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(ReferralForm, {
+      patient: { visit_id: 1 }, patientInfo: { english_name: 'Patient', date_of_birth: '2000-01-01' },
+      retrievedReferral: { referralDate: '2026-10-22', referralType: [], illness: '', duration: '', reason: 'Saved', signature: [[[0,0],[1,1]]] },
+      onClose: jest.fn(),
+    })); });
+    expect(renderer.root.findAllByType('fieldset')[0].props.disabled).toBe(true);
+    const buttons = renderer.root.findAllByType('button');
+    expect(buttons.some(node => node.children.join('') === 'Delete referral')).toBe(false);
+    await act(async () => buttons.find(node => node.children.join('') === 'Print saved referral').props.onClick());
+    expect(popup.print).toHaveBeenCalledTimes(1);
+    expect(postReferral).not.toHaveBeenCalled();
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    global.window = previousWindow; log.mockRestore();
   }
 });

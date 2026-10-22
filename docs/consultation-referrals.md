@@ -132,3 +132,7 @@ npm.cmd test --workspace apps/backend -- --runInBand tests/referral.database.tes
 Database tests use temporary tables on a dedicated PostgreSQL connection, including
 migration repeatability, signature round-trip, draft clearing, and ETag refresh.
 They do not change clinic records.
+
+## Record permissions
+
+Both roles can create a referral and view/print saved referrals. Only admins can revise or delete a saved referral or signature. See [roles and first-save boundaries](user-roles.md).

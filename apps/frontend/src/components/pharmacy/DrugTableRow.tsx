@@ -1,3 +1,4 @@
+import { useUserStore } from "@/stores/useUserStore";
 import { Drug } from "@/lib/types/drug"
 import { StockStatusBadge } from "./StockStatusBadge"
 import { StockCountInput } from "./StockCountInput"
@@ -13,6 +14,7 @@ interface DrugTableRowProps {
 }
 
 export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDeleteDrug }: DrugTableRowProps) {
+    const isAdmin = useUserStore(state => state.user?.role === "admin");
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedName, setEditedName] = useState(drug.drug_name);
 
@@ -60,7 +62,7 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{drug.drug_name}</span>
                 <button
-                  onClick={() => setIsEditingName(true)}
+                  disabled={!isAdmin} onClick={() => setIsEditingName(true)}
                   className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <EditIcon className="h-3 w-3" />
@@ -75,14 +77,14 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
             </div>
           </td>
           <td className="px-6 py-4">
-            <StockCountInput
+            <fieldset disabled={!isAdmin}><StockCountInput
               count={drug.stock_count}
               onCountChange={(newCount) => onStockCountChange(drug.id, newCount)}
-            />
+            /></fieldset>
           </td>
           <td className="px-6 py-4">
             <button
-              onClick={() => onDeleteDrug(drug.id)}
+              disabled={!isAdmin} onClick={() => onDeleteDrug(drug.id)}
               className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-1"
               title={`Delete ${drug.drug_name}`}
             >
