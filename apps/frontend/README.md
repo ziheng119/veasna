@@ -121,7 +121,7 @@ Goal: run Veasna on desktops without internet access.
 ## Main Pages
 
 - `/`: registration + queue
-- `/patient-list`, `/patient-details`
+- `/patient-list`, `/patient-details` (admins can correct the patient and every section of a past visit here; see `src/components/patient-details/`)
 - `/triage`
 - `/seva`
 - `/physiotherapy`

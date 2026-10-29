@@ -1,84 +1,44 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
-import { PatientInfo } from "@/lib/types/patient";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
 import { ArrowLeftIcon, SearchIcon, CalendarIcon } from "lucide-react";
-import { EditIcon, PersonIcon } from "@/assets/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import DisabledActionHint from "@/components/shared/DisabledActionHint";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getPatient } from "@/lib/api/patient/getPatients";
-import { getVisit } from "@/lib/api/visit/getVisit";
-import { updatePatient } from "@/lib/api/patient/updatePatient";
+import PatientInfoCard, { PatientRecord } from "@/components/patient-details/PatientInfoCard";
+import VisitRecordTabs from "@/components/patient-details/VisitRecordTabs";
+import { clearPatientCache, getPatient } from "@/lib/api/patient/getPatients";
+import { clearVisitCache, getVisit } from "@/lib/api/visit/getVisit";
+import { canEditSavedData } from "@/lib/permissions";
 import formatDate from "@/helper/format_date";
-import DottedImage from "@/components/physiotherapy/DottedImage";
-import { sevaReferralLabel } from "@/constants/sevaReferral";
-import { TB_STATUS_LABELS, tbRedFlagLabel } from "@/constants/tb";
-import { VisitTb } from "@/lib/types/visit";
+import { VisitDetails, VisitSummary } from "@/lib/types/visit";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
 
-interface Visit {
-  visit_id: number;
-  queue_no: string;
-  visit_date: string;
-  location_name: string;
-  last_updated_at: string;
-  has_vitals: boolean;
-  has_presenting_complaint: boolean;
-  has_seva: boolean;
-  has_physiotherapy: boolean;
-  has_consultation: boolean;
-}
-
-interface VisitDetails {
-  visit_id: number;
-  queue_no: string;
-  visit_date: string;
-  location_name: string;
-  vitals?: any;
-  hef?: any;
-  visual_acuity?: any;
-  presenting_complaint?: any;
-  history?: any;
-  seva?: any;
-  physiotherapy?: any;
-  consultation?: any;
-  tb?: VisitTb | null;
-}
-
 interface PatientData {
-  patient: PatientInfo;
-  visits: Visit[];
+  patient: PatientRecord;
+  visits: VisitSummary[];
 }
 
-const DataField = ({ label, value }: { label: string; value: any }) => (
-  <div>
-    <p className="text-sm font-medium text-muted-foreground">{label}</p>
-    <p className="mt-1 text-foreground">{value || 'N/A'}</p>
-  </div>
-);
-
+/**
+ * A patient's demographics and full visit history. Everyone can read it; admins can correct
+ * the patient details and every record of a visit, one section at a time.
+ */
 export default function PatientDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = Number(searchParams.get('id'));
   const token = useUserStore((state) => state.user?.token);
+  const canEdit = useUserStore((state) => canEditSavedData(state.user?.role));
 
   const [patientData, setPatientData] = useState<PatientData | null>(null);
-  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
   const [visitDetails, setVisitDetails] = useState<VisitDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingVisit, setIsLoadingVisit] = useState(false);
   const [dateSearch, setDateSearch] = useState("");
-  
-  const isAdmin = useUserStore(state => state.user?.role === "admin");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedPatient, setEditedPatient] = useState<PatientInfo | null>(null);
 
   useEffect(() => {
     if (!patientId) {
@@ -90,10 +50,7 @@ export default function PatientDetailsPage() {
     setIsLoading(true);
     getPatient(patientId, token)
       .then(data => {
-        if (data) {
-          setPatientData(data);
-          setEditedPatient(data.patient);
-        }
+        if (data) setPatientData(data);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
@@ -102,22 +59,15 @@ export default function PatientDetailsPage() {
   const filteredVisits = useMemo(() => {
     if (!patientData?.visits) return [];
     if (!dateSearch.trim()) return patientData.visits;
-
-    return patientData.visits.filter(visit => {
-      const visitDate = visit.visit_date;
-      return visitDate.includes(dateSearch);
-    });
+    return patientData.visits.filter(visit => visit.visit_date.includes(dateSearch));
   }, [patientData?.visits, dateSearch]);
 
-  const handleVisitClick = async (visit: Visit) => {
+  const handleVisitClick = async (visit: VisitSummary) => {
     if (!token) return;
-    
-    setSelectedVisit(visit);
+    setSelectedVisitId(visit.visit_id);
     setIsLoadingVisit(true);
-    
     try {
-      const details = await getVisit(visit.visit_id, token);
-      setVisitDetails(details);
+      setVisitDetails(await getVisit(visit.visit_id, token));
     } catch (error) {
       console.error('Error fetching visit details:', error);
     } finally {
@@ -125,70 +75,34 @@ export default function PatientDetailsPage() {
     }
   };
 
+  // After an admin edit, reload the visit and the visit list (queue number, date and badges).
+  const reloadSelectedVisit = useCallback(async () => {
+    if (!token || selectedVisitId === null) return;
+    clearVisitCache(selectedVisitId);
+    clearPatientCache(patientId);
+    const [details, patient] = await Promise.all([
+      getVisit(selectedVisitId, token),
+      getPatient(patientId, token),
+    ]);
+    if (details) setVisitDetails(details);
+    if (patient) setPatientData(patient);
+  }, [token, selectedVisitId, patientId]);
+
   const handleBackToVisitList = () => {
-    setSelectedVisit(null);
+    setSelectedVisitId(null);
     setVisitDetails(null);
-  };
-
-  const handleBack = () => {
-    router.push('/patient-list');
-  };
-
-  const handleEditToggle = async () => {
-    if (isEditing && editedPatient && token) {
-      console.log('Saving patient data:', editedPatient);
-      
-      const result = await updatePatient(patientId, editedPatient, token);
-      
-      if (result.success) {
-        if (patientData) {
-          setPatientData({ ...patientData, patient: result.data.patient });
-        }
-        console.log('Patient updated successfully');
-      } else {
-        console.error('Failed to update patient:', result.error);
-        alert(`Failed to update patient: ${result.error}`);
-        setEditedPatient(patientData?.patient || null);
-      }
-    }
-    setIsEditing(!isEditing);
-  };
-
-  const handleCancel = () => {
-    setEditedPatient(patientData?.patient || null);
-    setIsEditing(false);
-  };
-
-  const handleInputChange = (field: keyof PatientInfo, value: string) => {
-    if (editedPatient) {
-      setEditedPatient({
-        ...editedPatient,
-        [field]: value
-      });
-    }
-  };
-
-  const calculateAge = (birthDate: string): number | null => {
-    if (!birthDate) return null;
-    const dob = new Date(birthDate);
-    if (isNaN(dob.getTime())) return null;
-    const today = new Date();
-    const age = today.getFullYear() - dob.getFullYear();
-    const monthDiff = today.getMonth() - dob.getMonth();
-    return monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())
-      ? age - 1 : age;
   };
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading patient details...</div>;
   }
-  
+
   if (!patientData) {
     return <div className="flex items-center justify-center h-screen">Patient not found.</div>;
   }
 
   const { patient, visits } = patientData;
-  const displayPatient = isEditing ? editedPatient : patient;
+  const selectedSummary = visits.find(visit => visit.visit_id === selectedVisitId);
 
   return (
     <div className={PAGE_SHELL}>
@@ -196,173 +110,36 @@ export default function PatientDetailsPage() {
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          onClick={handleBack}
+          onClick={() => router.push('/patient-list')}
           className="flex items-center gap-2"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back to Patient List
         </Button>
-        
-        <div className="flex items-center gap-2">
-          {isEditing && (
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-          )}
-          <DisabledActionHint disabled={!isAdmin} message="Only admins can edit patient details.">
-          <Button 
-            disabled={!isAdmin}
-            onClick={handleEditToggle}
-            className="">
-            <EditIcon className="w-4 h-4 mr-2"/>
-            {isEditing ? 'Save Changes' : 'Edit Patient'}
-          </Button>
-          </DisabledActionHint>
-        </div>
+        {!canEdit && (
+          <p className="text-sm text-muted-foreground">Read-only. Only an admin can change saved data.</p>
+        )}
       </div>
 
       {/* Main Layout: Patient Info (Left 1/3) + Visits/Details (Right 2/3) */}
       <div className="grid grid-cols-3 gap-6 xl:grid-rows-1 xl:min-h-0 xl:flex-1">
-        {/* Left Side: Patient Information */}
         <div className={`col-span-1 ${PANEL_SCROLL}`}>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-4">
-                <PersonIcon className="h-8 w-8 text-primary" />
-                <div>
-                  <CardTitle className="text-xl">
-                    {displayPatient?.english_name || 'N/A'}
-                  </CardTitle>
-                  <CardDescription>
-                    {displayPatient?.khmer_name || 'N/A'}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">English Name</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editedPatient?.english_name || ''}
-                      onChange={(e) => handleInputChange('english_name', e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    />
-                  ) : (
-                    <p className="mt-1">{patient.english_name || 'N/A'}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Khmer Name</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editedPatient?.khmer_name || ''}
-                      onChange={(e) => handleInputChange('khmer_name', e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    />
-                  ) : (
-                    <p className="mt-1">{patient.khmer_name || 'N/A'}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
-                  {isEditing ? (
-                    <input
-                      type="date"
-                      value={editedPatient?.date_of_birth || ''}
-                      onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    />
-                  ) : (
-                    <p className="mt-1">{formatDate(patient.date_of_birth)}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Age</label>
-                  <p className="mt-1">
-                    {calculateAge(displayPatient?.date_of_birth || '') ?? 'N/A'} {calculateAge(displayPatient?.date_of_birth || '') !== null ? 'years' : ''}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Sex</label>
-                  {isEditing ? (
-                    <select
-                      value={editedPatient?.sex || ''}
-                      onChange={(e) => handleInputChange('sex', e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    >
-                      <option value="M">Male</option>
-                      <option value="F">Female</option>
-                    </select>
-                  ) : (
-                    <p className="mt-1">{patient.sex === 'M' ? 'Male' : 'Female'}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={editedPatient?.phone_number || ''}
-                      onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    />
-                  ) : (
-                    <p className="mt-1">{patient.phone_number || 'N/A'}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Unique ID</label>
-                  <p className="mt-1">{patient.face_id || 'N/A'}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="mt-1 text-sm">
-                    {patient.lastUpdated ? new Date(patient.lastUpdated).toLocaleString() : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <label className="text-sm font-medium text-muted-foreground">Address</label>
-                {isEditing ? (
-                  <textarea
-                    value={editedPatient?.address || ''}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2"
-                    rows={2}
-                  />
-                ) : (
-                  <p className="mt-1">{patient.address || 'N/A'}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PatientInfoCard
+            patient={patient}
+            canEdit={canEdit}
+            onSaved={(updated) => setPatientData(previous => previous && { ...previous, patient: { ...previous.patient, ...updated } })}
+          />
         </div>
 
         {/* Right Side: Visits List OR Visit Details */}
         <div className={`col-span-2 ${PANEL_WRAPPER}`}>
-          {!selectedVisit ? (
-            /* Visit List View */
+          {selectedVisitId === null ? (
             <Card className="xl:min-h-0 xl:max-h-full">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Visit History</CardTitle>
-                    <CardDescription>{visits.length} total visits</CardDescription>
-                  </div>
+                <div>
+                  <CardTitle>Visit History</CardTitle>
+                  <CardDescription>{visits.length} total visits</CardDescription>
                 </div>
-                {/* Search Bar */}
                 <div className="relative mt-4">
                   <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -382,10 +159,11 @@ export default function PatientDetailsPage() {
                     </p>
                   ) : (
                     filteredVisits.map((visit) => (
-                      <div
+                      <button
+                        type="button"
                         key={visit.visit_id}
                         onClick={() => handleVisitClick(visit)}
-                        className="p-4 border border-border rounded-lg cursor-pointer transition-all hover:shadow-sm hover:border-primary/40 bg-card"
+                        className="block w-full text-left p-4 border border-border rounded-lg cursor-pointer transition-all hover:shadow-sm hover:border-primary/40 bg-card"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -399,32 +177,23 @@ export default function PatientDetailsPage() {
                               Queue: <span className="font-medium">{visit.queue_no}</span> • {visit.location_name}
                             </div>
                             <div className="flex gap-2 mt-3 ml-7 flex-wrap">
-                              {visit.has_vitals && (
-                                <Badge variant="active">Triage</Badge>
-                              )}
-                              {visit.has_seva && (
-                                <Badge variant="info">Seva</Badge>
-                              )}
-                              {visit.has_physiotherapy && (
-                                <Badge variant="warning">Physiotherapy</Badge>
-                              )}
-                              {visit.has_consultation && (
-                                <Badge variant="secondary">Consultation</Badge>
-                              )}
+                              {visit.has_vitals && <Badge variant="active">Triage</Badge>}
+                              {visit.has_seva && <Badge variant="info">Seva</Badge>}
+                              {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
+                              {visit.has_consultation && <Badge variant="secondary">Consultation</Badge>}
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             Updated: {new Date(visit.last_updated_at).toLocaleDateString()}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
               </CardContent>
             </Card>
           ) : (
-            /* Visit Details View */
             <Card className="xl:min-h-0 xl:max-h-full">
               <CardHeader>
                 <div className="flex items-center gap-3">
@@ -439,9 +208,12 @@ export default function PatientDetailsPage() {
                   </Button>
                 </div>
                 <div className="mt-2">
-                  <CardTitle className="text-2xl">{formatDate(selectedVisit.visit_date)}</CardTitle>
+                  {/* Prefer the loaded visit so admin edits to date, queue or location show at once. */}
+                  <CardTitle className="text-2xl">
+                    {formatDate(visitDetails?.visit_date ?? selectedSummary?.visit_date ?? null)}
+                  </CardTitle>
                   <CardDescription className="text-base mt-1">
-                    Queue {selectedVisit.queue_no} • {selectedVisit.location_name}
+                    Queue {visitDetails?.queue_no ?? selectedSummary?.queue_no} • {visitDetails?.location_name ?? selectedSummary?.location_name}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -451,177 +223,7 @@ export default function PatientDetailsPage() {
                     <p className="text-muted-foreground">Loading visit details...</p>
                   </div>
                 ) : visitDetails ? (
-                  <Tabs defaultValue="triage" className="w-full">
-                    <TabsList className={`grid w-full ${visitDetails.tb ? "grid-cols-5" : "grid-cols-4"}`}>
-                      {visitDetails.tb && (
-                        <TabsTrigger value="tb">TB Tent</TabsTrigger>
-                      )}
-                      <TabsTrigger 
-                        value="triage" 
-                        disabled={!visitDetails.vitals && !visitDetails.presenting_complaint}
-                      >
-                        Triage
-                      </TabsTrigger>
-                      <TabsTrigger value="seva" disabled={!visitDetails.seva}>
-                        Seva
-                      </TabsTrigger>
-                      <TabsTrigger value="physio" disabled={!visitDetails.physiotherapy}>
-                        Physiotherapy
-                      </TabsTrigger>
-                      <TabsTrigger value="consult" disabled={!visitDetails.consultation}>
-                        Consultation
-                      </TabsTrigger>
-                    </TabsList>
-
-                    {/* Triage Tab */}
-                    <TabsContent value="triage" className="space-y-6">
-                      {visitDetails.vitals && (
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg border-b pb-2">Vitals</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <DataField label="Height (cm)" value={visitDetails.vitals.height} />
-                            <DataField label="Weight (kg)" value={visitDetails.vitals.weight} />
-                            <DataField label="BMI" value={visitDetails.vitals.bmi} />
-                            <DataField 
-                              label="Below 3rd Percentile" 
-                              value={visitDetails.vitals.below_3rd_percentile ? 'Yes' : 'No'} 
-                            />
-                            <DataField 
-                              label="Blood Pressure" 
-                              value={`${visitDetails.vitals.bp_systolic}/${visitDetails.vitals.bp_diastolic}`} 
-                            />
-                            <DataField label="Temperature (°C)" value={visitDetails.vitals.temperature} />
-                          </div>
-                          {visitDetails.vitals.notes && (
-                            <DataField label="Notes" value={visitDetails.vitals.notes} />
-                          )}
-                        </div>
-                      )}
-
-                      {visitDetails.presenting_complaint && (
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg border-b pb-2">Presenting Complaint</h4>
-                          <DataField label="History" value={visitDetails.presenting_complaint.history} />
-                          <DataField label="Red Flags" value={visitDetails.presenting_complaint.red_flags} />
-                          <DataField label="Systems Review" value={visitDetails.presenting_complaint.systems_review} />
-                          <DataField label="Drug Allergies" value={visitDetails.presenting_complaint.drug_allergies} />
-                        </div>
-                      )}
-
-                      {!visitDetails.vitals && !visitDetails.presenting_complaint && (
-                        <p className="text-center text-muted-foreground py-8">No triage data available</p>
-                      )}
-                    </TabsContent>
-
-                    {/* Seva Tab */}
-                    <TabsContent value="seva" className="space-y-4">
-                      {visitDetails.seva ? (
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg border-b pb-2">SEVA Assessment</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <DataField label="Left (with pinhole)" value={visitDetails.seva.left_with_pinhole_new} />
-                            <DataField label="Left (without pinhole)" value={visitDetails.seva.left_without_pinhole_new} />
-                            <DataField label="Right (with pinhole)" value={visitDetails.seva.right_with_pinhole_new} />
-                            <DataField label="Right (without pinhole)" value={visitDetails.seva.right_without_pinhole_new} />
-                          </div>
-                          <DataField label="Diagnosis" value={visitDetails.seva.diagnosis} />
-                          <DataField label="Referral needed" value={sevaReferralLabel(visitDetails.seva.referral) || "No referral"} />
-                          <DataField label="Date of Referral" value={formatDate(visitDetails.seva.date_of_referral)} />
-                          {visitDetails.seva.notes && (
-                            <DataField label="Notes" value={visitDetails.seva.notes} />
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-center text-muted-foreground py-8">No SEVA data available</p>
-                      )}
-                    </TabsContent>
-
-                    {/* TB Tab: only for visits flagged for suspected TB */}
-                    {visitDetails.tb && (
-                      <TabsContent value="tb" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <DataField label="Result" value={TB_STATUS_LABELS[visitDetails.tb.status]} />
-                          <DataField label="Reviewed" value={visitDetails.tb.reviewed_at ? new Date(visitDetails.tb.reviewed_at).toLocaleString() : "Not yet"} />
-                        </div>
-                        <DataField
-                          label="Red flags"
-                          value={visitDetails.tb.red_flags.length > 0 ? visitDetails.tb.red_flags.map(tbRedFlagLabel).join(", ") : "None ticked"}
-                        />
-                        {visitDetails.tb.flag_notes && (
-                          <DataField label="Registration notes" value={visitDetails.tb.flag_notes} />
-                        )}
-                        {visitDetails.tb.doctor_notes && (
-                          <DataField label="TB doctor's notes" value={visitDetails.tb.doctor_notes} />
-                        )}
-                      </TabsContent>
-                    )}
-
-                    {/* Physiotherapy Tab */}
-                    <TabsContent value="physio" className="space-y-4">
-                      {visitDetails.physiotherapy ? (
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg border-b pb-2">Physiotherapy</h4>
-                          <DataField label="Notes" value={visitDetails.physiotherapy.notes} />
-                          
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-3">Body Chart Indication</p>
-                            <DottedImage
-                              imageUrl="/bodychart.jpg"
-                              readOnly
-                              positions={(visitDetails.physiotherapy.painpoints ?? []).map((point: any) => ({
-                                xCoord: point.x_coord,
-                                yCoord: point.y_coord,
-                              }))}
-                            />
-                            {!visitDetails.physiotherapy.painpoints?.length && (
-                              <p className="mt-2 text-sm text-muted-foreground">No pain points marked.</p>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-center text-muted-foreground py-8">No physiotherapy data available</p>
-                      )}
-                    </TabsContent>
-
-                    {/* Consultation Tab */}
-                    <TabsContent value="consult" className="space-y-4">
-                      {visitDetails.consultation ? (
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg border-b pb-2">Consultation</h4>
-                          <DataField label="Notes" value={visitDetails.consultation.notes} />
-                          <DataField label="Prescription" value={visitDetails.consultation.prescription} />
-                          <DataField 
-                            label="Requires Referral" 
-                            value={visitDetails.consultation.require_referral ? 'Yes' : 'No'} 
-                          />
-                          
-                          {visitDetails.consultation.require_referral && visitDetails.consultation.referrals?.length > 0 && (
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground mb-3">Referrals</p>
-                              <div className="space-y-3">
-                                {visitDetails.consultation.referrals.map((referral: any) => (
-                                  <div key={referral.id} className="bg-primary/5 p-4 rounded-md border border-primary/20">
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <DataField label="Referral Date" value={formatDate(referral.referral_date)} />
-                                      <DataField label="Type" value={referral.referral_type} />
-                                      <DataField label="Illness" value={referral.illness} />
-                                      <DataField label="Duration" value={referral.duration} />
-                                      <DataField label="Doctor Name" value={referral.doctor_name} />
-                                      <div className="col-span-2">
-                                        <DataField label="Reason" value={referral.reason} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-center text-muted-foreground py-8">No consultation data available</p>
-                      )}
-                    </TabsContent>
-                  </Tabs>
+                  <VisitRecordTabs visit={visitDetails} canEdit={canEdit} onSaved={reloadSelectedVisit} />
                 ) : (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Failed to load visit details</p>

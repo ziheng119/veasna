@@ -11,6 +11,7 @@ const { STATIONS, normalizeStations, stationPosition } = require('../utils/stati
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../utils/tb');
+const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
@@ -57,16 +58,6 @@ function parseOptionalPositiveInt(value) {
   return parsed > 0 ? parsed : null;
 }
 
-function parseRequiredNumber(value) {
-  const num = typeof value === 'number' ? value : Number.parseFloat(String(value).trim());
-  return Number.isFinite(num) ? num : null;
-}
-
-function parseRequiredInt(value) {
-  const num = typeof value === 'number' ? value : Number.parseInt(String(value).trim(), 10);
-  return Number.isInteger(num) ? num : null;
-}
-
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
@@ -108,24 +99,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
     }
 
-    const height = parseRequiredNumber(vitals?.height);
-    const weight = parseRequiredNumber(vitals?.weight);
-    const bmi = parseRequiredNumber(vitals?.bmi);
-    const bpSystolic = parseRequiredInt(vitals?.bp_systolic);
-    const bpDiastolic = parseRequiredInt(vitals?.bp_diastolic);
-    const temperature = parseRequiredNumber(vitals?.temperature);
-    const below3rdPercentile = typeof vitals?.below_3rd_percentile === 'boolean' ? vitals.below_3rd_percentile : null;
-
-    if (
-        height === null || height <= 0 ||
-        weight === null || weight <= 0 ||
-        bmi === null || bmi <= 0 ||
-        bpSystolic === null || bpSystolic <= 0 ||
-        bpDiastolic === null || bpDiastolic <= 0 ||
-        temperature === null || temperature <= 0 ||
-        below3rdPercentile === null
-    ) {
-        return res.status(400).json({ error: 'Invalid vitals payload. Please provide valid numeric values and below_3rd_percentile.' });
+    const normalizedVitals = normalizeVitals(vitals);
+    if (normalizedVitals.error) {
+        return res.status(400).json({ error: normalizedVitals.error });
     }
 
     let client;
@@ -223,16 +199,17 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             INSERT INTO vitals (visit_id, height, weight, bmi, below_3rd_percentile, bp_systolic, bp_diastolic, temperature, notes, last_updated_by)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
         `;
+        const v = normalizedVitals.values;
         const vitalsValues = [
             visitId,
-            height,
-            weight,
-            bmi,
-            below3rdPercentile,
-            bpSystolic,
-            bpDiastolic,
-            temperature,
-            vitals.notes,
+            v.height,
+            v.weight,
+            v.bmi,
+            v.below_3rd_percentile,
+            v.bp_systolic,
+            v.bp_diastolic,
+            v.temperature,
+            v.notes,
             last_updated_by
         ];
         await client.query(vitalsQuery, vitalsValues);

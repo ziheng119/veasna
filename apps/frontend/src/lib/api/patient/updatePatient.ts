@@ -15,6 +15,8 @@ export async function updatePatient(
       sex: patientData.sex ?? '',
       phone_number: patientData.phone_number ?? null,
       address: patientData.address ?? null,
+      // Omitted keeps the registered location.
+      location_id: patientData.location_id ?? undefined,
     };
 
     const res = await fetch(`${backend_url}/api/patient/${patientId}`, {

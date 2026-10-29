@@ -12,6 +12,7 @@ const locationRoutes = require('./locations');
 const registrationRoutes = require('./registration');
 const queueRoutes = require('./queue');
 const visitRoutes = require('./visits');
+const visitEditRoutes = require('./visitEdits');
 const pharmacyRoutes = require('./pharmacy');
 const triageRoutes = require('./triage');
 const tbRoutes = require('./tb');
@@ -22,6 +23,8 @@ router.use('/locations', locationRoutes);
 router.use('/registration', registrationRoutes);
 router.use('/queue', queueRoutes);
 router.use('/visits', visitRoutes);
+// Admin-only corrections to saved visits (details, vitals/HEF, TB record).
+router.use('/visits', visitEditRoutes);
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/triage', triageRoutes);
 router.use('/tb', tbRoutes);
@@ -263,44 +266,6 @@ router.get(
   }
 );
 
-// Update patient info
-router.put('/patients/:id', [
-  authenticateToken,
-  requireRole(['any']),
-  body('english_name').notEmpty().withMessage('English name is required'),
-  body('date_of_birth').isISO8601().withMessage('Valid date of birth is required'),
-  body('sex')
-    .notEmpty()
-    .withMessage('Sex is required')
-    .custom((value) => normalizeSexToEnum(value) !== null)
-    .withMessage('Valid sex is required (M/F)')
-], validateRequest, async (req, res) => {
-  try {
-    const { english_name, khmer_name, date_of_birth, sex, phone_number, address, location_id, queue_no } = req.body;
-    const normalizedSex = normalizeSexToEnum(sex);
-    const query = `
-      UPDATE patients SET english_name=$1, khmer_name=$2, date_of_birth=$3, sex=$4, phone_number=$5, address=$6, location_id = COALESCE($7, location_id), queue_no = COALESCE($8, queue_no)
-      WHERE id=$9 RETURNING *;
-    `;
-    const queueToken = queue_no ? String(queue_no).toUpperCase() : null;
-    const values = [english_name, khmer_name, date_of_birth, normalizedSex, phone_number, address, location_id || null, queueToken, req.params.id];
-    const { rows } = await db.query(query, values);
-    if (!rows.length) return res.status(404).json({ message: 'Patient not found' });
-
-    if (queueToken) {
-      await db.query(
-        `UPDATE visits SET queue_no = $1 WHERE patient_id = $2 AND visit_date = CURRENT_DATE`,
-        [queueToken, req.params.id]
-      );
-    }
-
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Update Patient Error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
 // Delete patient
 router.delete('/patients/:id', [authenticateToken, requireRole(['admin'])], async (req, res) => {
   try {
@@ -526,43 +491,5 @@ router.get('/patients/:id/physiotherapy', [authenticateToken, requireRole(['any'
 
 // Mount /patients subrouter after inline /patients routes to avoid conflicts
 router.use('/patients', patientsRoutes);
-
-// --- Visits: update queue number of a specific visit ---
-
-// Update a visit's queue number
-router.put('/visits/:id', [authenticateToken, requireRole(['any'])], async (req, res) => {
-  try {
-    if (!req.body.queue_no || !String(req.body.queue_no).trim()) {
-      return res.status(400).json({ message: 'queue_no is required' });
-    }
-    const queueToken = String(req.body.queue_no).trim().toUpperCase();
-    if (!/^[0-9]+[A-Z]*$/.test(queueToken)) {
-      return res.status(400).json({ message: 'queue_no must be a number with optional A–Z suffix, e.g. 2A, 102B, 1000' });
-    }
-
-    // Get current visit to know patient/location/date for uniqueness and mirroring
-    const cur = await db.query(
-      `SELECT id, patient_id, location_id, visit_date FROM visits WHERE id = $1`,
-      [ req.params.id ]
-    );
-    if (!cur.rows.length) return res.status(404).json({ message: 'Visit not found' });
-
-    const upd = await db.query(
-      `UPDATE visits SET queue_no = $1 WHERE id = $2 RETURNING *`,
-      [ queueToken, req.params.id ]
-    );
-
-    // Mirror queue to patient
-    await db.query(`UPDATE patients SET queue_no = $1 WHERE id = $2`, [ queueToken, cur.rows[0].patient_id ]);
-
-    res.json(upd.rows[0]);
-  } catch (err) {
-    if (err && err.code === '23505') {
-      return res.status(409).json({ message: 'Duplicate queue number for this location and date' });
-    }
-    console.error('Update Visit queue_no error:', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
 
 module.exports = router;
