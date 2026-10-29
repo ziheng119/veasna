@@ -41,3 +41,24 @@ test('referral button follows saved record and deletion without losing notes', a
     log.mockRestore();
   }
 });
+
+test('loads and saves condition selections, including an explicit none choice', async () => {
+  getConsultation.mockResolvedValue({ notes: 'Existing', prescription: '', referral: null, conditionCategories: ['diabetes'] });
+  postConsultation.mockClear();
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(DoctorsNotesContainer, {patient:{visit_id:2,patient_id:1}})); });
+    const boxes=()=>renderer.root.findAllByType('input').filter(node=>node.props.type==='checkbox');
+    expect(boxes()).toHaveLength(8);
+    expect(boxes()[0].props.checked).toBe(true);
+    await act(async()=>boxes()[1].props.onChange({target:{checked:true}}));
+    const save=()=>renderer.root.findAllByType('button').find(node=>node.children.join('')==='Save consultation notes').props.onClick();
+    await act(async()=>save());
+    expect(postConsultation).toHaveBeenLastCalledWith(expect.objectContaining({conditionCategories:['diabetes','hypertension']}),2);
+    await act(async()=>boxes()[7].props.onChange({target:{checked:true}}));
+    expect(boxes().slice(0,7).every(node=>!node.props.checked)).toBe(true);
+    await act(async()=>save());
+    expect(postConsultation).toHaveBeenLastCalledWith(expect.objectContaining({conditionCategories:[]}),2);
+  } finally {if(renderer) await act(async()=>renderer.unmount());log.mockRestore();}
+});

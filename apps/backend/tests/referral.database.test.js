@@ -27,7 +27,7 @@ const db = require('../config/db');
       CREATE TEMP TABLE visits (id INT PRIMARY KEY);
       INSERT INTO visits VALUES (1);
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, completed_at TIMESTAMP);
-      CREATE TEMP TABLE consultation (id SERIAL, visit_id INT UNIQUE, notes TEXT, prescription TEXT, require_referral BOOLEAN, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW());
+      CREATE TEMP TABLE consultation (id SERIAL, visit_id INT UNIQUE, notes TEXT, condition_categories TEXT[], prescription TEXT, require_referral BOOLEAN, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW());
     `);
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8');
     // Start with the old schema to exercise upgrading existing installations.
@@ -146,4 +146,21 @@ const db = require('../config/db');
     }
     expect((await request(app).get('/referrals').query({ location_id: 1, date: '2026-10-20' })).status).toBe(401);
   });
+  test('condition selections persist, reject invalid input, obey saved-record permissions and preserve labels for older clients', async () => {
+    const migration = fs.readFileSync(path.join(__dirname, '../migrations/015_consultation_conditions.sql'), 'utf8');
+    await client.query(migration); await client.query(migration);
+    await client.query('INSERT INTO visits (id) VALUES (51)');
+    const userToken = jwt.sign({id:1,role:'user'},secret);
+    const saveNotes = (auth,body) => request(app).post('/consultation/51').set('Authorization','Bearer '+auth).send(body);
+    expect((await saveNotes(userToken,{notes:'Initial',condition_categories:['diabetes','hypertension']})).status).toBe(200);
+    expect((await request(app).get('/consultation/51').set('Authorization','Bearer '+token)).body.condition_categories).toEqual(['diabetes','hypertension']);
+    expect((await saveNotes(userToken,{condition_categories:['skin']})).status).toBe(403);
+    expect((await saveNotes(token,{notes:'Older client'})).body.condition_categories).toEqual(['diabetes','hypertension']);
+    for (const value of ['diabetes',['unknown'],['diabetes','diabetes'],[null],{}]) {
+      expect((await saveNotes(token,{condition_categories:value})).status).toBe(400);
+    }
+    expect((await saveNotes(token,{condition_categories:[]})).body.condition_categories).toEqual([]);
+    expect((await saveNotes(token,{condition_categories:null})).body.condition_categories).toBeNull();
+  });
+
 });

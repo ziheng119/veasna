@@ -55,6 +55,8 @@ ensureSevaReferral().catch(err => console.error('Migration warning:', err.messag
 ensureTbScreening().catch(err => console.error('Migration warning:', err.message));
 ensureStationRouteHistory().catch(err => console.error('Migration warning:', err.message));
 
+require('./utils/ensureSchema').ensureConsultationConditions().catch(err => console.error('Migration warning:', err.message));
+
 ensureReferralSignature().catch(err => console.error('Migration warning:', err.message));
 
 // API routes

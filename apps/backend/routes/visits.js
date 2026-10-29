@@ -1,3 +1,4 @@
+const { validConditions } = require('../utils/consultationConditions');
 const { validateSignature } = require('../utils/referralSignature');
 // routes/visits.js
 const express = require('express');
@@ -760,6 +761,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       c.id,
       c.visit_id,
       c.notes,
+      c.condition_categories,
       c.prescription,
       c.require_referral,
       c.last_updated_by,
@@ -814,6 +816,8 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     prescription,
   } = req.body;
 
+  if (!validConditions(req.body.condition_categories)) return res.status(400).json({ error: 'Select valid condition categories without duplicates.' });
+  const conditionsProvided = Object.prototype.hasOwnProperty.call(req.body, 'condition_categories');
   const last_updated_by = req.user.id;
 
   const query = `
@@ -821,12 +825,14 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       visit_id,
       notes,
       prescription,
+      condition_categories,
       require_referral,
       last_updated_by
     )
-    VALUES ($1, $2, $3, EXISTS (SELECT 1 FROM referral WHERE visit_id = $1), $4)
+    VALUES ($1, $2, $3, $5::text[], EXISTS (SELECT 1 FROM referral WHERE visit_id = $1), $4)
     ON CONFLICT (visit_id) DO UPDATE SET
       notes = EXCLUDED.notes,
+      condition_categories = CASE WHEN $6::boolean THEN EXCLUDED.condition_categories ELSE consultation.condition_categories END,
       prescription = EXCLUDED.prescription,
       require_referral = EXCLUDED.require_referral,
       last_updated_by = EXCLUDED.last_updated_by,
@@ -841,6 +847,8 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       textOrEmpty(notes),
       textOrEmpty(prescription),
       last_updated_by,
+      req.body.condition_categories ?? null,
+      conditionsProvided,
     ]);
 
     if (rows.length === 0) {

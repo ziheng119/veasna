@@ -135,7 +135,15 @@ function ensureReferralSignature() {
   return referralSignaturePromise;
 }
 
+let consultationConditionsPromise;
+function ensureConsultationConditions() {
+  if (!consultationConditionsPromise) consultationConditionsPromise = runMigration('015_consultation_conditions.sql')
+    .catch(error => { consultationConditionsPromise = null; throw error; });
+  return consultationConditionsPromise;
+}
+
 module.exports = {
+  ensureConsultationConditions,
   ensureReferralSignature,
   ensureStationRouteHistory,
   ensurePharmacyNumericStock,

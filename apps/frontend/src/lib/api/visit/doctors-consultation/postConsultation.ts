@@ -1,3 +1,4 @@
+import { invalidateConsultation } from "./getConsultation";
 import { backend_url } from "@/constants/env_variable";
 import { Consultation } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
@@ -18,6 +19,7 @@ export async function postConsultation(data: Consultation, visitId: number) {
     },
     body: JSON.stringify({
       notes: data.notes,
+      condition_categories: data.conditionCategories,
       prescription: data.prescription,
       require_referral: data.requireReferral,
     }),
@@ -28,5 +30,6 @@ export async function postConsultation(data: Consultation, visitId: number) {
     throw new Error(`Failed to save consultation: ${res.status} ${text}`);
   }
 
+  invalidateConsultation(visitId);
   return res.json();
 }
