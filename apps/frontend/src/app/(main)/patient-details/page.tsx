@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
-import { ArrowLeftIcon, SearchIcon, CalendarIcon } from "lucide-react";
+import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,15 @@ import { clearVisitCache, getVisit } from "@/lib/api/visit/getVisit";
 import { canEditSavedData } from "@/lib/permissions";
 import formatDate from "@/helper/format_date";
 import { VisitDetails, VisitSummary } from "@/lib/types/visit";
-import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER } from "@/lib/pageLayout";
+import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER, STABLE_SCROLLBAR } from "@/lib/pageLayout";
+import { ENTER, ENTER_FAST, PRESS } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+
+// Back buttons nudge their arrow on hover, like the analytics page.
+const BACK_BUTTON = cn("group flex items-center gap-2 rounded-full", PRESS);
+const BACK_ARROW = "w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transform-none";
+// Stagger the first few visit cards; later ones appear together so long lists stay quick.
+const MAX_STAGGERED_VISITS = 8;
 
 interface PatientData {
   patient: PatientRecord;
@@ -111,9 +119,9 @@ export default function PatientDetailsPage() {
         <Button
           variant="ghost"
           onClick={() => router.push('/patient-list')}
-          className="flex items-center gap-2"
+          className={BACK_BUTTON}
         >
-          <ArrowLeftIcon className="w-4 h-4" />
+          <ArrowLeftIcon className={BACK_ARROW} />
           Back to Patient List
         </Button>
         {!canEdit && (
@@ -123,7 +131,7 @@ export default function PatientDetailsPage() {
 
       {/* Main Layout: Patient Info (Left 1/3) + Visits/Details (Right 2/3) */}
       <div className="grid grid-cols-3 gap-6 xl:grid-rows-1 xl:min-h-0 xl:flex-1">
-        <div className={`col-span-1 ${PANEL_SCROLL}`}>
+        <div className={cn("col-span-1", PANEL_SCROLL, STABLE_SCROLLBAR, ENTER)}>
           <PatientInfoCard
             patient={patient}
             canEdit={canEdit}
@@ -134,7 +142,7 @@ export default function PatientDetailsPage() {
         {/* Right Side: Visits List OR Visit Details */}
         <div className={`col-span-2 ${PANEL_WRAPPER}`}>
           {selectedVisitId === null ? (
-            <Card className="xl:min-h-0 xl:max-h-full">
+            <Card key="visit-list" className={cn("xl:min-h-0 xl:max-h-full", ENTER_FAST)}>
               <CardHeader>
                 <div>
                   <CardTitle>Visit History</CardTitle>
@@ -151,19 +159,26 @@ export default function PatientDetailsPage() {
                   />
                 </div>
               </CardHeader>
-              <CardContent className={PANEL_SCROLL + " xl:flex-1"}>
-                <div className="space-y-3">
+              <CardContent className={cn(PANEL_SCROLL, STABLE_SCROLLBAR, "xl:flex-1")}>
+                {/* Padding leaves room for the hover lift and focus ring inside the scrolling panel. */}
+                <div className="space-y-3 p-1">
                   {filteredVisits.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">
                       {dateSearch ? 'No visits found for this date' : 'No visits recorded'}
                     </p>
                   ) : (
-                    filteredVisits.map((visit) => (
+                    filteredVisits.map((visit, index) => (
                       <button
                         type="button"
                         key={visit.visit_id}
                         onClick={() => handleVisitClick(visit)}
-                        className="block w-full text-left p-4 border border-border rounded-lg cursor-pointer transition-all hover:shadow-sm hover:border-primary/40 bg-card"
+                        style={{ animationDelay: `${Math.min(index, MAX_STAGGERED_VISITS) * 40}ms` }}
+                        className={cn(
+                          "group block w-full cursor-pointer rounded-xl border border-border bg-card p-4 text-left",
+                          "transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0 motion-reduce:transform-none",
+                          ENTER_FAST, PRESS,
+                        )}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -183,8 +198,12 @@ export default function PatientDetailsPage() {
                               {visit.has_consultation && <Badge variant="secondary">Consultation</Badge>}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             Updated: {new Date(visit.last_updated_at).toLocaleDateString()}
+                            <ChevronRightIcon
+                              aria-hidden="true"
+                              className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transform-none"
+                            />
                           </div>
                         </div>
                       </button>
@@ -194,16 +213,16 @@ export default function PatientDetailsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="xl:min-h-0 xl:max-h-full">
+            <Card key="visit-details" className={cn("xl:min-h-0 xl:max-h-full", ENTER_FAST)}>
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleBackToVisitList}
-                    className="flex items-center gap-2"
+                    className={BACK_BUTTON}
                   >
-                    <ArrowLeftIcon className="w-4 h-4" />
+                    <ArrowLeftIcon className={BACK_ARROW} />
                     Back to Visits
                   </Button>
                 </div>
@@ -217,10 +236,13 @@ export default function PatientDetailsPage() {
                   </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className={PANEL_SCROLL + " xl:flex-1"}>
+              <CardContent className={cn(PANEL_SCROLL, STABLE_SCROLLBAR, "xl:flex-1")}>
                 {isLoadingVisit ? (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-muted-foreground">Loading visit details...</p>
+                  <div className="space-y-4" aria-busy="true" aria-label="Loading visit details">
+                    <div className="h-11 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+                    {[0, 1].map((i) => (
+                      <div key={i} className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" style={{ animationDelay: `${i * 100}ms` }} />
+                    ))}
                   </div>
                 ) : visitDetails ? (
                   <VisitRecordTabs visit={visitDetails} canEdit={canEdit} onSaved={reloadSelectedVisit} />

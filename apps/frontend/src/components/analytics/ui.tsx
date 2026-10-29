@@ -3,9 +3,10 @@
 import { ComponentType, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { ChevronDown, Download, FileSpreadsheet, Info, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ENTER } from "@/lib/motion";
 
 export const panel = "rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6";
-export const enter = "animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both motion-reduce:animate-none";
+export const enter = ENTER;
 export const fieldClass = "h-10 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 // "What is this?" help: hover or focus previews it, click/tap pins it open (for touch screens).

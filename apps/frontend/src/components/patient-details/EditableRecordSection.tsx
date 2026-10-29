@@ -1,12 +1,15 @@
 "use client";
 
-import { ReactNode, useEffect, useId, useState } from "react";
+import { ReactNode, useEffect, useId, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { Check, Loader2, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import GlassButton from "@/components/shared/GlassButton";
 import SnellenInput from "@/components/shared/SnellenInput";
 import formatDate from "@/helper/format_date";
+import { ENTER_FAST, PRESS } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export type FieldOption = { readonly value: string; readonly label: string };
@@ -54,10 +57,12 @@ interface Props<D extends Record<string, unknown>> {
   // Facts shown in both modes that are never edited here (e.g. generated IDs).
   readOnlyItems?: { label: string; value: ReactNode }[];
   emptyMessage?: string;
+  // Draw the section as its own card. Turn off when it already sits inside a Card.
+  framed?: boolean;
 }
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 /** View/edit card for one record of a visit or patient. Admins edit and save it on its own. */
 export default function EditableRecordSection<D extends Record<string, unknown>>({
@@ -72,6 +77,7 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
   editHint,
   readOnlyItems = [],
   emptyMessage = "Not recorded for this visit.",
+  framed = true,
 }: Props<D>) {
   const idPrefix = useId();
   const [editing, setEditing] = useState(false);
@@ -85,6 +91,11 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
   }, [record, editing]);
 
   const canAdd = !record && emptyDraft !== undefined;
+  // Compared as JSON: drafts are plain values, and this only runs while editing.
+  const isDirty = useMemo(
+    () => editing && JSON.stringify(draft) !== JSON.stringify(record ?? emptyDraft ?? null),
+    [editing, draft, record, emptyDraft],
+  );
 
   const startEditing = () => {
     setDraft(record ?? emptyDraft ?? null);
@@ -123,39 +134,96 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
     setDraft((previous) => (previous ? derive({ ...previous, [key]: value }) : previous));
 
   const values = editing ? draft : record;
+  const StartIcon = record ? Pencil : Plus;
 
   return (
-    <section className="space-y-4" aria-label={title}>
-      <div className="flex items-center justify-between gap-3 border-b pb-2">
-        <h4 className="text-lg font-semibold">{title}</h4>
+    <section
+      aria-label={title}
+      className={cn(
+        "space-y-4 transition-[box-shadow,border-color,background-color] duration-300 motion-reduce:transition-none",
+        framed && "rounded-xl border border-border bg-card p-4 hover:shadow-sm",
+        framed && editing && "border-primary/40 bg-primary/[0.02] shadow-md ring-2 ring-primary/15 hover:shadow-md",
+      )}
+    >
+      <div className="flex min-h-9 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h4 className="truncate text-lg font-semibold">{title}</h4>
+          {editing && (
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary", ENTER_FAST)}>
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
+              Editing
+            </span>
+          )}
+        </div>
+
         {canEdit && !editing && (record || canAdd) && (
-          <Button variant="outline" size="sm" onClick={startEditing}>
+          <GlassButton
+            size="sm"
+            onClick={startEditing}
+            aria-label={`${record ? "Edit" : "Add"} ${title}`}
+            className={cn("group h-8 gap-1.5 px-3 hover:-translate-y-px", ENTER_FAST)}
+          >
+            <StartIcon
+              className={cn(
+                "size-3.5 transition-transform duration-300 motion-reduce:transform-none",
+                record ? "group-hover:-rotate-12 group-hover:scale-110" : "group-hover:rotate-90",
+              )}
+            />
             {record ? "Edit" : "Add"}
-          </Button>
+          </GlassButton>
         )}
+
         {editing && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={cancel} disabled={saving}>
+          <div className={cn("flex items-center gap-2", ENTER_FAST)}>
+            {isDirty && !saving && <span className="hidden text-xs text-muted-foreground sm:inline">Unsaved changes</span>}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cancel}
+              disabled={saving}
+              className={cn("group h-8 gap-1.5 rounded-full px-3 hover:bg-muted", PRESS)}
+            >
+              <X className="size-3.5 transition-transform duration-300 group-hover:rotate-90 motion-reduce:transform-none" />
               Cancel
             </Button>
-            <Button size="sm" onClick={save} disabled={saving}>
+            <Button
+              size="sm"
+              onClick={save}
+              disabled={saving || !isDirty}
+              title={isDirty ? undefined : "No changes to save"}
+              className={cn(
+                "group h-8 gap-1.5 rounded-full px-4 shadow-sm transition duration-200 hover:-translate-y-px hover:shadow-md motion-reduce:transition-none",
+                PRESS,
+              )}
+            >
+              {saving ? (
+                <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Check className="size-3.5 transition-transform duration-300 group-hover:scale-125 motion-reduce:transform-none" />
+              )}
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         )}
       </div>
 
-      {editing && editHint && <p className="text-sm text-muted-foreground">{editHint}</p>}
+      {editing && editHint && <p className={cn("text-sm text-muted-foreground", ENTER_FAST)}>{editHint}</p>}
       {error && (
-        <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className={cn("rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive", ENTER_FAST)}
+        >
           {error}
         </p>
       )}
 
       {!values ? (
-        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+        <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+          {emptyMessage}
+        </p>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        // Keyed on the mode so switching between view and edit replays the entrance.
+        <div key={editing ? "edit" : "view"} className={cn("grid grid-cols-2 gap-4", ENTER_FAST)}>
           {readOnlyItems.map((item) => (
             <div key={item.label}>
               <p className="text-sm font-medium text-muted-foreground">{item.label}</p>
@@ -181,6 +249,27 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
         </div>
       )}
     </section>
+  );
+}
+
+/** Bordered checkbox option that highlights when ticked, matching the referral form. */
+export function CheckboxTile({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 text-sm transition-colors duration-200 motion-reduce:transition-none",
+        checked ? "border-foreground/25 bg-muted/60" : "border-border hover:bg-muted/30",
+        PRESS,
+      )}
+    >
+      <input
+        type="checkbox"
+        className="size-4 shrink-0 accent-foreground"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -227,17 +316,14 @@ function renderInput<D>(field: FieldSpec<D>, id: string, value: unknown, onChang
       return (
         <div id={id} role="group" className="grid gap-2 sm:grid-cols-2">
           {field.options.map((option) => (
-            <label key={option.value} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-foreground"
-                checked={selected.includes(option.value)}
-                onChange={(e) =>
-                  onChange(e.target.checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
-                }
-              />
-              {option.label}
-            </label>
+            <CheckboxTile
+              key={option.value}
+              label={option.label}
+              checked={selected.includes(option.value)}
+              onChange={(checked) =>
+                onChange(checked ? [...selected, option.value] : selected.filter((item) => item !== option.value))
+              }
+            />
           ))}
         </div>
       );

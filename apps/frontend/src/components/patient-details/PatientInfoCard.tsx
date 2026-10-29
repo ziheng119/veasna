@@ -102,6 +102,7 @@ export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
           record={record}
           fields={fields}
           canEdit={canEdit}
+          framed={false}
           editHint="The Unique ID is regenerated from the names and date of birth when you save."
           readOnlyItems={[
             { label: "Unique ID", value: patient.face_id || "N/A" },

@@ -15,6 +15,10 @@ export const PANEL_WRAPPER = "xl:min-h-0";
 // For a panel that is not a PageCard (PageCard scrolls its content by default).
 export const PANEL_SCROLL = "xl:min-h-0 xl:overflow-y-auto";
 
+// Always reserve the scrollbar's width, so content does not jump sideways when switching to
+// content tall enough to scroll (e.g. between tabs). Add next to PANEL_SCROLL.
+export const STABLE_SCROLLBAR = "[scrollbar-gutter:stable]";
+
 // Opt-in compact summaries: headers stay visible while each body scrolls independently.
 export const COMPACT_SUMMARY_CARD = "min-h-0 min-w-0 overflow-hidden gap-3 py-4";
 export const COMPACT_SUMMARY_HEADER = "shrink-0 px-4 text-base [.border-b]:pb-3";

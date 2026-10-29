@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ReactNode, useMemo, useState } from "react";
+import { Activity, ClipboardList, Eye, HeartPulse, ShieldAlert, Stethoscope } from "lucide-react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import DottedImage from "@/components/physiotherapy/DottedImage";
-import EditableRecordSection, { FieldOption, FieldSpec } from "./EditableRecordSection";
+import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
+import EditableRecordSection, { CheckboxTile, FieldOption, FieldSpec } from "./EditableRecordSection";
+import { ENTER_FAST } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 import { REFERRAL_DESTINATIONS, parseReferralDestinations } from "@/constants/referral";
 import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
@@ -144,29 +148,22 @@ const CONSULT_FIELDS: FieldSpec<ConsultDraft>[] = [
       return (
         <div className="grid gap-2 sm:grid-cols-2">
           {CONSULTATION_CONDITIONS.map((condition) => (
-            <label key={condition.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-foreground"
-                checked={selected?.includes(condition.id) ?? false}
-                onChange={(e) =>
-                  onChange(e.target.checked
-                    ? [...(selected ?? []), condition.id]
-                    : (selected ?? []).filter((id) => id !== condition.id))
-                }
-              />
-              {condition.label}
-            </label>
-          ))}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 accent-foreground"
-              checked={selected !== null && selected.length === 0}
-              onChange={(e) => onChange(e.target.checked ? [] : null)}
+            <CheckboxTile
+              key={condition.id}
+              label={condition.label}
+              checked={selected?.includes(condition.id) ?? false}
+              onChange={(checked) =>
+                onChange(checked
+                  ? [...(selected ?? []), condition.id]
+                  : (selected ?? []).filter((id) => id !== condition.id))
+              }
             />
-            None of the listed conditions
-          </label>
+          ))}
+          <CheckboxTile
+            label="None of the listed conditions"
+            checked={selected !== null && selected.length === 0}
+            onChange={(checked) => onChange(checked ? [] : null)}
+          />
         </div>
       );
     },
@@ -203,6 +200,16 @@ function validateVitals(draft: VitalsDraft): string | null {
   return null;
 }
 
+// Panels stay mounted so an unsaved edit survives switching tabs. Showing a hidden panel
+// replays its entrance animation, so every switch feels the same.
+function StationPanel({ value, children }: { value: string; children: ReactNode }) {
+  return (
+    <TabsContent forceMount value={value} className={cn("space-y-4 data-[state=inactive]:hidden", ENTER_FAST)}>
+      {children}
+    </TabsContent>
+  );
+}
+
 interface Props {
   visit: VisitDetails;
   canEdit: boolean;
@@ -213,6 +220,8 @@ interface Props {
 /** Every record of one visit, grouped by station. Admins can correct or add each section. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const locations = useLocationStore((state) => state.locations);
+  // A flagged visit opens on the TB tent, where the patient was seen first.
+  const [activeTab, setActiveTab] = useState(visit.tb ? "tb" : "registration");
   const visitId = visit.visit_id;
   const isCompleted = Boolean(visit.completed_at);
 
@@ -286,21 +295,23 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const hasTriage = Boolean(visit.visual_acuity || visit.presenting_complaint || visit.history);
   const hasConsultation = Boolean(visit.consultation || visit.referrals.length);
   // Users only open tabs with data; admins can open every tab to add a missing record.
-  const tabDisabled = (hasData: boolean) => !canEdit && !hasData;
+  const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
+    ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
+  const tabs: SegmentedTab[] = [
+    ...(visit.tb ? [tab("tb", "TB Tent", ShieldAlert, true)] : []),
+    tab("registration", "Registration", ClipboardList, hasRegistration),
+    tab("triage", "Triage", HeartPulse, hasTriage),
+    tab("seva", "Seva", Eye, Boolean(visit.seva)),
+    tab("physio", "Physiotherapy", Activity, Boolean(visit.physiotherapy)),
+    tab("consult", "Consultation", Stethoscope, hasConsultation),
+  ];
 
   return (
-    <Tabs defaultValue={visit.tb ? "tb" : "registration"} className="w-full">
-      <TabsList className={`grid w-full ${visit.tb ? "grid-cols-6" : "grid-cols-5"}`}>
-        {visit.tb && <TabsTrigger value="tb">TB Tent</TabsTrigger>}
-        <TabsTrigger value="registration">Registration</TabsTrigger>
-        <TabsTrigger value="triage" disabled={tabDisabled(hasTriage)}>Triage</TabsTrigger>
-        <TabsTrigger value="seva" disabled={tabDisabled(Boolean(visit.seva))}>Seva</TabsTrigger>
-        <TabsTrigger value="physio" disabled={tabDisabled(Boolean(visit.physiotherapy))}>Physiotherapy</TabsTrigger>
-        <TabsTrigger value="consult" disabled={tabDisabled(hasConsultation)}>Consultation</TabsTrigger>
-      </TabsList>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-4">
+      <SegmentedTabs tabs={tabs} value={activeTab} label="Visit stations" markedLabel="has records" />
 
       {visit.tb && drafts.tb && (
-        <TabsContent value="tb" className="space-y-6">
+        <StationPanel value="tb">
           <EditableRecordSection
             title="TB Screening"
             record={drafts.tb}
@@ -318,10 +329,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
               ...(isCompleted && d.status ? { status: d.status } : {}),
             }))}
           />
-        </TabsContent>
+        </StationPanel>
       )}
 
-      <TabsContent value="registration" className="space-y-6">
+      <StationPanel value="registration">
         <EditableRecordSection
           title="Visit Details"
           record={drafts.info}
@@ -364,10 +375,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           emptyDraft={{ know_of_hef: false, has_hef: false, notes: "" }}
           onSave={saved((d: HefDraft) => updateVisitVitals(visitId, { hef: d }))}
         />
-        {!hasRegistration && !canEdit && <p className="text-center text-muted-foreground">No registration data available</p>}
-      </TabsContent>
+      </StationPanel>
 
-      <TabsContent value="triage" className="space-y-6">
+      <StationPanel value="triage">
         <EditableRecordSection
           title="Visual Acuity"
           record={drafts.acuity}
@@ -392,9 +402,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           emptyDraft={{ past: "", drug_and_treatment: "", family: "", social: "", systems_review: "" }}
           onSave={saved((d: HistoryDraft) => saveMedicalHistory({ visit_id: visitId, ...d }))}
         />
-      </TabsContent>
+      </StationPanel>
 
-      <TabsContent value="seva" className="space-y-6">
+      <StationPanel value="seva">
         <EditableRecordSection
           title="SEVA Assessment"
           record={drafts.seva}
@@ -415,9 +425,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             notes: d.notes,
           }, visitId))}
         />
-      </TabsContent>
+      </StationPanel>
 
-      <TabsContent value="physio" className="space-y-6">
+      <StationPanel value="physio">
         <EditableRecordSection
           title="Physiotherapy"
           record={drafts.physio}
@@ -426,9 +436,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           emptyDraft={{ notes: "", painpoints: [] }}
           onSave={saved((d: PhysioDraft) => postPhysiotherapy(d, visitId))}
         />
-      </TabsContent>
+      </StationPanel>
 
-      <TabsContent value="consult" className="space-y-6">
+      <StationPanel value="consult">
         <EditableRecordSection
           title="Consultation"
           record={drafts.consult}
@@ -463,7 +473,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             signature: visit.referrals[0]?.signature ?? null,
           }, visitId))}
         />
-      </TabsContent>
+      </StationPanel>
     </Tabs>
   );
 }
