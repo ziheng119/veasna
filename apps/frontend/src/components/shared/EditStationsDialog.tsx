@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { Check, Loader2, Undo2 } from "lucide-react";
 import { StationId } from "@/constants/stations";
 import { QueuedPatient } from "@/lib/types/patient";
 import { updateVisitStations } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
+import { PRESS } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -29,21 +32,21 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
   const [remaining, setRemaining] = useState<StationId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  const original = useMemo(
+    () => (patient?.stations ?? []).filter((s) => !s.completed).map((s) => s.station),
+    [patient],
+  );
   const completed = (patient?.stations ?? []).filter((s) => s.completed).map((s) => s.station);
   // On TB hold the TB tent stays until a TB doctor clears the patient.
   const onTbHold = (patient?.stations ?? []).some((s) => s.station === "tb" && !s.completed);
+  const isDirty = remaining.join() !== original.join();
 
   useEffect(() => {
-    setRemaining((patient?.stations ?? []).filter((s) => !s.completed).map((s) => s.station));
-  }, [patient]);
+    setRemaining(original);
+  }, [original]);
 
   const handleSave = async () => {
-    if (!patient || !token) return;
-    if (remaining.length === 0) {
-      toast.error("Select at least one station, or discharge the patient instead.");
-      return;
-    }
-
+    if (!patient || !token || remaining.length === 0 || !isDirty) return;
     try {
       setIsSaving(true);
       await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
@@ -60,17 +63,10 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
 
   return (
     <Dialog open={!!patient} onOpenChange={(open) => { if (!open && !isSaving) onClose(); }}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Stations for {patient?.english_name || "this patient"}</DialogTitle>
-          <DialogDescription>
-            Set the remaining stops in order. Return to a completed station, or use Skip for now
-            to move a stop to the end without completing it. Remove drops a stop from this route.
-            Changes take effect when you save; existing clinical notes are kept.
-            {onTbHold
-              ? " This patient is on TB hold and will stay in the TB tent until a TB doctor clears them."
-              : " Add TB Tent if TB is suspected: the patient will be sent there first and held until cleared."}
-          </DialogDescription>
+          <DialogDescription>Reorder, add or remove stops. Clinical notes are kept.</DialogDescription>
         </DialogHeader>
 
         <StationRouteEditor
@@ -81,13 +77,43 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
           disabled={isSaving}
         />
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
+        <DialogFooter className="items-center gap-2 sm:justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setRemaining(original)}
+            disabled={isSaving || !isDirty}
+            className={cn(
+              "group gap-1.5 rounded-full text-muted-foreground transition-opacity duration-200 disabled:opacity-0",
+              PRESS,
+            )}
+          >
+            <Undo2 className="size-3.5 transition-transform duration-300 group-hover:-rotate-45 motion-reduce:transform-none" />
+            Undo changes
           </Button>
-          <Button type="button" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Please wait..." : "Save"}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className={cn("rounded-full", PRESS)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || !isDirty || remaining.length === 0}
+              title={remaining.length === 0 ? "Add at least one stop, or discharge the patient instead." : undefined}
+              className={cn(
+                "group gap-1.5 rounded-full px-5 shadow-sm transition duration-200 hover:-translate-y-px hover:shadow-md motion-reduce:transform-none",
+                PRESS,
+              )}
+            >
+              {isSaving ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Check className="size-4 transition-transform duration-300 group-hover:scale-125 motion-reduce:transform-none" />
+              )}
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
