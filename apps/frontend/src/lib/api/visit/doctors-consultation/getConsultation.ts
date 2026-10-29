@@ -1,4 +1,5 @@
 import { backend_url } from "@/constants/env_variable";
+import { parseReferralDestinations } from "@/constants/referral";
 import formatDate from "@/helper/format_date";
 import { Consultation, Referral } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
@@ -64,12 +65,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
     if (json.referral_date == null && json.referral_type == null && json.illness == null && json.duration == null && json.reason == null) {
       modified_referral = null
     } else {
-      // Split into lines, trim whitespace, and filter out empty lines
-      const text: string = json.referral_type ?? "";
-      const modified_types: string[] = text
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);  
+      const modified_types = parseReferralDestinations(json.referral_type);
 
       modified_referral = { 
         referralDate: json.referral_date ? formatDate(json.referral_date) : "",

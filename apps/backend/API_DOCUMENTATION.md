@@ -103,17 +103,44 @@ Create a new patient.
 **GET** `patients/{id}`
 Fetch a patient by ID.
 
-**PUT** `patients/{id}`
-Update a patient’s info.
-
 **DELETE** `patients/{id}`
 Delete a patient.
 
 **GET** `patient/{id}`
 Fetch a patient plus a lightweight visit list (used by the patient details page).
 
-**PUT** `patient/{id}`
-Update a patient’s demographic details (`english_name`, `khmer_name`, `date_of_birth`, `sex`, `phone_number`, `address`). Sets `last_updated_by` and `last_updated_at`.
+**PUT** `patient/{id}` (admin only)
+Correct a patient’s demographic details: `english_name`, `date_of_birth` (`YYYY-MM-DD`) and `sex` (`M`/`F`) are required; `khmer_name`, `phone_number`, `address` and `location_id` (registered location) are optional, and an omitted `location_id` keeps the current one. The Unique ID is regenerated from the names and date of birth. Sets `last_updated_by` and `last_updated_at`. The old `PUT patients/{id}` route was removed; it wrote to a column that does not exist.
+
+**GET** `patient/visit/{visitId}`
+Every record of one visit: `queue_no`, `visit_date`, `location_id`, `location_name`, `completed_at`, then `vitals`, `hef`, `visual_acuity`, `presenting_complaint`, `history`, `seva`, `physiotherapy` (with `painpoints`), `consultation` (with `condition_categories`), `tb` and `referrals` (with `signature`, `signer_name`, `signed_at`). A section is `null` when it was never recorded. Responses carry a content-hash `ETag`, so `If-None-Match` returns `304` only when nothing in the visit changed.
+
+---
+
+### Editing Saved Visits (admin only)
+
+Users can create records but cannot change them once saved; admins can correct every part of a visit. The Patient Details page edits one section at a time:
+
+| Section | Endpoint |
+| --- | --- |
+| Visit details | `PUT visits/{visitId}` |
+| Vitals, HEF | `PUT visits/{visitId}/vitals` |
+| TB screening | `PUT visits/{visitId}/tb` |
+| Visual acuity, presenting complaint, medical history | `POST triage/visual-acuity`, `POST triage/presenting-complaint`, `POST triage/history` |
+| Seva, physiotherapy, consultation, referral | `POST visits/seva/{visitId}`, `POST visits/physiotherapy/{visitId}`, `POST visits/consultation/{visitId}`, `POST visits/referral/{visitId}` |
+
+The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
+
+**PUT** `visits/{visitId}`
+Body: any of `queue_no` (digits with an optional letter, e.g. `12A`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. This replaces the old route of the same path, which wrote to a column that does not exist.
+
+**PUT** `visits/{visitId}/vitals`
+Body: `vitals` (`height`, `weight`, `bmi`, `below_3rd_percentile`, `bp_systolic`, `bp_diastolic`, `temperature`, `notes`, validated like registration), `hef` (`know_of_hef`, `has_hef` as booleans, `notes`), or both. A missing record is created.
+
+**PUT** `visits/{visitId}/tb`
+Body: any of `red_flags`, `flag_notes`, `doctor_notes` and `status` (`cleared` or `tb_likely`). Red flags and notes can always be corrected. The result decides where the patient may go, so it can only be changed here once the visit is completed (`409` while the patient is still in the clinic; use `POST tb/{visitId}/review` at the TB tent instead). A first result recorded here sets `reviewed_by` and `reviewed_at`. Returns `404` if the visit was never flagged for TB.
+
+A referral's signature is not edited from Patient Details. The page resends the saved strokes unchanged, so the original signer and signing time are kept.
 
 ---
 
