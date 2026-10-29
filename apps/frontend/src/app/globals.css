@@ -118,3 +118,12 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
+
+/* Analytics chart entrances. Lines use pathLength=1 so one dash spans the line. */
+@keyframes chart-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes bar-grow { from { transform: scaleX(0); } }
+.chart-draw { stroke-dasharray: 1; animation: chart-draw 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.bar-grow { transform-origin: left; animation: bar-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .chart-draw, .bar-grow { animation: none; }
+}

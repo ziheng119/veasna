@@ -1,8 +1,33 @@
 # Analytics
 
 Both Admin and User can open **Analytics** from the user menu. `/analytics` is
-outside the station layout: it has a Return link to Home, filters and dashboard,
-without the main navigation or footer.
+outside the station layout, without the main navigation or footer.
+
+## Page layout
+
+- **Top bar (sticky):** **Back** returns Home; the circular **Refresh** button
+  reloads saved data; the green **Export** menu downloads a CSV or opens the browser print dialog
+  (print or save as PDF). Below it, section links (Summary, Trends, Conditions,
+  Locations, Clinic operations) jump to each part and highlight as you scroll.
+- **How to use this page:** a one-line tip shown until dismissed. Dismissal is
+  remembered per browser only (`localStorage`), so it may reappear on other devices.
+- **Filters:** location, time period (Day / Week / 30 days / Overall) and end date,
+  with coloured chips stating what is shown. Every section uses them. Each section
+  has its own accent colour, shared by its nav link and icon.
+- **Help:** each card has an ⓘ button explaining the number. Hover or focus to
+  preview, click or tap to pin.
+- **Empty results** offer one-click shortcuts to a longer period or All locations.
+- Charts redraw at their real width when the window resizes, animate on entry, and
+  can be read with a mouse, by tapping, or with the arrow keys. Animations are
+  turned off when the device asks for reduced motion.
+
+## Export
+
+The CSV is built in the browser from the data already on screen, so no server call
+or internet is needed. It uses long format (`Section, Item, Measure, Value`): the
+filters, summary, conditions, age groups, station workload, referral destinations,
+documentation checks and the currently selected trend range. It opens in Excel
+with UTF-8 labels intact. Like the dashboard, it holds no names, IDs or notes.
 
 The read-only `GET /api/analytics?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all` requires a valid
 authenticated, active account. Both roles can read the aggregates; patient names,
