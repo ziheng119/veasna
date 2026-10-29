@@ -13,6 +13,7 @@ export interface Referral {
 }
 
 export interface Consultation {
+    conditionCategories?: string[] | null;
     hasSavedNotes?: boolean;
     notes: string;
     prescription: string;

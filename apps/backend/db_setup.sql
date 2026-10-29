@@ -251,6 +251,7 @@ CREATE TABLE physiotherapy (
 
 -- Consultation
 CREATE TABLE consultation (
+    condition_categories TEXT[], -- NULL = not recorded; empty array = none of the listed conditions
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
         ON DELETE CASCADE ON UPDATE CASCADE,

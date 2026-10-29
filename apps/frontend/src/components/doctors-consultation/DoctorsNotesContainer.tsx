@@ -1,5 +1,6 @@
 "use client";
 
+import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useId, useState } from "react";
@@ -23,6 +24,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const notesId = useId();
   const prescriptionId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
+  const [conditionCategories, setConditionCategories] = useState<string[] | null>(null);
   const [notes, setNotes] = useState<string>("");
   const [prescription, setPrescription] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
@@ -36,6 +38,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     setSaving(true);
     const data: Consultation = {
       notes: notes,
+      conditionCategories,
       prescription: prescription,
       requireReferral: referral !== null,
       referral: referral, // is ignored by postConsultation
@@ -94,6 +97,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         if (cancelled) return;
 
         setLoaded(true);
+        setConditionCategories(data?.conditionCategories ?? null);
         markSaved(data !== null && data.hasSavedNotes !== false);
         if (!data) {
           setNotes("");
@@ -153,6 +157,24 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
+        <fieldset className="space-y-3 rounded-xl border border-border p-4">
+          <legend className="px-1 font-semibold">Conditions addressed</legend>
+          <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CONSULTATION_CONDITIONS.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
+                onChange={event => setConditionCategories(previous => event.target.checked
+                  ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />
+              {condition.label}
+            </label>)}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={conditionCategories !== null && conditionCategories.length === 0}
+                onChange={event => setConditionCategories(event.target.checked ? [] : null)} />
+              None of the listed conditions
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">{conditionCategories === null ? "Not recorded yet. Existing notes are not automatically classified." : "These selections will be saved with the consultation notes."}</p>
+        </fieldset>
       </SavedRecordFields>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <GlassButton

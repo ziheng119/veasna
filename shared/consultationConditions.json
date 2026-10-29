@@ -1,0 +1,30 @@
+[
+  {
+    "id": "diabetes",
+    "label": "Diabetes"
+  },
+  {
+    "id": "hypertension",
+    "label": "Hypertension"
+  },
+  {
+    "id": "musculoskeletal",
+    "label": "Musculoskeletal issues"
+  },
+  {
+    "id": "gastrointestinal",
+    "label": "Gastrointestinal issues"
+  },
+  {
+    "id": "respiratory",
+    "label": "Respiratory issues"
+  },
+  {
+    "id": "vision",
+    "label": "Vision issues"
+  },
+  {
+    "id": "skin",
+    "label": "Skin conditions"
+  }
+]
