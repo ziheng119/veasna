@@ -1,83 +1,80 @@
-# Admin and user access
+# Accounts and permissions
 
-Only two roles are assignable: **admin** and **user**. Both can view every page,
-including patient details, clinical stations, Pharmacy and Analytics. Users can
-create records; only admins can change or delete saved data, including their own
-previous entries. There is no same-day exception.
+Veasna has two sign-ins:
+
+| Account | Password |
+| --- | --- |
+| `admin` | `admin12345` |
+| `user` | `user` |
+
+New accounts cannot be created, even by an admin.
+
+Both accounts can **see** everything. The difference is in changing things: a user
+can enter information the first time, but only an admin can change or delete
+something once it is saved. This applies to a user's own entries too, on any day.
 
 | Action | User | Admin |
 | --- | --- | --- |
-| View/search all pages, queues, current/past records and Analytics | Yes | Yes |
-| Print saved referrals, individually or by day | Yes | Yes |
-| Register a patient or create a new visit | Yes | Yes |
-| Enter a previously absent triage section or station note | First save only | Yes |
-| Create a referral and initial signature | First save only | Yes |
-| Revise demographics, queue numbers, vitals/HEF or saved clinical notes | No | Yes |
-| Edit/clear a saved signature or delete a referral | No | Yes |
-| Change queue routing, complete stations or discharge | No | Yes |
-| Create a new inventory item | Yes | Yes |
-| Change existing stock/name or delete inventory | No | Yes |
+| View and search all pages, queues, past records and Analytics | Yes | Yes |
+| Print saved referrals, one at a time or the whole day | Yes | Yes |
+| Register a patient or start a new visit | Yes | Yes |
+| Fill in a station form or triage section for the first time | Yes | Yes |
+| Create a referral and sign it for the first time | Yes | Yes |
+| Change saved details: names, queue numbers, vitals, HEF, clinical notes | No | Yes |
+| Change or clear a saved signature, or delete a referral | No | Yes |
+| Change a patient's stations, finish a station or discharge | No | Yes |
+| Add a new medicine to the pharmacy | Yes | Yes |
+| Change stock, rename or delete a medicine, or dispense | No | Yes |
+| Add or remove clinic locations | No | Yes |
 | Create accounts | No | No |
-| Manage locations | No | Yes |
 
-A first TB review is initial clinical data even though registration already
-created its screening row. It may advance the queue as part of recording that
-first decision. A subsequent review requires an admin. Creating a new referral
-also synchronizes the consultation's derived referral flag without granting
-permission to change saved notes or prescriptions.
+## What "first time" means
 
-Each triage section, consultation, SEVA note, physiotherapy record and referral
-has its own first-save boundary. Empty/partial saved records count as saved.
-A referral created before consultation notes does not prevent initial notes.
-When creating a new visit for an existing patient, a user's submitted demographic
-changes are ignored; existing patient details are preserved. Ask an admin to
-correct them. New visit vitals and HEF remain new records.
+- Each form has its own first save: every triage section, consultation notes, Seva,
+  physiotherapy and referral. Once saved, even half-filled, the form is locked for users.
+- The first TB review counts as a first entry, and may move the patient on to their
+  next station. A second review needs an admin.
+- When a user starts a new visit for an existing patient, the patient's saved details
+  (name, date of birth and so on) are kept as they were. Ask an admin to correct them.
+  The new visit's vitals and HEF are new records, so the user can enter them.
+- If two people save the same empty form at the same moment, only the first save is
+  kept. The other person sees a "not allowed" message instead of overwriting it.
 
-## Fixed accounts and setup
+Saved forms appear read-only for users. Users can still open a saved referral to
+view or print it.
 
-The only active sign-ins are **admin / admin12345** and **user / user** (username / password).
-They have the Admin and User permissions above. There is no Add User menu, and
-both POST /api/auth/register and POST /api/users reject account creation even for admins.
+## Setting up the accounts
 
-Run from the repository root: npm run setup:accounts --workspace apps/backend.
-This explicit command resets those two passwords, corrects their roles, enables
-them and retires every other login in one transaction. Repeating it preserves
-the two account IDs. Existing inactive account rows remain to preserve clinical
-author/signature foreign keys; they cannot log in or use previously issued tokens.
-No clinical records or author IDs are reassigned or deleted.
+From the project folder:
 
-The old seed:admin and seed:stations commands now call the same fixed-account
-setup for compatibility. Backend setup also configures these two accounts.
-This is not run automatically during normal server startup.
+```bash
+npm run setup:accounts --workspace apps/backend
+```
 
-Restart the backend and rebuild/restart the frontend to load the removed account
-creation functionality. API requests still verify the current active database
-account and role on every request. No cloud service is required.
+This resets the two passwords and roles above and disables every other sign-in.
+Old accounts are kept so earlier records still show who entered them, but they
+can no longer sign in. No clinical records are changed. `npm run setup:backend` does
+the same as part of first-time setup. It never runs on its own when the server starts.
 
-## Enforcement and verification
+## Technical details
 
-The gateway allowlists creation-capable POST endpoints and denies user
-PUT/PATCH/DELETE and administrative POST operations. Legacy clinical write aliases
-are admin-only so they cannot bypass visit-based protections.
-Clinical upserts use PostgreSQL's unique visit constraint and an admin-only
-ON CONFLICT UPDATE condition. Two concurrent first saves cannot overwrite one
-another: one succeeds, the other receives 403. Physiotherapy rolls back before
-changing pain points; a denied referral save cannot change its consultation flag.
-TB reviews check reviewed_at while holding the visit row lock. Audit authors and
-timestamps only change on authorized successful writes.
+- The server checks the account and role on every request, so a disabled account or
+  a changed role takes effect immediately, even with an old sign-in.
+- Users are allowed only a fixed list of "create" requests. Other changes (PUT, PATCH,
+  DELETE and admin requests) are refused. Older edit addresses are admin-only, so
+  they can't be used to get around these checks.
+- First saves rely on the database's one-record-per-visit rule. An update to an
+  existing record is allowed only for admins, so two simultaneous first saves can't
+  overwrite each other: one succeeds and the other gets HTTP 403.
+- `last_updated_by` and timestamps change only when a save is allowed and succeeds.
+- `POST /api/auth/register` and `POST /api/users` always refuse account creation.
+- `npm run seed:admin` and `npm run seed:stations` are older names for the same
+  account setup.
 
-Forms load saved data before enabling first entry and become read-only after
-save. The backend remains authoritative if another device saves first. Users can
-open a saved referral to view/print without issuing a write. Failed clinical data
-loads must not be treated as empty editable records.
-
-Tests cover page access, editable/locked UI transitions, permission matrices,
-stale/forged token roles, disabled accounts, account setup, simultaneous first
-referral saves, clinical sections and signatures. Database tests use only
-connection-local temporary tables:
+Tests (database tests use temporary tables only):
 
 ```powershell
-npm.cmd test --workspace apps/frontend -- --runInBand
+npm test --workspace apps/frontend
 $env:RUN_DB_TESTS='1'
-npm.cmd test --workspace apps/backend -- --runInBand permissions.test.js stationUsers.database.test.js savedRecords.database.test.js referral.database.test.js analytics.database.test.js
+npm test --workspace apps/backend -- --runInBand permissions.test.js stationUsers.database.test.js savedRecords.database.test.js referral.database.test.js analytics.database.test.js
 ```

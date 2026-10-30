@@ -1,59 +1,46 @@
-# Queue display ordering
+# Queue ordering
 
-Station cards select the patient when clicking anywhere outside their action
-buttons. The native selection button also supports keyboard use. Next/Finish,
-Stations and Discharge remain independent actions; card content and actions are
-vertically centered.
+Each queue has a **Sort queue by** switch above its search box:
 
-Each queue has a full-width glass-style **Queue number / Arrival time** control
-labelled **Sort queue by** above its search field, with equal-width options.
-The glass highlight slides between options; sorting updates immediately.
-Reduced-motion settings disable the slide and colour transitions.
-The separate overall-queue lookup opens from a search icon; closing it or pressing
-Escape collapses and clears the lookup without clearing the selected patient.
-The lookup's circular outline expands into the search field, keeping the same icon.
-This animation respects reduced-motion settings. Scrollbars use transparent tracks
-and rounded thumbs where supported, with native thin scrollbars in Firefox.
-Home defaults to Queue number; station queues default to Arrival time. Choices are
-saved per user, backend, and queue in this browser's local storage. They survive
-navigation/reloads and do not affect another user's view, routing, or patient records.
-Other tabs for the same user and queue follow saved preference changes.
+- **Queue number:** in registration number order, with letter suffixes after their
+  number: `2, 2A, 2AA, 2B, 10`. Patients with the same number stay in arrival order.
+- **Arrival time:** whoever has waited longest comes first. On Home this is when the
+  patient registered; at a station, it is when they arrived at that station. A patient
+  sent back to a station joins behind those already waiting there.
 
-- **Queue number:** numeric registration number, then suffix: `2, 2A, 2AA, 2B, 10`.
-  Equal numbers retain arrival order. Unknown formats follow valid numbers.
-- **Arrival time:** preserves the API's earliest-first order. Home uses clinic
-  registration time; each station uses when the patient entered its current station.
-  Ties use visit ID. Returning patients join behind those already waiting there.
+Home starts on **Queue number** and station queues start on **Arrival time**. Your
+choice is remembered on this browser, for your account and that queue only. It
+doesn't change anyone else's view or the patient's route.
 
-An earlier-numbered returning patient may appear first in Queue number mode even if
-others have waited longer at that station. This toggle is a display preference, not
-an instruction to change clinical priority.
+This switch only changes how the list is shown. It is not a priority setting: in
+Queue number order, a returning patient with a low number may appear above people who
+have waited longer.
 
-Search filters and live refreshes keep the selected mode. Sorting copies the list,
-never mutating shared data. Arrival mode does not parse clock labels or rely on client
-clock/timezone settings. Station cards show **Arrived** with the server-formatted
-station arrival time. Older servers without this additive field show **Registered**
-with the original timestamp instead. Home continues to show registration time.
+## Using the queue
 
-## Implementation
+- Click anywhere on a patient card to select the patient. The buttons on the card
+  (**Next/Finish**, **Stations**, **Discharge**) work separately.
+- Station cards show **Arrived** with the time the patient reached that station.
+- The search icon opens a lookup across the whole clinic queue. Close it or press
+  Escape to clear it. Your selected patient stays selected.
+- Searching and live updates keep your chosen order.
 
-- `queueSort.ts`: shared deterministic number sorting; preserves API order for arrivals.
-- `useQueueSort.ts`: user/page preference storage, safe defaults, and blocked-storage fallback.
-- `QueueSortControl.tsx`: keyboard-accessible buttons with `aria-pressed` state.
-- `GET /api/queue`: adds `station_arrival_time`; retains `timestamp` and existing ordering.
-  Missing station arrival timestamps fall back to visit creation time, matching the SQL sort.
+## Technical details
 
-No schema migration is needed for this change. Restart the backend to serve the additional
-field. If storage is unavailable, switching modes still works for the mounted page.
-
-## Checks
+- `queueSort.ts` sorts queue numbers; arrival order is kept exactly as the server
+  sends it. Sorting works on a copy, never the shared list.
+- `useQueueSort.ts` saves the choice in local storage per user, server and queue. Other
+  tabs follow changes. If storage is blocked, the switch still works until the page
+  is reloaded.
+- `QueueSortControl.tsx` is the switch, usable by keyboard. Its animations are
+  turned off when the device asks for reduced motion.
+- `GET /api/queue` returns `station_arrival_time`. If a visit has no station arrival
+  time, the server falls back to when the visit was created. Older servers without
+  this field make cards show **Registered** instead of **Arrived**.
+- Arrival order never depends on device clocks.
 
 ```bash
-npm test --workspace apps/frontend -- --runInBand
+npm test --workspace apps/frontend
 ```
 
-The tests cover numeric/suffix sorting, source-array preservation, defaults, remounts,
-user/station isolation, invalid or blocked storage, cross-tab changes, search, and live updates.
-For PostgreSQL ordering/display checks, run the temporary-table integration tests described
-in [station routing](station-routing.md#setup-and-validation). They verify clinic versus
-station arrival, tie-breaking, and fallback timestamps without touching clinic records.
+For database ordering checks, see [station routing](station-routing.md#technical-details).

@@ -1,159 +1,144 @@
-# Page performance and LAN operation
+# Running on a local network
 
-## Run a prebuilt application for clinic sessions
-
-`npm run dev` is for editing code. Next.js compiles routes on demand and can
-discard inactive development pages. A first visit after an idle period can
-therefore wait for compilation. This is separate from database latency.
-
-Install dependencies in advance. Configure the host address before building:
-
-- `apps/frontend/.env.local`: `NEXT_PUBLIC_BACKEND_URL=http://<host-LAN-IP>:3000`
-- `apps/backend/.env`: `NEXT_PUBLIC_FRONTEND_URL=http://<host-LAN-IP>:3001`
-  (comma-separated exact origins if the host also uses localhost).
-- Match the backend URL port to the backend's configured `PORT`.
-
-Public frontend environment variables are embedded at build time. Rebuild if the
-host address changes. Client devices must use the host IP, not localhost.
-
-From the repository root:
-
-```sh
-npm run build
-# Stop existing app instances before starting these same ports.
-npm start
-```
-
-These commands work on Windows and POSIX shells. Both servers bind to all host
-interfaces. Allow the configured ports on the host's private-network firewall.
-Keep the host awake and give it a stable LAN IP (for example, a router DHCP
-reservation). A wired host connection is preferable where available.
-
-Production output uses `.next-production`; development uses `.next`, preventing
-development compilation from overwriting production assets. Stop production
-before rebuilding its output; do not replace chunks during an active clinic.
-Keep dependencies installed on the host. System fonts remove Google font
-downloads from builds and font-file transfers from client startup.
-
-## Standalone backend with several frontends (router, no internet)
-
-One laptop runs the backend and PostgreSQL. The router gives it a static IP
-(DHCP reservation), for example `192.168.1.10`. Any number of frontend services
-or browsers on the same router use that IP. The router does not need internet
-access.
+Veasna runs on one **host laptop** (server and database). Every other device
+connects to it through a router. The router does **not** need internet.
 
 ```text
-            router (no internet required)
-     ┌──────────────┼─────────────────┐
- backend host     frontend A        frontend B / browsers
- 192.168.1.10     192.168.1.20      192.168.1.x
- API + live :PORT  Next.js :3001     ──► http://192.168.1.10:PORT
- PostgreSQL (local only)
+                router (no internet needed)
+     ┌──────────────────┼──────────────────────┐
+ host laptop        frontend laptop        tablets / browsers
+ 192.168.1.10       192.168.1.20 (optional) open http://192.168.1.10:3001
+ server   :3000     web app :3001
+ web app  :3001
+ database (stays on the host)
 ```
 
-Backend host, `apps/backend/.env`:
+Most clinics run the server and the web app together on the host. You can also run
+extra copies of the web app on other laptops. They all use the same server, so
+everyone sees the same queues.
 
-```env
-PORT=3000
-NEXT_PUBLIC_FRONTEND_URL=http://192.168.1.20:3001,http://192.168.1.21:3001
-# Or, when frontend devices get changing DHCP addresses:
-ALLOW_LAN_ORIGINS=true
-```
+## One-time setup
 
-Each frontend service, `apps/frontend/.env.local`, then `npm run build`:
+1. **Give the host a fixed IP.** In the router's settings, reserve an address for the
+   host laptop (often called "DHCP reservation"), for example `192.168.1.10`. A cable
+   connection to the router is more reliable than Wi-Fi.
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://192.168.1.10:3000
-```
+2. **Tell the web app where the server is.** In `apps/frontend/.env.local`:
 
-The REST API and live queue updates share one port and one origin rule.
-Socket.IO uses a WebSocket, falling back to HTTP long-polling if a device or
-network blocks WebSockets. Allow only the backend `PORT` (and `3001` on
-frontend hosts) on the private-network firewall. PostgreSQL stays on
-`DB_HOST=localhost` and is not exposed to the LAN.
+   ```env
+   NEXT_PUBLIC_BACKEND_URL=http://192.168.1.10:3000
+   ```
 
-`ALLOW_LAN_ORIGINS=true` accepts loopback and private IPv4 origins only
-(`10.x`, `172.16–31.x`, `192.168.x`), never public addresses. Every API
-request still requires a signed-in token. Rejected origins are logged once by
-the backend, naming the variable to change.
+3. **Tell the server which web apps may connect.** In `apps/backend/.env`, list each
+   web app address, separated by commas:
 
-When the backend starts it waits up to 60 seconds for PostgreSQL, so it can
-start at boot before the database. It then applies schema checks in order and
-only then accepts connections. If PostgreSQL is still down, it starts anyway with
-`/health` returning 503; restart the backend once the database runs. It prints
-the LAN URLs that clients should use.
-Ctrl+C closes live connections and database clients cleanly.
+   ```env
+   NEXT_PUBLIC_FRONTEND_URL=http://192.168.1.10:3001,http://192.168.1.20:3001
+   ```
 
-### Clock and time zone
+   If device addresses change from day to day, use this instead. It allows any device
+   on the local network, but never one from the internet:
 
-The backend host's clock decides the clinic day: new visits get its local date,
-and queues show that date's visits. Set the host to the clinic's time zone (for
-example `Asia/Phnom_Penh`) and check its date and time before each session. With
-no internet it cannot sync its clock automatically. Client devices' clocks do
-not affect queues.
+   ```env
+   ALLOW_LAN_ORIGINS=true
+   ```
 
-### Verify from each device
+4. **Allow the ports through the firewall** on the host (and any frontend laptop):
+   `3000` for the server and `3001` for the web app. On Windows, mark the clinic
+   network as **Private** when asked.
 
-From any device with the repository installed (for example each frontend host):
+5. **Build the app:**
 
-```sh
+   ```bash
+   npm run build
+   ```
+
+   Run this again whenever you change an address in step 2, or update the code.
+
+## Each clinic day
+
+1. **Check the host's date, time and time zone** (for Cambodia: `Asia/Phnom_Penh`, UTC+7).
+   Without internet the clock is not corrected automatically. Today's queue and the
+   date on new visits come from the host's clock. Other devices' clocks don't matter.
+2. **Keep the host plugged in** and stop it from sleeping.
+3. **Start Veasna** from the project folder:
+
+   ```bash
+   npm start
+   ```
+
+   It prints the addresses to use, such as `LAN: http://192.168.1.10:3000/health`.
+   If PostgreSQL starts slowly, the server waits for it for up to a minute.
+4. **Check from one staff device** (see below), then sign in on each device at
+   `http://192.168.1.10:3001`.
+
+Use `npm start`, not `npm run dev`, during clinics. Development mode prepares each page
+the first time it is opened, which can make pages very slow. Don't rebuild while the
+clinic is running. Stop the app first, then rebuild.
+
+## Check each device
+
+The quickest check: open `http://192.168.1.10:3000/health` in the device's browser.
+
+| What you see | Meaning |
+| --- | --- |
+| `"database": "ok"` | All good. `realtimeClients` shows how many devices get live updates. |
+| `"database"` not ok / HTTP 503 | Server is up but PostgreSQL isn't. Start PostgreSQL, then restart Veasna. |
+| Page doesn't load | Wrong IP, device on another network, or the firewall is blocking port `3000`. |
+
+For a full check from a laptop with the project installed:
+
+```bash
 npm run check:lan -- http://192.168.1.10:3000 http://192.168.1.20:3001 user user
 ```
 
-It checks, read-only: backend reachable and PostgreSQL connected (`/health`),
-REST CORS for that frontend origin, the live-update handshake for that origin
-and, with credentials, a signed-in live-update session. Each failure names the
-likely fix. Without Node, open `http://192.168.1.10:3000/health` in a
-browser. `"database": "ok"` and `realtimeClients` (connected live-update
-devices) confirm the host side. It returns HTTP 503 when PostgreSQL is
-unreachable.
+It checks, without changing anything: that the server and database are reachable, that
+this web app address is allowed, and that live updates connect for a signed-in user.
+Anything that fails comes with a suggested fix.
 
-### Live-update traffic
+## When something goes wrong
 
-Each successful write makes every connected device reload its visible lists
-(about 2–3 requests per device). List reads revalidate with ETags, so an
-unchanged list costs an HTTP 304 without a body. The per-device API limit is
-`API_RATE_LIMIT_MAX` requests per 15 minutes (default 5000). Raise it if
-devices log HTTP 429 on busy days.
+| Problem | What to do |
+| --- | --- |
+| A device opens the web app but can't sign in or load data | Its web app address is missing from `NEXT_PUBLIC_FRONTEND_URL`. Add it or set `ALLOW_LAN_ORIGINS=true`, then restart. The server log names the address it refused. |
+| A device tries to reach `localhost` | The app was built before `NEXT_PUBLIC_BACKEND_URL` was set. Set it and run `npm run build` again. |
+| Today's queue is empty or shows yesterday's patients | The host's date or time zone is wrong. Fix the clock and time zone, then restart Veasna. |
+| "Too many requests" (HTTP 429) on a busy day | Raise `API_RATE_LIMIT_MAX` in `apps/backend/.env` (default 5000 per device every 15 minutes) and restart. |
+| A page shows **Retry page** | The connection to the host dropped, or the app was rebuilt. Check the network, then press Retry. Save any unsaved work you can see first. |
+| Lists may be out of date after Wi-Fi drops | They refresh by themselves when the connection returns, or when you come back to the tab. |
 
-## Navigation and recovery
+**Saves are not queued while offline.** If a device loses the connection, a save
+fails rather than waiting. Always check that a save succeeded before moving on. Losing
+the internet has no effect, but losing the router or host stops all saving and loading.
 
-Existing Next.js navigation links retain automatic production prefetching for
-visible permitted pages. No extra eager prefetch loop is added, so constrained
-links are not flooded with all application routes.
+## Technical notes
 
-The main routes now have a loading status and an error boundary with an explicit
-retry. A failed chunk after a deployment may require a manual browser reload.
-Do not reload while there is unsaved work. These boundaries do not catch every
-event-handler/API failure; individual forms still handle their own requests.
+- The server and live updates share port `3000` and use the same allowed-address
+  rule. Live updates use WebSockets, and fall back to ordinary HTTP if a network
+  blocks WebSockets.
+- PostgreSQL stays on `DB_HOST=localhost` and is never exposed to the network.
+- `ALLOW_LAN_ORIGINS=true` accepts only loopback and private addresses (`10.x`,
+  `172.16–31.x`, `192.168.x`). Every request still needs a signed-in account.
+- Each save makes every connected device reload the lists it is showing (about 2–3
+  requests each). Unchanged lists answer with a short "not modified" (HTTP 304), so
+  this stays light on the network.
+- Sign-in attempts are limited to 30 per device every 15 minutes, separately from
+  `API_RATE_LIMIT_MAX`.
+- Server-side permissions apply on every request, whatever the page shows.
+- Clinic builds are kept in `.next-production` and development builds in `.next`.
+  The app uses system fonts, so nothing is downloaded from the internet.
+- Pages only preload the links shown on screen, so slow networks aren't flooded.
 
-The tighter 30-attempt/15-minute authentication limit covers credential submission
-(`/auth/login` and `/auth/register`), not `/auth/me` on every navigation. All API
-requests still have the general `API_RATE_LIMIT_MAX` (default 5,000) per-15-minute/IP limit. Shared NAT or
-heavy clinic traffic can reach that limit; check for HTTP 429 before changing it.
-Server-side page/API permissions remain enforced.
+### Finding the cause of slowness
 
-Existing live-update behavior reconnects automatically, marks disconnected lists
-as potentially stale, and refreshes lists after reconnect/returning to the tab.
-The app does not replay clinical writes automatically. There is no offline-write
-queue or guaranteed draft persistence: verify successful saves before navigating
-away. Loss of internet alone should not affect the configured local core
-workflows; loss of the LAN/host still prevents reads and saves.
+With a clinic build (`npm start`), on a second device:
 
-## Verify the bottleneck
-
-Use a second device connected to the host, with a production build:
-
-1. In browser Network tools, record first and repeat station navigations.
-   Compare document/RSC and JavaScript chunk time with API response time.
-2. Large delays beside `Compiling ...` in the host terminal indicate development
-   compilation. Production should have no route compilation on navigation.
-3. Slow chunks suggest LAN bandwidth/host load; slow APIs suggest backend/database
-   work. Check status codes: 401/403 are auth failures, 429 is rate limiting.
-4. Disconnect the WAN while retaining the LAN and repeat login, navigation,
-   queue updates between two clients, and a test save.
-5. Interrupt one client's LAN, confirm disconnected feedback, reconnect and
-   verify fresh queues. Test unsaved-form behavior separately; don't assume a
-   disconnected browser can safely save patient data.
-
-No device-specific speedup is claimed without measuring on that deployment.
+1. In the browser's Network tools, compare page and script load times with server
+   request (`/api/...`) times.
+2. Slow scripts point to a weak network or busy host; slow `/api` requests point to the
+   server or database.
+3. Check status codes: 401/403 are sign-in or permission problems, 429 is the rate limit.
+4. Unplug the router's internet while keeping the local network. Sign-in, navigation,
+   live queue updates between two devices and saving should all still work.
+5. Disconnect one device from the network. It should show that it's disconnected, then
+   show fresh queues after reconnecting.

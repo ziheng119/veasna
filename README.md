@@ -1,129 +1,130 @@
-# Veasna Monorepo
+# Veasna
 
-Monorepo for the Veasna clinical system:
+Veasna is the patient screening system for Veasna clinics. It handles registration,
+station queues (TB Tent, Triage, Seva, Physiotherapy, Consultation), referrals,
+pharmacy stock and analytics.
 
-- `apps/backend`: Express + PostgreSQL API
-- `apps/frontend`: Next.js web app
-- `apps/desktop`: Electron desktop wrapper
+It is built to run **without internet**. One laptop (the "host") runs the database
+and the server. Other laptops and tablets on the same router open the app in a
+browser using the host's IP address.
 
-## Ports
+The project has three parts:
 
-- Backend: `http://localhost:3000`
-- Frontend: `http://localhost:3001`
+| Folder | What it is |
+| --- | --- |
+| `apps/backend` | The server and database connection (Express + PostgreSQL) |
+| `apps/frontend` | The web app staff use in the browser (Next.js) |
+| `apps/desktop` | An optional desktop window around the web app (Electron) |
 
-## Prerequisites
+## First-time setup
 
-- Node.js 18+ recommended
-- PostgreSQL 12+ (for backend)
+You need **Node.js 18 or newer** and **PostgreSQL 12 or newer** on the host laptop.
 
-## Install
+1. Install everything from the project folder:
 
-From repo root:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm install
-```
+2. Create the database. Follow [database setup](apps/backend/README.md#database-setup-first-time)
+   in the backend guide.
 
-This installs workspace dependencies for all apps.
+3. Copy the example settings files, then fill in your database password and a long
+   random `JWT_SECRET`:
 
-## Environment Setup
+   ```bash
+   cp apps/backend/.env.example apps/backend/.env
+   cp apps/frontend/.env.example apps/frontend/.env.local
+   ```
 
-Backend env (`apps/backend/.env`):
+4. Check the database connection and create the sign-in accounts:
 
-```env
-DB_USER=your_postgres_user
-DB_HOST=localhost
-DB_NAME=veasna_screening
-DB_PASSWORD=your_postgres_password
-DB_PORT=5432
+   ```bash
+   npm run setup:backend
+   ```
 
-PORT=3000
-NODE_ENV=development
-JWT_SECRET=replace_with_long_random_secret
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
-# Optional: ALLOW_LAN_ORIGINS=true, API_RATE_LIMIT_MAX=5000 (see docs/performance-and-lan.md)
-```
+5. Optional: load sample locations, patients and pharmacy stock for practice:
 
-Frontend env (`apps/frontend/.env.local`):
+   ```bash
+   npm run seed:demo
+   ```
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
-```
+## Running a clinic day
 
-Optional desktop env (`apps/desktop/.env`):
-
-```env
-DESKTOP_FRONTEND_URL=http://localhost:3001
-```
-
-You can bootstrap from examples:
+Use the **built** version during clinics. It is much faster than development mode.
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/frontend/.env.example apps/frontend/.env.local
-cp apps/desktop/.env.example apps/desktop/.env
+npm run build   # once, and again after changing settings or updating the code
+npm start       # starts the server and the web app together
 ```
 
-## Common Commands
+Then, on each staff device, open `http://<host-IP>:3001` in a browser.
 
-Patient registration is available on Home. The **+ (Add patient)** link on Patient List
-opens the same form, using the selected location and the same validation and queue workflow.
-Older `/patient-form?mode=new` links redirect to the registration form on Home.
+Before the clinic opens:
 
-From repo root:
+- Give the host laptop a fixed IP on the router and keep it plugged in and awake.
+- Check the host's **date, time and time zone**. Without internet it cannot set its
+  own clock, and the clinic day (which patients appear in today's queue) comes from
+  the host's clock.
+- From another device, open `http://<host-IP>:3000/health`. It should show
+  `"database": "ok"`.
+
+For connecting several devices through a router, see
+[running on a local network](docs/performance-and-lan.md).
+
+## Signing in
+
+There are two fixed accounts. New accounts cannot be created.
+
+| Account | Password | Can do |
+| --- | --- | --- |
+| `admin` | `admin12345` | Everything, including correcting saved records |
+| `user` | `user` | View everything and enter new records |
+
+See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
+
+## Feature guides
+
+- [Accounts and permissions](docs/user-roles.md): what Admin and User can do.
+- [Queue ordering](docs/queue-ordering.md): sorting queues by number or arrival time.
+- [Returning to and skipping stations](docs/station-routing.md): changing a patient's route.
+- [Consultation referrals](docs/consultation-referrals.md): signing, printing and deleting referrals.
+- [Analytics](docs/analytics.md): what each number on the Analytics page means.
+- [Running on a local network](docs/performance-and-lan.md): setup, checks and troubleshooting.
+
+A few things worth knowing:
+
+- Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
+  the same form.
+- Queues and patient lists update on every device automatically when someone saves.
+- Always check that a save succeeded before leaving a page. Unsaved work is not
+  kept if the connection to the host drops.
+
+## For developers
 
 ```bash
-# Run backend + frontend together
-npm run dev
-
-# Run each app individually
-npm run dev:backend
-npm run dev:frontend
-npm run dev:desktop
-
-# Backend setup/test
-npm run setup:backend
-npm run test
-
-# Apply incremental DB migrations (existing databases only)
-psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
-
-# Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
-npm run seed:demo
-
-# Frontend lint
-npm run lint
+npm run dev            # server + web app with live reload (not for clinics)
+npm run dev:backend    # server only
+npm run dev:frontend   # web app only
+npm run dev:desktop    # desktop window (start the web app first)
+npm test               # backend tests
+npm run lint           # web app lint
+npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 user user
 ```
 
-## Notes
-
-- For clinic use, run `npm run build` then `npm start` to avoid development-time page compilation. See [performance, LAN setup and recovery](docs/performance-and-lan.md).
-
-- Admin and User accounts can view every page; users can create new records, while only admins can edit saved data. The two sign-ins are `admin` / `admin12345` and `user` / `user`; account creation is disabled. See [accounts and permissions](docs/user-roles.md).
-
-- Both roles can open the **Analytics** draft from the user menu. See [metric definitions and proposed next steps](docs/analytics.md).
-
-- Consultation referrals support saved eSignatures, individual printing and **Print today's referrals** for the selected location. See [referral workflow and setup](docs/consultation-referrals.md).
-
-- Queues offer **Queue number / Arrival time** sorting, remembered per user and queue on this browser. See [queue ordering](docs/queue-ordering.md).
-
-- Active visits can revisit or defer stations using **Stations**. See [station routing](docs/station-routing.md) for workflow, migration, and tests.
-
-- Desktop mode currently wraps the running frontend URL and does not yet package a fully offline app.
-- Backend and frontend app-specific documentation is in:
-  - `apps/backend/README.md`
-  - `apps/frontend/README.md`
-
-### Live queue and patient lists
-
-- Queue and patient lists update across users through authenticated Socket.IO connections on the existing backend port. Reconnecting reloads missed changes without replacing open form drafts.
-- For LAN access, set `NEXT_PUBLIC_BACKEND_URL` to the host laptop's IP and API port, and list allowed frontend origins in the backend's `NEXT_PUBLIC_FRONTEND_URL` (comma-separated), or set `ALLOW_LAN_ORIGINS=true` to accept any private-network frontend. Rebuild the frontend and restart both services after configuration changes.
-- Verify a device's connection (health, database, CORS, live updates) with `npm run check:lan -- http://<backend-IP>:<PORT> http://<frontend-IP>:3001 user user`. See [standalone backend with several frontends](docs/performance-and-lan.md#standalone-backend-with-several-frontends-router-no-internet).
-- Uses one backend instance with no Internet or extra service required. Direct SQL edits do not trigger updates.
-
-Run isolated tests (no clinic database writes):
+Most tests use fake or temporary data. The exceptions are three older backend test
+files (`users`, `locations` and `registration_and_components`), which write to the
+database in `apps/backend/.env`. **Do not run the full backend suite against a clinic
+database.** To run only the safe tests:
 
 ```bash
-npm run test --workspace apps/backend -- --runInBand tests/realtime.test.js
-npm run test --workspace apps/frontend -- --runInBand
+npm test --workspace apps/frontend
+npm test --workspace apps/backend -- --testPathIgnorePatterns "users|locations|registration_and_components"
 ```
+
+Database changes are applied automatically when the server starts. More detail:
+
+- [Backend guide](apps/backend/README.md): database setup, settings and how the server works.
+- [Frontend guide](apps/frontend/README.md): pages and project layout.
+- [Desktop guide](apps/desktop/README.md): the desktop window.
+- [API reference](apps/backend/API_DOCUMENTATION.md): server endpoints.

@@ -1,130 +1,79 @@
 # Veasna Frontend
 
-Next.js desktop/web UI for the Veasna clinical workflow.
+The web app clinic staff use in the browser. It talks to the
+[backend](../backend/README.md) over the local network and needs no internet.
 
-## Stack
+## Setup
 
-- Next.js 15 (App Router) + React 19 + TypeScript
-- Tailwind CSS v4 + shadcn/ui (Radix)
-- Zustand (persisted user/session and location state)
-- Native `fetch` API layer in `src/lib/api`
-- Desktop wrapper lives in `apps/desktop`
+Install from the project folder (not this folder):
 
-## Project Structure
+```bash
+npm install
+cp apps/frontend/.env.example apps/frontend/.env.local
+```
 
-- `src/app/(auth)/login`: login route
-- `src/app/(main)/*`: authenticated app pages
-- `src/app/wrappers/AuthWrapper.tsx`: client-side route guard
-- `src/lib/api/*`: backend API calls
-- `src/stores/*`: Zustand stores
-- `apps/desktop/main.js`: Electron entrypoint in this monorepo
-
-## Prerequisites
-
-- Node.js 18+ recommended
-- A running backend server (`apps/backend`)
-
-## Environment
-
-Create `.env.local` in `apps/frontend` (or copy from `.env.example`):
+`.env.local` has one setting, the backend's address:
 
 ```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=http://192.168.1.10:3000
 ```
 
-`NEXT_PUBLIC_BACKEND_URL` is required by API modules (`src/constants/env_variable.ts`).
-If omitted, frontend now falls back to `http://localhost:3000` in development.
+Use the host laptop's IP, not `localhost`, so that other devices can reach it too.
+If you leave it empty, the app assumes the backend is on the same laptop that serves
+the web app, port `3000`.
 
-## Install and Run
+This setting is built into the app. **After changing it, run `npm run build` again.**
+
+## Running
+
+From the project folder:
 
 ```bash
-cd apps/frontend
-npm install
+npm run build && npm start   # clinic use: fast, with the server too
+npm run dev:frontend         # development: reloads as you edit, slower page loads
 ```
 
-Development server:
+The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
+
+## Pages
+
+| Page | Address | Purpose |
+| --- | --- | --- |
+| Home | `/` | Register patients and see the clinic queue |
+| Patient List | `/patient-list` | Search patients; **+** adds a new one |
+| Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
+| TB Tent | `/tb-tent` | TB review for flagged patients |
+| Triage | `/triage` | Visual acuity, presenting complaint and medical history |
+| Seva | `/seva` | Eye checks and cataract referrals |
+| Physiotherapy | `/physiotherapy` | Physiotherapy assessment |
+| Consultation | `/doctors-consultation` | Doctor's notes, prescriptions and referrals |
+| Pharmacy | `/pharmacy` | View and dispense medication |
+| Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock |
+| Analytics | `/analytics` | Clinic numbers, from the user menu |
+
+If a page fails to load, it shows a **Retry page** button. Lists that may be out of date
+after a dropped connection refresh themselves when the connection returns.
+
+## For developers
+
+Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4 with
+shadcn/ui, and Zustand for sign-in and location state.
+
+| Path | Contents |
+| --- | --- |
+| `src/app/(auth)/login` | Sign-in page |
+| `src/app/(main)/` | Signed-in pages |
+| `src/app/wrappers/AuthWrapper.tsx` | Redirects to sign-in when needed |
+| `src/lib/api/` | Calls to the backend |
+| `src/stores/` | Shared state |
+| `src/constants/` | Shared lists, such as TB red flags |
 
 ```bash
-npm run dev
-```
-
-The app runs on `http://localhost:3001`.
-
-From monorepo root, you can run:
-
-```bash
-npm run dev:frontend
-```
-
-Production build:
-
-```bash
-npm run build
-npm run start
-```
-
-Lint:
-
-```bash
+npm test --workspace apps/frontend
 npm run lint
 ```
 
-## Electron (Current Status)
+Clinic builds go to `.next-production` and development builds to `.next`, so running
+development mode never overwrites the clinic build.
 
-Run Electron wrapper from monorepo root:
-
-```bash
-npm run dev:desktop
-```
-
-Important:
-
-- Electron entrypoint is now in `apps/desktop/main.js`.
-- Electron currently loads `http://localhost:3001`.
-- You must start `npm run dev` (or `npm run start`) first.
-- This repo does not yet include Electron packaging/signing config (`electron-builder` or Electron Forge).
-- Offline desktop deployment is not complete yet; this is a wrapper around a running Next.js server.
-
-## Offline Desktop Roadmap
-
-Goal: run Veasna on desktops without internet access.
-
-### Phase 1: Stable Desktop Wrapper (current baseline -> installable app)
-
-- Add Electron packaging (`electron-builder` or Electron Forge) to produce installers (`.dmg`, `.exe`).
-- Update Electron startup so it can run in production mode reliably (no manual dev server dependency).
-- Add one-command desktop run scripts (for development and packaged app smoke tests).
-
-### Phase 2: Local Backend Runtime on the Same Machine
-
-- Bundle and launch `apps/backend` as a child/background process from Electron app startup.
-- Standardize local API URL for desktop mode (for example `http://127.0.0.1:<port>`).
-- Add health-check and startup-wait logic before opening main UI routes.
-
-### Phase 3: Local Data Store for Offline Use
-
-- Option A: keep PostgreSQL and provide a local installer/service setup.
-- Option B: migrate backend storage to embedded SQLite for simpler installation.
-- Add first-run database initialization and schema bootstrap during app setup.
-
-### Phase 4: Operations and Reliability
-
-- Add logs and crash diagnostics for frontend, Electron main process, and backend process.
-- Add backup/restore workflow for patient data.
-- Add upgrade/migration checks so app updates do not break existing local data.
-
-### Phase 5: Multi-Device Strategy (if needed)
-
-- Decide whether each machine is fully standalone or syncs with a central server later.
-- If sync is needed, design conflict handling and data ownership rules before implementation.
-
-## Main Pages
-
-- `/`: registration + queue
-- `/patient-list`, `/patient-details` (admins can correct the patient and every section of a past visit here; see `src/components/patient-details/`)
-- `/triage`
-- `/seva`
-- `/physiotherapy`
-- `/doctors-consultation`
-- `/pharmacy` (medication view + dispense)
-- `/pharmacy/dashboard` (edit stock / inventory)
+For the desktop window, see [the desktop guide](../desktop/README.md).
