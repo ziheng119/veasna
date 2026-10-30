@@ -10,6 +10,9 @@
 // Every write records the admin in last_updated_by and bumps last_updated_at for sync/audit.
 const express = require('express');
 const router = express.Router();
+const { integerParams } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
 const { lockQueue } = require('../utils/queueNumber');

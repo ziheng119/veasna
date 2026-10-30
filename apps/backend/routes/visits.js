@@ -3,6 +3,9 @@ const { validateSignature } = require('../utils/referralSignature');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
+const { integerParams, toPositiveInt } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
@@ -422,7 +425,7 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
 
 // GET: patients at a location that Seva has marked for referral, newest visit first
 router.get('/seva-referrals', authenticateToken, async (req, res) => {
-  const locationId = parseOptionalPositiveInt(req.query.location_id);
+  const locationId = toPositiveInt(req.query.location_id);
   if (!locationId) {
     return res.status(400).json({ error: 'Valid location_id is required' });
   }

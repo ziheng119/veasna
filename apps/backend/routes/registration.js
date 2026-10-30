@@ -2,6 +2,9 @@
 
 const express = require('express');
 const router = express.Router();
+const { integerParams } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['patientId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
 const { normalizeSexToEnum } = require('../utils/sex');

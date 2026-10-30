@@ -328,6 +328,7 @@ Delete a patient (cascades to vitals/HEF/visits).
     "message": "Resource not found"
   }
   ```
+* Malformed JSON bodies, non-integer IDs in the URL (e.g. `/patients/abc`) and values PostgreSQL rejects (invalid numbers or dates, references to deleted records) return `400`, never `500`.
 * **500 Server Error**
 
   ```json

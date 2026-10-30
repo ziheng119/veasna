@@ -73,8 +73,29 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Global error handler
+// PostgreSQL errors caused by the request's values rather than the server.
+const CLIENT_DB_ERRORS = {
+  '22P02': 'Invalid value in request', // e.g. text where a number is expected
+  '22003': 'Number out of range',
+  '22001': 'Value too long',
+  '22007': 'Invalid date',
+  '22008': 'Invalid date',
+  '23503': 'A referenced record does not exist (it may have been deleted on another device)',
+};
+
+// Global error handler. Route handlers answer their own expected errors; this covers
+// body parsing and errors forwarded from async handlers (middleware/asyncErrors.js).
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'Request body is not valid JSON' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Request body is too large' });
+  }
+  if (CLIENT_DB_ERRORS[err.code]) {
+    return res.status(400).json({ message: CLIENT_DB_ERRORS[err.code] });
+  }
   console.error(err.stack);
   res.status(500).json({
     message: 'Something went wrong!',

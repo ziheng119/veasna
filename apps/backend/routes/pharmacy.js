@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { integerParams, toPositiveInt, toCount } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['drugId']);
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
 const { ensurePharmacyNumericStock } = require('../utils/ensureSchema');
@@ -16,10 +19,10 @@ router.use(async (req, res, next) => {
 
 // GET all drugs for a specific location
 router.get('/', authenticateToken, async (req, res) => {
-    const { location_id } = req.query;
+    const location_id = toPositiveInt(req.query.location_id);
 
     if (!location_id) {
-        return res.status(400).json({ error: 'location_id is required' });
+        return res.status(400).json({ error: 'location_id must be a positive integer' });
     }
 
     try {
@@ -34,10 +37,10 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // GET pharmacy stats for a specific location
 router.get('/stats', authenticateToken, async (req, res) => {
-    const { location_id } = req.query;
+    const location_id = toPositiveInt(req.query.location_id);
 
     if (!location_id) {
-        return res.status(400).json({ error: 'location_id is required' });
+        return res.status(400).json({ error: 'location_id must be a positive integer' });
     }
 
     try {
@@ -59,15 +62,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
 // POST a new drug to the pharmacy
 router.post('/', authenticateToken, async (req, res) => {
-    const { location_id, drug_name, stock_count } = req.body;
+    const { drug_name, stock_count } = req.body;
+    const location_id = toPositiveInt(req.body.location_id);
     const last_updated_by = req.user.id;
 
-    if (!location_id || !drug_name || !drug_name.trim() || stock_count === undefined || stock_count === null) {
+    if (!location_id || typeof drug_name !== 'string' || !drug_name.trim() || stock_count === undefined || stock_count === null) {
         return res.status(400).json({ error: 'location_id, drug_name, and stock_count are required' });
     }
 
-    const count = parseInt(stock_count, 10);
-    if (isNaN(count) || count < 0) {
+    const count = toCount(stock_count);
+    if (count === null) {
         return res.status(400).json({ error: 'stock_count must be a non-negative integer' });
     }
 
@@ -82,6 +86,9 @@ router.post('/', authenticateToken, async (req, res) => {
     } catch (err) {
         if (err.code === '23505') {
             return res.status(409).json({ error: 'This drug already exists at this location.' });
+        }
+        if (err.code === '23503') {
+            return res.status(400).json({ error: 'Location not found' });
         }
         console.error('Error adding drug:', err);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -98,8 +105,8 @@ router.patch('/:drugId', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'stock_count is required' });
     }
 
-    const count = parseInt(stock_count, 10);
-    if (isNaN(count) || count < 0) {
+    const count = toCount(stock_count);
+    if (count === null) {
         return res.status(400).json({ error: 'stock_count must be a non-negative integer' });
     }
 
@@ -129,7 +136,7 @@ router.patch('/:drugId/name', authenticateToken, async (req, res) => {
     const { drug_name } = req.body;
     const last_updated_by = req.user.id;
 
-    if (!drug_name || !drug_name.trim()) {
+    if (typeof drug_name !== 'string' || !drug_name.trim()) {
         return res.status(400).json({ error: 'drug_name is required' });
     }
 

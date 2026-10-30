@@ -2,6 +2,9 @@
 // TB tent: screening details for flagged visits and the TB doctor's decision.
 const express = require('express');
 const router = express.Router();
+const { integerParams } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { TB_STATION } = require('../utils/tb');
