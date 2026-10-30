@@ -130,6 +130,36 @@ router.patch('/:drugId', authenticateToken, async (req, res) => {
     }
 });
 
+// POST dispense: subtracts in one statement, so two devices dispensing the same drug at
+// once both count (setting an absolute stock_count from a stale page would lose one).
+router.post('/:drugId/dispense', authenticateToken, async (req, res) => {
+    const quantity = toPositiveInt(req.body.quantity);
+    if (!quantity) {
+        return res.status(400).json({ error: 'quantity must be a positive integer' });
+    }
+
+    try {
+        const { rows } = await db.query(
+            `UPDATE pharmacy
+             SET stock_count = stock_count - $1, last_updated_at = NOW(), last_updated_by = $2
+             WHERE id = $3 AND stock_count >= $1
+             RETURNING *`,
+            [quantity, req.user.id, req.params.drugId]
+        );
+        if (rows.length) return res.status(200).json(rows[0]);
+
+        const current = await db.query('SELECT stock_count FROM pharmacy WHERE id = $1', [req.params.drugId]);
+        if (!current.rows.length) return res.status(404).json({ error: 'Drug not found' });
+        res.status(409).json({
+            error: `Only ${current.rows[0].stock_count} left in stock. Another device may have dispensed it.`,
+            stock_count: current.rows[0].stock_count,
+        });
+    } catch (err) {
+        console.error('Error dispensing drug:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // PATCH an existing drug's name
 router.patch('/:drugId/name', authenticateToken, async (req, res) => {
     const { drugId } = req.params;

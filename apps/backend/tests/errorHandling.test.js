@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 jest.mock('../config/db', () => ({ query: jest.fn(), pool: { connect: jest.fn(), end: jest.fn() } }));
 const db = require('../config/db');
 const app = require('../server');
+const { canAccessApi } = require('../utils/permissions');
 const { rejectUnsavableVisit } = require('../utils/tb');
 
 describe('Async handler errors (Express 4)', () => {
@@ -72,4 +73,9 @@ describe('Station form save guard', () => {
     expect(await rejectUnsavableVisit(client({}), r, 'abc')).toBe(true);
     expect(r.status).toHaveBeenCalledWith(400);
   });
+});
+
+test('dispensing changes existing stock, so it stays admin-only (docs/user-roles.md)', () => {
+  expect(canAccessApi('user', 'POST', '/pharmacy/1/dispense')).toBe(false);
+  expect(canAccessApi('admin', 'POST', '/pharmacy/1/dispense')).toBe(true);
 });

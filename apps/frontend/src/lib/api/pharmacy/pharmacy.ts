@@ -104,6 +104,27 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
     return res.json();
 }
 
+// Subtracts on the server, so concurrent dispensing on several devices is never lost.
+// Throws the server's message (e.g. "Only 3 left in stock") when it refuses.
+export async function dispenseDrug(drugId: number, quantity: number): Promise<Drug> {
+    const token = useUserStore.getState().user?.token;
+    if (!token) throw new Error("User not authenticated");
+    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/dispense`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity }),
+    });
+    clearPharmacyCache();
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || body?.message || 'Failed to dispense medication.');
+    }
+    return res.json();
+}
+
 export async function updateDrugName(drugId: number, drugName: string): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");

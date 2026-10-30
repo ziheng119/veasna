@@ -180,6 +180,11 @@ Body `{ "decision": "cleared" | "tb_likely", "doctor_notes": "..." }`. `cleared`
 
 ---
 
+### Pharmacy
+
+**POST** `pharmacy/{drugId}/dispense` (admin)
+Body: `{ "quantity": 3 }`. Subtracts from stock in one statement, so dispensing on several devices at once is never lost. Returns the updated drug, `409` with the current `stock_count` when there is not enough stock, or `404` for an unknown drug. `PATCH pharmacy/{drugId}` still sets an absolute `stock_count` (stock-taking corrections).
+
 ### Vitals
 
 **POST** `patients/{id}/vitals`
