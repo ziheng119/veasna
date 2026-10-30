@@ -347,4 +347,4 @@ Delete a patient (cascades to vitals/HEF/visits).
 
 ## Rate Limiting
 
-100 requests per 15 minutes per IP.
+`API_RATE_LIMIT_MAX` (default 5000) `/api` requests per 15 minutes per IP, plus 30 login attempts per 15 minutes per IP. Responses include `RateLimit-*` headers; over the limit returns `429`.
