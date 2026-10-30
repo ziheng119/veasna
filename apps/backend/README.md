@@ -165,8 +165,12 @@ These rules are enforced by the server, so they apply on every device:
 - **Admin corrections:** on Patient Details, admins can correct a patient's details
   and every part of a past visit. Each section saves separately, so it doesn't
   overwrite someone else working on another section.
-- **Pharmacy:** dispensing subtracts from the current stock in one step, so two
-  devices dispensing at once both count correctly.
+- **Pharmacy stock:** each medicine has stock on the shelf, stock reserved by
+  prescriptions waiting at the pharmacy, and the available rest. Only available stock
+  can be prescribed or dispensed without a prescription. Stock-takes cannot go below
+  the reserved amount, and a medicine with waiting prescriptions cannot be deleted.
+  Every stock change locks the medicine first, so two devices acting at once both
+  count correctly.
 - **Dates** are stored and returned as plain `YYYY-MM-DD`, so they don't shift a day
   between devices.
 

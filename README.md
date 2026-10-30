@@ -95,7 +95,17 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 A few things worth knowing:
 
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
-  the same form.
+  the same form. Leave the queue number blank to get the next one, or type one with
+  letters, such as `12A` for a family member of number 12.
+- **Suspected TB:** tick the TB red flags at registration, or press **Flag suspected TB**
+  at Triage. The patient then shows in red, marked **TB**, in every queue so doctors can
+  attend to them. Only an admin can remove the flag.
+- **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
+  The stock is reserved at once. The pharmacy hands it over from **Pharmacy →
+  Prescriptions to dispense**, or cancels it to release the stock. Dispensing needs
+  the admin account.
+- **Referral letters** print with the logo saved at
+  `apps/frontend/public/btb-logo.png`, if there is one.
 - Queues and patient lists update on every device automatically when someone saves.
 - Always check that a save succeeded before leaving a page. Unsaved work is not
   kept if the connection to the host drops.
