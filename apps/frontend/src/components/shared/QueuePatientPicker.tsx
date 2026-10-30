@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { PageCard } from "@/components/shared/PageCard";
 import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
-import { getQueue } from "@/lib/api/queue/getQueue";
+import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
@@ -50,7 +50,7 @@ export default function QueuePatientPicker({
   const locationId = location?.id;
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
     if (!locationId || !token) return [];
-    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, station, signal);
+    return getQueue(locationId, CLINIC_TODAY, token, station, signal);
   }, [locationId, token, station]);
   const { data: patients, refresh: loadQueue, loaded } = useLiveList(load);
 

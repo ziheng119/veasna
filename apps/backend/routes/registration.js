@@ -2,6 +2,9 @@
 
 const express = require('express');
 const router = express.Router();
+const { integerParams, localDate } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['patientId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
 const { normalizeSexToEnum } = require('../utils/sex');
@@ -74,7 +77,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     let visitRow = null;
     if (visit && visit.location_id) {
-      const visitDate = visit.visit_date || new Date().toISOString().slice(0,10);
+      const visitDate = visit.visit_date || localDate();
       if (!visit.queue_no || !String(visit.queue_no).trim()) {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'visit.queue_no is required (e.g., "2A", "3")' });
@@ -202,7 +205,7 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
     // Optionally update/create visit & mirror queue on patient
     let visitRow = null;
     if (visit && visit.location_id) {
-      const visitDate = visit.visit_date || new Date().toISOString().slice(0,10);
+      const visitDate = visit.visit_date || localDate();
       if (!visit.queue_no || !String(visit.queue_no).trim()) {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'visit.queue_no is required when visit is provided' });

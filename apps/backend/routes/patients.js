@@ -2,19 +2,23 @@
 
 const express = require('express');
 const router = express.Router();
+const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 
 // (location id) -> patients[]
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
-  const { location_id, visit_date } = req.query;
+  const location_id = toPositiveInt(req.query.location_id);
+  const { visit_date } = req.query;
 
   if (!location_id) {
-    return res.status(400).json({ error: 'location_id is required' });
+    return res.status(400).json({ error: 'location_id must be a positive integer' });
   }
 
-  if (visit_date && !/^\d{4}-\d{2}-\d{2}$/.test(visit_date)) {
-    return res.status(400).json({ error: 'visit_date must be YYYY-MM-DD' });
+  if (visit_date && !isIsoDate(visit_date)) {
+    return res.status(400).json({ error: 'visit_date must be a valid YYYY-MM-DD date' });
   }
 
   try {

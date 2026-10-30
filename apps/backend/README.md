@@ -52,6 +52,11 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin12345
 ```
 
+For several frontend devices sharing one backend over a LAN router, see
+[standalone backend with several frontends](../../docs/performance-and-lan.md#standalone-backend-with-several-frontends-router-no-internet).
+It covers `ALLOW_LAN_ORIGINS`, `API_RATE_LIMIT_MAX` and `npm run check:lan`.
+`GET /health` returns `{ status, database, realtimeClients }`, with HTTP 503 when PostgreSQL is unreachable.
+
 ## Database Setup (First-Time)
 
 The backend requires PostgreSQL. Follow these steps to get it running from scratch.

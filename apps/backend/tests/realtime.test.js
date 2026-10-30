@@ -205,3 +205,38 @@ describe('Live list notifications', () => {
     expect((await disconnected)[0]).toBe('io server disconnect');
   });
 });
+
+// Several frontend services on different LAN devices share one backend.
+describe('Live updates with ALLOW_LAN_ORIGINS', () => {
+  const { createOriginCheck } = require('../config/network');
+  let server, io, url, sockets;
+  beforeEach(async () => {
+    sockets = [];
+    server = createServer(express());
+    io = attachRealtime(server, { origins: createOriginCheck({ origins: [], allowLan: true }), secret });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    url = `http://127.0.0.1:${server.address().port}`;
+  });
+  afterEach(async () => {
+    sockets.forEach(socket => socket.disconnect());
+    await new Promise(resolve => io.close(resolve));
+  });
+  const client = (from, transports) => {
+    const socket = connect(url, { forceNew: true, reconnection: false, transports, auth: { token: token() }, extraHeaders: { Origin: from } });
+    sockets.push(socket);
+    return socket;
+  };
+
+  test.each([['websocket'], ['polling']])('frontends on different private IPs connect over %s', async transport => {
+    const a = client('http://192.168.1.21:3001', [transport]), b = client('http://10.0.0.7:3001', [transport]);
+    await Promise.all([event(a, 'connect'), event(b, 'connect')]);
+    expect(io.sockets.sockets.size).toBe(2);
+  });
+
+  test('a public origin is still rejected', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await event(client('http://203.0.113.7:3001', ['polling']), 'connect_error');
+    expect(io.sockets.sockets.size).toBe(0);
+    warn.mockRestore();
+  });
+});

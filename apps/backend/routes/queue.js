@@ -1,6 +1,9 @@
 // routes/queue.js
 const express = require('express');
 const router = express.Router();
+const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
@@ -12,15 +15,17 @@ const { TB_STATION, TB_HOLD_MESSAGE, flagTb } = require('../utils/tb');
 // Without station: every visit still in the clinic. With station: only the visits currently
 // waiting at that station, in the order they arrived there.
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
-    const { location_id, date } = req.query;
+    const location_id = toPositiveInt(req.query.location_id);
+    // Defaults to the host's clinic day, the same date registration assigns to new visits.
+    const date = req.query.date || currentVisitDate();
     const station = req.query.station || null;
 
-    if (!location_id || !date) {
-        return res.status(400).json({ error: 'location_id and date are required' });
+    if (!location_id) {
+        return res.status(400).json({ error: 'location_id must be a positive integer' });
     }
 
-    if (isNaN(Date.parse(date))) {
-        return res.status(400).json({ error: 'Invalid date format' });
+    if (!isIsoDate(date)) {
+        return res.status(400).json({ error: 'date must be a valid YYYY-MM-DD date' });
     }
 
     if (station && !STATIONS.includes(station)) {
@@ -77,9 +82,9 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
 // GET /api/queue/next?location_id=... - Preview the next queue number for today
 router.get('/next', authenticateToken, requireRole(['any']), async (req, res) => {
-    const locationId = Number(req.query.location_id);
+    const locationId = toPositiveInt(req.query.location_id);
 
-    if (!Number.isInteger(locationId) || locationId < 1) {
+    if (!locationId) {
         return res.status(400).json({ error: 'location_id must be a positive integer' });
     }
 

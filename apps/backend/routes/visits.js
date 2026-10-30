@@ -3,6 +3,9 @@ const { validateSignature } = require('../utils/referralSignature');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
+const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation');
+// Non-integer IDs in the URL are rejected with 400 before reaching the database.
+integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
@@ -10,7 +13,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueN
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../utils/tb');
+const { TB_STATION, normalizeRedFlags, rejectUnsavableVisit, flagTb } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -45,19 +48,6 @@ router.get('/referrals', authenticateToken, async (req, res) => {
   }
 });
 
-function parseOptionalPositiveInt(value) {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'number') {
-    return Number.isInteger(value) && value > 0 ? value : null;
-  }
-
-  const trimmed = String(value).trim();
-  if (trimmed === '') return null;
-  if (!/^\d+$/.test(trimmed)) return null;
-  const parsed = Number.parseInt(trimmed, 10);
-  return parsed > 0 ? parsed : null;
-}
-
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
@@ -71,7 +61,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
-    const locationId = parseOptionalPositiveInt(patientInfo?.location_id);
+    const locationId = toPositiveInt(patientInfo?.location_id);
+    // Present only when registering a new visit for an existing patient.
+    const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
     // Optional: when omitted, the next sequential number for the location and date is assigned.
     let queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
 
@@ -79,7 +71,27 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
     }
 
-    if (!hef) {
+    if (existingPatientId === null && patientInfo?.id != null && patientInfo.id !== '') {
+        return res.status(400).json({ error: 'patientInfo.id must be a positive integer.' });
+    }
+
+    // Same required fields as the registration form, so other clients cannot save nameless records.
+    if (!existingPatientId && (typeof patientInfo.english_name !== 'string' || !patientInfo.english_name.trim())) {
+        return res.status(400).json({ error: 'patientInfo.english_name is required.' });
+    }
+    if (!existingPatientId && normalizedPatientSex === null) {
+        return res.status(400).json({ error: 'patientInfo.sex is required. Use M or F.' });
+    }
+
+    if (patientInfo.date_of_birth && !isIsoDate(patientInfo.date_of_birth)) {
+        return res.status(400).json({ error: 'patientInfo.date_of_birth must be a valid YYYY-MM-DD date.' });
+    }
+
+    if (queueNo.length > 50) {
+        return res.status(400).json({ error: 'visit.queue_no must be at most 50 characters.' });
+    }
+
+    if (!hef || typeof hef !== 'object') {
         return res.status(400).json({ error: 'hef is required.' });
     }
 
@@ -115,7 +127,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         await client.query('BEGIN');
 
         // Step 1: Insert or Find/Update the patient
-        let patientId = parseOptionalPositiveInt(patientInfo?.id);
+        let patientId = existingPatientId;
         if (!patientId) {
             const patientQuery = `
                 INSERT INTO patients (location_id, english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
@@ -247,6 +259,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         try { await client.query('ROLLBACK'); } catch (_) {}
         if (err && err.code === '23505') {
             return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
+        }
+        if (err && err.code === '23503') {
+            return res.status(400).json({ error: 'The location or patient no longer exists. Refresh and try again.' });
         }
         console.error('Error in registration transaction:', err);
         res.status(500).json({ error: 'Failed to register patient' });
@@ -422,7 +437,7 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
 
 // GET: patients at a location that Seva has marked for referral, newest visit first
 router.get('/seva-referrals', authenticateToken, async (req, res) => {
-  const locationId = parseOptionalPositiveInt(req.query.location_id);
+  const locationId = toPositiveInt(req.query.location_id);
   if (!locationId) {
     return res.status(400).json({ error: 'Valid location_id is required' });
   }
@@ -467,7 +482,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const {
     diagnosis,
@@ -637,7 +652,7 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const { notes = "", painpoints = [] } = req.body;
   if (painpoints !== undefined && !Array.isArray(painpoints)) {
@@ -786,7 +801,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const {
     notes,
@@ -846,7 +861,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const { referralDate, referralType, illness, duration, reason, signature } = req.body;
   if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
@@ -916,7 +931,7 @@ router.delete("/referral/:visit_id", authenticateToken, async (req, res) => {
   const visitId = Number(req.params.visit_id);
   if (!Number.isSafeInteger(visitId) || visitId <= 0) return res.status(400).json({ error: "Invalid visit_id" });
   try {
-    if (await rejectIfTbHold(db, res, visitId)) return;
+    if (await rejectUnsavableVisit(db, res, visitId)) return;
     await db.query(`
       WITH deleted AS (DELETE FROM referral WHERE visit_id = $1 RETURNING id)
       UPDATE consultation SET require_referral = FALSE, last_updated_by = $2, last_updated_at = NOW()

@@ -9,7 +9,7 @@ import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
-import { getQueue } from "@/lib/api/queue/getQueue";
+import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 
@@ -26,7 +26,7 @@ export default function HomePage() {
   }, [token, locationId]);
   const loadQueue = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
     if (!token || !locationId) return [];
-    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, undefined, signal);
+    return getQueue(locationId, CLINIC_TODAY, token, undefined, signal);
   }, [token, locationId]);
   const { data: patients, refresh: refreshAllPatients } = useLiveList(loadPatients);
   const { data: queuePatients, refresh: refreshQueuePatients } = useLiveList(loadQueue);

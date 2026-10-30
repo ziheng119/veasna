@@ -11,9 +11,13 @@ export function clearQueueCache() {
   Object.keys(cachedETags).forEach(key => delete cachedETags[key]);
 }
 
+// Ask for the backend's current clinic day. Client clocks on an offline LAN cannot sync
+// over the internet, so "today" comes from the host that also dates new registrations.
+export const CLINIC_TODAY = null;
+
 // With a station, returns only the visits currently waiting at that station, in arrival order.
-export async function getQueue(locationId: number, date: string, token: string, station?: StationId, signal?: AbortSignal) {
-  const cacheKey = `${locationId}_${date}_${station ?? "all"}`;
+export async function getQueue(locationId: number, date: string | typeof CLINIC_TODAY, token: string, station?: StationId, signal?: AbortSignal) {
+  const cacheKey = `${locationId}_${date ?? "today"}_${station ?? "all"}`;
 
   try {
     const headers: HeadersInit = {
@@ -25,9 +29,12 @@ export async function getQueue(locationId: number, date: string, token: string, 
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const stationParam = station ? `&station=${station}` : "";
-    const res = await fetch(`${backend_url}/api/queue?location_id=${locationId}&date=${date}${stationParam}`, {
-      cache: signal ? "no-store" : "no-cache",
+    const params = new URLSearchParams({ location_id: String(locationId) });
+    if (date) params.set("date", date);
+    if (station) params.set("station", station);
+    const res = await fetch(`${backend_url}/api/queue?${params}`, {
+      // Always revalidated with the server; an unchanged list returns 304 without a body.
+      cache: "no-cache",
       headers,
       signal,
     });

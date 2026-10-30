@@ -30,7 +30,7 @@ async function ensurePasswordColumn() {
 }
 
 function normalizeCredentials(username, password) {
-  if (!username || username.trim().length < 3) {
+  if (typeof username !== 'string' || username.trim().length < 3) {
     return { error: 'username (>=3 chars) is required' };
   }
 

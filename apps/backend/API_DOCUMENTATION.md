@@ -147,7 +147,7 @@ A referral's signature is not edited from Patient Details. The page resends the 
 ### Queue
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD`
-Today’s active queue for a location (visits with `completed_at` unset).
+Today’s active queue for a location (visits with `completed_at` unset). `date` is optional: omitted, the backend uses its own current date (host time zone), the same date `POST visits` assigns. The frontend omits it so client devices with a wrong clock or time zone still see the same queue. An invalid `location_id` or a non-existent date (e.g. `2026-02-30`) returns `400`.
 
 **Station queues**
 Each visit lists the stations it is indicated for (`tb`, `triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station except `tb`) and an optional `tb` object (see TB Tent).
@@ -179,6 +179,11 @@ The visit's TB screening (`red_flags`, `flag_notes`, `status`, `doctor_notes`, `
 Body `{ "decision": "cleared" | "tb_likely", "doctor_notes": "..." }`. `cleared` completes the TB tent and moves the visit to its next station (or finishes the visit): `{ "status": "cleared", "next_station": "triage", "visit_completed": false }`. `tb_likely` (TB not ruled out) keeps the visit at the TB tent until it is discharged. Returns `409` if the visit is not waiting at the TB tent.
 
 ---
+
+### Pharmacy
+
+**POST** `pharmacy/{drugId}/dispense` (admin)
+Body: `{ "quantity": 3 }`. Subtracts from stock in one statement, so dispensing on several devices at once is never lost. Returns the updated drug, `409` with the current `stock_count` when there is not enough stock, or `404` for an unknown drug. `PATCH pharmacy/{drugId}` still sets an absolute `stock_count` (stock-taking corrections).
 
 ### Vitals
 
@@ -328,6 +333,8 @@ Delete a patient (cascades to vitals/HEF/visits).
     "message": "Resource not found"
   }
   ```
+* Malformed JSON bodies, non-integer IDs in the URL (e.g. `/patients/abc`) and values PostgreSQL rejects (invalid numbers or dates, references to deleted records) return `400`, never `500`.
+* Saving a station form for a visit that no longer exists (e.g. deleted on another device) returns `404`.
 * **500 Server Error**
 
   ```json
@@ -340,4 +347,4 @@ Delete a patient (cascades to vitals/HEF/visits).
 
 ## Rate Limiting
 
-100 requests per 15 minutes per IP.
+`API_RATE_LIMIT_MAX` (default 5000) `/api` requests per 15 minutes per IP, plus 30 login attempts per 15 minutes per IP. Responses include `RateLimit-*` headers; over the limit returns `429`.
