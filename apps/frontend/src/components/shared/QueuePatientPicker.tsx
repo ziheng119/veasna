@@ -12,7 +12,7 @@ import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
-import { TB_STATUS_LABELS } from "@/constants/tb";
+import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -168,6 +168,7 @@ export default function QueuePatientPicker({
         sortedPatients.map((patient) => {
           const isSelected = selectedVisitId === patient.visit_id;
           const next = nextStation(patient);
+          const tbFlagged = !!patient.tb_flagged;
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -177,36 +178,45 @@ export default function QueuePatientPicker({
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
               className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
-                isSelected
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:bg-accent/60"
+                tbFlagged
+                  ? `${TB_CARD_CLASS} ${isSelected ? "ring-2 ring-primary" : ""}`
+                  : isSelected
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:bg-accent/60"
               }`}
             >
               <button
                 type="button"
-                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}`}
+                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${tbFlagged ? ", suspected TB" : ""}`}
                 aria-pressed={isSelected}
                 onClick={() => onSelectPatient(patient)}
-                className="min-w-0 flex-1 text-left"
+                className="flex min-w-0 flex-1 items-start gap-3 text-left"
               >
-                <Badge variant={isSelected ? "active" : "inactive"}>{patient.queue_no}</Badge>
-                <p className="mt-2 font-medium text-foreground">{patient.english_name || "Unknown name"}</p>
-                {patient.khmer_name?.trim() && <p className="text-sm text-muted-foreground">{patient.khmer_name}</p>}
-                <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
-                {station === "tb" && patient.tb_status ? (
-                  <p className={`mt-1 text-xs font-medium ${patient.tb_status === "tb_likely" ? "text-destructive" : "text-muted-foreground"}`}>
-                    {TB_STATUS_LABELS[patient.tb_status]}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                {/* Queue number first and large: it is what staff call out. */}
+                <span className="flex shrink-0 flex-col items-center gap-1">
+                  <span
+                    data-queue-no
+                    className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                      tbFlagged
+                        ? "bg-red-600 text-white"
+                        : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                    }`}
+                  >
+                    {patient.queue_no}
+                  </span>
+                  {tbFlagged && <TbBadge />}
+                </span>
+                <span className="min-w-0 flex-1 border-l border-border pl-3">
+                  <span className="block break-words font-medium text-foreground">{patient.english_name || "Unknown name"}</span>
+                  {patient.khmer_name?.trim() && <span className="block break-words text-sm text-muted-foreground">{patient.khmer_name}</span>}
+                  <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
                     {next ? `Next: ${stationLabel(next)}` : "Last station"}
-                  </p>
-                )}
+                  </span>
+                </span>
               </button>
               <div className="flex shrink-0 items-center">
-                {/* Leaving the TB tent needs the TB doctor's decision, made in the panel */}
-                {station !== "tb" && (
-                  <Button
+                <Button
                     disabled={!isAdmin}                     type="button"
                     variant="ghost"
                     className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
@@ -216,16 +226,16 @@ export default function QueuePatientPicker({
                     <Check className="size-3.5" />
                     {next ? "Next" : "Finish"}
                   </Button>
-                )}
                 <Button
                     disabled={!isAdmin}                   type="button"
                   variant="ghost"
                   className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
-                  title="Change which stations this patient still has to visit"
+                  title="Send to station…: choose which stations this patient goes to next, and in what order"
+                  aria-label={`Send ${patient.english_name || "patient"} to another station`}
                   onClick={() => setEditingPatient(patient)}
                 >
                   <ListChecks className="size-3.5" />
-                  Stations
+                  Send to
                 </Button>
                 <Button
                     disabled={!isAdmin}                   type="button"

@@ -17,6 +17,7 @@ const queueRoutes = require('./queue');
 const visitRoutes = require('./visits');
 const visitEditRoutes = require('./visitEdits');
 const pharmacyRoutes = require('./pharmacy');
+const prescriptionRoutes = require('./prescriptions');
 const triageRoutes = require('./triage');
 const tbRoutes = require('./tb');
 const analyticsRoutes = require('./analytics');
@@ -29,6 +30,7 @@ router.use('/visits', visitRoutes);
 // Admin-only corrections to saved visits (details, vitals/HEF, TB record).
 router.use('/visits', visitEditRoutes);
 router.use('/pharmacy', pharmacyRoutes);
+router.use('/prescriptions', prescriptionRoutes);
 router.use('/triage', triageRoutes);
 router.use('/tb', tbRoutes);
 router.use('/analytics', analyticsRoutes);

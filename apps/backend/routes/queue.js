@@ -9,7 +9,6 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
 const { planStationRoute } = require('../utils/stationRoute');
-const { TB_STATION, TB_HOLD_MESSAGE, flagTb } = require('../utils/tb');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
@@ -47,6 +46,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 TO_CHAR(COALESCE(cur.entered_at, v.created_at), 'HH:MI AM') AS station_arrival_time,
                 cur.station AS current_station,
                 tb.status AS tb_status,
+                -- Suspected TB: shown in red in every queue so doctors can attend to the patient.
+                COALESCE(tb.status IN ('suspected', 'tb_likely'), FALSE) AS tb_flagged,
                 (
                     SELECT COALESCE(json_agg(json_build_object(
                         'station', s.station,
@@ -109,10 +110,6 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
     }
     if (!STATIONS.includes(station)) {
         return res.status(400).json({ error: `station must be one of: ${STATIONS.join(', ')}` });
-    }
-    // Leaving the TB tent needs the TB doctor's decision, recorded through /api/tb/:visitId/review
-    if (station === TB_STATION) {
-        return res.status(409).json({ error: "Record the TB doctor's decision on the TB Tent page to move this patient on.", code: 'TB_HOLD' });
     }
 
     let client;
@@ -186,7 +183,7 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
     }
     try {
         await client.query('BEGIN');
-        // This is the same row lock used by completion/TB review, so routing cannot
+        // This is the same row lock used by station completion, so routing cannot
         // race with another device moving or discharging the patient.
         const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
         if (!visit.rows.length || visit.rows[0].completed_at) {
@@ -223,9 +220,6 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
                     last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
                 [visitId, station, index + 1, index === 0, enteredAt, userId]
             );
-        }
-        if (wanted.includes(TB_STATION) && (!existing.rows.some(row => row.station === TB_STATION) || reopened.includes(TB_STATION))) {
-            await flagTb(client, visitId, {}, userId);
         }
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, userId]);
         await client.query('COMMIT');

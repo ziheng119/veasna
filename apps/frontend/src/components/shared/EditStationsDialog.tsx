@@ -37,8 +37,6 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
     [patient],
   );
   const completed = (patient?.stations ?? []).filter((s) => s.completed).map((s) => s.station);
-  // On TB hold the TB tent stays until a TB doctor clears the patient.
-  const onTbHold = (patient?.stations ?? []).some((s) => s.station === "tb" && !s.completed);
   const isDirty = remaining.join() !== original.join();
 
   useEffect(() => {
@@ -65,15 +63,14 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
     <Dialog open={!!patient} onOpenChange={(open) => { if (!open && !isSaving) onClose(); }}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Stations for {patient?.english_name || "this patient"}</DialogTitle>
-          <DialogDescription>Reorder, add or remove stops. Clinical notes are kept.</DialogDescription>
+          <DialogTitle>Send {patient?.english_name || "this patient"} to…</DialogTitle>
+          <DialogDescription>Choose the stations this patient still goes to, and in what order. The first one is where they go next. Clinical notes are kept.</DialogDescription>
         </DialogHeader>
 
         <StationRouteEditor
           route={remaining}
           completed={completed}
           onChange={setRemaining}
-          onTbHold={onTbHold}
           disabled={isSaving}
         />
 

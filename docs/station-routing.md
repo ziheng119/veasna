@@ -15,18 +15,17 @@ Press **Stations** on a patient in a station queue:
 - **Save** applies the new route and sends the patient to its first station.
   **Cancel** changes nothing.
 
-**Example:** a patient is due at Seva, then Consultation. Choosing **Skip for now** on
-Seva sends them to Consultation first. When Consultation is finished, they go back to
-Seva. You could also add Triage at the front for a repeat check.
+**Example:** a patient is due at Partner NGO, then Consultation. Choosing **Skip for now** on
+Partner NGO sends them to Consultation first. When Consultation is finished, they go back to
+Partner NGO. You could also add Triage at the front for a repeat check.
 
 Good to know:
 
 - Forms and notes already saved at a station are kept when the patient returns to it.
 - Finishing the last station still completes the visit.
 - A discharged visit can't be reopened here. Register a new visit if the patient comes back.
-- **TB Tent** must stay first until the patient is cleared, and can't be skipped or
-  removed. Sending a patient back to TB Tent puts them on TB hold again until a new
-  TB review.
+- Suspected TB is not a stop. It is a flag on the visit (set at registration or Triage)
+  that shows the patient in red in every queue.
 - If someone else changed the route while you had the dialog open, saving shows a
   conflict message. Close the dialog and open it again to see the current route.
 

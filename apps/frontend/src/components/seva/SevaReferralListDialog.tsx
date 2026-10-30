@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,8 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { ClipboardList } from "lucide-react";
 
-// Button that opens the list of patients Seva has marked for referral at the current location.
+// Button that opens the list of patients the partner NGO station has marked for referral at the
+// current location.
 export default function SevaReferralListDialog() {
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
@@ -55,9 +57,9 @@ export default function SevaReferralListDialog() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>SEVA referrals{location ? `: ${location.name}` : ""}</DialogTitle>
+            <DialogTitle>{PARTNER_NGO_NAME} referrals{location ? `: ${location.name}` : ""}</DialogTitle>
             <DialogDescription>
-              Patients marked for referral on the Seva form, newest visit first.
+              Patients marked for referral on the {PARTNER_NGO_NAME} form, newest visit first.
             </DialogDescription>
           </DialogHeader>
 

@@ -1,8 +1,11 @@
+import { PARTNER_NGO_NAME } from "./partnerNgo";
+
 // Places a doctor can refer a patient to. Stored on the referral as newline-separated text.
+// Referrals saved earlier keep whatever names they were saved with (e.g. "SEVA").
 export const REFERRAL_DESTINATIONS = [
   "MongKol Borey Hospital",
   "Poipett Referral Hospital",
-  "SEVA",
+  PARTNER_NGO_NAME,
   "Optometrist",
   "Dentist",
   "Bong Bondol",

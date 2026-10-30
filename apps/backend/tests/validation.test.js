@@ -38,3 +38,14 @@ describe('Clinic day uses the host time zone, not UTC', () => {
     expect(before).toBe(after);
   });
 });
+
+describe('queue numbers', () => {
+  const { normalizeQueueNo, isValidQueueNo } = require('../utils/queueNumber');
+  test.each(['1', '12', '12A', 'A12', 'b3c', ' 7 '])('%j is accepted', value => {
+    expect(isValidQueueNo(normalizeQueueNo(value))).toBe(true);
+  });
+  test.each(['', 'A', 'A-12', '12 A', '12345678901'])('%j is rejected', value => {
+    expect(isValidQueueNo(normalizeQueueNo(value))).toBe(false);
+  });
+  test('stored upper-case', () => expect(normalizeQueueNo(' a12 ')).toBe('A12'));
+});

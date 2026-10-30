@@ -14,6 +14,7 @@ import { Consultation, Referral } from "@/lib/types/consultation";
 import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
 import { PageCard } from "../shared/PageCard";
+import PrescriptionPanel from "./PrescriptionPanel";
 
 interface Props {
   patient: QueuedPatient;
@@ -22,10 +23,11 @@ interface Props {
 export default function DoctorsNotesContainer({ patient }: Props) {
   const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
-  const prescriptionId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [conditionCategories, setConditionCategories] = useState<string[] | null>(null);
   const [notes, setNotes] = useState<string>("");
+  // Free-text prescription from before prescribing was linked to the pharmacy. It is kept as it was
+  // and sent back unchanged when the notes are saved; new prescriptions go through PrescriptionPanel.
   const [prescription, setPrescription] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -128,54 +130,51 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   return (
     <PageCard
       title="Consultation Notes"
-      className="min-w-0 xl:col-span-8"
+      className="min-w-0"
       headerClassName="text-base"
       contentClassName="space-y-4 text-sm leading-5"
     >
-      <SavedRecordFields locked={!editable}>
-        <div className="space-y-2">
-          <label htmlFor={notesId} className="font-semibold">
-            Consultation notes
-          </label>
-          <textarea
-            id={notesId}
-            rows={6}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+      {/* Full page width: notes and conditions on the left, prescribing on the right. */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="min-w-0 space-y-4">
+          <SavedRecordFields locked={!editable}>
+            <div className="space-y-2">
+              <label htmlFor={notesId} className="font-semibold">
+                Consultation notes
+              </label>
+              <textarea
+                id={notesId}
+                rows={8}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <fieldset className="space-y-3 rounded-xl border border-border p-4">
+              <legend className="px-1 font-semibold">Conditions addressed</legend>
+              <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {CONSULTATION_CONDITIONS.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
+                    onChange={event => setConditionCategories(previous => event.target.checked
+                      ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />
+                  {condition.label}
+                </label>)}
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={conditionCategories !== null && conditionCategories.length === 0}
+                    onChange={event => setConditionCategories(event.target.checked ? [] : null)} />
+                  None of the listed conditions
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">{conditionCategories === null ? "Not recorded yet. Existing notes are not automatically classified." : "These selections will be saved with the consultation notes."}</p>
+            </fieldset>
+          </SavedRecordFields>
         </div>
-        <div className="space-y-2">
-          <label htmlFor={prescriptionId} className="font-semibold">
-            Prescription
-          </label>
-          <textarea
-            id={prescriptionId}
-            rows={4}
-            value={prescription}
-            onChange={(event) => setPrescription(event.target.value)}
-            className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+        {/* Prescriptions are separate records: they can be added after the notes are saved. */}
+        <div className="min-w-0 lg:border-l lg:border-border lg:pl-6">
+          <PrescriptionPanel visitId={patient.visit_id} legacyPrescription={prescription} />
         </div>
-        <fieldset className="space-y-3 rounded-xl border border-border p-4">
-          <legend className="px-1 font-semibold">Conditions addressed</legend>
-          <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {CONSULTATION_CONDITIONS.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
-                onChange={event => setConditionCategories(previous => event.target.checked
-                  ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />
-              {condition.label}
-            </label>)}
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={conditionCategories !== null && conditionCategories.length === 0}
-                onChange={event => setConditionCategories(event.target.checked ? [] : null)} />
-              None of the listed conditions
-            </label>
-          </div>
-          <p className="text-xs text-muted-foreground">{conditionCategories === null ? "Not recorded yet. Existing notes are not automatically classified." : "These selections will be saved with the consultation notes."}</p>
-        </fieldset>
-      </SavedRecordFields>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <GlassButton
           type="button"

@@ -18,3 +18,7 @@ test('equal numbers retain API arrival order; unknown formats follow valid numbe
 test('digit comparison does not lose precision', () => {
   expect(sortQueuePatients([row(1, '99999999999999999999'), row(2, '99999999999999999998')], 'number').map(p => p.visit_id)).toEqual([2, 1]);
 });
+test('queue numbers with letters sort naturally after plain numbers', () => {
+  const input = ['A12', '12', 'b1', 'A2', '2A', 'A1', '3'].map((n, i) => row(i, n));
+  expect(sortQueuePatients(input, 'number').map(p => p.queue_no)).toEqual(['2A', '3', '12', 'A1', 'A2', 'A12', 'b1']);
+});

@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
 import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon } from "lucide-react";
@@ -193,7 +194,7 @@ export default function PatientDetailsPage() {
                             </div>
                             <div className="flex gap-2 mt-3 ml-7 flex-wrap">
                               {visit.has_vitals && <Badge variant="active">Triage</Badge>}
-                              {visit.has_seva && <Badge variant="info">Seva</Badge>}
+                              {visit.has_seva && <Badge variant="info">{PARTNER_NGO_NAME}</Badge>}
                               {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
                               {visit.has_consultation && <Badge variant="secondary">Consultation</Badge>}
                             </div>

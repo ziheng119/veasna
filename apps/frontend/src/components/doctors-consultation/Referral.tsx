@@ -11,6 +11,8 @@ import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad from "./SignaturePad";
 import { referralDocumentHtml } from "./ReferralDocument";
+import { writeAndPrint } from "@/lib/printDocument";
+import { LETTERHEAD, letterheadLogoUrl } from "@/constants/letterhead";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 
@@ -86,11 +88,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       onSaved?.(savedReferral);
       toast.success("Referral saved");
       if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(referralDocumentHtml(savedReferral, patientInfo, patient.visit_id));
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
+        writeAndPrint(printWindow, referralDocumentHtml(savedReferral, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
       }
       onClose();
     } catch (error) {
@@ -107,7 +105,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   return (
     <div className="text-sm text-foreground">
       <header className="border-b border-border px-6 py-5 sm:px-8">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Project Battambang</p>
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{LETTERHEAD.organisation}</p>
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
@@ -116,9 +114,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <GlassButton type="button" onClick={() => {
           const popup = window.open("", "_blank");
           if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
-          popup.document.open();
-          popup.document.write(referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id));
-          popup.document.close(); popup.focus(); popup.print();
+          writeAndPrint(popup, referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
         }}>Print saved referral</GlassButton>
       </div>}
       <form onSubmit={event => event.preventDefault()}>

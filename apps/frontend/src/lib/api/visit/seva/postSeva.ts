@@ -1,3 +1,4 @@
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { Seva } from "@/lib/types/seva";
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
@@ -28,7 +29,7 @@ export async function postSeva(data: Seva, visitId: number) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Failed to save SEVA: ${res.status} ${text}`);
+    throw new Error(`Failed to save ${PARTNER_NGO_NAME} notes: ${res.status} ${text}`);
   }
 
   return res.json();

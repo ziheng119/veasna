@@ -1,6 +1,7 @@
 "use client";
 
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useState } from "react";
 import SaveButton from "../shared/SaveButton";
@@ -78,7 +79,7 @@ export default function SevaNotesContainer({ patient }: Props) {
         toast.success("Load success");
       } catch (error) {
         if (cancelled) return;
-        toast.error("Failed to load SEVA data");
+        toast.error(`Failed to load ${PARTNER_NGO_NAME} notes`);
         console.error("Error loading SEVA:", error);
       }
     };
@@ -118,49 +119,24 @@ export default function SevaNotesContainer({ patient }: Props) {
     }
   };
 
+  // Saved readings are shown open so they are not missed.
+  const eyeReadingsRecorded = [leftWithPinholeNew, leftWithoutPinholeNew, rightWithPinholeNew, rightWithoutPinholeNew]
+    .some((value) => Boolean(value));
+
   return (
     <PageCard
-      title="Seva Notes"
+      title={`${PARTNER_NGO_NAME} Notes`}
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
       <SavedRecordFields locked={!editable}>
-        <h2 className="text-[20px] font-semibold text-foreground">
-          New Snellen&apos;s Test
-        </h2>
-        <div className="min-h-70 flex flex-col">
-          {/* One reading per row so the dropdown has room in the narrow panel */}
-          <p className="font-semibold text-start mb-2">Visual Acuity</p>
-          <div className="grid grid-cols-[1fr_9rem] gap-x-3 gap-y-2 mb-[30px] items-center">
-            <p className="text-start">Left (OS), with pinhole</p>
-            <SnellenInput
-              value={leftWithPinholeNew}
-              onChange={setLeftWithPinholeNew}
-            />
-
-            <p className="text-start">Right (OD), with pinhole</p>
-            <SnellenInput
-              value={rightWithPinholeNew}
-              onChange={setRightWithPinholeNew}
-            />
-
-            <p className="text-start">Left (OS), without pinhole</p>
-            <SnellenInput
-              value={leftWithoutPinholeNew}
-              onChange={setLeftWithoutPinholeNew}
-            />
-
-            <p className="text-start">Right (OD), without pinhole</p>
-            <SnellenInput
-              value={rightWithoutPinholeNew}
-              onChange={setRightWithoutPinholeNew}
-            />
-          </div>
-
+        {/* Kept deliberately simple: the fields may change with the partner NGO's requests.
+            Free-text notes come first; eye readings are optional. */}
+        <div className="flex w-full">
           <VerticalLabelInputPair
-            label="Diagnosis"
-            onChangeFunction={setDiagnosis}
-            value={diagnosis}
+            label="Notes"
+            onChangeFunction={setAdditionalNotes}
+            value={additionalNotes}
           />
         </div>
 
@@ -201,13 +177,43 @@ export default function SevaNotesContainer({ patient }: Props) {
           />
         </div>
 
-        <div className="flex w-full">
-          <VerticalLabelInputPair
-            label="Additional Notes"
-            onChangeFunction={setAdditionalNotes}
-            value={additionalNotes}
-          />
-        </div>
+        <VerticalLabelInputPair
+          label="Diagnosis"
+          onChangeFunction={setDiagnosis}
+          value={diagnosis}
+        />
+
+        <details className="group rounded-md border border-border px-3 py-2" open={eyeReadingsRecorded}>
+          <summary className="cursor-pointer select-none text-sm font-semibold text-muted-foreground">
+            Eye readings (optional)
+          </summary>
+          {/* One reading per row so the dropdown has room in the narrow panel */}
+          <div className="mt-3 grid grid-cols-[1fr_9rem] gap-x-3 gap-y-2 items-center text-sm">
+            <p className="text-start">Left (OS), with pinhole</p>
+            <SnellenInput
+              value={leftWithPinholeNew}
+              onChange={setLeftWithPinholeNew}
+            />
+
+            <p className="text-start">Right (OD), with pinhole</p>
+            <SnellenInput
+              value={rightWithPinholeNew}
+              onChange={setRightWithPinholeNew}
+            />
+
+            <p className="text-start">Left (OS), without pinhole</p>
+            <SnellenInput
+              value={leftWithoutPinholeNew}
+              onChange={setLeftWithoutPinholeNew}
+            />
+
+            <p className="text-start">Right (OD), without pinhole</p>
+            <SnellenInput
+              value={rightWithoutPinholeNew}
+              onChange={setRightWithoutPinholeNew}
+            />
+          </div>
+        </details>
 
         <div className="flex items-center justify-end">
           <SaveButton onClick={handleSave} />

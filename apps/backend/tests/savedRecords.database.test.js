@@ -66,25 +66,24 @@ const db = require("../config/db");
       if (previousSecret === undefined) delete process.env.JWT_SECRET;
       else process.env.JWT_SECRET = previousSecret;
     });
-    test("first TB review is allowed; revisions require admin", async () => {
-      await client.query(`ALTER TABLE visits ADD COLUMN completed_at TIMESTAMP;
-   ALTER TABLE visit_stations ADD COLUMN id INT, ADD COLUMN position INT;
-   INSERT INTO visit_stations (visit_id,station,id,position) VALUES (1,'tb',1,1);
-   CREATE TEMP TABLE tb_screening (visit_id INT, status TEXT, doctor_notes TEXT, reviewed_by INT, reviewed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP);
-   INSERT INTO tb_screening (visit_id,status) VALUES (1,'suspected');`);
-      const review = (role) =>
+    test("users may flag suspected TB; changing or removing a flag requires admin", async () => {
+      await client.query(`ALTER TABLE visits ADD COLUMN last_updated_by INT, ADD COLUMN last_updated_at TIMESTAMP;
+   CREATE TEMP TABLE tb_screening (visit_id INT PRIMARY KEY, red_flags TEXT[] NOT NULL DEFAULT '{}', flag_notes TEXT NOT NULL DEFAULT '',
+     status TEXT NOT NULL, doctor_notes TEXT NOT NULL DEFAULT '', flagged_by INT, reviewed_by INT, reviewed_at TIMESTAMP,
+     last_updated_by INT, last_updated_at TIMESTAMP);`);
+      const flag = (role, body) =>
         request(app)
-          .post("/tb/1/review")
+          .post("/tb/1/flag")
           .set("Authorization", "Bearer " + token(role))
-          .send({ decision: "tb_likely", doctor_notes: role });
-      expect((await review("user")).status).toBe(200);
+          .send(body);
+      expect((await flag("user", { flagged: true, red_flags: ["fever"] })).body).toMatchObject({ flagged: true, red_flags: ["fever"] });
       const before = (await client.query("SELECT * FROM tb_screening")).rows;
-      expect((await review("user")).status).toBe(403);
-      expect((await client.query("SELECT * FROM tb_screening")).rows).toEqual(
-        before,
-      );
-      expect((await review("admin")).status).toBe(200);
-      await client.query("DELETE FROM visit_stations");
+      expect((await flag("user", { flagged: true, red_flags: ["night_sweats"] })).status).toBe(403);
+      expect((await flag("user", { flagged: false })).status).toBe(403);
+      expect((await client.query("SELECT * FROM tb_screening")).rows).toEqual(before);
+      expect((await flag("admin", { flagged: false })).body).toMatchObject({ flagged: false, status: "cleared" });
+      expect((await flag("user", { flagged: "yes" })).status).toBe(400);
+      expect((await request(app).post("/tb/2/flag").set("Authorization", "Bearer " + token("admin")).send({ flagged: true })).status).toBe(404);
     });
     test.each([
       [

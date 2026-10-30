@@ -46,7 +46,7 @@ describe('Station page opened from the queue search', () => {
     const onSelectPatient = jest.fn();
     await render(onSelectPatient);
     expect(onSelectPatient).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith('That patient is no longer waiting at Seva.');
+    expect(toast).toHaveBeenCalledWith('That patient is no longer waiting at Partner NGO.');
     expect(replace).toHaveBeenCalled();
   });
 });

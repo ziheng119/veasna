@@ -142,7 +142,31 @@ function ensureConsultationConditions() {
   return consultationConditionsPromise;
 }
 
+// TB becomes a flag instead of a station; the route-history table keeps an audit copy.
+let tbFlagPromise = null;
+function ensureTbFlag() {
+  if (!tbFlagPromise) {
+    tbFlagPromise = ensureTbScreening()
+      .then(() => ensureStationRouteHistory())
+      .then(() => runMigration('016_tb_flag.sql'))
+      .catch(err => { tbFlagPromise = null; throw err; });
+  }
+  return tbFlagPromise;
+}
+
+let prescriptionsPromise = null;
+function ensurePrescriptions() {
+  if (!prescriptionsPromise) {
+    prescriptionsPromise = ensurePharmacyNumericStock()
+      .then(() => runMigration('017_prescriptions.sql'))
+      .catch(err => { prescriptionsPromise = null; throw err; });
+  }
+  return prescriptionsPromise;
+}
+
 module.exports = {
+  ensureTbFlag,
+  ensurePrescriptions,
   ensureConsultationConditions,
   ensureReferralSignature,
   ensureStationRouteHistory,

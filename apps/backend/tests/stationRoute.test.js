@@ -25,12 +25,6 @@ test('rejects missing snapshots and changed routes', () => {
   expect(planStationRoute(rows, { stations: ['seva'], ordered: true, expected_stations: [] }).status).toBe(409);
   expect(planStationRoute([...rows].reverse(), { stations: ['seva'], ordered: true, expected_stations: snapshot }).status).toBe(409);
 });
-test('TB cannot be deferred, removed or added behind another station', () => {
-  const held = [{ station: 'tb', completed_at: null }, ...rows];
-  const expected = held.map(s => ({ station: s.station, completed: !!s.completed_at }));
-  for (const stations of [['seva'], ['seva', 'tb']]) {
-    expect(planStationRoute(held, { stations, ordered: true, expected_stations: expected }).status).toBe(409);
-  }
-  expect(plan(['seva', 'tb']).status).toBe(409);
-  expect(plan(['tb', 'seva']).wanted).toEqual(['tb', 'seva']);
+test('TB is a flag on the visit, not a station', () => {
+  expect(plan(['tb', 'seva']).status).toBe(400);
 });

@@ -1,32 +1,28 @@
 // routes/tb.js
-// TB tent: screening details for flagged visits and the TB doctor's decision.
+// Suspected-TB flag on a visit. A flagged patient goes through their normal stations and is shown
+// in red in every queue so doctors can attend to them.
 const express = require('express');
 const router = express.Router();
-const { integerParams } = require('../utils/validation');
+const { integerParams, toPositiveInt } = require('../utils/validation');
 // Non-integer IDs in the URL are rejected with 400 before reaching the database.
 integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
-const { TB_STATION } = require('../utils/tb');
-
-const TB_DECISIONS = ['cleared', 'tb_likely'];
-
-function parseVisitId(value) {
-    const visitId = Number(value);
-    return Number.isInteger(visitId) && visitId > 0 ? visitId : null;
-}
+const { TB_FLAGGED_STATUSES, normalizeRedFlags, flagTb, clearTbFlag } = require('../utils/tb');
+const { textOrEmpty } = require('../utils/partialFields');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
 router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res) => {
-    const visitId = parseVisitId(req.params.visitId);
+    const visitId = toPositiveInt(req.params.visitId);
     if (!visitId) {
         return res.status(400).json({ error: 'Visit ID must be a positive integer' });
     }
 
     try {
         const { rows } = await db.query(
-            `SELECT tb.visit_id, tb.red_flags, tb.flag_notes, tb.status, tb.doctor_notes,
-                    tb.flagged_at, fu.username AS flagged_by,
+            `SELECT tb.visit_id, tb.red_flags, tb.flag_notes, tb.status,
+                    tb.status IN ('suspected', 'tb_likely') AS flagged,
+                    tb.doctor_notes, tb.flagged_at, fu.username AS flagged_by,
                     tb.reviewed_at, ru.username AS reviewed_by,
                     tb.last_updated_at
              FROM tb_screening tb
@@ -42,20 +38,23 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
     }
 });
 
-// POST /api/tb/:visitId/review - TB doctor's decision. Body: { decision, doctor_notes }
-//   cleared   = no TB: the patient leaves the TB tent for their next station (or the visit ends).
-//   tb_likely = TB not ruled out: the patient stays at the TB tent until discharged.
-router.post('/:visitId/review', authenticateToken, requireRole(['any']), async (req, res) => {
-    const visitId = parseVisitId(req.params.visitId);
-    const { decision } = req.body;
-    const doctorNotes = typeof req.body.doctor_notes === 'string' ? req.body.doctor_notes : '';
-    const last_updated_by = req.user.id;
+// POST /api/tb/:visitId/flag - Body: { flagged: boolean, red_flags?: string[], notes?: string }
+// Anyone may flag a patient (e.g. at triage). Changing an existing flag's red flags or notes, or
+// removing a flag, is an edit of saved data and needs an admin.
+router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (req, res) => {
+    const visitId = toPositiveInt(req.params.visitId);
+    const { flagged } = req.body;
+    const redFlags = normalizeRedFlags(req.body.red_flags);
+    const isAdmin = req.user.role === 'admin';
 
     if (!visitId) {
         return res.status(400).json({ error: 'Visit ID must be a positive integer' });
     }
-    if (!TB_DECISIONS.includes(decision)) {
-        return res.status(400).json({ error: `decision must be one of: ${TB_DECISIONS.join(', ')}` });
+    if (typeof flagged !== 'boolean') {
+        return res.status(400).json({ error: 'flagged must be true or false' });
+    }
+    if (redFlags === null) {
+        return res.status(400).json({ error: 'red_flags must be a list of text' });
     }
 
     let client;
@@ -67,77 +66,34 @@ router.post('/:visitId/review', authenticateToken, requireRole(['any']), async (
     }
     try {
         await client.query('BEGIN');
-
-        const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
-        if (visit.rows.length === 0) {
+        const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        if (!visit.rows.length) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Visit not found' });
+            return res.status(404).json({ error: 'Visit not found. It may have been deleted on another device.' });
         }
+        const existing = await client.query('SELECT status FROM tb_screening WHERE visit_id = $1', [visitId]);
+        const wasFlagged = TB_FLAGGED_STATUSES.includes(existing.rows[0]?.status);
 
-        const existingReview = await client.query('SELECT reviewed_at FROM tb_screening WHERE visit_id = $1', [visitId]);
-        if (req.user.role !== 'admin' && existingReview.rows[0]?.reviewed_at) {
+        if (!isAdmin && (!flagged || wasFlagged)) {
             await client.query('ROLLBACK');
-            return res.status(403).json({ error: 'Only admins can edit a saved TB review.' });
+            return res.status(403).json({
+                error: flagged
+                    ? 'This patient is already flagged for TB. Ask an admin to change the red flags or notes.'
+                    : 'Only an admin can remove a TB flag.',
+            });
         }
 
-        const pending = await client.query(
-            'SELECT id, station FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL ORDER BY position',
-            [visitId]
-        );
-        if (visit.rows[0].completed_at || pending.rows.length === 0 || pending.rows[0].station !== TB_STATION) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: 'Patient is no longer waiting at the TB tent. Refresh the queue.' });
-        }
-
-        const screening = await client.query(
-            `UPDATE tb_screening
-             SET status = $1, doctor_notes = $2, reviewed_by = $3, reviewed_at = NOW(),
-                 last_updated_by = $3, last_updated_at = NOW()
-             WHERE visit_id = $4
-             RETURNING status`,
-            [decision, doctorNotes, last_updated_by, visitId]
-        );
-        if (screening.rows.length === 0) {
-            // TB tent added without a screening row (should not happen); record it now
-            await client.query(
-                `INSERT INTO tb_screening (visit_id, status, doctor_notes, flagged_by, reviewed_by, reviewed_at, last_updated_by)
-                 VALUES ($1, $2, $3, $4, $4, NOW(), $4)`,
-                [visitId, decision, doctorNotes, last_updated_by]
-            );
-        }
-
-        let next = null;
-        let visitCompleted = false;
-        if (decision === 'cleared') {
-            await client.query(
-                'UPDATE visit_stations SET completed_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                [last_updated_by, pending.rows[0].id]
-            );
-            next = pending.rows[1] || null;
-            if (next) {
-                await client.query(
-                    'UPDATE visit_stations SET entered_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                    [last_updated_by, next.id]
-                );
-            } else {
-                await client.query(
-                    'UPDATE visits SET completed_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                    [last_updated_by, visitId]
-                );
-                visitCompleted = true;
-            }
-        }
-
+        const screening = flagged
+            ? await flagTb(client, visitId, { redFlags, notes: textOrEmpty(req.body.notes) }, req.user.id)
+            : await clearTbFlag(client, visitId, req.user.id);
+        await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, req.user.id]);
         await client.query('COMMIT');
-        res.status(200).json({
-            visit_id: visitId,
-            status: decision,
-            next_station: next ? next.station : null,
-            visit_completed: visitCompleted,
-        });
+        res.status(200).json(screening
+            ? { ...screening, flagged: TB_FLAGGED_STATUSES.includes(screening.status) }
+            : { visit_id: visitId, flagged: false });
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
-        console.error('Error recording TB review:', err);
+        console.error('Error updating TB flag:', err);
         res.status(500).json({ error: 'Internal server error' });
     } finally {
         client.release();

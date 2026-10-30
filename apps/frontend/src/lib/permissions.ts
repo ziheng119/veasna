@@ -1,3 +1,5 @@
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
+
 export const ROLE_OPTIONS = [
   { value: "user", label: "User (create and view)" },
   { value: "admin", label: "Administrator (create, view and edit)" },
@@ -6,9 +8,8 @@ export const ROLE_OPTIONS = [
 export const NAVIGATION = [
   { href: "/", label: "Home" },
   { href: "/patient-list", label: "Patient List" },
-  { href: "/tb-tent", label: "TB Tent" },
   { href: "/triage", label: "Triage" },
-  { href: "/seva", label: "Seva" },
+  { href: "/seva", label: PARTNER_NGO_NAME },
   { href: "/physiotherapy", label: "Physiotherapy" },
   { href: "/doctors-consultation", label: "Consult" },
   { href: "/pharmacy", label: "Pharmacy" },

@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { getVisualAcuity } from "@/lib/api/visit/getSnellensTest";
 import { VisualAcuity } from "@/lib/types/visualAcuity";
 import Loading from "../../Loading";
-import NoDataAvailable from "../../NoDataAvailable";
 import { SNELLENS_TEST } from "@/constants/strings";
 
 interface Props {
@@ -41,16 +40,21 @@ export default function SnellensTestDetails({ patient }: Props) {
   }
 
   if (!visualAcuity) {
-    return (
-      <NoDataAvailable dataString={SNELLENS_TEST}/>
-    );
+    // A single line rather than the large empty-state box: this section is low priority here.
+    return <p className="text-xs text-muted-foreground">No {SNELLENS_TEST} recorded for this visit.</p>;
   }
 
+  // Low priority on this screen: collapsed by default, smaller text.
   return (
-    <div className="flex flex-col gap-2 w-full">
-      <h2 className="text-[20px] font-semibold">Snellen&apos;s Test</h2>
-      <div className="flex flex-col gap-0">
-        <div className="grid grid-cols-3 gap-x-4 gap-y-2 mb-[30px] items-center w-full">
+    <details className="w-full rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+      <summary className="cursor-pointer select-none font-medium">
+        Snellen&apos;s Test
+        <span className="ml-2 font-normal">
+          L {visualAcuity.left_without_pinhole ?? "N/A"} · R {visualAcuity.right_without_pinhole ?? "N/A"} (without pinhole)
+        </span>
+      </summary>
+      <div className="mt-2 flex flex-col gap-0 text-foreground">
+        <div className="grid grid-cols-3 gap-x-4 gap-y-1.5 items-center w-full">
           <p className="text-start font-semibold">Visual Acuity</p>
           <p className="text-center font-semibold">Left (OS)</p>
           <p className="text-center font-semibold">Right (OD)</p>
@@ -74,6 +78,6 @@ export default function SnellensTestDetails({ patient }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </details>
   )
 }

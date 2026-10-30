@@ -1,8 +1,8 @@
 # Veasna
 
 Veasna is the patient screening system for Veasna clinics. It handles registration,
-station queues (TB Tent, Triage, Seva, Physiotherapy, Consultation), referrals,
-pharmacy stock and analytics.
+station queues (Triage, Partner NGO, Physiotherapy, Consultation) with a red TB flag,
+referrals, prescriptions linked to pharmacy stock, and analytics.
 
 It is built to run **without internet**. One laptop (the "host") runs the database
 and the server. Other laptops and tablets on the same router open the app in a

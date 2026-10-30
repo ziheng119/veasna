@@ -1,5 +1,4 @@
 import { backend_url } from "@/constants/env_variable";
-import { StationId } from "@/constants/stations";
 import { TbStatus } from "@/constants/tb";
 import { clearQueueCache } from "../queue/getQueue";
 
@@ -8,6 +7,7 @@ export interface TbScreening {
   red_flags: string[];
   flag_notes: string;
   status: TbStatus;
+  flagged: boolean;
   doctor_notes: string;
   flagged_at: string;
   flagged_by: string | null;
@@ -23,31 +23,25 @@ export async function getTbScreening(visitId: number, token: string): Promise<Tb
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to load TB screening");
+    throw new Error(error.error || "Failed to load TB flag");
   }
   return res.json();
 }
 
-export type TbDecision = Exclude<TbStatus, "suspected">;
-
-// Records the TB doctor's decision. "cleared" moves the patient to their next station.
-export async function reviewTb(
+// Flags (or, for admins, unflags) the visit for suspected TB.
+export async function setTbFlag(
   visitId: number,
-  decision: TbDecision,
-  doctorNotes: string,
+  flag: { flagged: boolean; red_flags?: string[]; notes?: string },
   token: string
-): Promise<{ status: TbDecision; next_station: StationId | null; visit_completed: boolean }> {
-  const res = await fetch(`${backend_url}/api/tb/${visitId}/review`, {
+): Promise<{ flagged: boolean; status?: TbStatus }> {
+  const res = await fetch(`${backend_url}/api/tb/${visitId}/flag`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ decision, doctor_notes: doctorNotes }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(flag),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to save TB decision");
+    throw new Error(error.error || error.message || "Failed to update TB flag");
   }
   clearQueueCache();
   return res.json();

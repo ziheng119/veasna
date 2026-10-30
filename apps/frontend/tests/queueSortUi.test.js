@@ -24,7 +24,7 @@ test('Home toggle survives search and live list replacement without changing sou
     { visit_id: 1, queue_no: '2', english_name: 'Bob', timestamp: '09:00 AM' },
   ];
   let renderer;
-  const numbers = () => renderer.root.findAll(n => n.type === 'span' && n.props['data-badge']).slice(1).map(n => n.children.join(''));
+  const numbers = () => renderer.root.findAll(n => n.type === 'span' && n.props['data-queue-no']).map(n => n.children.join(''));
   const toggle = () => renderer.root.findAllByType('button').find(n => n.children.join('') === 'Arrival time');
   try {
     await act(async () => { renderer = create(React.createElement(PatientQueue, { patients })); });
@@ -49,7 +49,7 @@ test('station queue defaults to arrival, shows station time, and keeps number mo
   ];
   const props = { station: 'triage', onSelectPatient: jest.fn() };
   let renderer;
-  const numbers = () => renderer.root.findAll(n => n.type === 'span' && n.props['data-badge']).slice(1).map(n => n.children.join(''));
+  const numbers = () => renderer.root.findAll(n => n.type === 'span' && n.props['data-queue-no']).map(n => n.children.join(''));
   try {
     await act(async () => { renderer = create(React.createElement(QueuePatientPicker, props)); });
     expect(numbers()).toEqual(['10', '2']);
