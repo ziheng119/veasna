@@ -13,7 +13,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueN
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { TB_STATION, normalizeRedFlags, rejectIfTbHold, flagTb } = require('../utils/tb');
+const { TB_STATION, normalizeRedFlags, rejectUnsavableVisit, flagTb } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -482,7 +482,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const {
     diagnosis,
@@ -652,7 +652,7 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const { notes = "", painpoints = [] } = req.body;
   if (painpoints !== undefined && !Array.isArray(painpoints)) {
@@ -801,7 +801,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const {
     notes,
@@ -861,7 +861,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
   if (!visit_id) {
     return res.status(400).json({ error: "visit_id is required" });
   }
-  if (await rejectIfTbHold(db, res, visit_id)) return;
+  if (await rejectUnsavableVisit(db, res, visit_id)) return;
 
   const { referralDate, referralType, illness, duration, reason, signature } = req.body;
   if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
@@ -931,7 +931,7 @@ router.delete("/referral/:visit_id", authenticateToken, async (req, res) => {
   const visitId = Number(req.params.visit_id);
   if (!Number.isSafeInteger(visitId) || visitId <= 0) return res.status(400).json({ error: "Invalid visit_id" });
   try {
-    if (await rejectIfTbHold(db, res, visitId)) return;
+    if (await rejectUnsavableVisit(db, res, visitId)) return;
     await db.query(`
       WITH deleted AS (DELETE FROM referral WHERE visit_id = $1 RETURNING id)
       UPDATE consultation SET require_referral = FALSE, last_updated_by = $2, last_updated_at = NOW()

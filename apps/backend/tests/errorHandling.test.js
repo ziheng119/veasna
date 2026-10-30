@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 jest.mock('../config/db', () => ({ query: jest.fn(), pool: { connect: jest.fn(), end: jest.fn() } }));
 const db = require('../config/db');
 const app = require('../server');
+const { rejectUnsavableVisit } = require('../utils/tb');
 
 describe('Async handler errors (Express 4)', () => {
   test('an error thrown in an async handler is answered instead of hanging', async () => {
@@ -46,5 +47,29 @@ describe('Global error handler', () => {
     expect(response.status).toBe(400);
     // Only the account lookup ran; the patient query never reached PostgreSQL.
     expect(db.query).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Station form save guard', () => {
+  const res = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn() });
+  const client = row => ({ query: jest.fn().mockResolvedValue({ rows: [row] }) });
+
+  test('a visit deleted on another device is a 404', async () => {
+    const r = res();
+    expect(await rejectUnsavableVisit(client({ found: false, on_hold: false }), r, 9)).toBe(true);
+    expect(r.status).toHaveBeenCalledWith(404);
+  });
+
+  test('a visit on TB hold is a 409', async () => {
+    const r = res();
+    expect(await rejectUnsavableVisit(client({ found: true, on_hold: true }), r, 9)).toBe(true);
+    expect(r.status).toHaveBeenCalledWith(409);
+  });
+
+  test('an available visit may be saved; invalid IDs are a 400', async () => {
+    expect(await rejectUnsavableVisit(client({ found: true, on_hold: false }), res(), '9')).toBe(false);
+    const r = res();
+    expect(await rejectUnsavableVisit(client({}), r, 'abc')).toBe(true);
+    expect(r.status).toHaveBeenCalledWith(400);
   });
 });

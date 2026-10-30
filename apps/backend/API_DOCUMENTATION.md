@@ -329,6 +329,7 @@ Delete a patient (cascades to vitals/HEF/visits).
   }
   ```
 * Malformed JSON bodies, non-integer IDs in the URL (e.g. `/patients/abc`) and values PostgreSQL rejects (invalid numbers or dates, references to deleted records) return `400`, never `500`.
+* Saving a station form for a visit that no longer exists (e.g. deleted on another device) returns `404`.
 * **500 Server Error**
 
   ```json

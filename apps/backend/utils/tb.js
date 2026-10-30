@@ -2,6 +2,8 @@
 // TB hold: a visit whose TB tent station is not yet completed. The TB tent station is only
 // completed when a TB doctor records that the patient is cleared (routes/tb.js).
 
+const { toPositiveInt } = require('./validation');
+
 const TB_STATION = 'tb';
 const TB_STATUSES = ['suspected', 'cleared', 'tb_likely'];
 const TB_HOLD_MESSAGE =
@@ -16,18 +18,25 @@ function normalizeRedFlags(input) {
   return [...new Set(flags)];
 }
 
-async function isOnTbHold(client, visitId) {
+// Express helper for station form saves: responds and returns true when the form cannot be
+// saved, because the visit does not exist (e.g. deleted on another device: 404) or is on
+// TB hold (409). One query covers both checks.
+async function rejectUnsavableVisit(client, res, visitId) {
+  const id = toPositiveInt(visitId);
+  if (id === null) {
+    res.status(400).json({ error: 'Valid visit_id is required' });
+    return true;
+  }
   const { rows } = await client.query(
-    `SELECT 1 FROM visit_stations WHERE visit_id = $1 AND station = $2 AND completed_at IS NULL`,
-    [visitId, TB_STATION]
+    `SELECT EXISTS (SELECT 1 FROM visits WHERE id = $1) AS found,
+            EXISTS (SELECT 1 FROM visit_stations WHERE visit_id = $1 AND station = $2 AND completed_at IS NULL) AS on_hold`,
+    [id, TB_STATION]
   );
-  return rows.length > 0;
-}
-
-// Express helper for station form saves: responds 409 and returns true when the visit is on TB hold.
-async function rejectIfTbHold(client, res, visitId) {
-  if (!Number.isInteger(Number(visitId))) return false;
-  if (await isOnTbHold(client, Number(visitId))) {
+  if (!rows[0]?.found) {
+    res.status(404).json({ error: 'Visit not found. It may have been deleted on another device.' });
+    return true;
+  }
+  if (rows[0].on_hold) {
     res.status(409).json({ error: TB_HOLD_MESSAGE, code: 'TB_HOLD' });
     return true;
   }
@@ -56,7 +65,6 @@ module.exports = {
   TB_STATUSES,
   TB_HOLD_MESSAGE,
   normalizeRedFlags,
-  isOnTbHold,
-  rejectIfTbHold,
+  rejectUnsavableVisit,
   flagTb,
 };
