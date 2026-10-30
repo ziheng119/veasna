@@ -97,7 +97,7 @@ npm run dev:backend    # server only, restarting when code changes
 ```
 
 When the server starts, it prints the addresses other devices should use, for
-example `LAN: http://192.168.1.10:3000/health`. If PostgreSQL is not ready yet, it
+example `LAN: http://192.168.68.50:3000/health`. If PostgreSQL is not ready yet, it
 waits up to 60 seconds. If PostgreSQL still isn't ready, the server starts anyway
 and `/health` reports the problem. Restart the server once PostgreSQL is running.
 Press Ctrl+C to stop it cleanly.
@@ -116,7 +116,7 @@ All settings live in `apps/backend/.env`.
 | `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_HOST`, `DB_PORT` | How to reach PostgreSQL. Keep `DB_HOST=localhost`, so the database is never exposed to the network. |
 | `PORT` | The server's port (default `3000`). |
 | `JWT_SECRET` | Any long random text. Changing it signs everyone out. |
-| `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.1.10:3001`. |
+| `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.68.50:3001`. |
 | `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address. Useful when device IPs change. |
 | `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
 

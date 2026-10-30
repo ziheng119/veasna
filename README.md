@@ -62,7 +62,9 @@ Then, on each staff device, open `http://<host-IP>:3001` in a browser.
 
 Before the clinic opens:
 
-- Give the host laptop a fixed IP on the router and keep it plugged in and awake.
+- Power on the Deco routers. Give the host laptop a fixed IP in the Deco app (see
+  [setting up the Deco routers](docs/performance-and-lan.md#1-set-up-the-deco-routers))
+  and keep it plugged in and awake.
 - Check the host's **date, time and time zone**. Without internet it cannot set its
   own clock, and the clinic day (which patients appear in today's queue) comes from
   the host's clock.
