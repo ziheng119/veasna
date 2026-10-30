@@ -28,7 +28,7 @@ export default function DoctorsConsultation() {
   return (
     <div className={PAGE_SHELL}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1"><SearchBar onSelectPatient={setSelectedPatient} /></div>
+        <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
         <PrintDailyReferrals locationId={location?.id} />
       </div>
       <div className={PANEL_GRID}>

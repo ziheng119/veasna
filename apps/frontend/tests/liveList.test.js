@@ -43,6 +43,22 @@ describe('Live lists', () => {
     await act(async () => old.resolve([{ id: 1 }]));
     expect(latest.data).toEqual([{ id: 2 }]);
   });
+  test('a changed filter reports nothing loaded until its own request answers', async () => {
+    const renders = [];
+    function Recorder({ load }) { const list = useLiveList(load); renders.push({ load, loaded: list.loaded, data: list.data }); return null; }
+    const first = jest.fn().mockResolvedValue([{ location: 1 }]);
+    await act(async () => { renderer = create(React.createElement(Recorder, { load: first })); });
+    expect(renders[renders.length - 1]).toMatchObject({ loaded: true, data: [{ location: 1 }] });
+    const pending = deferred();
+    const second = jest.fn(() => pending.promise);
+    await act(async () => renderer.update(React.createElement(Recorder, { load: second })));
+    // Not even the render that switches filters may present the old rows as this filter's answer.
+    const switched = renders.filter(r => r.load === second);
+    expect(switched.length).toBeGreaterThan(0);
+    expect(switched.every(r => !r.loaded && r.data.length === 0)).toBe(true);
+    await act(async () => pending.resolve([{ location: 2 }]));
+    expect(renders[renders.length - 1]).toMatchObject({ loaded: true, data: [{ location: 2 }] });
+  });
   test('location/filter changes cancel old work and do not keep previous rows', async () => {
     const first = jest.fn().mockResolvedValue([{ location: 1 }]);
     await mount(first);

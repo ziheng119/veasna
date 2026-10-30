@@ -42,7 +42,7 @@ export default function Traige() {
 
     return (
       <div className={PAGE_SHELL}>
-        <SearchBar onSelectPatient={setSelectedPatient} />
+        <SearchBar station="triage" onSelectPatient={setSelectedPatient} />
         <div className={PANEL_GRID}>
           <QueuePatientPicker
             station="triage"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,27 @@ export default function QueuePatientPicker({
     if (!locationId || !token) return [];
     return getQueue(locationId, new Date().toISOString().slice(0, 10), token, station, signal);
   }, [locationId, token, station]);
-  const { data: patients, refresh: loadQueue } = useLiveList(load);
+  const { data: patients, refresh: loadQueue, loaded } = useLiveList(load);
+
+  // Opening this page with ?visit=<id> (e.g. from the queue search) selects that visit once this
+  // station's queue has loaded. The parameter is then removed so a reload does not reselect it.
+  const router = useRouter();
+  const pathname = usePathname();
+  const requestedVisitId = Number(useSearchParams().get("visit")) || null;
+  useEffect(() => {
+    if (!requestedVisitId || !loaded || !locationId || !token) return;
+    const requested = patients.find((patient) => patient.visit_id === requestedVisitId);
+    if (requested) onSelectPatient(requested);
+    else toast(`That patient is no longer waiting at ${stationLabel(station)}.`);
+    router.replace(pathname, { scroll: false });
+  }, [requestedVisitId, loaded, locationId, token, patients, onSelectPatient, router, pathname, station]);
+
+  // Bring the selected patient into view however they were chosen (queue search, link, click).
+  useEffect(() => {
+    if (!selectedVisitId || typeof document === "undefined") return;
+    document.querySelector(`[data-visit-id="${selectedVisitId}"]`)
+      ?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [selectedVisitId]);
 
   useEffect(() => {
     if (refreshKey !== undefined) void loadQueue();
@@ -150,6 +171,7 @@ export default function QueuePatientPicker({
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
+              data-visit-id={patient.visit_id}
               onClick={(event) => {
                 // The native buttons handle their own actions; all remaining card space selects.
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);

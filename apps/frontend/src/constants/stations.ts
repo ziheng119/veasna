@@ -18,6 +18,19 @@ export const ALL_STATION_IDS: StationId[] = STATIONS.map((station) => station.id
 // the TB tent when TB red flags are ticked.
 export const DEFAULT_STATION_IDS: StationId[] = ALL_STATION_IDS.filter((id) => id !== "seva" && id !== "tb");
 
+// Page where each station's queue is worked. Opening it with ?visit=<id> selects that visit.
+export const STATION_PAGES: Record<StationId, string> = {
+  tb: "/tb-tent",
+  triage: "/triage",
+  seva: "/seva",
+  physiotherapy: "/physiotherapy",
+  consultation: "/doctors-consultation",
+};
+
+export function stationPageHref(station: StationId, visitId: number): string {
+  return `${STATION_PAGES[station]}?visit=${visitId}`;
+}
+
 export function stationLabel(id?: string | null): string {
   return STATIONS.find((station) => station.id === id)?.label ?? "";
 }
