@@ -11,6 +11,7 @@
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:stations": "node scripts/seedStationUsers.js",
     "seed:demo": "node scripts/seedDemo.js",
+    "check:lan": "node scripts/checkLan.js",
     "test": "jest",
     "format": "prettier --write ."
   },

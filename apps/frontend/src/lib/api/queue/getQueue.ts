@@ -27,7 +27,8 @@ export async function getQueue(locationId: number, date: string, token: string, 
 
     const stationParam = station ? `&station=${station}` : "";
     const res = await fetch(`${backend_url}/api/queue?location_id=${locationId}&date=${date}${stationParam}`, {
-      cache: signal ? "no-store" : "no-cache",
+      // Always revalidated with the server; an unchanged list returns 304 without a body.
+      cache: "no-cache",
       headers,
       signal,
     });

@@ -2,10 +2,12 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
 // Notifications invalidate lists; patient data stays behind the existing REST API.
+// `origins` is either an exact list or the (origin) => boolean check used for REST CORS.
 function attachRealtime(server, { origins, secret }) {
+  const isAllowed = typeof origins === 'function' ? origins : origin => !origin || origins.includes(origin);
   const io = new Server(server, {
-    cors: { origin: origins, credentials: true },
-    allowRequest: (req, done) => done(null, !req.headers.origin || origins.includes(req.headers.origin)),
+    cors: { origin: (origin, done) => done(null, isAllowed(origin)), credentials: true },
+    allowRequest: (req, done) => done(null, isAllowed(req.headers.origin)),
     maxHttpBufferSize: 16 * 1024,
   });
 

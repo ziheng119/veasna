@@ -35,6 +35,79 @@ before rebuilding its output; do not replace chunks during an active clinic.
 Keep dependencies installed on the host. System fonts remove Google font
 downloads from builds and font-file transfers from client startup.
 
+## Standalone backend with several frontends (router, no internet)
+
+One laptop runs the backend and PostgreSQL. The router gives it a static IP
+(DHCP reservation), for example `192.168.1.10`. Any number of frontend services
+or browsers on the same router use that IP. The router does not need internet
+access.
+
+```text
+            router (no internet required)
+     ┌──────────────┼─────────────────┐
+ backend host     frontend A        frontend B / browsers
+ 192.168.1.10     192.168.1.20      192.168.1.x
+ API + live :PORT  Next.js :3001     ──► http://192.168.1.10:PORT
+ PostgreSQL (local only)
+```
+
+Backend host, `apps/backend/.env`:
+
+```env
+PORT=3000
+NEXT_PUBLIC_FRONTEND_URL=http://192.168.1.20:3001,http://192.168.1.21:3001
+# Or, when frontend devices get changing DHCP addresses:
+ALLOW_LAN_ORIGINS=true
+```
+
+Each frontend service, `apps/frontend/.env.local`, then `npm run build`:
+
+```env
+NEXT_PUBLIC_BACKEND_URL=http://192.168.1.10:3000
+```
+
+The REST API and live queue updates share one port and one origin rule.
+Socket.IO uses a WebSocket, falling back to HTTP long-polling if a device or
+network blocks WebSockets. Allow only the backend `PORT` (and `3001` on
+frontend hosts) on the private-network firewall. PostgreSQL stays on
+`DB_HOST=localhost` and is not exposed to the LAN.
+
+`ALLOW_LAN_ORIGINS=true` accepts loopback and private IPv4 origins only
+(`10.x`, `172.16–31.x`, `192.168.x`), never public addresses. Every API
+request still requires a signed-in token. Rejected origins are logged once by
+the backend, naming the variable to change.
+
+When the backend starts it waits up to 60 seconds for PostgreSQL, so it can
+start at boot before the database. It then applies schema checks in order and
+only then accepts connections. If PostgreSQL is still down, it starts anyway with
+`/health` returning 503; restart the backend once the database runs. It prints
+the LAN URLs that clients should use.
+Ctrl+C closes live connections and database clients cleanly.
+
+### Verify from each device
+
+From any device with the repository installed (for example each frontend host):
+
+```sh
+npm run check:lan -- http://192.168.1.10:3000 http://192.168.1.20:3001 user user
+```
+
+It checks, read-only: backend reachable and PostgreSQL connected (`/health`),
+REST CORS for that frontend origin, the live-update handshake for that origin
+and, with credentials, a signed-in live-update session. Each failure names the
+likely fix. Without Node, open `http://192.168.1.10:3000/health` in a
+browser. `"database": "ok"` and `realtimeClients` (connected live-update
+devices) confirm the host side. It returns HTTP 503 when PostgreSQL is
+unreachable.
+
+### Live-update traffic
+
+Each successful write makes every connected device reload its visible lists
+(about 2–3 requests per device). List reads revalidate with ETags, so an
+unchanged list costs an HTTP 304 without a body. The per-device API limit is
+`API_RATE_LIMIT_MAX` requests per 15 minutes (default 5000). Raise it if
+devices log HTTP 429 on busy days.
+
 ## Navigation and recovery
 
 Existing Next.js navigation links retain automatic production prefetching for
@@ -48,7 +121,7 @@ event-handler/API failure; individual forms still handle their own requests.
 
 The tighter 30-attempt/15-minute authentication limit covers credential submission
 (`/auth/login` and `/auth/register`), not `/auth/me` on every navigation. All API
-requests still have the general 1,000-request/15-minute/IP limit. Shared NAT or
+requests still have the general `API_RATE_LIMIT_MAX` (default 5,000) per-15-minute/IP limit. Shared NAT or
 heavy clinic traffic can reach that limit; check for HTTP 429 before changing it.
 Server-side page/API permissions remain enforced.
 

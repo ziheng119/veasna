@@ -37,7 +37,8 @@ export async function getPatientsByLocation(
     }
 
     const res = await fetch(`${backend_url}/api/patients?${params.toString()}`, {
-      cache: signal ? "no-store" : "no-cache",
+      // Always revalidated with the server; an unchanged list returns 304 without a body.
+      cache: "no-cache",
       headers,
       signal,
     });

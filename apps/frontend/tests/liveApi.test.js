@@ -12,7 +12,7 @@ describe.each(loaders)('Live %s API reads', (_name, load, clear) => {
     logs = jest.spyOn(console, 'log').mockImplementation(() => {});
   });
   afterEach(() => { global.fetch = originalFetch; logs.mockRestore(); });
-  test('bypasses cached responses and passes cancellation to fetch', async () => {
+  test('always revalidates with the server and passes cancellation to fetch', async () => {
     const signal = new AbortController().signal;
     fetch.mockResolvedValue({ ok: true, status: 200, json: async () => [{ id: 1 }], headers: new Headers() });
     expect(await load(signal)).toEqual([{ id: 1 }]);
@@ -20,7 +20,8 @@ describe.each(loaders)('Live %s API reads', (_name, load, clear) => {
     expect(url).toContain('location_id=1');
     expect(url).toContain('2026-10-19');
     expect(options.signal).toBe(signal);
-    expect(options.cache).toBe('no-store');
+    // "no-cache" never serves a stored list unchecked; unchanged lists return 304 with no body.
+    expect(options.cache).toBe('no-cache');
     expect(options.headers['If-None-Match']).toBeUndefined();
   });
   test('surfaces failures rather than returning an empty or stale successful list', async () => {

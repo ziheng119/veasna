@@ -41,6 +41,7 @@ PORT=3000
 NODE_ENV=development
 JWT_SECRET=replace_with_long_random_secret
 NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
+# Optional: ALLOW_LAN_ORIGINS=true, API_RATE_LIMIT_MAX=5000 (see docs/performance-and-lan.md)
 ```
 
 Frontend env (`apps/frontend/.env.local`):
@@ -116,7 +117,8 @@ npm run lint
 ### Live queue and patient lists
 
 - Queue and patient lists update across users through authenticated Socket.IO connections on the existing backend port. Reconnecting reloads missed changes without replacing open form drafts.
-- For LAN access, set `NEXT_PUBLIC_BACKEND_URL` to the host laptop's IP and API port, and list allowed frontend origins in the backend's `NEXT_PUBLIC_FRONTEND_URL` (comma-separated). Restart both services after configuration changes.
+- For LAN access, set `NEXT_PUBLIC_BACKEND_URL` to the host laptop's IP and API port, and list allowed frontend origins in the backend's `NEXT_PUBLIC_FRONTEND_URL` (comma-separated), or set `ALLOW_LAN_ORIGINS=true` to accept any private-network frontend. Rebuild the frontend and restart both services after configuration changes.
+- Verify a device's connection (health, database, CORS, live updates) with `npm run check:lan -- http://<backend-IP>:<PORT> http://<frontend-IP>:3001 user user`. See [standalone backend with several frontends](docs/performance-and-lan.md#standalone-backend-with-several-frontends-router-no-internet).
 - Uses one backend instance with no Internet or extra service required. Direct SQL edits do not trigger updates.
 
 Run isolated tests (no clinic database writes):
