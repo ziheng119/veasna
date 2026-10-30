@@ -3,7 +3,6 @@
 import SevaNotesContainer from "@/components/seva/SevaNotesContainer";
 import SevaReferralListDialog from "@/components/seva/SevaReferralListDialog";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import TbHoldNotice from "@/components/shared/TbHoldNotice";
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
 import SearchBar from "@/components/shared/SearchBar";
@@ -41,8 +40,6 @@ export default function Seva() {
               <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
                 {!selectedPatient ? (
                   <NoPatientSelected />
-                ) : selectedPatient.current_station === "tb" ? (
-                  <TbHoldNotice patient={selectedPatient} />
                 ) : (
                   <div className={PANEL_GRID}>
                     <PatientContainer selectedPatient = {selectedPatient}/>

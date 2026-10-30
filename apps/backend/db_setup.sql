@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS presenting_complaint CASCADE;
 DROP TABLE IF EXISTS visual_acuity CASCADE;
 DROP TABLE IF EXISTS hef CASCADE;
 DROP TABLE IF EXISTS vitals CASCADE;
+DROP TABLE IF EXISTS prescriptions CASCADE;
 DROP TABLE IF EXISTS tb_screening CASCADE;
 DROP TABLE IF EXISTS visit_station_route_history CASCADE;
 DROP TABLE IF EXISTS visit_stations CASCADE;
@@ -111,7 +112,7 @@ CREATE TABLE visit_stations (
         ON DELETE CASCADE ON UPDATE CASCADE,
     station VARCHAR(30) NOT NULL
         CONSTRAINT visit_stations_station_check
-        CHECK (station IN ('tb', 'triage', 'seva', 'physiotherapy', 'consultation')),
+        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation')),
     position INT NOT NULL,                 -- remaining route order; may change when a station is deferred or revisited
     entered_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
@@ -124,8 +125,9 @@ CREATE TABLE visit_stations (
 CREATE INDEX visit_stations_pending_idx
     ON visit_stations (visit_id, position) WHERE completed_at IS NULL;
 
--- TB screening. A flagged visit is queued at the TB tent first and cannot be seen at any other
--- station until a TB doctor clears it. status: suspected, cleared, tb_likely (TB not ruled out).
+-- Suspected-TB flag on a visit. A flagged visit goes through its normal stations and is shown in
+-- red in every queue. status: suspected (flagged), cleared (flag removed), tb_likely (flagged;
+-- older records reviewed at the former TB Tent).
 CREATE TABLE tb_screening (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
@@ -308,6 +310,33 @@ CREATE TABLE pharmacy (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (location_id, drug_name)
 );
+
+-- Prescriptions linked to pharmacy inventory. A pending prescription reserves its quantity:
+-- available stock = stock_count - pending quantities. Dispensing lowers stock_count;
+-- cancelling releases the reservation.
+CREATE TABLE prescriptions (
+    id SERIAL PRIMARY KEY,
+    visit_id INT NOT NULL REFERENCES visits(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    drug_id INT NULL REFERENCES pharmacy(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    drug_name VARCHAR(255) NOT NULL,       -- as prescribed, kept if the drug is later removed
+    quantity INT NOT NULL CHECK (quantity > 0),
+    instructions TEXT NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'dispensed', 'cancelled')),
+    prescribed_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    prescribed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    dispensed_by INT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    dispensed_at TIMESTAMP NULL,
+    cancelled_by INT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    cancelled_at TIMESTAMP NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX prescriptions_visit_idx ON prescriptions (visit_id);
+CREATE INDEX prescriptions_pending_drug_idx ON prescriptions (drug_id) WHERE status = 'pending';
 
 CREATE OR REPLACE FUNCTION delete_referrals_on_consultation_delete()
 RETURNS TRIGGER AS $$

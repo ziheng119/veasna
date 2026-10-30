@@ -6,7 +6,7 @@
 // the parts of a visit that have no such endpoint:
 //   PUT /api/visits/:visitId         visit details: queue number, visit date, location
 //   PUT /api/visits/:visitId/vitals  vitals and HEF captured at registration
-//   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, result)
+//   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, flag status)
 // Every write records the admin in last_updated_by and bumps last_updated_at for sync/audit.
 const express = require('express');
 const router = express.Router();
@@ -15,15 +15,11 @@ const { integerParams } = require('../utils/validation');
 integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
-const { lockQueue } = require('../utils/queueNumber');
+const { lockQueue, normalizeQueueNo, isValidQueueNo, QUEUE_NO_ERROR } = require('../utils/queueNumber');
 const { textOrEmpty } = require('../utils/partialFields');
 const { normalizeVitals } = require('../utils/vitals');
-const { normalizeRedFlags } = require('../utils/tb');
+const { TB_STATUSES, normalizeRedFlags } = require('../utils/tb');
 
-// Results an admin may record when correcting a TB screening after the visit.
-const TB_RESULTS = ['cleared', 'tb_likely'];
-// Same format the queue issues: digits with an optional letter suffix (legacy values like "12A").
-const QUEUE_NO_PATTERN = /^[0-9]{1,9}[A-Z]*$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Applied per route: a router-level guard would also block GET /api/visits/* for users,
@@ -71,9 +67,9 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
 
   const { queue_no, visit_date, location_id } = req.body;
-  const queueNo = queue_no === undefined ? undefined : String(queue_no).trim().toUpperCase();
-  if (queueNo !== undefined && !QUEUE_NO_PATTERN.test(queueNo)) {
-    return res.status(400).json({ error: 'queue_no must be a number with an optional letter suffix, e.g. 12 or 12A' });
+  const queueNo = queue_no === undefined ? undefined : normalizeQueueNo(queue_no);
+  if (queueNo !== undefined && !isValidQueueNo(queueNo)) {
+    return res.status(400).json({ error: QUEUE_NO_ERROR });
   }
   if (visit_date !== undefined && !isValidDate(visit_date)) {
     return res.status(400).json({ error: 'visit_date must be a valid date (YYYY-MM-DD)' });
@@ -180,10 +176,9 @@ router.put('/:visitId/vitals', ...adminOnly, async (req, res) => {
 });
 
 // PUT /api/visits/:visitId/tb
-// Body: { red_flags?: string[], flag_notes?, doctor_notes?, status?: 'cleared' | 'tb_likely' }.
-// Red flags and notes can always be corrected. The result decides where the patient may go, so
-// while the visit is still open it is only changed at the TB tent (POST /api/tb/:visitId/review);
-// here it can be corrected once the visit is completed, without touching the station route.
+// Body: { red_flags?: string[], flag_notes?, doctor_notes?, status?: 'suspected' | 'cleared' | 'tb_likely' }.
+// TB is a flag on the visit ('suspected' or 'tb_likely' = flagged, 'cleared' = not flagged), so it
+// can be corrected at any time without touching the station route.
 router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
@@ -191,24 +186,18 @@ router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
   const { flag_notes, doctor_notes, status } = req.body;
   const redFlags = req.body.red_flags === undefined ? undefined : normalizeRedFlags(req.body.red_flags);
   if (redFlags === null) return res.status(400).json({ error: 'red_flags must be a list of text' });
-  if (status !== undefined && !TB_RESULTS.includes(status)) {
-    return res.status(400).json({ error: `status must be one of: ${TB_RESULTS.join(', ')}` });
+  if (status !== undefined && !TB_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${TB_STATUSES.join(', ')}` });
   }
 
   await inTransaction(res, 'TB screening', async (client) => {
-    // Same row lock as the TB tent review, so the two cannot interleave.
-    const visit = await client.query('SELECT completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+    // Same row lock as POST /api/tb/:visitId/flag, so the two cannot interleave.
+    const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
     if (!visit.rows.length) return { status: 404, body: { error: 'Visit not found' } };
     const screening = await client.query('SELECT status FROM tb_screening WHERE visit_id = $1', [visitId]);
     if (!screening.rows.length) return { status: 404, body: { error: 'This visit was not flagged for TB' } };
 
     const statusChanged = status !== undefined && status !== screening.rows[0].status;
-    if (statusChanged && !visit.rows[0].completed_at) {
-      return {
-        status: 409,
-        body: { error: 'The patient is still in the clinic. Record the TB result at the TB tent instead.' },
-      };
-    }
 
     const { rows } = await client.query(
       `UPDATE tb_screening SET

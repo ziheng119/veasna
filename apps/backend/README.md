@@ -144,13 +144,18 @@ These rules are enforced by the server, so they apply on every device:
   saved ones. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
   correctly.
-- **Stations:** each visit goes through only the stations it needs (TB Tent, Triage,
-  Seva, Physiotherapy, Consultation), waiting in one queue at a time.
-- **TB hold:** a patient flagged for TB goes to the TB Tent first. They cannot be moved
-  to or saved at any other station until a TB doctor records "cleared". "TB not ruled
-  out" keeps them at the TB Tent until discharged.
-- **Seva:** patients are added to Seva from the Triage visual acuity form when a
-  cataract is suspected. They are not added at registration.
+- **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
+  Physiotherapy, Consultation), waiting in one queue at a time.
+- **TB flag:** suspected TB is a flag on the visit, set at registration (TB red flags) or
+  at Triage. The patient goes through their stations as usual and is shown in red, with a
+  "TB" label, in every queue so doctors can attend to them. Only an admin can remove a flag.
+- **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
+  e.g. `12A` for a family member or `A12`. Unique per location and day.
+- **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
+  when a cataract is suspected. The station is still `seva` in the database and API; its
+  display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.
+- **Prescriptions** are chosen from the location's pharmacy. Prescribing reserves stock
+  at once; the pharmacy dispenses (stock goes down) or cancels (stock is released).
 - **Visual acuity** is recorded as a Snellen fraction such as `6/6` or `6/9`.
 - **Unique ID** is made automatically from the first 3 letters of the English and
   Khmer names plus the date of birth (e.g. `SOKសុខ07031990`). It updates when those
@@ -160,8 +165,12 @@ These rules are enforced by the server, so they apply on every device:
 - **Admin corrections:** on Patient Details, admins can correct a patient's details
   and every part of a past visit. Each section saves separately, so it doesn't
   overwrite someone else working on another section.
-- **Pharmacy:** dispensing subtracts from the current stock in one step, so two
-  devices dispensing at once both count correctly.
+- **Pharmacy stock:** each medicine has stock on the shelf, stock reserved by
+  prescriptions waiting at the pharmacy, and the available rest. Only available stock
+  can be prescribed or dispensed without a prescription. Stock-takes cannot go below
+  the reserved amount, and a medicine with waiting prescriptions cannot be deleted.
+  Every stock change locks the medicine first, so two devices acting at once both
+  count correctly.
 - **Dates** are stored and returned as plain `YYYY-MM-DD`, so they don't shift a day
   between devices.
 

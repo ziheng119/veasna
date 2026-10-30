@@ -10,6 +10,7 @@ import { X } from "lucide-react";
 import { stationLabel } from "@/constants/stations";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
+import TbBadge, { TB_CARD_CLASS } from "../shared/TbBadge";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -73,19 +74,26 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
           sortedPatients.map((patient) => (
             <div
               key={patient.visit_id}
-              className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors bg-card gap-3"
+              className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${
+                patient.tb_flagged ? TB_CARD_CLASS : "border border-border bg-card hover:bg-accent"
+              }`}
             >
-              <div className="flex items-center space-x-3 min-w-0">
-                <Badge variant="active" className="font-mono min-w-12 justify-center">
-                  {patient.queue_no}
-                </Badge>
-                <div className="min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="flex shrink-0 flex-col items-center gap-1">
+                  <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                    patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+                  }`}>
+                    {patient.queue_no}
+                  </span>
+                  {patient.tb_flagged && <TbBadge />}
+                </span>
+                <div className="min-w-0 border-l border-border pl-3">
                   <div className="font-medium text-foreground truncate">{patient.english_name}</div>
                   <div className="text-sm text-muted-foreground truncate">
                     {patient.khmer_name}
                   </div>
                   {patient.current_station && (
-                    <div className={`text-xs font-medium truncate ${patient.current_station === "tb" ? "text-destructive" : "text-primary"}`}>
+                    <div className="text-xs font-medium truncate text-primary">
                       At {stationLabel(patient.current_station)}
                     </div>
                   )}

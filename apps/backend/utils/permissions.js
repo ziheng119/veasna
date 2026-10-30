@@ -33,7 +33,11 @@ function canAccessApi(rawRole, method, rawPath) {
       "/triage/history",
     ].includes(path) ||
     /^\/visits\/(seva|physiotherapy|consultation|referral)\/\d+$/.test(path) ||
-    /^\/tb\/\d+\/review$/.test(path)
+    // Flagging suspected TB is a first entry; the route refuses users removing or editing a flag.
+    /^\/tb\/\d+\/flag$/.test(path) ||
+    // Prescribing is a first entry (it reserves stock). Dispensing or cancelling a prescription
+    // changes stock, so like other dispensing it is admin-only.
+    path === "/prescriptions"
   );
 }
 module.exports = { ROLES, normalizeRole, canAccessApi };

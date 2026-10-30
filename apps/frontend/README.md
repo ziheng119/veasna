@@ -42,17 +42,28 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Home | `/` | Register patients and see the clinic queue |
 | Patient List | `/patient-list` | Search patients; **+** adds a new one |
 | Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
-| TB Tent | `/tb-tent` | TB review for flagged patients |
-| Triage | `/triage` | Visual acuity, presenting complaint and medical history |
-| Seva | `/seva` | Eye checks and cataract referrals |
+| Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
+| Partner NGO | `/seva` | Partner NGO notes and referrals (name set in `constants/partnerNgo.ts`) |
 | Physiotherapy | `/physiotherapy` | Physiotherapy assessment |
-| Consultation | `/doctors-consultation` | Doctor's notes, prescriptions and referrals |
-| Pharmacy | `/pharmacy` | View and dispense medication |
+| Consultation | `/doctors-consultation` | Doctor's notes, prescribing from pharmacy stock, and referrals |
+| Pharmacy | `/pharmacy` | Dispense prescriptions, view stock, and each patient's prescription history |
 | Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock |
 | Analytics | `/analytics` | Clinic numbers, from the user menu |
 
 If a page fails to load, it shows a **Retry page** button. Lists that may be out of date
 after a dropped connection refresh themselves when the connection returns.
+
+## Customising
+
+| To change | Edit |
+| --- | --- |
+| The partner NGO's name (shown in the menu, queues, forms and referrals) | `PARTNER_NGO_NAME` in `src/constants/partnerNgo.ts` |
+| The logo on printed referral letters | Save it as `public/btb-logo.png`. Without the file, letters print with the name only. |
+| The organisation name on referral letters | `LETTERHEAD` in `src/constants/letterhead.ts` |
+| The TB red flags offered at registration and Triage | `TB_RED_FLAGS` in `src/constants/tb.ts` |
+| Places a doctor can refer to | `REFERRAL_DESTINATIONS` in `src/constants/referral.ts` |
+
+Run `npm run build` again afterwards for clinic use.
 
 ## For developers
 
@@ -66,7 +77,7 @@ shadcn/ui, and Zustand for sign-in and location state.
 | `src/app/wrappers/AuthWrapper.tsx` | Redirects to sign-in when needed |
 | `src/lib/api/` | Calls to the backend |
 | `src/stores/` | Shared state |
-| `src/constants/` | Shared lists, such as TB red flags |
+| `src/constants/` | Shared lists and names (see [Customising](#customising)) |
 
 ```bash
 npm test --workspace apps/frontend

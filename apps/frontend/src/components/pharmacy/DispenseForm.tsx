@@ -9,6 +9,9 @@ interface DispenseFormProps {
     onDispense: (drugId: number, quantity: number) => void
 }
 
+// Stock reserved by pending prescriptions cannot be dispensed here.
+const available = (drug: Drug) => drug.available_count ?? drug.stock_count
+
 export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
     const [selectedDrugId, setSelectedDrugId] = useState<number | null>(null)
     const [quantity, setQuantity] = useState(1)
@@ -18,12 +21,12 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedDrugId || quantity <= 0) return
-        if (selectedDrug && quantity > selectedDrug.stock_count) return
+        if (selectedDrug && quantity > available(selectedDrug)) return
         onDispense(selectedDrugId, quantity)
         setQuantity(1)
     }
 
-    const maxQuantity = selectedDrug?.stock_count ?? 0
+    const maxQuantity = selectedDrug ? available(selectedDrug) : 0
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -42,8 +45,8 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
                 >
                     <option value="">Select a medication...</option>
                     {drugs.map(drug => (
-                        <option key={drug.id} value={drug.id} disabled={drug.stock_count === 0}>
-                            {drug.drug_name} ({drug.stock_count} in stock)
+                        <option key={drug.id} value={drug.id} disabled={available(drug) <= 0}>
+                            {drug.drug_name} ({available(drug)} available)
                         </option>
                     ))}
                 </select>
@@ -51,9 +54,9 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
 
             {selectedDrug && (
                 <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50 border border-border">
-                    <span className="text-sm text-muted-foreground">Current stock:</span>
-                    <span className="text-sm font-semibold">{selectedDrug.stock_count}</span>
-                    <StockStatusBadge count={selectedDrug.stock_count} />
+                    <span className="text-sm text-muted-foreground">Available:</span>
+                    <span className="text-sm font-semibold">{available(selectedDrug)}</span>
+                    <StockStatusBadge count={available(selectedDrug)} />
                 </div>
             )}
 
@@ -68,19 +71,19 @@ export function DispenseForm({ drugs, onDispense }: DispenseFormProps) {
                     max={maxQuantity}
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
-                    disabled={!selectedDrug || selectedDrug.stock_count === 0}
+                    disabled={!selectedDrug || available(selectedDrug) <= 0}
                     className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 {selectedDrug && quantity > maxQuantity && (
                     <p className="mt-1 text-xs text-destructive">
-                        Cannot dispense more than available stock ({maxQuantity})
+                        Cannot dispense more than available stock ({maxQuantity}); the rest is reserved for prescriptions
                     </p>
                 )}
             </div>
 
             {selectedDrug && quantity > 0 && quantity <= maxQuantity && (
                 <div className="text-sm text-muted-foreground">
-                    After dispensing: <span className="font-semibold text-foreground">{selectedDrug.stock_count - quantity}</span> remaining
+                    After dispensing: <span className="font-semibold text-foreground">{available(selectedDrug) - quantity}</span> available
                 </div>
             )}
 

@@ -3,7 +3,9 @@
 Each queue has a **Sort queue by** switch above its search box:
 
 - **Queue number:** in registration number order, with letter suffixes after their
-  number: `2, 2A, 2AA, 2B, 10`. Patients with the same number stay in arrival order.
+  number: `2, 2A, 2AA, 2B, 10`. Numbers that start with a letter come after the plain
+  numbers, in their own series: `A1, A2, A12, B1`. Letter case is ignored. Patients with
+  the same number stay in arrival order.
 - **Arrival time:** whoever has waited longest comes first. On Home this is when the
   patient registered; at a station, it is when they arrived at that station. A patient
   sent back to a station joins behind those already waiting there.

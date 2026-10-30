@@ -54,7 +54,7 @@ patient first.
 
 In a saved referral, press the red **Delete referral** button, then confirm. This
 removes the referral and its signature. The consultation notes and prescription stay.
-There is no undo. Deleting is not possible while the patient is on TB hold.
+There is no undo.
 
 ## Who can do what
 

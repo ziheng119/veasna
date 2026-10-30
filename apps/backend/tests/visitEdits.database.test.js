@@ -101,8 +101,16 @@ const USER_ID = 2;
       expect(rows[0].queue_no).toBe("1");
     });
 
+    test("queue numbers may contain letters, e.g. A12", async () => {
+      const res = await put("/visits/1", { queue_no: "a12" });
+      expect(res.status).toBe(200);
+      expect(res.body.queue_no).toBe("A12");
+    });
+
     test.each([
-      [{ queue_no: "A1" }],
+      [{ queue_no: "A-1" }],
+      [{ queue_no: "ABC" }],
+      [{ queue_no: "12345678901" }],
       [{ visit_date: "2026-02-30" }],
       [{ location_id: 0 }],
       [{}],
@@ -143,22 +151,17 @@ const USER_ID = 2;
         expect(res.body).toMatchObject({ red_flags: ["fever", "night_sweats"], flag_notes: "Fixed", status: "suspected", last_updated_by: ADMIN_ID });
       });
 
-      test("the result of an open visit can only change at the TB tent", async () => {
-        expect((await put("/visits/1/tb", { status: "cleared" })).status).toBe(409);
-      });
-
-      test("the result of a completed visit can be corrected and is attributed", async () => {
-        await client.query("UPDATE visits SET completed_at = NOW() WHERE id = 1");
-        const res = await put("/visits/1/tb", { status: "tb_likely" });
+      test("the flag can be removed while the visit is open, and is attributed", async () => {
+        const res = await put("/visits/1/tb", { status: "cleared" });
         expect(res.status).toBe(200);
         const { rows } = await client.query("SELECT status, reviewed_by, reviewed_at FROM tb_screening");
-        expect(rows[0]).toMatchObject({ status: "tb_likely", reviewed_by: ADMIN_ID });
+        expect(rows[0]).toMatchObject({ status: "cleared", reviewed_by: ADMIN_ID });
         expect(rows[0].reviewed_at).not.toBeNull();
       });
 
       test("unflagged visits and unknown results are rejected", async () => {
         expect((await put("/visits/2/tb", { flag_notes: "x" })).status).toBe(404);
-        expect((await put("/visits/1/tb", { status: "suspected" })).status).toBe(400);
+        expect((await put("/visits/1/tb", { status: "removed" })).status).toBe(400);
       });
     });
   },

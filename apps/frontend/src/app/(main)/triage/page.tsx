@@ -5,8 +5,8 @@ import PatientDetails from "@/components/shared/read-only/patient-container/Pati
 import { QueuedPatient } from "@/lib/types/patient";
 import { useEffect, useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import TbHoldNotice from "@/components/shared/TbHoldNotice";
 import { TriageTabs } from "@/components/triage/TriageTabs";
+import TbFlagPanel from "@/components/triage/TbFlagPanel";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
@@ -33,6 +33,12 @@ export default function Traige() {
     setQueueVersion((version) => version + 1);
   };
 
+  // Triage flagged or unflagged suspected TB: refresh the queue's red TB markers.
+  const handleTbChanged = (flagged: boolean) => {
+    setSelectedPatient((prev) => prev && { ...prev, tb_flagged: flagged });
+    setQueueVersion((version) => version + 1);
+  };
+
   useEffect(() => {
     if (!location) {
       toast(SET_LOCATION_MESSAGE);
@@ -53,8 +59,6 @@ export default function Traige() {
           <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
             {!selectedPatient ? (
               <NoPatientSelected />
-            ) : selectedPatient.current_station === "tb" ? (
-              <TbHoldNotice patient={selectedPatient} />
             ) : (
               <div className={PANEL_GRID}>
                 <PageCard
@@ -64,13 +68,20 @@ export default function Traige() {
                 >
                   <PatientDetails patient={selectedPatient} />
                 </PageCard>
-                <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-                  <TriageTabs patient_id={selectedPatient.patient_id!}
-                    key={selectedPatient.visit_id}
-                    visit_id={selectedPatient.visit_id}
-                    stations={selectedPatient.stations}
-                    onStationsChanged={handleStationsChanged}
+                <div className={`${PANEL_WRAPPER} flex flex-col xl:col-span-8`}>
+                  <TbFlagPanel
+                    key={`tb-${selectedPatient.visit_id}`}
+                    visitId={selectedPatient.visit_id}
+                    onChanged={handleTbChanged}
                   />
+                  <div className="min-h-0 flex-1">
+                    <TriageTabs patient_id={selectedPatient.patient_id!}
+                      key={selectedPatient.visit_id}
+                      visit_id={selectedPatient.visit_id}
+                      stations={selectedPatient.stations}
+                      onStationsChanged={handleStationsChanged}
+                    />
+                  </div>
                 </div>
               </div>
             )}

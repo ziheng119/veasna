@@ -29,6 +29,7 @@ import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_RED_FLAGS } from "@/constants/tb";
+import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo } from "@/lib/queueNumber";
 import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
@@ -38,6 +39,7 @@ interface PatientFormProps {
 }
 
 type FormErrors = {
+    queue_no?: string;
     english_name?: string;
     sex?: string;
     height?: string;
@@ -59,6 +61,7 @@ const emptyPatientInfo: PatientFormData = {
     phone_number: "",
     address: "",
     age: undefined,
+    queue_no: "",
 };
 
 const MAX_SUGGESTIONS = 8;
@@ -135,8 +138,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
-    // TB red flags. Ticking any of them sends the patient to the TB tent first, where they are
-    // held until a TB doctor clears them.
+    // TB red flags. Ticking any of them flags the patient for suspected TB: they go through their
+    // stations as usual and are marked in red in every queue.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
     const [tbNotes, setTbNotes] = useState("");
     const tbFlagged = tbRedFlags.length > 0;
@@ -185,6 +188,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const bpDiastolic = Number(vitals.bp_diastolic);
       const temperature = Number(vitals.temperature);
 
+      if (patientInfo.queue_no?.trim() && !isValidQueueNo(patientInfo.queue_no)) nextErrors.queue_no = QUEUE_NO_ERROR;
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
 
@@ -201,7 +205,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
+      const patientInfoFields: (keyof FormErrors)[] = ["queue_no", "english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
       const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
 
@@ -293,7 +297,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         setMatchPrompt(null);
         setIsSubmitting(true);
 
-        const completePatientInfo = { ...patientInfo, location_id: locationId, id: patientId };
+        // A blank queue number is assigned by the server.
+        const completePatientInfo = {
+          ...patientInfo,
+          queue_no: normalizeQueueNo(patientInfo.queue_no) || undefined,
+          location_id: locationId,
+          id: patientId,
+        };
 
         try {
           const newQueuedPatient = await createVisit(
@@ -309,9 +319,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
-          if (newQueuedPatient.current_station === "tb") {
+          if (tbFlagged) {
             toast.error(
-              `Suspected TB: take number ${newQueuedPatient.queue_no} to the TB tent, away from other villagers, and inform a TB doctor.`,
+              `Suspected TB: number ${newQueuedPatient.queue_no} is flagged red in every queue. Keep them apart from other villagers and inform a doctor.`,
               { duration: 10000 }
             );
           } else {
@@ -426,12 +436,22 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
                     <Input
                       id="queueNumber"
-                      value={nextQueueNo}
-                      readOnly
-                      placeholder="Assigned automatically"
-                      className="mt-2 bg-muted"
+                      value={patientInfo.queue_no ?? ""}
+                      onChange={(e) => {
+                        setPatientInfo(prev => ({ ...prev, queue_no: e.target.value.toUpperCase() }));
+                        clearFieldError("queue_no");
+                      }}
+                      maxLength={10}
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      placeholder={nextQueueNo ? `${nextQueueNo} (next)` : "Assigned automatically"}
+                      aria-invalid={!!errors.queue_no}
+                      aria-describedby="queueNumberHint"
+                      className="mt-2 font-semibold tracking-wide"
                       />
-                    <p className="mt-1 text-xs text-muted-foreground">Assigned automatically when the patient is added.</p>
+                    <p id="queueNumberHint" className={`mt-1 text-xs ${errors.queue_no ? "text-destructive" : "text-muted-foreground"}`}>
+                      {errors.queue_no ?? QUEUE_NO_HINT}
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="sex" className="text-muted-foreground">Sex *</Label>
@@ -777,7 +797,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. A patient with a red flag goes to the TB tent first and cannot go to other stations until a TB doctor clears them.
+                    Tick any that apply. A patient with a red flag is flagged for suspected TB and shown in red in every queue, so doctors can attend to them.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {TB_RED_FLAGS.map((flag) => (
@@ -802,7 +822,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     <div className="mt-3 space-y-3">
                       <p className="flex items-start gap-2 text-sm font-medium text-destructive">
                         <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                        Suspected TB: isolate the patient in the TB tent and inform a TB doctor.
+                        Suspected TB: keep the patient apart from other villagers and inform a doctor.
                       </p>
                       <Textarea
                         id="tb-notes"
@@ -818,11 +838,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
-                    {tbFlagged ? " These stations only start once the TB doctor has cleared the patient." : ""}
                   </p>
                   <StationCheckboxes
                     idPrefix="station"
-                    exclude={["tb"]}
                     selected={stations}
                     onChange={(next) => {
                       setStations(next);

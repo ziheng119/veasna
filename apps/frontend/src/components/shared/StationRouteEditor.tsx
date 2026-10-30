@@ -1,7 +1,7 @@
 "use client";
 
 import { ComponentType, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Check, ChevronsDown, Lock, Plus, RotateCcw, ShieldAlert, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronsDown, Plus, RotateCcw, X } from "lucide-react";
 import { STATIONS, StationId, stationLabel } from "@/constants/stations";
 import { Button } from "@/components/ui/button";
 import { PRESS } from "@/lib/motion";
@@ -12,17 +12,16 @@ interface Props {
   route: StationId[];
   completed: StationId[];
   onChange: (route: StationId[]) => void;
-  onTbHold: boolean;
   disabled?: boolean;
 }
 
 // Route rules, mirrored from apps/backend/utils/stationRoute.js:
-// - the TB Tent always comes first and, while the patient is on TB hold, cannot be removed;
-// - returning to a completed station makes it the next stop (still after the TB Tent);
+// - returning to a completed station makes it the next stop;
 // - a newly added station joins the end of the route.
+// Suspected TB is a flag on the visit, not a stop, so it is not edited here.
 
 /** Orders a single patient's remaining stops (not the patients within a station queue). */
-export default function StationRouteEditor({ route, completed, onChange, onTbHold, disabled = false }: Props) {
+export default function StationRouteEditor({ route, completed, onChange, disabled = false }: Props) {
   const listRef = useFlipAnimation<HTMLOListElement>(route);
 
   const move = (index: number, target: number) => {
@@ -32,11 +31,8 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
     onChange(next);
   };
   const add = (station: StationId) => {
-    if (station === "tb") onChange([station, ...route]);
-    else if (completed.includes(station)) {
-      const index = route[0] === "tb" ? 1 : 0;
-      onChange([...route.slice(0, index), station, ...route.slice(index)]);
-    } else onChange([...route, station]);
+    if (completed.includes(station)) onChange([station, ...route]);
+    else onChange([...route, station]);
   };
 
   const done = completed.filter((station) => !route.includes(station));
@@ -66,7 +62,6 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
           <ol ref={listRef} aria-label="Remaining station route" className="space-y-2">
             {route.map((station, index) => {
               const label = stationLabel(station);
-              const isTb = station === "tb";
               const isLast = index === route.length - 1;
               return (
                 <li
@@ -90,34 +85,33 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
                     <span className="truncate text-sm font-medium">{label}</span>
                     {index === 0 && <Tag tone="primary">Next</Tag>}
                     {completed.includes(station) && <Tag tone="amber" icon={RotateCcw}>Revisit</Tag>}
-                    {isTb && onTbHold && <Tag tone="red" icon={Lock}>TB hold</Tag>}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-0.5">
                     <RowAction
                       label={`Move ${label} up`}
                       icon={ArrowUp}
-                      disabled={disabled || index === 0 || route[index - 1] === "tb"}
+                      disabled={disabled || index === 0}
                       onClick={() => move(index, index - 1)}
                     />
                     <RowAction
                       label={`Move ${label} down`}
                       icon={ArrowDown}
-                      disabled={disabled || isTb || isLast}
+                      disabled={disabled || isLast}
                       onClick={() => move(index, index + 1)}
                     />
                     <RowAction
                       label={`Move ${label} to the end`}
                       icon={ChevronsDown}
                       text="Later"
-                      disabled={disabled || isTb || isLast}
+                      disabled={disabled || isLast}
                       onClick={() => move(index, route.length - 1)}
                     />
                     <RowAction
                       label={`Remove ${label}`}
                       icon={X}
                       tone="danger"
-                      disabled={disabled || (isTb && onTbHold)}
+                      disabled={disabled}
                       onClick={() => onChange(route.filter((s) => s !== station))}
                     />
                   </div>
@@ -143,7 +137,6 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
                   variant="outline"
                   size="sm"
                   aria-label={action}
-                  title={station.id === "tb" ? "Goes first. Holds the patient until a TB doctor clears them." : undefined}
                   disabled={disabled}
                   onClick={() => add(station.id)}
                   className={cn(
@@ -166,12 +159,6 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
           </div>
         </section>
       )}
-
-      {onTbHold ? (
-        <Hint>On TB hold: stays at the TB Tent until a TB doctor clears them.</Hint>
-      ) : (
-        available.some((station) => station.id === "tb") && <Hint>Suspect TB? Add TB Tent. It goes first and holds the patient.</Hint>
-      )}
     </div>
   );
 }
@@ -179,7 +166,6 @@ export default function StationRouteEditor({ route, completed, onChange, onTbHol
 const TAG_TONES = {
   primary: "bg-primary/10 text-primary",
   amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
 } as const;
 
 function Tag({ tone, icon: Icon, children }: { tone: keyof typeof TAG_TONES; icon?: ComponentType<{ className?: string }>; children: ReactNode }) {
@@ -188,15 +174,6 @@ function Tag({ tone, icon: Icon, children }: { tone: keyof typeof TAG_TONES; ico
       {Icon && <Icon className="size-3" />}
       {children}
     </span>
-  );
-}
-
-function Hint({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex items-center gap-2 text-xs text-muted-foreground">
-      <ShieldAlert className="size-3.5 shrink-0 text-red-600" aria-hidden="true" />
-      {children}
-    </p>
   );
 }
 

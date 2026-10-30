@@ -98,7 +98,11 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
         },
         body: JSON.stringify({ stock_count: stockCount }),
     });
-    if (!res.ok) throw new Error('Failed to update drug stock');
+    if (!res.ok) {
+        // e.g. stock cannot go below what pending prescriptions have reserved
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || body?.message || 'Failed to update drug stock');
+    }
 
     Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
     return res.json();
@@ -149,7 +153,11 @@ export async function deleteDrug(drugId: number): Promise<void> {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
     });
-    if (!res.ok) throw new Error('Failed to delete drug');
+    if (!res.ok) {
+        // e.g. a drug with pending prescriptions cannot be removed
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || body?.message || 'Failed to delete drug');
+    }
 
     Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
 }

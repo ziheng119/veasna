@@ -1,5 +1,4 @@
 const { STATIONS, normalizeStations } = require('./stations');
-const { TB_STATION, TB_HOLD_MESSAGE } = require('./tb');
 
 // Compare pending order and completion state, ignoring where completed rows are displayed.
 function routeSnapshot(stations) {
@@ -27,15 +26,11 @@ function planStationRoute(existing, body) {
   }
   // Legacy callers still exclude completed stations. Preserve any custom route and
   // append newly indicated stations rather than restoring the original fixed order.
-  let wanted = ordered ? [...stations] : [
+  const wanted = ordered ? [...stations] : [
     ...pending.filter(s => stations.includes(s)),
     ...normalizeStations(stations).filter(s => !pending.includes(s) && !completed.includes(s)),
   ];
   if (!wanted.length) return fail(400, 'Every selected station is already completed. Discharge the patient to end the visit.');
-  if (!ordered && wanted.includes(TB_STATION)) wanted = [TB_STATION, ...wanted.filter(s => s !== TB_STATION)];
-  if ((pending.includes(TB_STATION) && wanted[0] !== TB_STATION) || (wanted.includes(TB_STATION) && wanted[0] !== TB_STATION)) {
-    return fail(409, TB_HOLD_MESSAGE);
-  }
   return { wanted, previousCurrent: pending[0] || null, reopened: wanted.filter(s => completed.includes(s)) };
 }
 

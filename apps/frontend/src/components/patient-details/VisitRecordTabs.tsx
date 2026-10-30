@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useMemo, useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ShieldAlert } from "lucide-react";
 import { STATION_ICONS } from "@/components/shared/StationBadge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import DottedImage from "@/components/physiotherapy/DottedImage";
@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 import { REFERRAL_DESTINATIONS, parseReferralDestinations } from "@/constants/referral";
 import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
-import { TB_RED_FLAGS, TB_STATUS_LABELS, TbStatus } from "@/constants/tb";
+import { TB_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged } from "@/constants/tb";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
+import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { updateVisitDetails, updateVisitTb, updateVisitVitals } from "@/lib/api/visit/adminEdits";
 import { saveMedicalHistory, savePresentingComplaint, saveVisualAcuity } from "@/lib/api/triage/triageService";
@@ -31,7 +33,7 @@ type VitalsDraft = {
 };
 type HefDraft = { know_of_hef: boolean; has_hef: boolean; notes: string };
 // status "" = not reviewed yet (suspected).
-type TbDraft = { status: Exclude<TbStatus, "suspected"> | ""; red_flags: string[]; flag_notes: string; doctor_notes: string };
+type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doctor_notes: string };
 type AcuityDraft = {
   left_with_pinhole: string; left_without_pinhole: string;
   right_with_pinhole: string; right_without_pinhole: string; notes: string;
@@ -48,9 +50,8 @@ type ConsultDraft = { notes: string; prescription: string; condition_categories:
 type ReferralDraft = { referral_date: string; destinations: string[]; illness: string; duration: string; reason: string };
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
-const QUEUE_NO_PATTERN = /^[0-9]{1,9}[A-Z]*$/i;
 
-const TB_RESULT_OPTIONS: FieldOption[] = (["cleared", "tb_likely"] as const).map((status) => ({
+const TB_STATUS_OPTIONS: FieldOption[] = (["suspected", "tb_likely", "cleared"] as const).map((status) => ({
   value: status,
   label: TB_STATUS_LABELS[status],
 }));
@@ -180,7 +181,12 @@ const REFERRAL_FIELDS: FieldSpec<ReferralDraft>[] = [
 const TB_NOTE_FIELDS: FieldSpec<TbDraft>[] = [
   { key: "red_flags", label: "Red Flags", kind: "checkboxes", options: TB_FLAG_OPTIONS, wide: true },
   { key: "flag_notes", label: "Registration Notes", kind: "textarea", wide: true },
-  { key: "doctor_notes", label: "TB Doctor's Notes", kind: "textarea", wide: true },
+  { key: "doctor_notes", label: "Doctor's TB Notes", kind: "textarea", wide: true },
+];
+// Suspected TB is a flag on the visit, so its status can be corrected at any time.
+const TB_FIELDS: FieldSpec<TbDraft>[] = [
+  { key: "status", label: "TB Flag", kind: "select", options: TB_STATUS_OPTIONS, wide: true },
+  ...TB_NOTE_FIELDS,
 ];
 
 // BMI follows height and weight, rounded like the registration form.
@@ -221,10 +227,9 @@ interface Props {
 /** Every record of one visit, grouped by station. Admins can correct or add each section. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const locations = useLocationStore((state) => state.locations);
-  // A flagged visit opens on the TB tent, where the patient was seen first.
-  const [activeTab, setActiveTab] = useState(visit.tb ? "tb" : "registration");
+  // A visit flagged for suspected TB opens on its TB record.
+  const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
-  const isCompleted = Boolean(visit.completed_at);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
   const drafts = useMemo(() => {
@@ -238,7 +243,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
         bp_diastolic: text(vitals.bp_diastolic), temperature: text(vitals.temperature), notes: text(vitals.notes),
       } as VitalsDraft),
       hef: hef && ({ know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, notes: text(hef.notes) } as HefDraft),
-      tb: tb && ({ status: tb.status === "suspected" ? "" : tb.status, red_flags: tb.red_flags, flag_notes: text(tb.flag_notes), doctor_notes: text(tb.doctor_notes) } as TbDraft),
+      tb: tb && ({ status: tb.status, red_flags: tb.red_flags, flag_notes: text(tb.flag_notes), doctor_notes: text(tb.doctor_notes) } as TbDraft),
       acuity: va && ({
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
         right_with_pinhole: text(va.right_with_pinhole), right_without_pinhole: text(va.right_without_pinhole),
@@ -281,10 +286,6 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     { key: "visit_date", label: "Visit Date", kind: "date" },
     { key: "location_id", label: "Location", kind: "select", options: locationOptions },
   ];
-  // The TB result decides where the patient may go, so it is only corrected after the visit.
-  const tbFields: FieldSpec<TbDraft>[] = isCompleted
-    ? [{ key: "status", label: "Result", kind: "select", options: TB_RESULT_OPTIONS, allowBlank: "Not reviewed", wide: true }, ...TB_NOTE_FIELDS]
-    : TB_NOTE_FIELDS;
 
   // Wraps a station save so the page reloads afterwards.
   const saved = <D,>(save: (draft: D) => Promise<unknown>) => async (draft: D) => {
@@ -299,10 +300,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [
-    ...(visit.tb ? [tab("tb", "TB Tent", STATION_ICONS.tb, true)] : []),
+    ...(visit.tb ? [tab("tb", "TB Flag", ShieldAlert, true)] : []),
     tab("registration", "Registration", ClipboardList, hasRegistration),
     tab("triage", "Triage", STATION_ICONS.triage, hasTriage),
-    tab("seva", "Seva", STATION_ICONS.seva, Boolean(visit.seva)),
+    tab("seva", PARTNER_NGO_NAME, STATION_ICONS.seva, Boolean(visit.seva)),
     tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
     tab("consult", "Consultation", STATION_ICONS.consultation, hasConsultation),
   ];
@@ -314,20 +315,19 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
       {visit.tb && drafts.tb && (
         <StationPanel value="tb">
           <EditableRecordSection
-            title="TB Screening"
+            title="Suspected TB"
             record={drafts.tb}
-            fields={tbFields}
+            fields={TB_FIELDS}
             canEdit={canEdit}
             readOnlyItems={[
-              ...(isCompleted ? [] : [{ label: "Result", value: TB_STATUS_LABELS[visit.tb.status] }]),
-              { label: "Reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
+              { label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
             ]}
-            editHint={!isCompleted && "The patient is still in the clinic, so the TB result is recorded at the TB Tent. Red flags and notes can be corrected here."}
+            editHint="Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."
             onSave={saved((d: TbDraft) => updateVisitTb(visitId, {
               red_flags: d.red_flags,
               flag_notes: d.flag_notes,
               doctor_notes: d.doctor_notes,
-              ...(isCompleted && d.status ? { status: d.status } : {}),
+              status: d.status,
             }))}
           />
         </StationPanel>
@@ -341,7 +341,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           canEdit={canEdit}
           editHint="Queue numbers must be unique for the location and date."
           validate={(d) => {
-            if (!QUEUE_NO_PATTERN.test(d.queue_no.trim())) return "Queue number must be digits with an optional letter, e.g. 12 or 12A.";
+            if (!isValidQueueNo(d.queue_no)) return QUEUE_NO_ERROR;
             if (!d.visit_date) return "Visit date is required.";
             if (!d.location_id) return "Location is required.";
             return null;
@@ -407,7 +407,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
 
       <StationPanel value="seva">
         <EditableRecordSection
-          title="SEVA Assessment"
+          title={`${PARTNER_NGO_NAME} Notes`}
           record={drafts.seva}
           fields={SEVA_FIELDS}
           canEdit={canEdit}

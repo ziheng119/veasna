@@ -46,9 +46,7 @@ export function updateVisitVitals(
 // while the patient is still in the clinic.
 export function updateVisitTb(
   visitId: number,
-  update: Partial<Pick<VisitTb, "red_flags" | "flag_notes" | "doctor_notes">> & {
-    status?: Exclude<VisitTb["status"], "suspected">;
-  },
+  update: Partial<Pick<VisitTb, "red_flags" | "flag_notes" | "doctor_notes" | "status">>,
 ) {
   return adminPut(`${visitId}/tb`, update);
 }

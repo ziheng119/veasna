@@ -24,8 +24,10 @@ export type QueuedPatient = {
     // Station the patient is currently waiting at, and every station indicated for the visit.
     current_station?: StationId | null;
     stations?: { station: StationId; completed: boolean }[];
-    // Set when the visit was flagged for suspected TB.
+    // Suspected-TB flag on the visit: shown in red in every queue. tb_status is null when the
+    // visit was never flagged.
     tb_status?: TbStatus | null;
+    tb_flagged?: boolean;
     english_name?: string;
     khmer_name?: string;
     age?: number;

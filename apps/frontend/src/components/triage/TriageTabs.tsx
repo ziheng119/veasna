@@ -22,6 +22,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
 import { updateVisitStations } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 
 interface TriageTabsProps {
     visit_id: number;
@@ -189,11 +190,11 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                                         className="mt-0.5 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                     />
                                     <div>
-                                        <Label htmlFor="send-to-seva" className="text-foreground">Suspected cataract: send to Seva</Label>
+                                        <Label htmlFor="send-to-seva" className="text-foreground">Suspected cataract: send to {PARTNER_NGO_NAME}</Label>
                                         <p className="mt-1 text-xs text-muted-foreground">
                                             {sevaDone
-                                                ? "This patient has already been seen at Seva."
-                                                : "Adds Seva to this patient's stations when the visual acuity is saved."}
+                                                ? `This patient has already been seen at ${PARTNER_NGO_NAME}.`
+                                                : `Adds ${PARTNER_NGO_NAME} to this patient's stations when the visual acuity is saved.`}
                                         </p>
                                     </div>
                                 </div>

@@ -37,7 +37,7 @@ function attachRealtime(server, { origins, secret }) {
 function notifyListChanges(io) {
   return (req, res, next) => {
     const writes = ['POST', 'PUT', 'PATCH', 'DELETE'];
-    const affectsLists = /^\/(registration|patients|patient|visits|queue|triage|tb)(\/|$)/.test(req.path);
+    const affectsLists = /^\/(registration|patients|patient|visits|queue|triage|tb|prescriptions|pharmacy)(\/|$)/.test(req.path);
     if (writes.includes(req.method) && affectsLists) {
       // Routes send success only after their database writes/transactions complete.
       res.once('finish', () => {

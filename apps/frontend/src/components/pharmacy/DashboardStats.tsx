@@ -14,6 +14,9 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
             <div className="rounded-lg border border-border bg-card px-4 py-5 shadow-sm">
                 <p className="text-sm text-muted-foreground">Total Stock</p>
                 <p className="mt-1 text-3xl font-bold text-foreground">{stats.total_stock}</p>
+                {!!stats.total_reserved && (
+                    <p className="mt-1 text-xs text-muted-foreground">{stats.total_reserved} reserved for prescriptions</p>
+                )}
             </div>
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-5 shadow-sm">
                 <p className="text-sm text-destructive">Out of Stock</p>

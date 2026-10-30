@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SearchIcon } from "@/assets/icons/SearchIcon"
 import { CrossIcon } from "@/assets/icons/CrossIcon"
 import StationBadge from "./StationBadge"
+import TbBadge from "./TbBadge"
 import { QueuedPatient } from "@/lib/types/patient"
 import { Location } from "@/lib/types/location"
 import { StationId, stationLabel, stationPageHref } from "@/constants/stations"
@@ -234,7 +235,10 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
                       onMouseEnter={() => { if (!opening) setHighlightedIndex(idx) }}
                       onClick={() => handlePatientSelect(patient)}
                     >
-                      <span className="grid h-8 min-w-10 shrink-0 place-items-center rounded-md bg-muted px-1.5 text-sm font-semibold tabular-nums">
+                      <span className={cn(
+                        "grid h-8 min-w-10 shrink-0 place-items-center rounded-md px-1.5 text-sm font-bold tabular-nums",
+                        patient.tb_flagged ? "bg-red-600 text-white" : "bg-muted",
+                      )}>
                         {patient.queue_no}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -245,6 +249,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
                             .join(" · ")}
                         </span>
                       </span>
+                      {patient.tb_flagged && <TbBadge />}
                       {here && (
                         <span className="shrink-0 rounded-full border border-primary/30 px-1.5 py-0.5 text-[11px] font-medium text-primary">
                           Here

@@ -9,7 +9,7 @@ jest.mock('../src/components/doctors-consultation/DoctorsNotesContainer', () => 
 const Page = require('../src/app/(main)/doctors-consultation/page').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-test('repeated patient switches retain one of each panel and a stable summary column', async () => {
+test('repeated patient switches retain one of each panel and a stable top row', async () => {
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   let renderer, summaryColumn;
   try {

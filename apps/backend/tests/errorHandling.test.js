@@ -57,18 +57,12 @@ describe('Station form save guard', () => {
 
   test('a visit deleted on another device is a 404', async () => {
     const r = res();
-    expect(await rejectUnsavableVisit(client({ found: false, on_hold: false }), r, 9)).toBe(true);
+    expect(await rejectUnsavableVisit(client({ found: false }), r, 9)).toBe(true);
     expect(r.status).toHaveBeenCalledWith(404);
   });
 
-  test('a visit on TB hold is a 409', async () => {
-    const r = res();
-    expect(await rejectUnsavableVisit(client({ found: true, on_hold: true }), r, 9)).toBe(true);
-    expect(r.status).toHaveBeenCalledWith(409);
-  });
-
   test('an available visit may be saved; invalid IDs are a 400', async () => {
-    expect(await rejectUnsavableVisit(client({ found: true, on_hold: false }), res(), '9')).toBe(false);
+    expect(await rejectUnsavableVisit(client({ found: true }), res(), '9')).toBe(false);
     const r = res();
     expect(await rejectUnsavableVisit(client({}), r, 'abc')).toBe(true);
     expect(r.status).toHaveBeenCalledWith(400);

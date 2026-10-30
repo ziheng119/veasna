@@ -31,3 +31,14 @@ test('batch shares individual markup and starts each subsequent referral on a ne
   expect(html).toContain('Unsigned draft');
   expect(html.indexOf('First')).toBeLessThan(html.indexOf('Second'));
 });
+
+test('letterhead logo and a handwritten signature block are print-ready', () => {
+  const withLogo = referralDocumentHtml(referral, { english_name: 'Test Patient' }, 12, { logoUrl: 'http://host:3001/btb-logo.png' });
+  expect(withLogo).toContain('src="http://host:3001/btb-logo.png"');
+  expect(withLogo).toContain('Dear Doctor');
+  expect(withLogo).toContain('Doctor&#x27;s signature');
+  expect(withLogo).toContain('2026-10-20');
+  expect(referralDocumentHtml(referral, {}, 12)).not.toContain('<img');
+  const unsigned = referralDocumentHtml({ ...referral, signature: null, signerName: null, signedAt: null }, {}, 12);
+  expect(unsigned).toContain('sign above by hand');
+});

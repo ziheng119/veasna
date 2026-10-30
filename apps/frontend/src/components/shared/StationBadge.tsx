@@ -1,5 +1,5 @@
 import { ComponentType } from "react";
-import { Activity, Eye, HeartPulse, ShieldAlert, Stethoscope } from "lucide-react";
+import { Activity, Eye, HeartPulse, Stethoscope } from "lucide-react";
 import { StationId, stationLabel } from "@/constants/stations";
 import { cn } from "@/lib/utils";
 
@@ -7,7 +7,6 @@ type Icon = ComponentType<{ className?: string }>;
 
 // One icon and colour per station, so a station reads the same wherever it appears.
 export const STATION_ICONS: Record<StationId, Icon> = {
-  tb: ShieldAlert,
   triage: HeartPulse,
   seva: Eye,
   physiotherapy: Activity,
@@ -15,7 +14,6 @@ export const STATION_ICONS: Record<StationId, Icon> = {
 };
 
 const STATION_TONES: Record<StationId, string> = {
-  tb: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
   triage: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
   seva: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   physiotherapy: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",

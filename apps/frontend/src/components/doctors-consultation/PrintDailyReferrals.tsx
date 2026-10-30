@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import { getDailyReferrals } from "@/lib/api/visit/getDailyReferrals";
 import { referralBatchDocumentHtml } from "./ReferralDocument";
+import { writeAndPrint } from "@/lib/printDocument";
+import { letterheadLogoUrl } from "@/constants/letterhead";
 
 export default function PrintDailyReferrals({ locationId }: { locationId?: number }) {
   const [loading, setLoading] = useState(false);
@@ -29,11 +31,7 @@ export default function PrintDailyReferrals({ locationId }: { locationId?: numbe
         toast("No saved referrals for today at this location.");
         return;
       }
-      popup.document.open();
-      popup.document.write(referralBatchDocumentHtml(referrals));
-      popup.document.close();
-      popup.focus();
-      popup.print();
+      writeAndPrint(popup, referralBatchDocumentHtml(referrals, { logoUrl: letterheadLogoUrl() }));
     } catch (error) {
       popup.close();
       console.error("Daily referral printing failed:", error);

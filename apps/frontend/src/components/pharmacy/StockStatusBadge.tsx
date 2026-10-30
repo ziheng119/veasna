@@ -6,13 +6,13 @@ interface StockStatusBadgeProps {
 
 export function StockStatusBadge({ count }: StockStatusBadgeProps) {
     const getVariant = (): "destructive" | "warning" | "success" => {
-        if (count === 0) return "destructive";
+        if (count <= 0) return "destructive";
         if (count <= 20) return "warning";
         return "success";
     };
 
     const getLabel = (): string => {
-        if (count === 0) return "Out of Stock";
+        if (count <= 0) return "Out of Stock";
         if (count <= 20) return "Low Stock";
         return "In Stock";
     };

@@ -132,11 +132,8 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     expect((await save(['triage'])).status).toBe(409);
     expect((await client.query('SELECT * FROM visit_station_route_history')).rows).toHaveLength(0);
   });
-  test('adding TB creates a hold that cannot be skipped or removed', async () => {
-    expect((await save(['tb', 'seva', 'consultation'])).status).toBe(200);
-    expect((await client.query('SELECT status FROM tb_screening')).rows[0].status).toBe('suspected');
-    const expected = [original[0], { station: 'tb', completed: false }, ...original.slice(1)];
-    expect((await save(['seva', 'consultation', 'tb'], expected)).status).toBe(409);
-    expect((await save(['seva', 'consultation'], expected)).status).toBe(409);
+  test('TB is not a station: routes containing it are rejected unchanged', async () => {
+    expect((await save(['tb', 'seva', 'consultation'])).status).toBe(400);
+    expect(await pending()).toEqual(['seva', 'consultation']);
   });
 });

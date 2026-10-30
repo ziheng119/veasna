@@ -6,9 +6,9 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Station route controls', () => {
   let renderer, route, errorLog;
-  function View({ initial, completed = [], held = false, disabled = false }) {
+  function View({ initial, completed = [], disabled = false }) {
     const [value, setValue] = React.useState(initial); route = value;
-    return React.createElement(Editor, { route: value, onChange: setValue, completed, onTbHold: held, disabled });
+    return React.createElement(Editor, { route: value, onChange: setValue, completed, disabled });
   }
   beforeEach(() => { errorLog = jest.spyOn(console, 'error').mockImplementation(() => {}); });
   afterEach(async () => { if (renderer) await act(async () => renderer.unmount()); errorLog.mockRestore(); });
@@ -23,24 +23,16 @@ describe('Station route controls', () => {
     await act(async () => control('Move Triage up').props.onClick());
     expect(route).toEqual(['seva', 'triage', 'consultation']);
   });
-  test('a TB hold cannot be removed, deferred or overtaken', async () => {
-    await mount({ initial: ['tb', 'seva'], completed: ['triage'], held: true });
-    for (const label of ['Remove TB Tent', 'Move TB Tent to the end', 'Move TB Tent down', 'Move Seva up']) {
-      expect(control(label).props.disabled).toBe(true);
-    }
+  test('returning to a completed station makes it the next stop; removing differs from deferring', async () => {
+    await mount({ initial: ['seva', 'consultation'], completed: ['triage'] });
     await act(async () => control('Return to Triage').props.onClick());
-    expect(route).toEqual(['tb', 'triage', 'seva']);
-  });
-  test('reopening TB places it first; removing a stop differs from deferring it', async () => {
-    await mount({ initial: ['seva', 'consultation'], completed: ['tb'] });
-    await act(async () => control('Return to TB Tent').props.onClick());
-    expect(route[0]).toBe('tb');
-    await act(async () => control('Remove Seva').props.onClick());
-    expect(route).toEqual(['tb', 'consultation']);
+    expect(route[0]).toBe('triage');
+    await act(async () => control('Remove Partner NGO').props.onClick());
+    expect(route).toEqual(['triage', 'consultation']);
   });
   test('removing the last stop explains what to do next', async () => {
     await mount({ initial: ['seva'] });
-    await act(async () => control('Remove Seva').props.onClick());
+    await act(async () => control('Remove Partner NGO').props.onClick());
     expect(route).toEqual([]);
     const text = renderer.root.findAllByType('p').map(p => p.children.join('')).join(' ');
     expect(text).toContain('discharge the patient instead');

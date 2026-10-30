@@ -17,8 +17,9 @@ export default function TriageContainer({ selectedPatient, compact = false }: Pr
       headerClassName={compact ? COMPACT_SUMMARY_HEADER : undefined}
       contentClassName={compact ? COMPACT_SUMMARY_CONTENT : "space-y-4"}
     >
-      <SnellensTestDetails patient={selectedPatient} />
+      {/* Presenting complaints matter most here; Snellen's results are secondary and collapsed. */}
       <PresentingComplaintsDetails patient={selectedPatient} />
+      <SnellensTestDetails patient={selectedPatient} />
     </PageCard>
   )
 }

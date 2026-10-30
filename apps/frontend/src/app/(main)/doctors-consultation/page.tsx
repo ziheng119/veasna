@@ -7,13 +7,15 @@ import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useEffect, useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import TbHoldNotice from "@/components/shared/TbHoldNotice";
 import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import PrintDailyReferrals from "@/components/doctors-consultation/PrintDailyReferrals";
+
+// Queue, patient snapshot and triage summary share the top row; the consultation notes take the
+// full page width underneath. The page scrolls as a whole instead of fitting one screen.
+const TOP_ROW = "grid grid-cols-1 gap-6 xl:h-[30rem] xl:grid-cols-12 xl:grid-rows-1";
 
 export default function DoctorsConsultation() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -26,34 +28,29 @@ export default function DoctorsConsultation() {
   }, [location]);
 
   return (
-    <div className={PAGE_SHELL}>
+    <div className="flex flex-col gap-5 pb-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
         <PrintDailyReferrals locationId={location?.id} />
       </div>
-      <div className={PANEL_GRID}>
+      <div className={TOP_ROW}>
         <QueuePatientPicker
           station="consultation"
           onSelectPatient={setSelectedPatient}
           selectedVisitId={selectedPatient?.visit_id}
         />
-        <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-          {!selectedPatient ? (
-            <NoPatientSelected />
-          ) : selectedPatient.current_station === "tb" ? (
-            <TbHoldNotice patient={selectedPatient} />
-          ) : (
-            <div className={PANEL_GRID}>
-              {/* Equal-height summaries share the original snapshot column. */}
-              <div className="grid h-[40rem] min-h-0 min-w-0 grid-rows-2 gap-4 xl:col-span-4 xl:h-full">
-                <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
-                <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} compact />
-              </div>
-              <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
-            </div>
-          )}
-        </div>
+        {!selectedPatient ? (
+          <div className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
+        ) : (
+          <>
+            <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
+            <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
+          </>
+        )}
       </div>
+      {selectedPatient && (
+        <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
+      )}
     </div>
   )
 }

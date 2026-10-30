@@ -9,11 +9,11 @@ integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
-const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueNumber');
+const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { TB_STATION, normalizeRedFlags, rejectUnsavableVisit, flagTb } = require('../utils/tb');
+const { normalizeRedFlags, rejectUnsavableVisit, flagTb } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -52,12 +52,10 @@ router.get('/referrals', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
-    // Stations the patient is indicated for. Optional: defaults to every station except the TB tent.
-    let stations = req.body.stations === undefined
-        ? STATIONS.filter((station) => station !== TB_STATION)
-        : normalizeStations(req.body.stations);
-    // Optional TB flag: { red_flags: [...], notes }. A flagged visit starts at the TB tent and is
-    // held there until a TB doctor clears it.
+    // Stations the patient is indicated for. Optional: defaults to every station.
+    const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
+    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes through its normal
+    // stations and is marked in red in every queue.
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
@@ -65,7 +63,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     // Present only when registering a new visit for an existing patient.
     const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
     // Optional: when omitted, the next sequential number for the location and date is assigned.
-    let queueNo = typeof visit?.queue_no === 'string' ? visit.queue_no.trim() : '';
+    // A typed number may contain letters, e.g. 12A or A12.
+    let queueNo = normalizeQueueNo(visit?.queue_no);
 
     if (!locationId) {
         return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
@@ -87,8 +86,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'patientInfo.date_of_birth must be a valid YYYY-MM-DD date.' });
     }
 
-    if (queueNo.length > 50) {
-        return res.status(400).json({ error: 'visit.queue_no must be at most 50 characters.' });
+    if (queueNo && !isValidQueueNo(queueNo)) {
+        return res.status(400).json({ error: QUEUE_NO_ERROR });
     }
 
     if (!hef || typeof hef !== 'object') {
@@ -102,10 +101,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
         return res.status(400).json({ error: 'tb must be an object with red_flags as a list of text.' });
     }
-    const tbFlagged = tb !== null || stations.includes(TB_STATION);
-    if (tbFlagged && !stations.includes(TB_STATION)) {
-        stations = [TB_STATION, ...stations];
-    }
+    const tbFlagged = tb !== null;
 
     if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
         return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
@@ -173,9 +169,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         // Step 2: Insert into visits table
         const visitDate = currentVisitDate();
+        // Held until commit, so two devices cannot issue or claim the same number.
+        await lockQueue(client, locationId);
         if (!queueNo) {
-            await lockQueue(client, locationId);
             queueNo = await getNextQueueNo(client, locationId, visitDate);
+        } else if (await isQueueNoTaken(client, locationId, visitDate, queueNo)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: `Queue number ${queueNo} is already used today. Choose another, or leave it blank to assign one.` });
         }
         const visitQuery = `
             INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
@@ -559,7 +559,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(403).json({ error: "Only admins can edit saved SEVA notes." });
+      return res.status(403).json({ error: "Only admins can edit saved partner NGO notes." });
     }
 
     res.status(200).json(rows[0]);
