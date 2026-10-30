@@ -1,7 +1,8 @@
 "use client";
 
 import { ReactNode, useMemo, useState } from "react";
-import { Activity, ClipboardList, Eye, HeartPulse, ShieldAlert, Stethoscope } from "lucide-react";
+import { ClipboardList } from "lucide-react";
+import { STATION_ICONS } from "@/components/shared/StationBadge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import DottedImage from "@/components/physiotherapy/DottedImage";
 import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
@@ -298,12 +299,12 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [
-    ...(visit.tb ? [tab("tb", "TB Tent", ShieldAlert, true)] : []),
+    ...(visit.tb ? [tab("tb", "TB Tent", STATION_ICONS.tb, true)] : []),
     tab("registration", "Registration", ClipboardList, hasRegistration),
-    tab("triage", "Triage", HeartPulse, hasTriage),
-    tab("seva", "Seva", Eye, Boolean(visit.seva)),
-    tab("physio", "Physiotherapy", Activity, Boolean(visit.physiotherapy)),
-    tab("consult", "Consultation", Stethoscope, hasConsultation),
+    tab("triage", "Triage", STATION_ICONS.triage, hasTriage),
+    tab("seva", "Seva", STATION_ICONS.seva, Boolean(visit.seva)),
+    tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
+    tab("consult", "Consultation", STATION_ICONS.consultation, hasConsultation),
   ];
 
   return (

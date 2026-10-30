@@ -29,7 +29,7 @@ export default function Seva() {
     return (
         <div className={PAGE_SHELL}>
             <div className="flex items-center gap-3">
-              <SearchBar onSelectPatient={setSelectedPatient} />
+              <SearchBar station="seva" onSelectPatient={setSelectedPatient} />
               <SevaReferralListDialog />
             </div>
             <div className={PANEL_GRID}>

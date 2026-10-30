@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
+import SearchBar from "@/components/shared/SearchBar";
 import TbReviewContainer from "@/components/tb/TbReviewContainer";
 import { TbDecision } from "@/lib/api/tb/tb";
 import { QueuedPatient } from "@/lib/types/patient";
@@ -31,6 +32,7 @@ export default function TbTent() {
 
   return (
     <div className={PAGE_SHELL}>
+      <SearchBar station="tb" onSelectPatient={setSelectedPatient} />
       <div className={PANEL_GRID}>
         <QueuePatientPicker
           station="tb"

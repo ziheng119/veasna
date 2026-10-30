@@ -1,5 +1,6 @@
 const React = require('react');
 const { act, create } = require('react-test-renderer');
+jest.mock('next/navigation', () => ({ useRouter: () => ({ replace: jest.fn() }), usePathname: () => '/triage', useSearchParams: () => new URLSearchParams() }));
 jest.mock('../src/stores/useUserStore', () => {
   const { create } = require('zustand'); return { useUserStore: create(() => ({ user: { id: 1 } })) };
 });
