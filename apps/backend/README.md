@@ -1,100 +1,23 @@
 # Veasna Backend
 
-Express + PostgreSQL API for clinic workflows (registration, queue, triage, visits, consultation, referral, physiotherapy, pharmacy).
+The server behind the Veasna app. It stores clinic data in PostgreSQL and serves it
+to every staff device on the local network, including live queue updates. It needs
+no internet connection.
 
-## Stack
-
-- Node.js + Express
-- PostgreSQL (`pg` connection pool)
-- JWT (`jsonwebtoken`) and validation (`express-validator`)
-- Security middleware: `helmet`, `cors`
-- Tests: Jest + Supertest
-
-## Project Structure
-
-- `server.js`: app entrypoint, middleware, `/api` router, `/health`
-- `routes/api.js`: central router and several legacy inline routes
-- `routes/*.js`: feature routes (`visits`, `triage`, `pharmacy`, etc.)
-- `config/db.js`: PostgreSQL pool and DB helpers
-- `db_setup.sql`: schema bootstrap script
-- `migrations/`: incremental SQL for existing databases
-- `scripts/`: setup, admin seed, and optional demo seed
-- `API_DOCUMENTATION.md`: endpoint reference
-
-## Prerequisites
-
-- Node.js 18+ recommended
-- PostgreSQL 12+
-
-## Setup
-
-From repo root:
-
-```bash
-npm install
-cp apps/backend/.env.example apps/backend/.env
-```
-
-This installs workspace dependencies for all apps. Then fill in `apps/backend/.env`:
-
-```env
-DB_USER=your_postgres_user
-DB_HOST=localhost
-DB_NAME=veasna_screening
-DB_PASSWORD=your_postgres_password
-DB_PORT=5432
-
-PORT=3000
-NODE_ENV=development
-JWT_SECRET=replace_with_long_random_secret
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin12345
-```
-
-For several frontend devices sharing one backend over a LAN router, see
-[standalone backend with several frontends](../../docs/performance-and-lan.md#standalone-backend-with-several-frontends-router-no-internet).
-It covers `ALLOW_LAN_ORIGINS`, `API_RATE_LIMIT_MAX` and `npm run check:lan`.
-`GET /health` returns `{ status, database, realtimeClients }`, with HTTP 503 when PostgreSQL is unreachable.
-
-## Database Setup (First-Time)
-
-The backend requires PostgreSQL. Follow these steps to get it running from scratch.
+## Database setup (first time)
 
 ### 1. Install PostgreSQL
 
-**macOS (Homebrew):**
+- **Windows:** download the installer from https://www.postgresql.org/download/windows/
+  (do this while you still have internet). Keep the default port `5432` and remember
+  the password you choose for the `postgres` user.
+- **macOS:** `brew install postgresql@16`, then `brew services start postgresql@16`.
+- **Ubuntu/Debian:** `sudo apt install postgresql`, then `sudo systemctl start postgresql`.
 
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
+### 2. Create the database and its user
 
-**Ubuntu/Debian:**
-
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-```
-
-**Windows:**
-
-Download and run the installer from https://www.postgresql.org/download/windows/. Use the default port (5432) and remember the password you set for the `postgres` superuser.
-
-### 2. Create the database and user
-
-Open a PostgreSQL shell:
-
-```bash
-# macOS / Linux
-psql postgres
-
-# Windows (from the SQL Shell that ships with the installer)
-psql -U postgres
-```
-
-Run the following SQL:
+Open a PostgreSQL shell: on Windows, run **SQL Shell (psql)** from the Start menu.
+On macOS or Linux, run `psql postgres`. Then run:
 
 ```sql
 CREATE DATABASE veasna_screening;
@@ -103,184 +26,167 @@ GRANT ALL PRIVILEGES ON DATABASE veasna_screening TO veasna_app;
 \q
 ```
 
-Replace `'change_me'` with a password of your choice.
+Replace `change_me` with a password of your own.
 
-### 3. Configure environment variables
+Prefer a graphical tool? In pgAdmin, create a login role `veasna_app` with a
+password, then create a database `veasna_screening` owned by that role.
 
-From `apps/backend`, copy the example env file and fill in your credentials:
+### 3. Enter your settings
+
+From the project folder, copy the example file:
 
 ```bash
-cp .env.example .env
+cp apps/backend/.env.example apps/backend/.env
 ```
 
-Edit `.env` so the DB values match what you just created:
+Open `apps/backend/.env` and change at least these lines:
 
 ```env
 DB_USER=veasna_app
-DB_HOST=localhost
-DB_NAME=veasna_screening
-DB_PASSWORD=change_me
-DB_PORT=5432
+DB_PASSWORD=change_me            # the password from step 2
+JWT_SECRET=a-long-random-phrase  # keeps sign-ins secure; any long random text
 ```
 
-### 4. Initialize the schema
+The other settings are explained in [settings](#settings) below.
 
-This creates all required tables and indexes:
+### 4. Create the tables
+
+From `apps/backend`:
 
 ```bash
 psql -U veasna_app -d veasna_screening -f db_setup.sql
 ```
 
-If prompted for a password, enter the one you set in step 2.
+Enter the password from step 2 if asked. In pgAdmin, open the Query Tool on
+`veasna_screening` and run `db_setup.sql` instead.
 
-Fresh installs can skip the next step — `db_setup.sql` already includes the current schema.
+Run this **only on a new, empty database**. Never run it again on a database that
+already has patient data.
 
-### 5. Apply incremental migrations (existing databases only)
-
-If the database was initialized from an older schema, apply SQL files in `migrations/` in order. Do not re-run `db_setup.sql` on a database that already has data, and do not run these after a fresh `db_setup.sql` (they can reset pharmacy stock to 0).
-
-```bash
-psql -U veasna_app -d veasna_screening -f migrations/001_pharmacy_numeric_stock.sql
-```
-
-If prompted for a password, enter the one you set in step 2.
-
-### 6. Run the setup script
+### 5. Check the connection and create the accounts
 
 ```bash
-npm run setup
-```
-
-This verifies the database connection and creates the initial admin user (with `role = 'admin'`) using `ADMIN_USERNAME` and `ADMIN_PASSWORD` from your `.env`.
-
-You can re-run this at any time. To seed just the admin user (also run this once on existing databases to promote `ADMIN_USERNAME` to admin):
-
-```bash
-npm run seed:admin
-```
-
-### 7. Load demo data (optional)
-
-After the admin user exists, you can load sample locations, patients, today's queue, and pharmacy stock:
-
-```bash
-npm run seed:demo
-```
-
-Equivalent SQL:
-
-```bash
-psql -U veasna_app -d veasna_screening -f scripts/seed_demo.sql
-```
-
-Safe to re-run: existing rows are skipped. Demo locations are Poipet, Mongkol Borey, and Sisophon. Today's queue is seeded for the current date.
-
-### Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| `ECONNREFUSED 127.0.0.1:5432` | PostgreSQL isn't running. Start it with `brew services start postgresql@16` or `sudo systemctl start postgresql`. |
-| `password authentication failed` | The password in `.env` doesn't match the PostgreSQL role. Reset it with `ALTER USER veasna_app WITH PASSWORD 'new_password';` in `psql postgres`. |
-| `database "veasna_screening" does not exist` | You haven't created the database yet — go back to step 2. |
-| `relation "..." does not exist` | Schema not loaded — run step 4 again. |
-
-### Alternative: Setup with pgAdmin (GUI)
-
-1. Open pgAdmin and connect to your local PostgreSQL server.
-2. Create a login role:
-   - `Login/Group Roles` → `Create` → `Login/Group Role`
-   - Name: `veasna_app`, set a password, enable login privilege
-3. Create database:
-   - `Databases` → `Create` → `Database`
-   - Name: `veasna_screening`, Owner: `veasna_app`
-4. Initialize schema:
-   - Open Query Tool on `veasna_screening`
-   - Open and execute `apps/backend/db_setup.sql`
-5. Confirm your `.env` matches, then run `npm run setup`. Optionally load demo data with `npm run seed:demo`. For an existing (not freshly initialized) database, also run the SQL files in `migrations/` in order.
-
-## Run
-
-```bash
-# Development
-npm run dev
-
-# Production
-npm start
-```
-
-Server defaults to `http://localhost:3000`.
-
-From repo root, equivalent commands are:
-
-```bash
-# Run backend + frontend together
-npm run dev
-
-# Run the backend only
-npm run dev:backend
-
-# Backend setup/test
 npm run setup:backend
-npm run test
+```
 
-# Apply incremental DB migrations (existing databases only)
-psql -U veasna_app -d veasna_screening -f apps/backend/migrations/001_pharmacy_numeric_stock.sql
+This checks that the server can reach the database and sets up the two sign-in
+accounts (`admin` / `admin12345` and `user` / `user`). It is safe to run again.
 
-# Optional: load demo clinic data (locations, patients, today's queue, pharmacy)
+### 6. Load practice data (optional)
+
+```bash
 npm run seed:demo
 ```
 
-## Testing and Formatting
+This adds sample locations (Poipet, Mongkol Borey, Sisophon), patients, a queue for
+today and pharmacy stock. Running it again skips anything already added.
+
+### Updating an existing database
+
+You do not need to run any update scripts by hand. When the server starts, it adds
+any new tables and columns automatically, without touching existing records. The SQL
+files in `migrations/` are kept as a record of each change.
+
+## Running the server
+
+From the project folder:
 
 ```bash
-npm test
-npm run format
+npm start              # server and web app together, for clinic use
+npm run dev:backend    # server only, restarting when code changes
 ```
 
-Suites named `*.database.test.js` run against PostgreSQL temp tables (nothing is written to clinic data) and are skipped unless enabled:
+When the server starts, it prints the addresses other devices should use, for
+example `LAN: http://192.168.1.10:3000/health`. If PostgreSQL is not ready yet, it
+waits up to 60 seconds. If PostgreSQL still isn't ready, the server starts anyway
+and `/health` reports the problem. Restart the server once PostgreSQL is running.
+Press Ctrl+C to stop it cleanly.
+
+To check that it is working, open `/health` in a browser:
+
+- `"database": "ok"` means everything is connected.
+- `realtimeClients` is the number of devices currently receiving live updates.
+
+## Settings
+
+All settings live in `apps/backend/.env`.
+
+| Setting | What it does |
+| --- | --- |
+| `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_HOST`, `DB_PORT` | How to reach PostgreSQL. Keep `DB_HOST=localhost`, so the database is never exposed to the network. |
+| `PORT` | The server's port (default `3000`). |
+| `JWT_SECRET` | Any long random text. Changing it signs everyone out. |
+| `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.1.10:3001`. |
+| `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address. Useful when device IPs change. |
+| `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
+
+See [running on a local network](../../docs/performance-and-lan.md) for a full
+router setup with several devices.
+
+## Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| `ECONNREFUSED 127.0.0.1:5432` | PostgreSQL isn't running. On Windows, start the **postgresql** service from the Services app. |
+| `password authentication failed` | The password in `.env` doesn't match. Fix `.env`, or reset the password with `ALTER USER veasna_app WITH PASSWORD 'new_password';` in psql. |
+| `database "veasna_screening" does not exist` | Go back to step 2. |
+| `relation "..." does not exist` | The tables are missing. Go back to step 4. |
+| `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
+| Other devices can't connect | See [checking each device](../../docs/performance-and-lan.md#check-each-device). |
+
+## How the server behaves
+
+These rules are enforced by the server, so they apply on every device:
+
+- **Sign-in:** every request except sign-in needs a signed-in account. A sign-in lasts
+  7 days. Account changes (such as a role change) apply at the next sign-in.
+- **Permissions:** users can enter new records; only admins can change or delete
+  saved ones. See [accounts and permissions](../../docs/user-roles.md).
+- **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
+  correctly.
+- **Stations:** each visit goes through only the stations it needs (TB Tent, Triage,
+  Seva, Physiotherapy, Consultation), waiting in one queue at a time.
+- **TB hold:** a patient flagged for TB goes to the TB Tent first. They cannot be moved
+  to or saved at any other station until a TB doctor records "cleared". "TB not ruled
+  out" keeps them at the TB Tent until discharged.
+- **Seva:** patients are added to Seva from the Triage visual acuity form when a
+  cataract is suspected. They are not added at registration.
+- **Visual acuity** is recorded as a Snellen fraction such as `6/6` or `6/9`.
+- **Unique ID** is made automatically from the first 3 letters of the English and
+  Khmer names plus the date of birth (e.g. `SOKសុខ07031990`). It updates when those
+  details change and can't be typed in. Two patients can share one Unique ID.
+- **Partial saves:** station forms can be saved half-filled. Registration still needs
+  name, sex, vitals and HEF answers.
+- **Admin corrections:** on Patient Details, admins can correct a patient's details
+  and every part of a past visit. Each section saves separately, so it doesn't
+  overwrite someone else working on another section.
+- **Pharmacy:** dispensing subtracts from the current stock in one step, so two
+  devices dispensing at once both count correctly.
+- **Dates** are stored and returned as plain `YYYY-MM-DD`, so they don't shift a day
+  between devices.
+
+## For developers
+
+| Path | Contents |
+| --- | --- |
+| `server.js` | Starts the server: security, rate limits, live updates, `/health` and error handling |
+| `routes/` | One file per feature (`visits`, `queue`, `triage`, `pharmacy`, ...); `api.js` connects them |
+| `utils/ensureSchema.js` | Applies `migrations/` automatically at start-up |
+| `utils/validation.js` | Shared input checks |
+| `db_setup.sql` | Full schema for a new database |
+| `scripts/` | Setup, account and demo data scripts, and `check:lan` |
+| `API_DOCUMENTATION.md` | Endpoint reference |
+
+Built with Node.js, Express, PostgreSQL (`pg`, no ORM), Socket.IO, JWT sign-in, Jest
+and Supertest.
 
 ```bash
-RUN_DB_TESTS=1 npm test
+npm test                                   # from apps/backend
+npm run format                             # Prettier
 ```
 
-## API Overview
-
-All routes are mounted under `/api`.
-
-Main route groups:
-
-- `/api/auth` (`routes/session.js`)
-- `/api/locations`
-- `/api/registration`
-- `/api/queue`
-- `/api/visits`
-- `/api/patients`
-- `/api/patient`
-- `/api/pharmacy`
-- `/api/triage`
-- `/api/users` (in `routes/api.js`)
-
-For full endpoint docs and payloads, see `API_DOCUMENTATION.md`.
-
-## Authentication Notes
-
-- Account creation is disabled, including for admins. Run `npm run setup:accounts` to configure the two fixed accounts (`admin` / `admin12345`, `user` / `user`) and retire other logins while retaining historical attribution.
-- Users have a `role` (`user` by default, `admin` for the seeded admin). The role is embedded in the JWT at login, so a role change takes effect on the user's next login.
-- Login endpoint: `POST /api/auth/login` with `{ username, password }`.
-- Password must be at least 8 characters.
-- JWT expiry is currently `30d`.
-- All routes except login require `authenticateToken` middleware. The `requireRole(['any'])` middleware permits any authenticated user; specific roles can be enforced by passing the required role names.
-
-## Current Caveats
-
-- `express-rate-limit` is applied globally to `/api/` (1000 req/15 min) and more strictly to `/api/auth/` (30 req/15 min).
-- There is no ORM and no migration framework; schema changes are managed via SQL scripts.
-- The `password_hash` column, pharmacy `stock_count`, visits `completed_at`, users `role`, `visit_stations`, Snellen fraction, partial station form, generated Face ID, Seva referral and TB screening migrations run once at server startup (idempotent SQL).
-- Station queues: each visit is routed through the stations it is indicated for (`tb`, `triage`, `seva`, `physiotherapy`, `consultation`), one queue at a time. See `API_DOCUMENTATION.md`. Visits that were already open when the `visit_stations` migration first ran are routed through every station.
-- Visual acuity (triage `visual_acuity` and `seva` Snellen fields) is stored as a Snellen fraction such as `6/6` or `6/9`; the API rejects any other non-blank value. The migration converts older numeric values `n` to `6/n`.
-- Seva is for patients suspected of cataracts after the Snellen's test: it is not ticked at registration and is added to a visit from the Triage visual acuity form. The Seva form records who needs referring (`seva.referral`: `cataract_surgery` or `seva_general`), listed by `GET visits/seva-referrals`.
-- TB: ticking a TB red flag at registration (or adding the TB Tent station later) queues the patient at the TB tent first (`migrations/009_tb_screening.sql`, table `tb_screening`). Until a TB doctor records "cleared" on the TB Tent page, the patient cannot be moved to or saved at any other station; this is enforced by the server. "TB not ruled out" keeps them at the TB tent until discharged. The red-flag list is in `apps/frontend/src/constants/tb.ts`.
-- Unique ID (the `face_id` column, labelled "Unique ID" in the app) is generated by a database trigger (`migrations/007_generated_face_id.sql`): first 3 characters of the English name + first 3 of the Khmer name + date of birth as `DDMMYYYY`, upper-cased, spaces removed (e.g. `SOKសុខ07031990`). It is recalculated when those details change, cannot be typed in, and is not unique; `patients.id` is the key.
-- `DATE` columns are returned as plain `YYYY-MM-DD` strings (see `config/db.js`) so dates do not shift by a day across timezones.
-- Admin corrections: on Patient Details, admins can edit the patient's demographics and registered location, plus every record of a visit: visit details (queue number, date, location), vitals, HEF, TB screening, triage, Seva, physiotherapy, consultation and referral. Each section is saved on its own, so concurrent work on other sections of the same visit is not overwritten. Visit details, vitals/HEF and TB use the admin-only routes in `routes/visitEdits.js`; the other sections use the station upserts. Users see the same page read-only. See "Editing Saved Visits" in `API_DOCUMENTATION.md`.
-- Station forms (triage, Seva, consultation, referral) can be saved partially filled: blank acuity readings and dates are stored as `NULL`, blank text as an empty string. Registration still requires name, sex, vitals and HEF answers.
+Files named `*.database.test.js` use temporary tables only and are skipped unless you
+set `RUN_DB_TESTS=1` (PowerShell: `$env:RUN_DB_TESTS='1'`). Three older test files
+(`users`, `locations`, `registration_and_components`) write to the real database, so
+don't run the full suite against a clinic database. See the
+[main README](../../README.md#for-developers).

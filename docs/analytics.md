@@ -1,117 +1,84 @@
 # Analytics
 
-Both Admin and User can open **Analytics** from the user menu. `/analytics` is
-outside the station layout, without the main navigation or footer.
+Open **Analytics** from the user menu (both Admin and User can). It shows clinic
+numbers for a location and time period. It contains no patient names, IDs, notes or
+signatures.
 
-## Page layout
+## Using the page
 
-- **Top bar (sticky):** **Back** returns Home; the circular **Refresh** button
-  reloads saved data; the green **Export** menu downloads a CSV or opens the browser print dialog
-  (print or save as PDF). Below it, section links (Summary, Trends, Conditions,
-  Locations, Clinic operations) jump to each part and highlight as you scroll.
-- **How to use this page:** a one-line tip shown until dismissed. Dismissal is
-  remembered per browser only (`localStorage`), so it may reappear on other devices.
-- **Filters:** location, time period (Day / Week / 30 days / Overall) and end date,
-  with coloured chips stating what is shown. Every section uses them. Each section
-  has its own accent colour, shared by its nav link and icon.
-- **Help:** each card has an ⓘ button explaining the number. Hover or focus to
-  preview, click or tap to pin.
-- **Empty results** offer one-click shortcuts to a longer period or All locations.
-- Charts redraw at their real width when the window resizes, animate on entry, and
-  can be read with a mouse, by tapping, or with the arrow keys. Animations are
-  turned off when the device asks for reduced motion.
+- **Filters:** choose a location (or **All locations**), a period (**Day**, **Week**,
+  **30 days** or **Overall**) and the end date. Every section uses these filters.
+- **Section links** at the top jump to Summary, Trends, Conditions, Locations and
+  Clinic operations.
+- **ⓘ buttons** explain what each number means. Hover over one to preview it, or tap
+  it to keep it open.
+- **Refresh** reloads the latest saved data. **Back** returns Home.
+- **Export** downloads a spreadsheet (CSV) or opens the print window, where you can
+  print or save as PDF. Both work without internet.
+- Charts can be read by hovering, tapping or using the arrow keys. Each has a **Show as
+  table** option.
+- If nothing matches, the page offers a longer period or All locations with one click.
 
-## Export
+## What the numbers mean
 
-The CSV is built in the browser from the data already on screen, so no server call
-or internet is needed. It uses long format (`Section, Item, Measure, Value`): the
-filters, summary, conditions, age groups, station workload, referral destinations,
-documentation checks and the currently selected trend range. It opens in Excel
-with UTF-8 labels intact. Like the dashboard, it holds no names, IDs or notes.
+The period counts visits by **visit date**. "Week" is the end date plus the 6 days
+before it; "30 days" is the end date plus the 29 before it; "Overall" is every date up to
+the end date. Numbers show each visit's **current** saved state, not a snapshot from
+the end of that day.
 
-The read-only `GET /api/analytics?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all` requires a valid
-authenticated, active account. Both roles can read the aggregates; patient names,
-IDs, clinical notes and signatures are excluded. Responses use `Cache-Control: no-store`.
+| Number | Meaning |
+| --- | --- |
+| Patients reached | Different patients seen. A patient who came twice counts once. |
+| Patients consulted | Patients whose Consultation station is marked finished. Only saving notes doesn't count. |
+| Visits with referrals | Visits with a saved referral, including unsigned drafts. |
+| Visits discharged | Visits marked as discharged. This doesn't mean every station was done. |
+| Station workload | Stations assigned and finished. "Waiting" counts each patient once, at their next station. |
+| Age groups | Patients by age on the end date. Missing or future birth dates show as Unknown. |
+| Referral destinations | Visits referring to each destination. One referral can choose several. |
+| Conditions | Consulted patients for each condition the doctor ticked. A patient can count under several conditions. |
+| Condition mix (pie) | Each condition's share of all ticked conditions, not of patients. |
+| Patients by location | For All locations: a patient seen at two locations counts at both. |
+| Documentation checks | Consultation notes written, referrals not yet signed, and missing or future birth dates. These are reminders to review, not quality scores. |
 
-## Metrics and denominators
+**Trends** show patients reached and consulted, or conditions, over the last 7 days,
+30 days, 12 weeks or 12 months. Each point counts patients within that day, week or
+month only, so don't add the points together.
 
-The selected location and **visit-date period** define the cohort. `location_id=all` (shown as **All locations (overall)**) includes every location. Day uses the selected date; Past week includes that date and the preceding six calendar dates; Past 30 days includes that date and the preceding 29; Overall includes every recorded date up to that date. The default API period is day for compatibility. Today defaults to the
-browser's local calendar date. Data loads on filter changes or Refresh. These are
-current saved statuses of that cohort, not historic end-of-day snapshots or counts
-of events that happened on the date. Completed/discharged visits remain included.
+The CSV contains the filters, summary, conditions, age groups, station workload,
+referral destinations, documentation checks and the selected trend. It opens in Excel
+with Khmer text intact.
 
-- **Patients reached:** distinct patient IDs; repeat visits count once.
-- **Patients consulted:** distinct patients with at least one currently completed
-  consultation station. Saving notes is not counted as completion. Reopening a
-  station resets its current completion status; no cumulative throughput is inferred.
-- **Visits with referrals:** saved referral records, including unsigned drafts.
-- **Visits discharged:** visits marked with `completed_at`; not necessarily all
-  assigned stations completed.
-- **Station workload:** assigned/completed visit-station records; waiting is the
-  first pending station of each non-discharged visit, not future stations.
-- **Age groups:** unique patients, age calculated on the selected date. Missing or
-  future dates of birth are reported as Unknown.
-- **Referral destinations:** visits selecting each destination, deduplicated within
-  a visit. One referral may select multiple destinations.
-- **Conditions:** unique patients with a completed consultation whose doctor ticked
-  each category. A patient can count in several categories, once per category.
-- **Condition mix (pie chart):** each category's share of all condition selections in
-  the period. Because one patient can have several conditions, shares are of
-  selections, not of patients.
-- **Patients reached by location:** shown for All locations. Unique patients per
-  location; a patient seen at two locations counts at both.
-- **Documentation checks:** non-empty consultation notes, unsigned referrals, and
-  missing/future birth dates. These are review prompts, not care quality scores.
+## Ideas for later
 
-The API validates date/location filters and uses parameterized queries. Separate
-aggregate subqueries avoid multiplication from joining multiple station records.
-Empty cohorts show zero counts. Failed requests show an error, not misleading zero
-counts; outdated requests are aborted and ignored after filters change.
+These need new or checked data before they can be shown:
 
-Period counts deduplicate patients across the full range. Future visits and other locations are excluded; age groups use the selected end date.
+1. **New vs known conditions:** whether a condition was found at this visit.
+2. **Follow-up:** whether referred patients attended and what happened.
+3. **Reach:** which communities are reached, and new vs returning patients.
+4. **Supplies:** medicine dispensed, prescriptions that couldn't be filled and stock-outs.
 
-## Trends over time
+## Technical details
 
-`GET /api/analytics/trend?location_id=<id>|all&date=YYYY-MM-DD&range=7d|30d|12w|12m`
-returns date buckets ending on the selected date: daily for 7d/30d, seven-date
-weeks for 12w, and calendar months for 12m (the last month is cut at the date).
-Each bucket has `visits`, `people`, `consultedPeople` and a per-condition count of
-consulted patients. Patients are deduplicated within each bucket only, so bucket
-values must not be summed across a range.
+- `GET /api/analytics?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all`
+  returns the summary (the default period is `day`).
+  `GET /api/analytics/trend?location_id=<id>|all&date=YYYY-MM-DD&range=7d|30d|12w|12m`
+  returns the trend points. Weekly points are 7-day blocks, and the last month ends on
+  the selected date.
+- Both require a signed-in, active account, check their filters, and are never cached.
+- Each total is counted in its own query, so joining several station records never
+  double-counts. A failed request shows an error, not zeros. If the filters change
+  while a request is loading, the old result is ignored.
+- The default date is the browser's today. Dismissing the "How to use this page" tip
+  is remembered on that browser only.
+- Charts are plain SVG with fixed colours per condition (`CONDITION_COLORS`); no chart
+  library is used.
+- Condition categories come from `015_consultation_conditions.sql`, applied
+  automatically at server start-up.
 
-The dashboard plots these as a line chart: patients reached vs consulted, all
-conditions compared, or one selected condition. Every chart has a hover tooltip and
-a "Show as table" view. Charts are plain SVG, so no chart library or internet is
-needed. Each condition keeps a fixed colour (`CONDITION_COLORS`) across charts.
-
-## Future analytics
-
-Possible next metrics, which need new or validated data before they can be shown:
-
-1. **Known vs new diagnoses:** distinguish existing conditions from those found at
-   this visit. Do not infer diagnoses from note text.
-2. **Continuity:** referral attendance, time to follow-up and documented outcomes.
-   A saved referral does not establish whether a patient received onward care.
-3. **Access:** communities reached, returning/new patients and travel barriers.
-   Validate village/location coding first.
-4. **Supply planning:** dispensed medicine quantities, unmet prescriptions and
-   stock-out history linked to clinic dates.
-
-## Setup and tests
-
-Restart the backend to register the routes. Condition categories need migration
-`015_consultation_conditions.sql` (also applied by `ensureSchema` on start-up). No
-external analytics service, chart dependency or internet access is required.
+Tests (database tests use temporary tables only):
 
 ```powershell
-npm.cmd test --workspace apps/frontend -- --runInBand
+npm test --workspace apps/frontend
 $env:RUN_DB_TESTS='1'
-npm.cmd test --workspace apps/backend -- --runInBand tests/analytics.database.test.js
+npm test --workspace apps/backend -- --runInBand tests/analytics.database.test.js
 ```
-
-Database tests use temporary tables only and verify authorization, demotion,
-location/date isolation, unique-person counts, waiting stations, multi-destination
-referrals, invalid filters, empty results, all-location aggregation, the 30-day
-period and trend buckets. UI tests cover available to both admin and user entry,
-direct-route access, filter changes, failures, stale-request cancellation, the All
-locations option, trend range/metric switching and the condition pie chart.

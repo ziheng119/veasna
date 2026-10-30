@@ -1,81 +1,71 @@
 # API Documentation
 
+This is the reference for developers working with the Veasna server. Clinic staff
+don't need it.
+
 ## Base URL
 
-`http://localhost:3000/api`
+`http://<host-IP>:3000/api` (`http://localhost:3000/api` on the host itself)
 
 ## Authentication
 
-Authentication is **optional**. Endpoints accept requests without a token. If you choose to log in, include a JWT in the `Authorization` header:
+Every endpoint except `POST auth/login` needs a signed-in token in the
+`Authorization` header:
 
 ```
-Authorization: Bearer <your-jwt-token>
+Authorization: Bearer <token>
 ```
 
----
+A token lasts 7 days. The server checks on every request that the account is still
+active and has permission for the request. There are two fixed accounts, `admin` and
+`user`; see [accounts and permissions](../../docs/user-roles.md).
 
-## Endpoints
+**POST** `auth/login`
+Body `{ "username": "user", "password": "user" }`. Returns
+`{ "token": "...", "user": { "id": 2, "username": "user", "role": "user" } }`.
+Wrong details return `401`; a disabled account returns `403`. Limited to 30 attempts
+per device every 15 minutes.
 
-### Authentication
+**GET** `auth/me`
+The signed-in account: `{ "id", "username", "role" }`.
 
-**POST** `users`
-Creates a new user with just a username.
+**POST** `auth/register`, **POST** `users`
+Always `403`: account creation is disabled.
 
-* **Body**
-
-  ```json
-  { "username": "alice" }
-  ```
-
-* **Response (201)**
-
-  ```json
-  {
-    "message": "User created successfully",
-    "user": { "id": 1, "username": "alice" }
-  }
-  ```
+**GET** `users` lists accounts. **PATCH** `users/deactivate` (admin) disables one.
 
 ---
 
-**POST** `session/login`
-Passwordless login (optional) that upserts the user and returns a JWT.
+### Locations
 
-* **Body**
+**GET** `locations`
+`{ "locations": [{ "id": 1, "name": "Poipet" }, ...] }`
 
-  ```json
-  { "username": "alice" }
-  ```
-
-* **Response (200)**
-
-  ```json
-  {
-    "token": "<jwt-token>",
-    "user": {
-      "id": 1,
-      "username": "alice"
-    }
-  }
-  ```
+**POST** `locations` (admin), body `{ "name": "..." }`, adds a location.
+**DELETE** `locations/{id}` (admin) removes one.
 
 ---
 
-**GET** `profile`
-Fetches the current user’s profile.
+### Registration
 
-* **Response (200)**
+**POST** `visits`
+Registers a visit, creating the patient if needed, in one transaction. This is what the Home form uses.
 
-  ```json
-  {
-    "id": 1,
-    "username": "johndoe",
-    "role": "doctor",
-    "first_name": "John",
-    "last_name": "Doe",
-    "created_at": "2025-07-09T07:00:00.000Z"
-  }
-  ```
+```json
+{
+  "patientInfo": { "location_id": 1, "english_name": "Sok Dara", "khmer_name": "សុខ ដារា", "sex": "M", "date_of_birth": "1990-03-07" },
+  "visit": { "queue_no": "12" },
+  "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
+  "hef": { "know_of_hef": "yes", "has_hef": "no" },
+  "stations": ["triage", "consultation"],
+  "tb": { "red_flags": ["cough_2_weeks"], "notes": "" }
+}
+```
+
+- For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
+- Omit `visit.queue_no` to get the next number automatically. The visit date is always the host's today.
+- `stations` defaults to every station except `tb`; `tb` is optional (see TB Tent).
+- Returns `400` for missing or invalid fields, including an unknown location or patient.
 
 ---
 
@@ -84,26 +74,10 @@ Fetches the current user’s profile.
 **GET** `patients`
 List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date. Each patient includes `last_visit_date` (`YYYY-MM-DD`, or `null`): the most recent day they were seen at a screening.
 
-**POST** `patients`
-Create a new patient.
-
-* **Body**
-
-  ```json
-  {
-    "english_name": "John Smith",
-    "khmer_name": "ចន ស្មីត",
-    "date_of_birth": "1990-01-01",
-    "sex": "M",
-    "phone_number": "+855123456789",
-    "address": "Phnom Penh, Cambodia"
-  }
-  ```
-
 **GET** `patients/{id}`
 Fetch a patient by ID.
 
-**DELETE** `patients/{id}`
+**DELETE** `patients/{id}` (admin)
 Delete a patient.
 
 **GET** `patient/{id}`
@@ -182,49 +156,30 @@ Body `{ "decision": "cleared" | "tb_likely", "doctor_notes": "..." }`. `cleared`
 
 ### Pharmacy
 
+**GET** `pharmacy?location_id={id}` lists medicines with `stock_count`. **GET** `pharmacy/stats?location_id={id}` gives stock totals.
+
+**POST** `pharmacy`
+Body `{ "drug_name": "Paracetamol", "stock_count": 100, "location_id": 1 }`. Adds a medicine (both roles). `409` if it already exists at that location.
+
+**PATCH** `pharmacy/{drugId}` (admin)
+Body `{ "stock_count": 80 }`. Sets the stock to an exact number (for stock-taking).
+
+**PATCH** `pharmacy/{drugId}/name` (admin) renames a medicine. **DELETE** `pharmacy/{drugId}` (admin) removes it.
+
 **POST** `pharmacy/{drugId}/dispense` (admin)
-Body: `{ "quantity": 3 }`. Subtracts from stock in one statement, so dispensing on several devices at once is never lost. Returns the updated drug, `409` with the current `stock_count` when there is not enough stock, or `404` for an unknown drug. `PATCH pharmacy/{drugId}` still sets an absolute `stock_count` (stock-taking corrections).
-
-### Vitals
-
-**POST** `patients/{id}/vitals`
-Add a vitals record to a patient.
-
-* **Body**
-
-  ```json
-  {
-    "height_cm": 175.0,
-    "weight_kg": 70.0,
-    "bmi": 22.9,
-    "blood_pressure": "120/80",
-    "temperature_c": 36.8,
-    "vitals_notes": "Patient appears healthy"
-  }
-  ```
-
-**GET** `patients/{id}/vitals`
-List all vitals records for a patient.
+Body: `{ "quantity": 3 }`. Subtracts from stock in one statement, so dispensing on several devices at once is never lost. Returns the updated medicine, `409` with the current `stock_count` when there is not enough stock, or `404` for an unknown medicine.
 
 ---
 
-### HEF
+### Analytics
 
-**POST** `patients/{id}/hef`
-Add an HEF record.
-
-**GET** `patients/{id}/hef`
-List HEF records.
+**GET** `analytics?location_id={id}|all&date=YYYY-MM-DD&period=day|week|month|all` and
+**GET** `analytics/trend?location_id={id}|all&date=YYYY-MM-DD&range=7d|30d|12w|12m`.
+Totals only, with no patient names or notes. See [analytics](../../docs/analytics.md).
 
 ---
 
-### Visual Acuity
-
-**POST** `patients/{id}/visual_acuity`
-Add a visual acuity record.
-
-**GET** `patients/{id}/visual_acuity`
-List visual acuity records.
+### Triage and Seva
 
 **POST** `triage/visual-acuity`
 Save the Snellen's test for a visit. Body: `visit_id`, `left_with_pinhole`, `left_without_pinhole`, `right_with_pinhole`, `right_without_pinhole`, optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"6/6"` or `"6/9"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields.
@@ -238,113 +193,38 @@ The triage, Seva, consultation and referral save endpoints accept partially fill
 
 ---
 
-### Presenting Complaint
+### Older endpoints
 
-**POST** `patients/{id}/presenting_complaint`
-Add a presenting complaint.
+The app no longer uses these, but they still work. New code should use the visit-based endpoints above (`POST visits`, `triage/*`, `visits/*`).
 
-**GET** `patients/{id}/presenting_complaint`
-List presenting complaints.
-
----
-
-### History
-
-**POST** `patients/{id}/history`
-Add a history record.
-
-**GET** `patients/{id}/history`
-List history records.
-
----
-
-### Consultation
-
-**POST** `patients/{id}/consultations`
-Create a consultation.
-
-**GET** `patients/{id}/consultations`
-List consultations for a patient.
-
----
-
-### Referral
-
-**POST** `consultations/{id}/referrals`
-Add a referral to a consultation.
-
-**GET** `consultations/{id}/referrals`
-List referrals for a consultation.
-
----
-
-### Physiotherapy
-
-**POST** `patients/{id}/physiotherapy`
-Add a physiotherapy record.
-
-**GET** `patients/{id}/physiotherapy`
-List physiotherapy records.
-
----
-
-### Combined Registration
-
-**POST** `registration`  
-Create a patient and optionally append vitals, HEF, and visit in one request.
-
-**PUT** `registration/{patientId}`  
-**Combined update (patient + optional append vitals/HEF/visit)**  
-Update patient data and optionally append a vitals record, HEF record, and/or visit in a single call.
-
-**DELETE** `registration/{patientId}`  
-Delete a patient (cascades to vitals/HEF/visits).
+| Endpoint | Purpose |
+| --- | --- |
+| `POST patients` | Create a patient (requires `location_id`, `date_of_birth`, `sex`) |
+| `GET patients/today`, `GET patients/search?q=` | Today's patients; search by name |
+| `POST`/`GET patients/{id}/visual_acuity`, `/presenting_complaint`, `/history`, `/consultations`, `/physiotherapy` | Per-patient records |
+| `POST`/`GET consultations/{id}/referrals` | Referrals for a consultation |
+| `POST registration`, `PUT registration/{patientId}`, `DELETE registration/{patientId}` (admin) | Create or update a patient with vitals, HEF and a visit in one request |
 
 ---
 
 ## Error Responses
 
-* **400 Validation Error**
+Errors return JSON with a `message` or `error` field explaining the problem.
 
-  ```json
-  {
-    "message": "Validation failed",
-    "errors": [ /* field errors */ ]
-  }
-  ```
-* **401 Authentication Error**
-
-  ```json
-  {
-    "message": "Access token required"
-  }
-  ```
-* **403 Authorization Error**
-
-  ```json
-  {
-    "message": "Insufficient permissions"
-  }
-  ```
-* **404 Not Found**
-
-  ```json
-  {
-    "message": "Resource not found"
-  }
-  ```
-* Malformed JSON bodies, non-integer IDs in the URL (e.g. `/patients/abc`) and values PostgreSQL rejects (invalid numbers or dates, references to deleted records) return `400`, never `500`.
-* Saving a station form for a visit that no longer exists (e.g. deleted on another device) returns `404`.
-* **500 Server Error**
-
-  ```json
-  {
-    "message": "Internal server error"
-  }
-  ```
+| Status | When |
+| --- | --- |
+| `400` | Missing or invalid input: malformed JSON, non-numeric IDs in the URL (e.g. `/patients/abc`), invalid numbers or dates, or a reference to a deleted record. Field checks may add an `errors` list. |
+| `401` | No token (`"Authentication required"`), or wrong sign-in details. |
+| `403` | Expired or invalid token, disabled account, or the role isn't allowed to do this (`"Your role does not have permission for this action"`). |
+| `404` | Unknown address or record, including saving a station form for a visit deleted on another device. |
+| `409` | Conflict with the current state: TB hold (`code: "TB_HOLD"`), not enough stock, duplicate queue number, or a station route changed by someone else. |
+| `413` | Request body too large. |
+| `429` | Rate limit reached (see below). |
+| `500` | Unexpected server error (`"Internal server error"`); details go to the server log. |
+| `503` | Database unreachable, or permissions couldn't be checked. Try again. |
 
 ---
 
 ## Rate Limiting
 
-`API_RATE_LIMIT_MAX` (default 5000) `/api` requests per 15 minutes per IP, plus 30 login attempts per 15 minutes per IP. Responses include `RateLimit-*` headers; over the limit returns `429`.
+`API_RATE_LIMIT_MAX` (default 5000) `/api` requests per 15 minutes per device (IP address), plus 30 sign-in attempts per 15 minutes per device. Responses include `RateLimit-*` headers; over the limit returns `429`.
