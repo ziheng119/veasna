@@ -24,6 +24,13 @@ function isIsoDate(value) {
     Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 }
 
+// Calendar date on the backend host's clock and time zone. The host is set to the
+// clinic's local time, so a clinic day never splits at UTC midnight (07:00 in Cambodia).
+function localDate(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 // Rejects non-integer route IDs (e.g. /patients/abc) with 400 before any handler runs.
 function integerParams(router, names) {
   for (const name of names) {
@@ -34,4 +41,4 @@ function integerParams(router, names) {
   }
 }
 
-module.exports = { MAX_INT, toPositiveInt, toCount, isIsoDate, integerParams };
+module.exports = { MAX_INT, toPositiveInt, toCount, isIsoDate, localDate, integerParams };

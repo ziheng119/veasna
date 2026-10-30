@@ -147,7 +147,7 @@ A referral's signature is not edited from Patient Details. The page resends the 
 ### Queue
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD`
-Today’s active queue for a location (visits with `completed_at` unset).
+Today’s active queue for a location (visits with `completed_at` unset). `date` is optional: omitted, the backend uses its own current date (host time zone), the same date `POST visits` assigns. The frontend omits it so client devices with a wrong clock or time zone still see the same queue. An invalid `location_id` or a non-existent date (e.g. `2026-02-30`) returns `400`.
 
 **Station queues**
 Each visit lists the stations it is indicated for (`tb`, `triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station except `tb`) and an optional `tb` object (see TB Tent).

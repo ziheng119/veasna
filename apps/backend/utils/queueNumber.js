@@ -1,10 +1,14 @@
 // utils/queueNumber.js
 // Queue numbers are sequential per location per visit date, starting at 1.
 
+const { localDate } = require('./validation');
+
 const QUEUE_LOCK_NAMESPACE = 7101;
 
+// Today's clinic date in the backend host's time zone (not UTC: in Cambodia the UTC
+// date only changes at 07:00, which would split a morning's queue across two days).
 function currentVisitDate() {
-  return new Date().toISOString().slice(0, 10);
+  return localDate();
 }
 
 // Serializes queue number assignment for a location until the surrounding transaction ends,

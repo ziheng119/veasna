@@ -16,7 +16,8 @@ const { TB_STATION, TB_HOLD_MESSAGE, flagTb } = require('../utils/tb');
 // waiting at that station, in the order they arrived there.
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const location_id = toPositiveInt(req.query.location_id);
-    const { date } = req.query;
+    // Defaults to the host's clinic day, the same date registration assigns to new visits.
+    const date = req.query.date || currentVisitDate();
     const station = req.query.station || null;
 
     if (!location_id) {

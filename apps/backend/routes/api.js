@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { integerParams } = require('../utils/validation');
+const { integerParams, localDate } = require('../utils/validation');
 // Non-integer IDs in the URL are rejected with 400 before reaching the database.
 integerParams(router, ['id']);
 const { authorizeApi } = require('../middleware/authorizeApi');
@@ -236,7 +236,7 @@ router.get(
   async (req, res) => {
     try {
       const location_id = Number(req.query.location_id);
-      const visit_date = req.query.visit_date || new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const visit_date = req.query.visit_date || localDate(); // YYYY-MM-DD, clinic-local
 
       const sql = `
         SELECT

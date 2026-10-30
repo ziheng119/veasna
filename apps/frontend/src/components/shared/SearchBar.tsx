@@ -12,7 +12,7 @@ import { Location } from "@/lib/types/location"
 import { StationId, stationLabel, stationPageHref } from "@/constants/stations"
 import { useLocationStore } from "@/stores/useLocationStore"
 import { useLiveList } from "@/hooks/useLiveList"
-import { getQueue } from "@/lib/api/queue/getQueue"
+import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue"
 import { sortQueuePatients } from "@/lib/queueSort"
 import { useUserStore } from "@/stores/useUserStore"
 import { cn } from "@/lib/utils"
@@ -54,7 +54,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
   const locationId = location?.id
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
     if (!locationId || !token) return []
-    return getQueue(locationId, new Date().toISOString().slice(0, 10), token, undefined, signal)
+    return getQueue(locationId, CLINIC_TODAY, token, undefined, signal)
   }, [locationId, token])
   const { data: patients } = useLiveList(load)
 

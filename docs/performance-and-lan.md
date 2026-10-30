@@ -84,6 +84,14 @@ only then accepts connections. If PostgreSQL is still down, it starts anyway wit
 the LAN URLs that clients should use.
 Ctrl+C closes live connections and database clients cleanly.
 
+### Clock and time zone
+
+The backend host's clock decides the clinic day: new visits get its local date,
+and queues show that date's visits. Set the host to the clinic's time zone (for
+example `Asia/Phnom_Penh`) and check its date and time before each session. With
+no internet it cannot sync its clock automatically. Client devices' clocks do
+not affect queues.
+
 ### Verify from each device
 
 From any device with the repository installed (for example each frontend host):

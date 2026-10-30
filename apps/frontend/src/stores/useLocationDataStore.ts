@@ -4,7 +4,7 @@ import { useUserStore } from "./useUserStore";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { getDrugsByLocation } from "@/lib/api/pharmacy/pharmacy";
 import { useLocationStore } from "./useLocationStore";
-import { getQueue } from "@/lib/api/queue/getQueue";
+import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { Drug } from "@/lib/types/drug";
 
@@ -29,11 +29,9 @@ export const useLocationDataStore = create<LocationDataStore>((set, get) => ({
       const token = useUserStore.getState().user?.token;
       if (!token) throw new Error("No auth token available");
 
-      const today = new Date().toISOString().slice(0, 10)
-
       const results = await Promise.allSettled([
         getPatientsByLocation(locationId, token),
-        getQueue(locationId, today.toString(), token),
+        getQueue(locationId, CLINIC_TODAY, token),
         canAccessPage(useUserStore.getState().user?.role, "/pharmacy") ? getDrugsByLocation(locationId) : Promise.resolve([]),
       ]);
 
