@@ -15,7 +15,7 @@ cp apps/frontend/.env.example apps/frontend/.env.local
 `.env.local` has one setting, the backend's address:
 
 ```env
-NEXT_PUBLIC_BACKEND_URL=http://192.168.1.10:3000
+NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000
 ```
 
 Use the host laptop's IP, not `localhost`, so that other devices can reach it too.

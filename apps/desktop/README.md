@@ -15,9 +15,9 @@ The window opens `http://localhost:3001`. To open a web app on another laptop, s
 
 ```bash
 # PowerShell
-$env:DESKTOP_FRONTEND_URL='http://192.168.1.10:3001'; npm run dev:desktop
+$env:DESKTOP_FRONTEND_URL='http://192.168.68.50:3001'; npm run dev:desktop
 # macOS / Linux
-DESKTOP_FRONTEND_URL=http://192.168.1.10:3001 npm run dev:desktop
+DESKTOP_FRONTEND_URL=http://192.168.68.50:3001 npm run dev:desktop
 ```
 
 `apps/desktop/.env.example` shows the setting, but the window does not read a `.env`
