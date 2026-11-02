@@ -1,12 +1,13 @@
 # Returning to and skipping stations
 
-While a patient is in the clinic, an admin can change which stations they still go
-to, and in what order. (To change how a queue is sorted, see
+While a patient is in the clinic, anyone signed in (user or admin) can send them to
+the next station, change which stations they still go to and in what order, or
+discharge them. (To change how a queue is sorted, see
 [queue ordering](queue-ordering.md).)
 
 ## How to use it
 
-Press **Stations** on a patient in a station queue:
+Press **Send to** on a patient in a station queue:
 
 - **Return to [station]** reopens a station the patient has finished and makes it next.
 - **Skip for now** moves a station to the end of the route. It isn't marked as done.

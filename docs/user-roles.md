@@ -9,9 +9,10 @@ Veasna has two sign-ins:
 
 New accounts cannot be created, even by an admin.
 
-Both accounts can **see** everything. The difference is in changing things: a user
-can enter information the first time, but only an admin can change or delete
-something once it is saved. This applies to a user's own entries too, on any day.
+Both accounts can **see** everything and move patients through the clinic. The
+difference is in changing records: a user can enter information the first time, but
+only an admin can change or delete something once it is saved. This applies to a
+user's own entries too, on any day.
 
 | Action | User | Admin |
 | --- | --- | --- |
@@ -22,7 +23,7 @@ something once it is saved. This applies to a user's own entries too, on any day
 | Create a referral and sign it for the first time | Yes | Yes |
 | Change saved details: names, queue numbers, vitals, HEF, clinical notes | No | Yes |
 | Change or clear a saved signature, or delete a referral | No | Yes |
-| Change a patient's stations, finish a station or discharge | No | Yes |
+| Send a patient to the next station (**Next/Finish**), change their stations or their order (**Send to**), or discharge them | Yes | Yes |
 | Add a new medicine to the pharmacy | Yes | Yes |
 | Prescribe from the pharmacy (reserves the stock) | Yes | Yes |
 | Change stock, rename or delete a medicine, dispense, or cancel a prescription | No | Yes |
@@ -67,7 +68,9 @@ the same as part of first-time setup. It never runs on its own when the server s
 
 - The server checks the account and role on every request, so a disabled account or
   a changed role takes effect immediately, even with an old sign-in.
-- Users are allowed only a fixed list of "create" requests. Other changes (PUT, PATCH,
+- Users are allowed only a fixed list of "create" requests, plus moving patients
+  between stations (`POST queue/{id}/stations/{station}/complete`,
+  `PUT queue/{id}/stations`, `POST queue/{id}/complete`). Other changes (PUT, PATCH,
   DELETE and admin requests) are refused. Older edit addresses are admin-only, so
   they can't be used to get around these checks.
 - First saves rely on the database's one-record-per-visit rule. An update to an

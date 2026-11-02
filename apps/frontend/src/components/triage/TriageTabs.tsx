@@ -105,7 +105,7 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
         setIsLoading(true);
         const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
             saved("acuity");
-            if (!isAdmin || !stations || !token || sevaDone || sendToSeva === sevaQueued) return;
+            if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
             // Add Seva after triage without discarding a previously customized route.
             const remaining: StationId[] = remainingStations.filter(id => id !== "seva");
             if (sendToSeva) remaining.splice(Math.max(0, remaining.indexOf("triage") + 1), 0, "seva");
@@ -185,7 +185,7 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                                     <Checkbox
                                         id="send-to-seva"
                                         checked={sevaDone || sendToSeva}
-                                        disabled={sevaDone || !isAdmin}
+                                        disabled={sevaDone}
                                         onCheckedChange={(checked) => setSendToSeva(checked === true)}
                                         className="mt-0.5 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                     />

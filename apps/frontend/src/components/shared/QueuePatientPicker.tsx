@@ -40,7 +40,6 @@ export default function QueuePatientPicker({
   selectedVisitId,
   refreshKey,
 }: QueuePatientPickerProps) {
-  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
@@ -233,7 +232,7 @@ export default function QueuePatientPicker({
                   />
                 )}
                 <Button
-                    disabled={!isAdmin}                     type="button"
+                    type="button"
                     variant="ghost"
                     className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
                     title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
@@ -243,7 +242,7 @@ export default function QueuePatientPicker({
                     {next ? "Next" : "Finish"}
                   </Button>
                 <Button
-                    disabled={!isAdmin}                   type="button"
+                  type="button"
                   variant="ghost"
                   className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
                   title="Send to station…: choose which stations this patient goes to next, and in what order"
@@ -254,7 +253,7 @@ export default function QueuePatientPicker({
                   Send to
                 </Button>
                 <Button
-                    disabled={!isAdmin}                   type="button"
+                  type="button"
                   variant="ghost"
                   className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-destructive"
                   title="Discharge patient from every queue"
