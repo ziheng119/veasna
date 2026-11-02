@@ -9,7 +9,7 @@ integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
-const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
+const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
 const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
@@ -171,8 +171,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const visitDate = currentVisitDate();
         // Held until commit, so two devices cannot issue or claim the same number.
         await lockQueue(client, locationId);
+        const nextQueueNo = await getNextQueueNo(client, locationId, visitDate);
+        const jumpError = queueNo ? queueNoJumpError(queueNo, nextQueueNo) : null;
         if (!queueNo) {
-            queueNo = await getNextQueueNo(client, locationId, visitDate);
+            queueNo = nextQueueNo;
+        } else if (jumpError) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: jumpError });
         } else if (await isQueueNoTaken(client, locationId, visitDate, queueNo)) {
             await client.query('ROLLBACK');
             return res.status(409).json({ error: `Queue number ${queueNo} is already used today. Choose another, or leave it blank to assign one.` });

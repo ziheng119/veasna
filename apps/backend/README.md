@@ -150,7 +150,9 @@ These rules are enforced by the server, so they apply on every device:
   at Triage. The patient goes through their stations as usual and is shown in red, with a
   "TB" label, in every queue so doctors can attend to them. Only an admin can remove a flag.
 - **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
-  e.g. `12A` for a family member or `A12`. Unique per location and day.
+  e.g. `12A` for a family member or `A12`. Unique per location and day. A typed number
+  that starts with digits can't run ahead of the next number (`queueNoJumpError` in
+  `utils/queueNumber.js`), so a mistyped `132` for `13A` doesn't make the sequence skip.
 - **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
   when a cataract is suspected. The station is still `seva` in the database and API; its
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.

@@ -63,7 +63,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```
 
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
-- Omit `visit.queue_no` to get the next number automatically. A typed queue number is 1-10 letters and digits with at least one digit (`12`, `12A`, `A12`), stored upper-case; `400` if malformed, `409` if already used at the location today. Numbers starting with a letter are a separate series and do not affect the automatic numbers. The visit date is always the host's today.
+- Omit `visit.queue_no` to get the next number automatically. A typed queue number is 1-10 letters and digits with at least one digit (`12`, `12A`, `A12`), stored upper-case; `400` if malformed, `409` if already used at the location today. A typed number that starts with digits must not run ahead of the sequence, or later numbers would skip: a plain number may be at most the next number, and a suffixed one (`13A`) needs its number (`13`) to be issued already; otherwise `400` with a message such as `Queue number 132 is ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A. Leave it blank to use 14.` Numbers starting with a letter are a separate series and do not affect the automatic numbers. The visit date is always the host's today.
 - `stations` defaults to every station; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - Returns `400` for missing or invalid fields, including an unknown location or patient.
 
@@ -106,7 +106,7 @@ Users can create records but cannot change them once saved; admins can correct e
 The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
 
 **PUT** `visits/{visitId}`
-Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. This replaces the old route of the same path, which wrote to a column that does not exist.
+Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. A changed number, date or location is checked against that location and date's sequence, leaving this visit out, by the same rule as `POST visits`; an unchanged number is not re-checked. This replaces the old route of the same path, which wrote to a column that does not exist.
 
 **PUT** `visits/{visitId}/vitals`
 Body: `vitals` (`height`, `weight`, `bmi`, `below_3rd_percentile`, `bp_systolic`, `bp_diastolic`, `temperature`, `notes`, validated like registration), `hef` (`know_of_hef`, `has_hef` as booleans, `notes`), or both. A missing record is created.

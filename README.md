@@ -98,7 +98,8 @@ A few things worth knowing:
 
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
   the same form. Leave the queue number blank to get the next one, or type one with
-  letters, such as `12A` for a family member of number 12.
+  letters, such as `12A` for a family member of number 12. A typed number can't jump
+  ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
 - **Suspected TB:** tick the TB red flags at registration, or press **Flag suspected TB**
   at Triage. The patient then shows in red, marked **TB**, in every queue so doctors can
   attend to them. Only an admin can remove the flag.

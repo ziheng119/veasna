@@ -29,7 +29,7 @@ import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_RED_FLAGS } from "@/constants/tb";
-import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo } from "@/lib/queueNumber";
+import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
 import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
@@ -188,7 +188,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const bpDiastolic = Number(vitals.bp_diastolic);
       const temperature = Number(vitals.temperature);
 
-      if (patientInfo.queue_no?.trim() && !isValidQueueNo(patientInfo.queue_no)) nextErrors.queue_no = QUEUE_NO_ERROR;
+      if (patientInfo.queue_no?.trim()) {
+        // The server checks again against the latest number; this preview may be a moment old.
+        const queueError = isValidQueueNo(patientInfo.queue_no)
+          ? nextQueueNo && queueNoJumpError(patientInfo.queue_no, nextQueueNo)
+          : QUEUE_NO_ERROR;
+        if (queueError) nextErrors.queue_no = queueError;
+      }
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
 

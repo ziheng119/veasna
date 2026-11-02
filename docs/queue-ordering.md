@@ -27,6 +27,28 @@ have waited longer.
   Escape to clear it. Your selected patient stays selected.
 - Searching and live updates keep your chosen order.
 
+## Typing a queue number
+
+Leave **Queue Number** blank at registration to get the next number. Type one only to
+group patients together:
+
+- `13A`, `13B`: family members or companions of patient 13.
+- `A1`, `A2`: a separate lettered series. It never affects the plain numbers.
+
+A typed number can't jump ahead of the next number, because every later patient would
+then be numbered after it. If the next number is 14:
+
+| Typed | Result |
+| --- | --- |
+| `14`, or an unused lower number such as `9` | Accepted. |
+| `13A` | Accepted: number 13 already exists. |
+| `132` (meant `13A`) | Refused: "ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A." |
+| `20A` | Refused: there is no patient 20 yet. |
+| `A12` | Accepted: lettered series are separate. |
+
+An admin correcting a number on **Patient Details** follows the same rule for that
+visit's location and date.
+
 ## Technical details
 
 - `queueSort.ts` sorts queue numbers; arrival order is kept exactly as the server
@@ -40,6 +62,10 @@ have waited longer.
   time, the server falls back to when the visit was created. Older servers without
   this field make cards show **Registered** instead of **Arrived**.
 - Arrival order never depends on device clocks.
+- `queueNoJumpError` in `apps/backend/utils/queueNumber.js` enforces the typed-number
+  rule inside the same lock that issues numbers, so it can't race with another device.
+  `apps/frontend/src/lib/queueNumber.ts` mirrors it to show the message before saving;
+  a frontend test checks the two give the same answers.
 
 ```bash
 npm test --workspace apps/frontend
