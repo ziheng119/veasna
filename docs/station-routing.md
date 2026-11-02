@@ -1,12 +1,13 @@
 # Returning to and skipping stations
 
-While a patient is in the clinic, an admin can change which stations they still go
-to, and in what order. (To change how a queue is sorted, see
+While a patient is in the clinic, anyone signed in (user or admin) can send them to
+the next station, change which stations they still go to and in what order, or
+discharge them. (To change how a queue is sorted, see
 [queue ordering](queue-ordering.md).)
 
 ## How to use it
 
-Press **Stations** on a patient in a station queue:
+Press **Send to** on a patient in a station queue:
 
 - **Return to [station]** reopens a station the patient has finished and makes it next.
 - **Skip for now** moves a station to the end of the route. It isn't marked as done.
@@ -24,15 +25,42 @@ Good to know:
 - Forms and notes already saved at a station are kept when the patient returns to it.
 - Finishing the last station still completes the visit.
 - A discharged visit can't be reopened here. Register a new visit if the patient comes back.
-- Suspected TB is not a stop. It is a flag on the visit (set at registration or Triage)
-  that shows the patient in red in every queue.
+- Suspected TB is not a stop. It is a flag on the visit that sends the patient to
+  Consultation first (see below).
 - If someone else changed the route while you had the dialog open, saving shows a
   conflict message. Close the dialog and open it again to see the current route.
 
+## Suspected TB patients
+
+A patient with TB red flags is kept apart in the TB tent, and a doctor goes to see them
+there. Veasna follows that:
+
+1. **Flag:** tick the TB red flags at registration, or press **Flag suspected TB** at
+   Triage. The patient goes **straight to the Consult queue**, shown in red with a
+   **TB** label in every queue. Their other stations (e.g. Triage, Partner NGO) stay on
+   their route, after Consultation.
+2. **Clear:** once the doctor has seen them, anyone presses **Clear TB** on the patient's
+   queue card (Home or any station queue), or **Clear TB flag** at Triage. The red marker
+   goes and the patient is in the Consult queue, since the tent visit is their
+   consultation.
+3. **Consult as usual:** the doctor writes the consultation notes and presses **Next**
+   or **Finish**. Use **Send to** to remove stations the patient no longer needs.
+
+Good to know:
+
+- Clearing someone who isn't at Consultation (e.g. flagged before this update) sends
+  them there too. A finished Consultation isn't reopened, and a discharged visit stays
+  discharged.
+- If two people clear the same patient, the second press changes nothing.
+- Only an admin can change the red flags or notes of an existing flag (on **Patient
+  Details**). That never moves the patient.
+
 ## Technical details
 
-`visit_stations.position` holds each visit's own route. Finishing a station or clearing
-TB moves the patient to the next unfinished station by position.
+`visit_stations.position` holds each visit's own route. Finishing a station moves the
+patient to the next unfinished station by position. Flagging or clearing TB makes
+Consultation the current station (`sendToConsultation` in `apps/backend/utils/tb.js`),
+recorded in `visit_station_route_history` like any route change.
 
 `PUT /api/queue/:visitId/stations` takes the new route and the route the dialog
 started from:
@@ -64,7 +92,7 @@ The history table is created automatically when the server starts (migration
 editing routes.
 
 ```bash
-npm test --workspace apps/backend -- --runInBand tests/stationRoute.test.js tests/realtime.test.js
+npm test --workspace apps/backend -- --runInBand tests/stationRoute.test.js tests/realtime.test.js tests/tbRegistration.test.js
 npm test --workspace apps/frontend
 ```
 
@@ -72,7 +100,7 @@ Database checks, using temporary tables only (PowerShell):
 
 ```powershell
 $env:RUN_DB_TESTS='1'
-npm test --workspace apps/backend -- --runInBand tests/stationRoute.database.test.js
+npm test --workspace apps/backend -- --runInBand tests/stationRoute.database.test.js tests/tbFlow.database.test.js
 Remove-Item Env:RUN_DB_TESTS
 ```
 

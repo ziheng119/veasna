@@ -1,6 +1,8 @@
 // utils/tb.js
-// Suspected TB is a flag on the visit, kept in tb_screening. A flagged visit goes through its
-// normal stations and is marked in red in every queue so doctors can attend to it.
+// Suspected TB is a flag on the visit, kept in tb_screening. A flagged visit goes straight to the
+// Consultation queue, marked in red in every queue, so a doctor sees the patient (in the TB tent)
+// first. Anyone can clear the flag; the patient then stays at, or returns to, Consultation, since
+// the doctor's tent visit is their consultation. Their other unfinished stations stay queued after it.
 //   status 'suspected' = flagged; 'cleared' = flag removed (no TB);
 //   'tb_likely' = flagged (older records reviewed at the former TB Tent).
 
@@ -52,6 +54,44 @@ async function flagTb(client, visitId, { redFlags = [], notes = '' }, userId) {
   return rows[0];
 }
 
+// The route a TB-flagged visit takes: Consultation first, then its other stations in order.
+function consultationFirst(stations) {
+  return ['consultation', ...stations.filter((station) => station !== 'consultation')];
+}
+
+// Makes Consultation the visit's current station, ahead of its other unfinished stations, adding it
+// when missing. Nothing changes when the visit is discharged, Consultation is already current, or
+// Consultation is already finished. The old route is kept in visit_station_route_history, as for any
+// route edit. The caller must hold the visit's row lock. Returns the current station afterwards
+// (null when the visit is discharged or finished).
+async function sendToConsultation(client, visitId, userId) {
+  const visit = await client.query('SELECT completed_at FROM visits WHERE id = $1', [visitId]);
+  if (!visit.rows.length || visit.rows[0].completed_at) return null;
+  const { rows: route } = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
+  const pending = route.filter((row) => !row.completed_at).map((row) => row.station);
+  const consultationDone = route.some((row) => row.station === 'consultation' && row.completed_at);
+  if (consultationDone || pending[0] === 'consultation') return pending[0] ?? null;
+
+  const wanted = consultationFirst(pending);
+  await client.query(
+    'INSERT INTO visit_station_route_history (visit_id, previous_stations, requested_stations, last_updated_by) VALUES ($1, $2::jsonb, $3::jsonb, $4)',
+    [visitId, JSON.stringify(route), JSON.stringify(wanted), userId]
+  );
+  // Consultation gets a new arrival time; the station the patient left waits without one until
+  // it becomes current again, as when a station is skipped.
+  for (const [index, station] of wanted.entries()) {
+    await client.query(
+      `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
+       VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)
+       ON CONFLICT (visit_id, station) DO UPDATE SET
+          position = EXCLUDED.position, entered_at = EXCLUDED.entered_at,
+          last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
+      [visitId, station, index + 1, index === 0, userId]
+    );
+  }
+  return 'consultation';
+}
+
 // Removes the flag. The record is kept (status 'cleared') for the audit trail.
 async function clearTbFlag(client, visitId, userId) {
   const { rows } = await client.query(
@@ -71,4 +111,6 @@ module.exports = {
   rejectUnsavableVisit,
   flagTb,
   clearTbFlag,
+  consultationFirst,
+  sendToConsultation,
 };

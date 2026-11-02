@@ -13,6 +13,7 @@ import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
+import ClearTbButton from "./ClearTbButton";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -39,7 +40,6 @@ export default function QueuePatientPicker({
   selectedVisitId,
   refreshKey,
 }: QueuePatientPickerProps) {
-  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
@@ -121,6 +121,14 @@ export default function QueuePatientPicker({
       console.error("Failed to remove patient from queue:", err);
       toast.error("Failed to remove patient from queue");
     }
+  };
+
+  // A cleared patient who is still waiting here stays selected, without the red marker.
+  const handleTbCleared = async (patient: QueuedPatient, currentStation: StationId | null) => {
+    if (selectedVisitId === patient.visit_id) {
+      onSelectPatient(currentStation === station ? { ...patient, tb_flagged: false, tb_status: "cleared" } : null);
+    }
+    await loadQueue();
   };
 
   const sortedPatients = useMemo(() => {
@@ -216,8 +224,15 @@ export default function QueuePatientPicker({
                 </span>
               </button>
               <div className="flex shrink-0 items-center">
+                {tbFlagged && (
+                  <ClearTbButton
+                    patient={patient}
+                    onCleared={(currentStation) => handleTbCleared(patient, currentStation)}
+                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal"
+                  />
+                )}
                 <Button
-                    disabled={!isAdmin}                     type="button"
+                    type="button"
                     variant="ghost"
                     className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
                     title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
@@ -227,7 +242,7 @@ export default function QueuePatientPicker({
                     {next ? "Next" : "Finish"}
                   </Button>
                 <Button
-                    disabled={!isAdmin}                   type="button"
+                  type="button"
                   variant="ghost"
                   className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
                   title="Send to station…: choose which stations this patient goes to next, and in what order"
@@ -238,7 +253,7 @@ export default function QueuePatientPicker({
                   Send to
                 </Button>
                 <Button
-                    disabled={!isAdmin}                   type="button"
+                  type="button"
                   variant="ghost"
                   className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-destructive"
                   title="Discharge patient from every queue"

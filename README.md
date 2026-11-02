@@ -71,8 +71,9 @@ Before the clinic opens:
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 
-For connecting several devices through a router, see
-[running on a local network](docs/performance-and-lan.md).
+For connecting several devices through a router, giving the host a fixed address
+in the Deco app, and opening the app at `http://veasna.local:3001` instead of the IP,
+see [running on a local network](docs/performance-and-lan.md).
 
 ## Signing in
 
@@ -92,16 +93,19 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 - [Returning to and skipping stations](docs/station-routing.md): changing a patient's route.
 - [Consultation referrals](docs/consultation-referrals.md): signing, printing and deleting referrals.
 - [Analytics](docs/analytics.md): what each number on the Analytics page means.
-- [Running on a local network](docs/performance-and-lan.md): setup, checks and troubleshooting.
+- [Running on a local network](docs/performance-and-lan.md): router setup, a fixed host
+  address, the `veasna.local` name, checks and network troubleshooting.
 
 A few things worth knowing:
 
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
   the same form. Leave the queue number blank to get the next one, or type one with
-  letters, such as `12A` for a family member of number 12.
+  letters, such as `12A` for a family member of number 12. A typed number can't jump
+  ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
 - **Suspected TB:** tick the TB red flags at registration, or press **Flag suspected TB**
-  at Triage. The patient then shows in red, marked **TB**, in every queue so doctors can
-  attend to them. Only an admin can remove the flag.
+  at Triage. The patient goes straight to the Consult queue and shows in red, marked
+  **TB**, in every queue. Once a doctor has seen them in the TB tent, anyone can press
+  **Clear TB** on their queue card. See [suspected TB patients](docs/station-routing.md#suspected-tb-patients).
 - **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
   The stock is reserved at once. The pharmacy hands it over from **Pharmacy →
   Prescriptions to dispense**, or cancels it to release the stock. Dispensing needs

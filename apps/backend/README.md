@@ -117,7 +117,8 @@ All settings live in `apps/backend/.env`.
 | `PORT` | The server's port (default `3000`). |
 | `JWT_SECRET` | Any long random text. Changing it signs everyone out. |
 | `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.68.50:3001`. |
-| `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address. Useful when device IPs change. |
+| `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address or `.local` name. Useful when device IPs change. |
+| `MDNS_NAME` | A name devices can use instead of the IP, e.g. `veasna` for `http://veasna.local:3001`. Works offline. Leave empty to turn off. See [using a name instead of the IP](../../docs/performance-and-lan.md#using-a-name-instead-of-the-ip). |
 | `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
 
 See [running on a local network](../../docs/performance-and-lan.md) for a full
@@ -147,10 +148,14 @@ These rules are enforced by the server, so they apply on every device:
 - **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
   Physiotherapy, Consultation), waiting in one queue at a time.
 - **TB flag:** suspected TB is a flag on the visit, set at registration (TB red flags) or
-  at Triage. The patient goes through their stations as usual and is shown in red, with a
-  "TB" label, in every queue so doctors can attend to them. Only an admin can remove a flag.
+  at Triage. The patient goes straight to Consultation, with their other stations queued
+  after it, and is shown in red with a "TB" label in every queue. Anyone can clear the flag;
+  clearing also sends the patient to Consultation if they aren't there (`sendToConsultation`
+  in `utils/tb.js`). Only an admin can change an existing flag's red flags or notes.
 - **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
-  e.g. `12A` for a family member or `A12`. Unique per location and day.
+  e.g. `12A` for a family member or `A12`. Unique per location and day. A typed number
+  that starts with digits can't run ahead of the next number (`queueNoJumpError` in
+  `utils/queueNumber.js`), so a mistyped `132` for `13A` doesn't make the sequence skip.
 - **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
   when a cataract is suspected. The station is still `seva` in the database and API; its
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.

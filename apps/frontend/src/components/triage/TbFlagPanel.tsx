@@ -11,17 +11,18 @@ import TbBadge from "@/components/shared/TbBadge";
 import { TB_RED_FLAGS, tbRedFlagLabel } from "@/constants/tb";
 import { getTbScreening, setTbFlag, TbScreening } from "@/lib/api/tb/tb";
 import { useUserStore } from "@/stores/useUserStore";
+import { StationId, stationLabel } from "@/constants/stations";
 
 interface Props {
   visitId: number;
-  // Called after the flag is set or removed, so the queue can show or hide the red TB marker.
-  onChanged: (flagged: boolean) => void;
+  // Called after the flag is set or removed, with the patient's station afterwards (both send them
+  // to Consultation), so the queue can update.
+  onChanged: (flagged: boolean, currentStation: StationId | null) => void;
 }
 
-/** Flag suspected TB at triage. Anyone can flag; only an admin can remove a flag. */
+/** Flag suspected TB at triage, or clear the flag. Anyone can do either; both send the patient to Consult. */
 export default function TbFlagPanel({ visitId, onChanged }: Props) {
   const token = useUserStore((state) => state.user?.token);
-  const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const [screening, setScreening] = useState<TbScreening | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
@@ -44,15 +45,17 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
 
   const save = async (flag: boolean) => {
     if (!token) return;
-    if (!flag && !window.confirm("Remove the TB flag? The patient's red TB marker will be removed from every queue.")) return;
+    if (!flag && !window.confirm("Clear the TB flag? Do this once a doctor has seen the patient. They go to the Consult queue and their red TB marker is removed.")) return;
     setSaving(true);
     try {
-      await setTbFlag(visitId, flag ? { flagged: true, red_flags: redFlags, notes } : { flagged: false }, token);
+      const result = await setTbFlag(visitId, flag ? { flagged: true, red_flags: redFlags, notes } : { flagged: false }, token);
+      const station = result.current_station ?? null;
       setScreening(await getTbScreening(visitId, token));
       setOpen(false);
-      onChanged(flag);
-      if (flag) toast.error("Flagged for suspected TB. The patient is now marked red in every queue.", { duration: 6000 });
-      else toast.success("TB flag removed.");
+      onChanged(flag, station);
+      const where = station ? ` The patient is in the ${stationLabel(station)} queue.` : "";
+      if (flag) toast.error(`Flagged for suspected TB and marked red in every queue.${where}`, { duration: 6000 });
+      else toast.success(`TB flag cleared.${where}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update TB flag");
     } finally {
@@ -74,11 +77,9 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
           )}
           {screening.flag_notes && <p className="whitespace-pre-wrap text-muted-foreground">{screening.flag_notes}</p>}
         </div>
-        {isAdmin && (
-          <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => save(false)}>
-            Remove TB flag
-          </Button>
-        )}
+        <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => save(false)}>
+          Clear TB flag
+        </Button>
       </div>
     );
   }
@@ -88,7 +89,7 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
       <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
         <span className="flex items-center gap-2 text-muted-foreground">
           <ShieldAlert className="size-4 text-red-600" aria-hidden="true" />
-          TB red flags? Flag the patient so doctors see them in every queue.
+          TB red flags? Flag the patient to send them straight to Consult, marked red in every queue.
         </span>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
           Flag suspected TB

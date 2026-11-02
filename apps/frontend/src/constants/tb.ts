@@ -1,6 +1,6 @@
 // Suspected TB is a flag on the visit, set at registration or triage. A flagged patient goes
-// through their normal stations and is marked in red ("TB") in every queue so doctors can attend
-// to them. Ticking any red flag at registration flags the patient. Update this list to match the
+// straight to the Consult queue and is marked in red ("TB") in every queue; anyone can clear the
+// flag once a doctor has seen them. Ticking any red flag at registration flags the patient. Update this list to match the
 // red flags provided by the doctors.
 export const TB_RED_FLAGS = [
   { id: "cough_2_weeks", label: "Cough for 2 weeks or more" },

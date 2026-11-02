@@ -15,7 +15,7 @@ const { integerParams } = require('../utils/validation');
 integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
-const { lockQueue, normalizeQueueNo, isValidQueueNo, QUEUE_NO_ERROR } = require('../utils/queueNumber');
+const { lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, QUEUE_NO_ERROR } = require('../utils/queueNumber');
 const { textOrEmpty } = require('../utils/partialFields');
 const { normalizeVitals } = require('../utils/vitals');
 const { TB_STATUSES, normalizeRedFlags } = require('../utils/tb');
@@ -86,17 +86,24 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
       [visitId]
     );
     if (!current.rows.length) return { status: 404, body: { error: 'Visit not found' } };
+    const saved = current.rows[0];
 
     const next = {
-      queue_no: queueNo ?? current.rows[0].queue_no,
-      visit_date: visit_date ?? current.rows[0].visit_date,
-      location_id: locationId ?? current.rows[0].location_id,
+      queue_no: queueNo ?? saved.queue_no,
+      visit_date: visit_date ?? saved.visit_date,
+      location_id: locationId ?? saved.location_id,
     };
     if (next.location_id) {
       const location = await client.query('SELECT 1 FROM locations WHERE id = $1', [next.location_id]);
       if (!location.rows.length) return { status: 400, body: { error: 'Location not found' } };
       // Same lock as registration, so a new patient cannot take this number concurrently.
       await lockQueue(client, next.location_id);
+    }
+    // Only a changed number or move is checked, so older numbers can be kept as they are.
+    const moved = next.queue_no !== saved.queue_no || next.visit_date !== saved.visit_date || next.location_id !== saved.location_id;
+    if (moved && next.location_id) {
+      const jumpError = queueNoJumpError(next.queue_no, await getNextQueueNo(client, next.location_id, next.visit_date, visitId));
+      if (jumpError) return { status: 400, body: { error: jumpError } };
     }
     const duplicate = await client.query(
       `SELECT 1 FROM visits

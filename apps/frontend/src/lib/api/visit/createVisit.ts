@@ -11,7 +11,7 @@ export async function createVisit(
         vitals: Vitals;
         hef: HEF;
         stations: StationId[];
-        // Set when TB red flags were ticked: the patient starts at the TB tent.
+        // Set when TB red flags were ticked: the patient goes straight to Consultation, marked red.
         tb?: { red_flags: string[]; notes: string } | null;
     },
     token: string

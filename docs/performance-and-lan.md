@@ -8,8 +8,9 @@ modem.
           Deco mesh Wi-Fi (3 units, no internet needed)
      ┌──────────────────┼───────────────────────┐
  host laptop        frontend laptop         tablets / browsers
- 192.168.68.50      192.168.68.51 (optional) open http://192.168.68.50:3001
- server   :3000     web app :3001
+ 192.168.68.50      192.168.68.51 (optional) open http://veasna.local:3001
+ (veasna.local)     web app :3001            or http://192.168.68.50:3001
+ server   :3000
  web app  :3001
  database (stays on the host)
 ```
@@ -63,10 +64,9 @@ on their own. No modem, internet or Ethernet cable is needed.
    If the IPv4 address does not start with the same three numbers as the gateway
    (e.g. it shows `169.254.x.x`), the host is not connected to the Decos properly.
 
-3. **Fix that address so it never changes.** In the Deco app, open
-   *More → Advanced → Address Reservation*, add the host laptop and reserve its
-   current address. Without this, the host can get a new address after a restart and
-   every device loses the app.
+3. **Fix that address so it never changes.** Reserve it in the Deco app, as described
+   in [giving the host a fixed address](#giving-the-host-a-fixed-address). Without
+   this, the host can get a new address after a restart and every device loses the app.
 
 4. **Make the network Private and open the ports.** In Windows *Settings → Network &
    internet → Wi-Fi → (the Deco network)*, set the profile to **Private**. Then, in
@@ -77,7 +77,12 @@ on their own. No modem, internet or Ethernet cable is needed.
    ```
 
    Use the `PORT` from `apps/backend/.env` if it isn't `3000`. Do the same on any
-   extra frontend laptop (it only needs `3001`).
+   extra frontend laptop (it only needs `3001`). For the `veasna.local` name, also
+   allow mDNS on the host:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "Veasna name (mDNS)" -Direction Inbound -Protocol UDP -LocalPort 5353 -Action Allow -Profile Private
+   ```
 
 5. **Tell the web app where the server is.** If the web app runs on the host and the
    server uses port `3000`, leave `NEXT_PUBLIC_BACKEND_URL` unset in
@@ -93,9 +98,14 @@ on their own. No modem, internet or Ethernet cable is needed.
 
    ```env
    ALLOW_LAN_ORIGINS=true
+   MDNS_NAME=veasna
    ```
 
-   This allows any device on the local network, but never one from the internet. To
+   `MDNS_NAME` lets devices use `http://veasna.local:3001` instead of the IP (see
+   [using a name instead of the IP](#using-a-name-instead-of-the-ip)). Leave it empty
+   to turn the name off.
+
+   `ALLOW_LAN_ORIGINS` allows any device on the local network, but never one from the internet. To
    allow only specific web app addresses instead, leave it `false` and list them:
 
    ```env
@@ -118,7 +128,8 @@ on their own. No modem, internet or Ethernet cable is needed.
 Tablets and other laptops only need a browser:
 
 1. Join the Deco Wi-Fi (the main network, not guest).
-2. Open `http://192.168.68.50:3001` and bookmark it.
+2. Open `http://veasna.local:3001` and bookmark it. If it doesn't load on that device
+   (some Android tablets), use `http://192.168.68.50:3001` instead.
 
 Nothing needs installing or configuring on them.
 
@@ -145,10 +156,11 @@ can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
    npm start
    ```
 
-   It prints the addresses to use, such as `LAN: http://192.168.68.50:3000/health`.
-   If PostgreSQL starts slowly, the server waits for it for up to a minute.
+   It prints the addresses to use, such as `LAN: http://192.168.68.50:3000/health`
+   and `Name: http://veasna.local:3000/health`. If PostgreSQL starts slowly, the
+   server waits for it for up to a minute.
 5. **Check from one staff device** (see below), then sign in on each device at
-   `http://192.168.68.50:3001`.
+   `http://veasna.local:3001` (or `http://192.168.68.50:3001`).
 
 Use `npm start`, not `npm run dev`, during clinics. Development mode prepares each page
 the first time it is opened, which can make pages very slow. Don't rebuild while the
@@ -191,12 +203,122 @@ Anything that fails comes with a suggested fix.
 fails rather than waiting. Always check that a save succeeded before moving on. Losing
 the internet has no effect, but losing the router or host stops all saving and loading.
 
+## Giving the host a fixed address
+
+Every device reaches Veasna through the host laptop's address. The Decos hand out
+addresses automatically (DHCP), and without a reservation the host can get a
+different one after a restart. Reserve it once:
+
+1. Connect the host to the Decos the way it will be used at clinics (Wi-Fi or cable).
+   Wi-Fi and the cable count as two different devices, each with its own address.
+2. On the host, turn off random hardware addresses for the Deco network: *Settings →
+   Network & internet → Wi-Fi → Manage known networks → (the Deco network) → Random
+   hardware addresses: Off*. Also turn off the main *Random hardware addresses*
+   switch on the *Wi-Fi* page. Otherwise Windows changes the laptop's hardware (MAC)
+   address, and the Decos treat it as a new device and ignore the reservation.
+3. Reconnect the Wi-Fi, then run `ipconfig /all`. For the adapter in use, note the
+   *IPv4 Address* (e.g. `192.168.68.50`) and the *Physical Address* (e.g.
+   `7C-DE-72-C4-B7-CA`).
+4. Connect your phone to the **Deco Wi-Fi** and open the Deco app. Without internet,
+   the app can only reach the Decos through their own Wi-Fi. If the phone warns that
+   the network has no internet, choose to stay connected, and turn off mobile data
+   while you use the app.
+5. In the app, open *More → Advanced → Address Reservation* and tap **+**. Pick the
+   host laptop from the list (match the physical address from step 3), keep the
+   address it has now, and save.
+6. Make the reservation take effect: in PowerShell run `ipconfig /release`, then
+   `ipconfig /renew` (or turn the Wi-Fi off and on). Check that `ipconfig` shows the
+   reserved address.
+7. Restart the main Deco and the host once, and check that the address stays the same.
+
+If the clinic sometimes uses a cable, reserve the laptop's Ethernet adapter too. It
+gets a different address, so either always use the same connection or use the
+`veasna.local` name, which follows whichever address the host has.
+
+**Not recommended:** typing a fixed address into Windows (*Edit IP assignment →
+Manual*). The Decos don't know about it and can hand the same address to another
+device, and then both lose their connection. Use it only if your Deco app has no
+Address Reservation. In that case copy the subnet mask, gateway and DNS server (the
+main Deco's address) from `ipconfig /all`, and choose an address no other device has.
+
+## Using a name instead of the IP
+
+Devices can open **`http://veasna.local:3001`** instead of typing the host's IP. The
+Decos can't give devices names of their own, so the host announces this name on the
+local network itself (mDNS, also called Bonjour). No DNS server or internet is
+needed, and the name keeps working if the host's address changes. Keep the address
+reservation anyway: the IP is the fallback on devices where names don't work.
+
+1. In `apps/backend/.env`, set the name and allow LAN origins:
+
+   ```env
+   MDNS_NAME=veasna
+   ALLOW_LAN_ORIGINS=true
+   ```
+
+   Each host on the same network needs its own name (e.g. `veasna-clinic2`).
+
+2. In `apps/frontend/.env.local`, leave `NEXT_PUBLIC_BACKEND_URL` **unset** (delete
+   it or comment it out), then run `npm run build`. The web app then finds the server
+   at whatever address the browser used, name or IP, on port `3000`. This needs the
+   backend's `PORT` to be `3000`. If you keep `NEXT_PUBLIC_BACKEND_URL` set to the
+   IP, the name still opens the web app, but the IP must not change.
+
+3. Allow **UDP port 5353** through the host's firewall (setup step 2.4).
+
+4. Restart Veasna. The startup log shows `Name: http://veasna.local:3000/health`.
+   Open that address on a staff device to check it.
+
+| Device | `.local` names |
+| --- | --- |
+| Windows 10/11, macOS, iPhone, iPad | Work. The first visit can take up to a second; after that it's instant. |
+| Android | Depends on the phone and Chrome version. Test each tablet; use the IP if it doesn't load. |
+| Linux | Works where Avahi is installed (most desktop versions). |
+
+## Keeping the connection stable
+
+- **Use a cable for the host** if you can, plugged into the main Deco. Otherwise
+  keep the host close to a Deco.
+- **Stop the host sleeping:** in *Settings → System → Power*, set it never to sleep or
+  turn off the screen when plugged in. In *Device Manager → Network adapters →
+  (Wi-Fi adapter) → Power Management*, untick *Allow the computer to turn off this
+  device to save power*.
+- **Avoid restarts during clinics:** set Windows Update *active hours* to cover clinic
+  hours, or pause updates over the clinic days.
+- **Keep the network Private.** Windows can ask again after the Deco network is reset,
+  and a Public network blocks every other device (setup step 2.4).
+- **Power on the Decos before the host** and wait for solid lights, so the host gets
+  its reserved address straight away.
+
+## Network problems and fixes
+
+| Problem | Cause | Fix |
+| --- | --- | --- |
+| The host gets a different IP even though it is reserved | Windows is using a random hardware address, so the Decos see a new device | Turn off random hardware addresses ([fixed address](#giving-the-host-a-fixed-address), step 2), then release and renew. |
+| The reservation is saved, but `ipconfig` still shows the old IP | The old address is still leased to the host | Run `ipconfig /release`, then `ipconfig /renew`, or reconnect the Wi-Fi. |
+| Works on Wi-Fi but not on the cable (or the other way round) | Each adapter has its own address | Reserve both adapters, or use `veasna.local`. |
+| The Deco app can't find the Decos at the clinic | The phone is using mobile data because the Wi-Fi has no internet | Connect to the Deco Wi-Fi, stay connected without internet, and turn off mobile data. |
+| Two devices keep dropping off | They have the same address, usually because one was typed in manually in Windows | Set both back to automatic (DHCP) and use an Address Reservation instead. |
+| `veasna.local` doesn't load, but the IP does | The device doesn't support `.local` names (some Android), UDP 5353 is blocked on the host, or `MDNS_NAME` is empty | Use the IP on that device. On the host, add the mDNS firewall rule and check the startup log shows `Name:`. |
+| `veasna.local` opens another clinic's laptop | Two hosts on one network use the same `MDNS_NAME` | Give each host its own name, e.g. `veasna-clinic2`. |
+| `veasna.local` opens the web app, but sign-in or data fails | `NEXT_PUBLIC_BACKEND_URL` points at an old IP, or `ALLOW_LAN_ORIGINS` is `false` | Unset `NEXT_PUBLIC_BACKEND_URL` and rebuild, and set `ALLOW_LAN_ORIGINS=true`. |
+| The first `veasna.local` visit from Windows takes about 10 seconds | The host has no IPv6 address, and Windows waits for one | Leave IPv6 turned on in the host's Wi-Fi adapter settings, or use the IP. |
+| Startup log says `mDNS name veasna.local unavailable` | Another program holds UDP port 5353 and won't share it | Devices can still use the IP. Close other Bonjour/mDNS software and restart Veasna. |
+| `npm start` fails with `EAFNOSUPPORT` for the web app | IPv6 is turned off on the host | Turn IPv6 back on, or change `-H ::` to `-H 0.0.0.0` in `apps/frontend/package.json`. |
+| Devices drop off when moving between Decos | Some older devices handle the Decos' Fast Roaming badly | Try turning off *More → Advanced → Fast Roaming* in the Deco app. |
+
 ## Technical notes
 
 - The server and live updates share port `3000` and use the same allowed-address
   rule. Live updates use WebSockets, and fall back to ordinary HTTP if a network
   blocks WebSockets.
 - PostgreSQL stays on `DB_HOST=localhost` and is never exposed to the network.
+- The server and web app listen on IPv4 and IPv6. The `.local` name hands out both
+  the host's IPv4 and IPv6 address, because Windows waits about 10 seconds when a name
+  has no IPv6 address. Only addresses on the asking device's network are given out, so
+  virtual adapters (WSL, Hyper-V) are left out (`apps/backend/config/mdns.js`).
+- `ALLOW_LAN_ORIGINS=true` also accepts `.local` names, which only resolve on the
+  local network.
 - `ALLOW_LAN_ORIGINS=true` accepts only loopback and private addresses (`10.x`,
   `172.16–31.x`, `192.168.x`). Every request still needs a signed-in account.
 - Each save makes every connected device reload the lists it is showing (about 2–3

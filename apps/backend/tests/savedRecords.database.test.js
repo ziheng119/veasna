@@ -59,31 +59,11 @@ const db = require("../config/db");
       app.use(require("../middleware/authorizeApi").authorizeApi);
       app.use("/triage", require("../routes/triage"));
       app.use("/visits", require("../routes/visits"));
-      app.use("/tb", require("../routes/tb"));
     });
     afterAll(async () => {
       if (client) await client.end();
       if (previousSecret === undefined) delete process.env.JWT_SECRET;
       else process.env.JWT_SECRET = previousSecret;
-    });
-    test("users may flag suspected TB; changing or removing a flag requires admin", async () => {
-      await client.query(`ALTER TABLE visits ADD COLUMN last_updated_by INT, ADD COLUMN last_updated_at TIMESTAMP;
-   CREATE TEMP TABLE tb_screening (visit_id INT PRIMARY KEY, red_flags TEXT[] NOT NULL DEFAULT '{}', flag_notes TEXT NOT NULL DEFAULT '',
-     status TEXT NOT NULL, doctor_notes TEXT NOT NULL DEFAULT '', flagged_by INT, reviewed_by INT, reviewed_at TIMESTAMP,
-     last_updated_by INT, last_updated_at TIMESTAMP);`);
-      const flag = (role, body) =>
-        request(app)
-          .post("/tb/1/flag")
-          .set("Authorization", "Bearer " + token(role))
-          .send(body);
-      expect((await flag("user", { flagged: true, red_flags: ["fever"] })).body).toMatchObject({ flagged: true, red_flags: ["fever"] });
-      const before = (await client.query("SELECT * FROM tb_screening")).rows;
-      expect((await flag("user", { flagged: true, red_flags: ["night_sweats"] })).status).toBe(403);
-      expect((await flag("user", { flagged: false })).status).toBe(403);
-      expect((await client.query("SELECT * FROM tb_screening")).rows).toEqual(before);
-      expect((await flag("admin", { flagged: false })).body).toMatchObject({ flagged: false, status: "cleared" });
-      expect((await flag("user", { flagged: "yes" })).status).toBe(400);
-      expect((await request(app).post("/tb/2/flag").set("Authorization", "Bearer " + token("admin")).send({ flagged: true })).status).toBe(404);
     });
     test.each([
       [

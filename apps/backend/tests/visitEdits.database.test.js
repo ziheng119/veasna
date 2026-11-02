@@ -89,9 +89,29 @@ const USER_ID = 2;
     });
 
     test("visit details are corrected and attributed to the admin", async () => {
-      const res = await put("/visits/1", { queue_no: "7a", visit_date: "2026-10-02", location_id: 2 });
+      const res = await put("/visits/1", { queue_no: "b7", visit_date: "2026-10-02", location_id: 2 });
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ queue_no: "7A", visit_date: "2026-10-02", location_id: 2, last_updated_by: ADMIN_ID });
+      expect(res.body).toMatchObject({ queue_no: "B7", visit_date: "2026-10-02", location_id: 2, last_updated_by: ADMIN_ID });
+    });
+
+    test("a number ahead of the sequence is rejected, so later numbers do not skip", async () => {
+      // Visits 1 and 2 hold numbers 1 and 2; leaving visit 1 out, the next number is 3.
+      const res = await put("/visits/1", { queue_no: "23" });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/ahead of the next number, 3.*e\.g\. 2A/);
+      expect((await put("/visits/1", { queue_no: "4A" })).status).toBe(400);
+      expect((await client.query("SELECT queue_no FROM visits WHERE id = 1")).rows[0].queue_no).toBe("1");
+    });
+
+    test("numbers within the sequence and suffixes of issued numbers are allowed", async () => {
+      expect((await put("/visits/1", { queue_no: "2a" })).body.queue_no).toBe("2A");
+      expect((await put("/visits/1", { queue_no: "3" })).body.queue_no).toBe("3");
+    });
+
+    test("an unchanged older number is kept when other details are saved", async () => {
+      await client.query(`INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
+        VALUES (3, 1, '50', '2026-10-01', ${USER_ID})`);
+      expect((await put("/visits/3", { queue_no: "50", visit_date: "2026-10-01" })).status).toBe(200);
     });
 
     test("a queue number already used at the location and date is rejected", async () => {

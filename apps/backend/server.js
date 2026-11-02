@@ -9,6 +9,7 @@ const bodyParser = require('body-parser');
 const { createServer } = require('http');
 const db = require('./config/db');
 const { parseOrigins, createOriginCheck, lanAddresses } = require('./config/network');
+const { startMdns } = require('./config/mdns');
 const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
@@ -139,6 +140,9 @@ async function waitForDatabase({ attempts = 30, delayMs = 2000 } = {}) {
   return false;
 }
 
+// Answers lookups for MDNS_NAME (e.g. veasna.local) while the server runs; null when off.
+let mdns = null;
+
 async function start() {
   if (!process.env.JWT_SECRET) console.error('JWT_SECRET is not set: logins and live updates will fail.');
 
@@ -151,23 +155,32 @@ async function start() {
     console.error('Database unreachable; starting without schema checks. Restart once PostgreSQL is running.');
   }
 
-  await new Promise((resolve, reject) => {
+  // '::' accepts IPv4 and IPv6, so the IPv6 address a .local name gives out connects
+  // at once. Falls back to IPv4 only on hosts with IPv6 turned off.
+  const listen = host => new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(PORT, '0.0.0.0', resolve);
+    server.listen(PORT, host, () => { server.off('error', reject); resolve(); });
+  });
+  await listen('::').catch(err => {
+    if (err.code !== 'EAFNOSUPPORT' && err.code !== 'EADDRNOTAVAIL') throw err;
+    return listen('0.0.0.0');
   });
   process.once('SIGINT', () => shutdown('SIGINT'));
   process.once('SIGTERM', () => shutdown('SIGTERM'));
   console.log(`Server listening on port ${PORT} (all interfaces)`);
   console.log(`  This host: http://localhost:${PORT}/health`);
   for (const address of lanAddresses()) console.log(`  LAN:       http://${address}:${PORT}/health`);
+  mdns = startMdns(process.env.MDNS_NAME);
+  if (mdns) console.log(`  Name:      http://${mdns.hostname}:${PORT}/health (web app: http://${mdns.hostname}:3001)`);
   console.log(`Allowed frontend origins: ${origins.join(', ')}` +
-    (allowLanOrigins ? ' (plus any private-network origin)' : ''));
+    (allowLanOrigins ? ' (plus any private-network or .local origin)' : ''));
 }
 
 // Stop accepting connections and release database clients before exiting.
 function shutdown(signal) {
   console.log(`${signal} received, shutting down`);
   setTimeout(() => process.exit(1), 5000).unref();
+  if (mdns) mdns.close();
   io.close(() => db.pool.end().finally(() => process.exit(0)));
 }
 

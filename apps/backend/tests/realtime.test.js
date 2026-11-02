@@ -78,6 +78,7 @@ describe('Live list notifications', () => {
     let committed = false;
     const transaction = { release: jest.fn(), query: jest.fn(async sql => {
       if (sql === 'COMMIT') committed = true;
+      if (sql.includes('next_queue_no')) return { rows: [{ next_queue_no: 9 }] };
       if (sql.includes('INSERT INTO patients')) return { rows: [{ id: 8 }] };
       if (sql.includes('INSERT INTO visits')) return { rows: [{ id: 9, created_at: new Date() }] };
       return { rows: [] };

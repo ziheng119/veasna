@@ -11,8 +11,10 @@ function parseOrigins(value = DEFAULT_ORIGIN) {
 }
 
 // Loopback and RFC 1918 private IPv4 ranges: the addresses a clinic router hands out.
+// Also mDNS names (e.g. veasna.local), which only resolve on the local network.
 function isPrivateHost(hostname) {
   if (hostname === 'localhost' || hostname === '[::1]') return true;
+  if (/^[a-z0-9-]+\.local$/i.test(hostname)) return true;
   const parts = hostname.split('.').map(Number);
   if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
   const [a, b] = parts;

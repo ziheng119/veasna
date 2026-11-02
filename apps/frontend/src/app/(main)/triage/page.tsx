@@ -33,9 +33,10 @@ export default function Traige() {
     setQueueVersion((version) => version + 1);
   };
 
-  // Triage flagged or unflagged suspected TB: refresh the queue's red TB markers.
-  const handleTbChanged = (flagged: boolean) => {
-    setSelectedPatient((prev) => prev && { ...prev, tb_flagged: flagged });
+  // Triage flagged or cleared suspected TB. Either sends the patient to Consult, so they leave
+  // this queue; otherwise only the red TB marker changes.
+  const handleTbChanged = (flagged: boolean, currentStation: StationId | null) => {
+    setSelectedPatient((prev) => prev && (currentStation && currentStation !== "triage" ? null : { ...prev, tb_flagged: flagged }));
     setQueueVersion((version) => version + 1);
   };
 

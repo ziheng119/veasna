@@ -5,7 +5,7 @@
 // 1-10 letters and digits, at least one of them a digit.
 const QUEUE_NO_PATTERN = /^(?=.*[0-9])[A-Z0-9]{1,10}$/;
 
-export const QUEUE_NO_HINT = "Letters and digits, e.g. 12, 12A or A12. Leave blank to assign the next number.";
+export const QUEUE_NO_HINT = "Leave blank to assign the next number. To group with patient 12, type 12A.";
 export const QUEUE_NO_ERROR = "Use 1-10 letters and digits with at least one digit, e.g. 12, 12A or A12.";
 
 export function normalizeQueueNo(value: string | null | undefined): string {
@@ -14,6 +14,30 @@ export function normalizeQueueNo(value: string | null | undefined): string {
 
 export function isValidQueueNo(value: string): boolean {
   return QUEUE_NO_PATTERN.test(normalizeQueueNo(value));
+}
+
+/**
+ * Refuses a typed number that runs ahead of the sequence, which would make every later assigned
+ * number skip. With next number 14: "132" (a mistyped "13A") and "20A" (no 20 yet) are refused;
+ * "14", a free gap such as "9", and "13A" are allowed. Lettered series ("A12") are always allowed.
+ * Returns an error message, or null when allowed. Must match apps/backend/utils/queueNumber.js.
+ */
+export function queueNoJumpError(value: string, nextQueueNo: string): string | null {
+  const queueNo = normalizeQueueNo(value);
+  const digits = /^[0-9]+/.exec(queueNo)?.[0];
+  if (!digits) return null;
+  const base = Number(digits);
+  const next = Number(nextQueueNo);
+  if (digits === queueNo) {
+    if (base <= next) return null;
+    // The longest leading part that is already issued, e.g. 13 for "132", to suggest "13A".
+    let prefix = digits.slice(0, -1);
+    while (prefix && !(Number(prefix) >= 1 && Number(prefix) < next)) prefix = prefix.slice(0, -1);
+    const group = prefix ? ` To group with patient ${Number(prefix)}, add a letter, e.g. ${Number(prefix)}A.` : "";
+    return `Queue number ${queueNo} is ahead of the next number, ${next}.${group} Leave it blank to use ${next}.`;
+  }
+  if (base < next) return null;
+  return `No patient has number ${base} yet, so ${queueNo} can't be used. The next number is ${next}.`;
 }
 
 function compareText(a: string, b: string) {

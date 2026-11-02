@@ -1,5 +1,4 @@
 "use client";
-import { useUserStore } from "@/stores/useUserStore";
 
 import { Badge } from "../ui/badge";
 import { useState } from "react";
@@ -11,6 +10,7 @@ import { stationLabel } from "@/constants/stations";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 import TbBadge, { TB_CARD_CLASS } from "../shared/TbBadge";
+import ClearTbButton from "../shared/ClearTbButton";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -22,7 +22,6 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
-  const isAdmin = useUserStore(state => state.user?.role === "admin");
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");  
 
@@ -104,9 +103,13 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                   <div>{patient.age}y, {patient.sex}</div>
                   <div>{patient.timestamp}</div>
                 </div>
+                {/* The queue refreshes through live updates once the flag is cleared. */}
+                {patient.tb_flagged && (
+                  <ClearTbButton patient={patient} className="h-auto gap-1 px-2 py-1 text-xs" />
+                )}
                 {onRemovePatient && (
                   <Button
-                    disabled={!isAdmin}                     type="button"
+                    type="button"
                     variant="ghost"
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"

@@ -63,7 +63,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```
 
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
-- Omit `visit.queue_no` to get the next number automatically. A typed queue number is 1-10 letters and digits with at least one digit (`12`, `12A`, `A12`), stored upper-case; `400` if malformed, `409` if already used at the location today. Numbers starting with a letter are a separate series and do not affect the automatic numbers. The visit date is always the host's today.
+- Omit `visit.queue_no` to get the next number automatically. A typed queue number is 1-10 letters and digits with at least one digit (`12`, `12A`, `A12`), stored upper-case; `400` if malformed, `409` if already used at the location today. A typed number that starts with digits must not run ahead of the sequence, or later numbers would skip: a plain number may be at most the next number, and a suffixed one (`13A`) needs its number (`13`) to be issued already; otherwise `400` with a message such as `Queue number 132 is ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A. Leave it blank to use 14.` Numbers starting with a letter are a separate series and do not affect the automatic numbers. The visit date is always the host's today.
 - `stations` defaults to every station; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - Returns `400` for missing or invalid fields, including an unknown location or patient.
 
@@ -106,7 +106,7 @@ Users can create records but cannot change them once saved; admins can correct e
 The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
 
 **PUT** `visits/{visitId}`
-Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. This replaces the old route of the same path, which wrote to a column that does not exist.
+Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. A changed number, date or location is checked against that location and date's sequence, leaving this visit out, by the same rule as `POST visits`; an unchanged number is not re-checked. This replaces the old route of the same path, which wrote to a column that does not exist.
 
 **PUT** `visits/{visitId}/vitals`
 Body: `vitals` (`height`, `weight`, `bmi`, `below_3rd_percentile`, `bp_systolic`, `bp_diastolic`, `temperature`, `notes`, validated like registration), `hef` (`know_of_hef`, `has_hef` as booleans, `notes`), or both. A missing record is created.
@@ -124,7 +124,7 @@ A referral's signature is not edited from Patient Details. The page resends the 
 Today’s active queue for a location (visits with `completed_at` unset). `date` is optional: omitted, the backend uses its own current date (host time zone), the same date `POST visits` assigns. The frontend omits it so client devices with a wrong clock or time zone still see the same queue. An invalid `location_id` or a non-existent date (e.g. `2026-02-30`) returns `400`.
 
 **Station queues**
-Each visit lists the stations it is indicated for (`triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station) and an optional `tb` object (see TB flag). The `seva` station is shown as the partner NGO in the app.
+Each visit lists the stations it is indicated for (`triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. Users and admins may both finish a station, change the remaining route and discharge a visit; this is patient flow, not an edit of saved records. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station) and an optional `tb` object (see TB flag). The `seva` station is shown as the partner NGO in the app.
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD&station={station}`
 Visits currently waiting at one station, ordered by when they arrived there. Without `station`, the endpoint returns every active visit as before. Each row includes `current_station`, `stations` (`[{ "station": "triage", "completed": true }, ...]`), `tb_status` (`null` unless the visit was ever flagged for TB) and `tb_flagged` (`true` while it is flagged: shown in red in every queue).
@@ -142,7 +142,7 @@ Preview of the next queue number for the location today: `{ "queue_no": "7" }`. 
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
 
 **TB flag**
-Suspected TB is a flag on the visit, not a station. A flagged visit goes through its normal stations and every queue returns it with `tb_flagged: true`, so the app marks it in red for doctors to attend to. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
+Suspected TB is a flag on the visit, not a station. A flagged visit goes straight to `consultation` (added if it was not on the route), with its other unfinished stations queued after it in order, and every queue returns it with `tb_flagged: true`, so the app marks it in red. Clearing the flag also makes `consultation` current, unless it is already finished or the visit is discharged. Each such move is recorded in `visit_station_route_history`. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
 
 Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2_weeks", "night_sweats"], "notes": "..." }` (red flags are short keys, see `apps/frontend/src/constants/tb.ts`), or at triage with `POST tb/{visitId}/flag`.
 
@@ -150,7 +150,7 @@ Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2
 The visit's TB record (`red_flags`, `flag_notes`, `status`, `flagged`, `doctor_notes`, `flagged_by`, `flagged_at`, `reviewed_by`, `reviewed_at`), or `null` if the visit was never flagged. `status` is `suspected` or `tb_likely` (flagged) or `cleared` (flag removed).
 
 **POST** `tb/{visitId}/flag`
-Body `{ "flagged": true, "red_flags": ["fever"], "notes": "..." }` flags the visit; `{ "flagged": false }` removes the flag (the record is kept as `cleared`). Users may flag a visit that is not flagged yet; changing an existing flag or removing one needs an admin (`403`). `404` for an unknown visit.
+Body `{ "flagged": true, "red_flags": ["fever"], "notes": "..." }` flags the visit; `{ "flagged": false }` clears the flag (the record is kept as `cleared`, with `reviewed_by` set to whoever cleared it). Both send the visit to Consultation as described above; the response includes `current_station` afterwards (`null` for a discharged or finished visit). Anyone may flag a visit that is not flagged yet, or clear a flag. Changing an existing flag's red flags or notes needs an admin (`403`) and does not move the patient, so the response has no `current_station`. Clearing a visit that is not flagged changes nothing and returns `{ "visit_id", "status", "flagged": false }`. `404` for an unknown visit.
 
 ---
 

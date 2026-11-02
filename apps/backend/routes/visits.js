@@ -9,11 +9,11 @@ integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
-const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
-const { STATIONS, normalizeStations, stationPosition } = require('../utils/stations');
+const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
+const { STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { normalizeRedFlags, rejectUnsavableVisit, flagTb } = require('../utils/tb');
+const { normalizeRedFlags, rejectUnsavableVisit, flagTb, consultationFirst } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -54,8 +54,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const { patientInfo, visit, vitals, hef } = req.body;
     // Stations the patient is indicated for. Optional: defaults to every station.
     const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
-    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes through its normal
-    // stations and is marked in red in every queue.
+    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes straight to
+    // Consultation, then its other stations, and is marked in red in every queue.
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
@@ -171,8 +171,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const visitDate = currentVisitDate();
         // Held until commit, so two devices cannot issue or claim the same number.
         await lockQueue(client, locationId);
+        const nextQueueNo = await getNextQueueNo(client, locationId, visitDate);
+        const jumpError = queueNo ? queueNoJumpError(queueNo, nextQueueNo) : null;
         if (!queueNo) {
-            queueNo = await getNextQueueNo(client, locationId, visitDate);
+            queueNo = nextQueueNo;
+        } else if (jumpError) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: jumpError });
         } else if (await isQueueNoTaken(client, locationId, visitDate, queueNo)) {
             await client.query('ROLLBACK');
             return res.status(409).json({ error: `Queue number ${queueNo} is already used today. Choose another, or leave it blank to assign one.` });
@@ -194,11 +199,12 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const visitTimestamp = visitResult.rows[0].created_at;
 
         // Step 2b: Queue the visit at its first station; later stations are entered as each one completes
-        for (const [index, station] of stations.entries()) {
+        const route = tbFlagged ? consultationFirst(stations) : stations;
+        for (const [index, station] of route.entries()) {
             await client.query(
                 `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
                  VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)`,
-                [visitId, station, stationPosition(station), index === 0, last_updated_by]
+                [visitId, station, index + 1, index === 0, last_updated_by]
             );
         }
 
@@ -246,7 +252,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             visit_id: visitId,
             patient_id: patientId,
             queue_no: queueNo,
-            current_station: stations[0],
+            current_station: route[0],
             tb_status: tbFlagged ? 'suspected' : null,
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
