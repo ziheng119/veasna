@@ -79,8 +79,11 @@ on their own. No modem, internet or Ethernet cable is needed.
    Use the `PORT` from `apps/backend/.env` if it isn't `3000`. Do the same on any
    extra frontend laptop (it only needs `3001`).
 
-5. **Tell the web app where the server is.** In `apps/frontend/.env.local`, use the
-   host's address and the server's `PORT`:
+5. **Tell the web app where the server is.** If the web app runs on the host and the
+   server uses port `3000`, leave `NEXT_PUBLIC_BACKEND_URL` unset in
+   `apps/frontend/.env.local`. Browsers then use the address they opened the app on, so
+   it keeps working if the host's address changes. Otherwise, use the host's address and
+   the server's `PORT`:
 
    ```env
    NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000
