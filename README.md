@@ -71,8 +71,9 @@ Before the clinic opens:
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 
-For connecting several devices through a router, see
-[running on a local network](docs/performance-and-lan.md).
+For connecting several devices through a router, giving the host a fixed address
+in the Deco app, and opening the app at `http://veasna.local:3001` instead of the IP,
+see [running on a local network](docs/performance-and-lan.md).
 
 ## Signing in
 
@@ -92,7 +93,8 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 - [Returning to and skipping stations](docs/station-routing.md): changing a patient's route.
 - [Consultation referrals](docs/consultation-referrals.md): signing, printing and deleting referrals.
 - [Analytics](docs/analytics.md): what each number on the Analytics page means.
-- [Running on a local network](docs/performance-and-lan.md): setup, checks and troubleshooting.
+- [Running on a local network](docs/performance-and-lan.md): router setup, a fixed host
+  address, the `veasna.local` name, checks and network troubleshooting.
 
 A few things worth knowing:
 

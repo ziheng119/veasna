@@ -117,7 +117,8 @@ All settings live in `apps/backend/.env`.
 | `PORT` | The server's port (default `3000`). |
 | `JWT_SECRET` | Any long random text. Changing it signs everyone out. |
 | `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.68.50:3001`. |
-| `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address. Useful when device IPs change. |
+| `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address or `.local` name. Useful when device IPs change. |
+| `MDNS_NAME` | A name devices can use instead of the IP, e.g. `veasna` for `http://veasna.local:3001`. Works offline. Leave empty to turn off. See [using a name instead of the IP](../../docs/performance-and-lan.md#using-a-name-instead-of-the-ip). |
 | `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
 
 See [running on a local network](../../docs/performance-and-lan.md) for a full

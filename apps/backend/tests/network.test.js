@@ -14,9 +14,9 @@ describe('Frontend origin rules', () => {
 
   test.each([
     ['localhost', true], ['127.0.0.1', true], ['10.1.2.3', true], ['172.16.0.1', true],
-    ['172.31.255.255', true], ['192.168.1.10', true], ['[::1]', true],
+    ['172.31.255.255', true], ['192.168.1.10', true], ['[::1]', true], ['veasna.local', true],
     ['172.32.0.1', false], ['8.8.8.8', false], ['192.169.0.1', false], ['example.com', false],
-    ['192.168.1', false], ['192.168.1.256', false],
+    ['192.168.1', false], ['192.168.1.256', false], ['veasna.local.evil.com', false], ['a.b.local', false],
   ])('private host %s -> %s', (host, expected) => {
     expect(isPrivateHost(host)).toBe(expected);
   });
@@ -32,6 +32,7 @@ describe('Frontend origin rules', () => {
     const allowed = createOriginCheck({ origins: [], allowLan: true });
     expect(allowed('http://192.168.1.21:3001')).toBe(true);
     expect(allowed('http://10.0.0.5:8080')).toBe(true);
+    expect(allowed('http://veasna.local:3001')).toBe(true);
     expect(allowed('http://evil.example')).toBe(false);
     expect(allowed('http://203.0.113.7:3001')).toBe(false);
     expect(allowed('file://192.168.1.21')).toBe(false);
