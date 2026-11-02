@@ -101,8 +101,9 @@ A few things worth knowing:
   letters, such as `12A` for a family member of number 12. A typed number can't jump
   ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
 - **Suspected TB:** tick the TB red flags at registration, or press **Flag suspected TB**
-  at Triage. The patient then shows in red, marked **TB**, in every queue so doctors can
-  attend to them. Only an admin can remove the flag.
+  at Triage. The patient goes straight to the Consult queue and shows in red, marked
+  **TB**, in every queue. Once a doctor has seen them in the TB tent, anyone can press
+  **Clear TB** on their queue card. See [suspected TB patients](docs/station-routing.md#suspected-tb-patients).
 - **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
   The stock is reserved at once. The pharmacy hands it over from **Pharmacy →
   Prescriptions to dispense**, or cancels it to release the stock. Dispensing needs

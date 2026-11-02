@@ -327,7 +327,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           onSubmit(newQueuedPatient);
           if (tbFlagged) {
             toast.error(
-              `Suspected TB: number ${newQueuedPatient.queue_no} is flagged red in every queue. Keep them apart from other villagers and inform a doctor.`,
+              `Suspected TB: number ${newQueuedPatient.queue_no} goes straight to the ${stationLabel(newQueuedPatient.current_station)} queue, marked red. Keep them apart from other villagers and inform a doctor.`,
               { duration: 10000 }
             );
           } else {
@@ -803,7 +803,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. A patient with a red flag is flagged for suspected TB and shown in red in every queue, so doctors can attend to them.
+                    Tick any that apply. A patient with a red flag is flagged for suspected TB and goes straight to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {TB_RED_FLAGS.map((flag) => (

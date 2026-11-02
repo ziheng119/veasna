@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { TbStatus } from "@/constants/tb";
+import { StationId } from "@/constants/stations";
 import { clearQueueCache } from "../queue/getQueue";
 
 export interface TbScreening {
@@ -28,12 +29,13 @@ export async function getTbScreening(visitId: number, token: string): Promise<Tb
   return res.json();
 }
 
-// Flags (or, for admins, unflags) the visit for suspected TB.
+// Flags the visit for suspected TB, or clears the flag (anyone may). Both send the patient to
+// Consultation; current_station is where they are afterwards (absent when only details changed).
 export async function setTbFlag(
   visitId: number,
   flag: { flagged: boolean; red_flags?: string[]; notes?: string },
   token: string
-): Promise<{ flagged: boolean; status?: TbStatus }> {
+): Promise<{ flagged: boolean; status?: TbStatus | null; current_station?: StationId | null }> {
   const res = await fetch(`${backend_url}/api/tb/${visitId}/flag`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },

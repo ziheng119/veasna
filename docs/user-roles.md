@@ -26,8 +26,8 @@ something once it is saved. This applies to a user's own entries too, on any day
 | Add a new medicine to the pharmacy | Yes | Yes |
 | Prescribe from the pharmacy (reserves the stock) | Yes | Yes |
 | Change stock, rename or delete a medicine, dispense, or cancel a prescription | No | Yes |
-| Flag a patient for suspected TB | Yes | Yes |
-| Change or remove a TB flag | No | Yes |
+| Flag a patient for suspected TB, or clear the flag after a doctor has seen them | Yes | Yes |
+| Change a TB flag's red flags or notes | No | Yes |
 | Add or remove clinic locations | No | Yes |
 | Create accounts | No | No |
 
@@ -36,8 +36,9 @@ something once it is saved. This applies to a user's own entries too, on any day
 - Each form has its own first save: every triage section, consultation notes, partner
   NGO notes, physiotherapy and referral. Once saved, even half-filled, the form is locked
   for users.
-- Flagging suspected TB counts as a first entry. Changing the red flags or removing the
-  flag needs an admin.
+- Flagging suspected TB counts as a first entry. Anyone can clear the flag, since the
+  doctor who sees the patient in the TB tent needs to. Changing the red flags or notes of
+  a flag needs an admin.
 - Each prescription is its own record, so doctors can still prescribe after their
   consultation notes are saved.
 - When a user starts a new visit for an existing patient, the patient's saved details

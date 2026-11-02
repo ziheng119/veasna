@@ -147,8 +147,10 @@ These rules are enforced by the server, so they apply on every device:
 - **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
   Physiotherapy, Consultation), waiting in one queue at a time.
 - **TB flag:** suspected TB is a flag on the visit, set at registration (TB red flags) or
-  at Triage. The patient goes through their stations as usual and is shown in red, with a
-  "TB" label, in every queue so doctors can attend to them. Only an admin can remove a flag.
+  at Triage. The patient goes straight to Consultation, with their other stations queued
+  after it, and is shown in red with a "TB" label in every queue. Anyone can clear the flag;
+  clearing also sends the patient to Consultation if they aren't there (`sendToConsultation`
+  in `utils/tb.js`). Only an admin can change an existing flag's red flags or notes.
 - **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
   e.g. `12A` for a family member or `A12`. Unique per location and day. A typed number
   that starts with digits can't run ahead of the next number (`queueNoJumpError` in

@@ -142,7 +142,7 @@ Preview of the next queue number for the location today: `{ "queue_no": "7" }`. 
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
 
 **TB flag**
-Suspected TB is a flag on the visit, not a station. A flagged visit goes through its normal stations and every queue returns it with `tb_flagged: true`, so the app marks it in red for doctors to attend to. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
+Suspected TB is a flag on the visit, not a station. A flagged visit goes straight to `consultation` (added if it was not on the route), with its other unfinished stations queued after it in order, and every queue returns it with `tb_flagged: true`, so the app marks it in red. Clearing the flag also makes `consultation` current, unless it is already finished or the visit is discharged. Each such move is recorded in `visit_station_route_history`. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
 
 Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2_weeks", "night_sweats"], "notes": "..." }` (red flags are short keys, see `apps/frontend/src/constants/tb.ts`), or at triage with `POST tb/{visitId}/flag`.
 
@@ -150,7 +150,7 @@ Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2
 The visit's TB record (`red_flags`, `flag_notes`, `status`, `flagged`, `doctor_notes`, `flagged_by`, `flagged_at`, `reviewed_by`, `reviewed_at`), or `null` if the visit was never flagged. `status` is `suspected` or `tb_likely` (flagged) or `cleared` (flag removed).
 
 **POST** `tb/{visitId}/flag`
-Body `{ "flagged": true, "red_flags": ["fever"], "notes": "..." }` flags the visit; `{ "flagged": false }` removes the flag (the record is kept as `cleared`). Users may flag a visit that is not flagged yet; changing an existing flag or removing one needs an admin (`403`). `404` for an unknown visit.
+Body `{ "flagged": true, "red_flags": ["fever"], "notes": "..." }` flags the visit; `{ "flagged": false }` clears the flag (the record is kept as `cleared`, with `reviewed_by` set to whoever cleared it). Both send the visit to Consultation as described above; the response includes `current_station` afterwards (`null` for a discharged or finished visit). Anyone may flag a visit that is not flagged yet, or clear a flag. Changing an existing flag's red flags or notes needs an admin (`403`) and does not move the patient, so the response has no `current_station`. Clearing a visit that is not flagged changes nothing and returns `{ "visit_id", "status", "flagged": false }`. `404` for an unknown visit.
 
 ---
 

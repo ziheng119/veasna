@@ -13,6 +13,7 @@ import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
+import ClearTbButton from "./ClearTbButton";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -123,6 +124,14 @@ export default function QueuePatientPicker({
     }
   };
 
+  // A cleared patient who is still waiting here stays selected, without the red marker.
+  const handleTbCleared = async (patient: QueuedPatient, currentStation: StationId | null) => {
+    if (selectedVisitId === patient.visit_id) {
+      onSelectPatient(currentStation === station ? { ...patient, tb_flagged: false, tb_status: "cleared" } : null);
+    }
+    await loadQueue();
+  };
+
   const sortedPatients = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     const filtered = patients.filter((patient) => {
@@ -216,6 +225,13 @@ export default function QueuePatientPicker({
                 </span>
               </button>
               <div className="flex shrink-0 items-center">
+                {tbFlagged && (
+                  <ClearTbButton
+                    patient={patient}
+                    onCleared={(currentStation) => handleTbCleared(patient, currentStation)}
+                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal"
+                  />
+                )}
                 <Button
                     disabled={!isAdmin}                     type="button"
                     variant="ghost"

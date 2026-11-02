@@ -1,6 +1,6 @@
 // routes/tb.js
-// Suspected-TB flag on a visit. A flagged patient goes through their normal stations and is shown
-// in red in every queue so doctors can attend to them.
+// Suspected-TB flag on a visit. A flagged patient goes straight to the Consultation queue and is
+// shown in red in every queue, so a doctor sees them first (see utils/tb.js).
 const express = require('express');
 const router = express.Router();
 const { integerParams, toPositiveInt } = require('../utils/validation');
@@ -8,7 +8,7 @@ const { integerParams, toPositiveInt } = require('../utils/validation');
 integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
-const { TB_FLAGGED_STATUSES, normalizeRedFlags, flagTb, clearTbFlag } = require('../utils/tb');
+const { TB_FLAGGED_STATUSES, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
 const { textOrEmpty } = require('../utils/partialFields');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
@@ -39,8 +39,10 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
 });
 
 // POST /api/tb/:visitId/flag - Body: { flagged: boolean, red_flags?: string[], notes?: string }
-// Anyone may flag a patient (e.g. at triage). Changing an existing flag's red flags or notes, or
-// removing a flag, is an edit of saved data and needs an admin.
+// Anyone may flag a patient (e.g. at triage) or clear the flag (the doctor who saw them in the TB
+// tent). Either sends the patient to Consultation. Changing an existing flag's red flags or notes is
+// an edit of saved data and needs an admin. Clearing a visit that is not flagged changes nothing.
+// Responds with the screening, `flagged`, and the visit's `current_station` afterwards.
 router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = toPositiveInt(req.params.visitId);
     const { flagged } = req.body;
@@ -74,23 +76,25 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
         const existing = await client.query('SELECT status FROM tb_screening WHERE visit_id = $1', [visitId]);
         const wasFlagged = TB_FLAGGED_STATUSES.includes(existing.rows[0]?.status);
 
-        if (!isAdmin && (!flagged || wasFlagged)) {
+        if (!isAdmin && flagged && wasFlagged) {
             await client.query('ROLLBACK');
-            return res.status(403).json({
-                error: flagged
-                    ? 'This patient is already flagged for TB. Ask an admin to change the red flags or notes.'
-                    : 'Only an admin can remove a TB flag.',
-            });
+            return res.status(403).json({ error: 'This patient is already flagged for TB. Ask an admin to change the red flags or notes.' });
+        }
+        // Already cleared, e.g. by another doctor a moment ago: keep their attribution.
+        if (!flagged && !wasFlagged) {
+            await client.query('ROLLBACK');
+            return res.status(200).json({ visit_id: visitId, status: existing.rows[0]?.status ?? null, flagged: false });
         }
 
         const screening = flagged
             ? await flagTb(client, visitId, { redFlags, notes: textOrEmpty(req.body.notes) }, req.user.id)
             : await clearTbFlag(client, visitId, req.user.id);
+        // A new flag or a cleared one sends the patient to Consultation; editing a flag's details does not.
+        const currentStation = flagged && wasFlagged ? undefined : await sendToConsultation(client, visitId, req.user.id);
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, req.user.id]);
         await client.query('COMMIT');
-        res.status(200).json(screening
-            ? { ...screening, flagged: TB_FLAGGED_STATUSES.includes(screening.status) }
-            : { visit_id: visitId, flagged: false });
+        // current_station is left out when only a flag's details were edited.
+        res.status(200).json({ ...screening, flagged: TB_FLAGGED_STATUSES.includes(screening.status), current_station: currentStation });
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error updating TB flag:', err);
