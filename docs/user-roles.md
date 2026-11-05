@@ -22,7 +22,7 @@ user's own entries too, on any day.
 | Group today's patients into a family, or take one out (**Add to family** on Patient List) | Yes | Yes |
 | Fill in a station form or triage section for the first time | Yes | Yes |
 | Create a referral and sign it for the first time | Yes | Yes |
-| Change saved details: names, queue numbers (other than family letters), vitals, HEF, clinical notes | No | Yes |
+| Change saved details: names, queue numbers, vitals, HEF, clinical notes | No | Yes |
 | Change or clear a saved signature, or delete a referral | No | Yes |
 | Send a patient to the next station (**Next/Finish**), change their stations or their order (**Send to**), or discharge them | Yes | Yes |
 | Change a suspected TB patient's stations (they only go to Consult) | No | No |

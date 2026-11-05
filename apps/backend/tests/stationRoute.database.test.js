@@ -34,10 +34,10 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE);
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, completed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(),
-        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', created_at TIMESTAMP DEFAULT NOW());
+        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', family TEXT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (
         id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
-        entered_at TIMESTAMP, completed_at TIMESTAMP, last_updated_by INT,
+        entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
         last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), UNIQUE(visit_id, station)
       );
       CREATE TEMP TABLE tb_screening (

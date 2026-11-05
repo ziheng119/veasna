@@ -99,6 +99,8 @@ CREATE TABLE visits (
         ON DELETE SET NULL ON UPDATE CASCADE,
     queue_no VARCHAR(50) NOT NULL,
     visit_date DATE NOT NULL,
+    -- Family letter shared by members who came together (A, B, ... AA), per location and day.
+    family TEXT NULL CONSTRAINT visits_family_check CHECK (family ~ '^[A-Z]{1,3}$'),
     completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -117,6 +119,7 @@ CREATE TABLE visit_stations (
     position INT NOT NULL,                 -- remaining route order; may change when a station is deferred or revisited
     entered_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
+    family_ready_at TIMESTAMP NULL,        -- done here, waiting for the rest of the family at this station
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -125,6 +128,8 @@ CREATE TABLE visit_stations (
 
 CREATE INDEX visit_stations_pending_idx
     ON visit_stations (visit_id, position) WHERE completed_at IS NULL;
+
+CREATE INDEX visits_family_idx ON visits (location_id, visit_date, family) WHERE family IS NOT NULL;
 
 -- Suspected-TB flag on a visit. A flagged visit goes through its normal stations and is shown in
 -- red in every queue. status: suspected (flagged), cleared (flag removed), tb_likely (flagged;

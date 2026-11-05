@@ -10,6 +10,7 @@ const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
 const { planStationRoute, setStationNeeded } = require('../utils/stationRoute');
 const { isTbVisit, TB_ROUTE_LOCKED_ERROR } = require('../utils/tb');
+const { lockFamilies, visitLocation, advanceVisit, releaseFamily } = require('../utils/familyMoves');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
@@ -38,6 +39,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 v.id AS visit_id,
                 p.id AS patient_id,
                 v.queue_no,
+                v.family,
                 p.english_name,
                 p.khmer_name,
                 p.sex,
@@ -46,6 +48,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 -- Display the same station-arrival value used by the queue ordering.
                 TO_CHAR(COALESCE(cur.entered_at, v.created_at), 'HH:MI AM') AS station_arrival_time,
                 cur.station AS current_station,
+                -- Done here and waiting for the rest of the family at this station.
+                cur.family_ready_at IS NOT NULL AS family_waiting,
                 tb.status AS tb_status,
                 -- Suspected TB: shown in red in every queue so doctors can attend to the patient.
                 COALESCE(tb.status IN ('suspected', 'tb_likely'), FALSE) AS tb_flagged,
@@ -74,7 +78,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
             JOIN patients p ON v.patient_id = p.id
             LEFT JOIN tb_screening tb ON tb.visit_id = v.id
             LEFT JOIN LATERAL (
-                SELECT s.station, s.entered_at
+                SELECT s.station, s.entered_at, s.family_ready_at
                 FROM visit_stations s
                 WHERE s.visit_id = v.id AND s.completed_at IS NULL
                 ORDER BY s.position
@@ -114,6 +118,9 @@ router.get('/next', authenticateToken, requireRole(['any']), async (req, res) =>
 
 // POST /api/queue/:visitId/stations/:station/complete - Finish a station and move the visit
 // to its next indicated station. Finishing the last station completes the visit.
+// A family member waits at the station until every member of the family there is done; then they
+// all move on together (utils/familyMoves.js). Returns { visit_id, completed_station, next_station,
+// held, waiting_for, family_moved }: held is true while waiting, waiting_for lists who is not done.
 router.post('/:visitId/stations/:station/complete', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = Number(req.params.visitId);
     const { station } = req.params;
@@ -136,8 +143,19 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
     try {
         await client.query('BEGIN');
 
+        const locationId = await visitLocation(client, visitId);
+        if (locationId === null) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Visit not found' });
+        }
+        // Family moves lock every member, so the family lock comes before this visit's row lock.
+        await lockFamilies(client, locationId);
         // Lock the visit so two devices cannot advance it at the same time
-        const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        const visit = await client.query(
+            `SELECT id, completed_at, family, location_id, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
+             FROM visits WHERE id = $1 FOR UPDATE`,
+            [visitId]
+        );
         if (visit.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Visit not found' });
@@ -152,26 +170,33 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
             return res.status(409).json({ error: 'Patient is no longer waiting at this station. Refresh the queue.' });
         }
 
-        await client.query(
-            'UPDATE visit_stations SET completed_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-            [last_updated_by, pending.rows[0].id]
-        );
-
-        const next = pending.rows[1] || null;
-        if (next) {
-            await client.query(
-                'UPDATE visit_stations SET entered_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                [last_updated_by, next.id]
-            );
+        const { family } = visit.rows[0];
+        let body;
+        if (!family) {
+            const next = await advanceVisit(client, visitId, last_updated_by);
+            body = { visit_id: visitId, completed_station: station, next_station: next, held: false, waiting_for: [], family_moved: [] };
         } else {
             await client.query(
-                'UPDATE visits SET completed_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                [last_updated_by, visitId]
+                'UPDATE visit_stations SET family_ready_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
+                [last_updated_by, pending.rows[0].id]
             );
+            const { moved, members } = await releaseFamily(client, visit.rows[0], family, last_updated_by);
+            const mine = moved.find((member) => member.visit_id === visitId);
+            const waitingFor = mine ? [] : members
+                .filter((member) => member.station === station && !member.ready)
+                .map(({ visit_id, queue_no, english_name }) => ({ visit_id, queue_no, english_name }));
+            body = {
+                visit_id: visitId,
+                completed_station: station,
+                next_station: mine ? mine.next_station : null,
+                held: !mine,
+                waiting_for: waitingFor,
+                family_moved: moved.filter((member) => member.visit_id !== visitId),
+            };
         }
 
         await client.query('COMMIT');
-        res.status(200).json({ visit_id: visitId, completed_station: station, next_station: next ? next.station : null });
+        res.status(200).json(body);
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error completing station:', err);
@@ -198,9 +223,15 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
     }
     try {
         await client.query('BEGIN');
+        const locationId = await visitLocation(client, visitId);
+        if (locationId !== null) await lockFamilies(client, locationId);
         // This is the same row lock used by station completion, so routing cannot
         // race with another device moving or discharging the patient.
-        const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        const visit = await client.query(
+            `SELECT id, completed_at, family, location_id, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
+             FROM visits WHERE id = $1 FOR UPDATE`,
+            [visitId]
+        );
         if (!visit.rows.length || visit.rows[0].completed_at) {
             await client.query('ROLLBACK');
             return res.status(visit.rows.length ? 409 : 404).json({ error: visit.rows.length ? 'Visit is already completed' : 'Visit not found' });
@@ -230,17 +261,22 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
             const old = existing.rows.find(row => row.station === station);
             // Keep arrival time only if the patient stays at the same active station.
             // A deferred station gets a new arrival when it becomes current again.
-            const enteredAt = index === 0 && station === previousCurrent ? old?.entered_at : null;
+            const stays = index === 0 && station === previousCurrent;
+            const enteredAt = stays ? old?.entered_at : null;
+            // Waiting for family is kept only while the patient stays at the same station.
             await client.query(
                 `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
                  VALUES ($1, $2, $3, CASE WHEN $4 THEN COALESCE($5::timestamp, NOW()) ELSE NULL END, $6)
                  ON CONFLICT (visit_id, station) DO UPDATE SET
                     position = EXCLUDED.position, entered_at = EXCLUDED.entered_at, completed_at = NULL,
+                    family_ready_at = CASE WHEN $7 THEN visit_stations.family_ready_at END,
                     last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
-                [visitId, station, index + 1, index === 0, enteredAt, userId]
+                [visitId, station, index + 1, index === 0, enteredAt, userId, stays]
             );
         }
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, userId]);
+        // Sending a family member elsewhere may leave the rest of the family at the old station all done.
+        await releaseFamily(client, visit.rows[0], visit.rows[0].family, userId);
         await client.query('COMMIT');
         res.status(200).json({ visit_id: visitId, current_station: wanted[0], stations: [...existing.rows.filter(row => row.completed_at && !wanted.includes(row.station)).map(row => row.station), ...wanted], reopened_stations: reopened });
     } catch (err) {
@@ -302,7 +338,8 @@ router.put('/:visitId/stations/:station', authenticateToken, requireRole(['any']
     }
 });
 
-// POST /api/queue/:visitId/complete - Discharge: remove the visit from every queue
+// POST /api/queue/:visitId/complete - Discharge: remove the visit from every queue.
+// Family members who were waiting only for this patient move on.
 router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = Number(req.params.visitId);
     const last_updated_by = req.user && req.user.id;
@@ -315,27 +352,44 @@ router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async
         return res.status(401).json({ error: 'Authentication required' });
     }
 
+    let client;
     try {
-        const result = await db.query(
+        client = await db.pool.connect();
+    } catch (err) {
+        console.error('Failed to acquire database connection:', err);
+        return res.status(500).json({ error: 'Database connection unavailable' });
+    }
+    try {
+        await client.query('BEGIN');
+        const locationId = await visitLocation(client, visitId);
+        if (locationId !== null) await lockFamilies(client, locationId);
+        const result = await client.query(
             `
             UPDATE visits
             SET completed_at = COALESCE(completed_at, NOW()),
                 last_updated_by = $1,
                 last_updated_at = NOW()
             WHERE id = $2
-            RETURNING id, completed_at, last_updated_at, last_updated_by
+            RETURNING id, completed_at, last_updated_at, last_updated_by, family, location_id,
+                TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
             `,
             [last_updated_by, visitId]
         );
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Visit not found' });
         }
-
-        res.status(200).json({ visit: result.rows[0] });
+        const { family, location_id, visit_date, ...visit } = result.rows[0];
+        await releaseFamily(client, { location_id, visit_date }, family, last_updated_by);
+        await client.query('COMMIT');
+        res.status(200).json({ visit });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error completing queue visit:', err);
         res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 

@@ -2,15 +2,18 @@
 
 import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowRight, CircleCheck } from "lucide-react";
+import { ArrowRight, CircleCheck, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StationId, stationLabel } from "@/constants/stations";
 import { completeStation } from "@/lib/api/queue/stations";
+import { stationMoveMessage } from "@/lib/family";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 
 // Moving patients on from a station page: "Save & next" on the forms and the "done" prompt both
 // finish the patient's station, send them to their next one, and open the next patient waiting.
+// A family member who is done waits here for the rest of the family; the next patient opened is
+// then usually the next family member, since families sit together in the queue.
 
 interface StationFlow {
   station: StationId;
@@ -42,13 +45,14 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
 
   const advance = useCallback(async (patient: QueuedPatient) => {
     if (!token) throw new Error("Sign in again to continue.");
-    const nextStation = await completeStation(patient.visit_id, station, token);
-    // The next patient is the first one still waiting here, in the order shown.
-    const next = queue.current.patients.find((other) => other.visit_id !== patient.visit_id) ?? null;
+    const move = await completeStation(patient.visit_id, station, token);
+    // The next patient is the first one still to be seen here, in the order shown: not this patient,
+    // not family members who just moved on with them, and not anyone already waiting for family.
+    const gone = new Set([patient.visit_id, ...move.family_moved.map((member) => member.visit_id)]);
+    const next = queue.current.patients.find((other) => !gone.has(other.visit_id) && !other.family_waiting) ?? null;
     onSelectPatient(next);
-    const name = patient.english_name || "Patient";
     toast.success(
-      `${name} ${nextStation ? `sent to ${stationLabel(nextStation)}` : "has finished all stations"}. ` +
+      `${stationMoveMessage(patient.english_name || "Patient", move)} ` +
       (next ? `Now seeing number ${next.queue_no}${next.english_name ? `, ${next.english_name}` : ""}.` : "No one else is waiting here."),
       { duration: 5000 },
     );
@@ -110,6 +114,15 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
       setBusy(false);
     }
   };
+
+  if (patient.family_waiting) {
+    return (
+      <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+        <Hourglass className="size-4" aria-hidden="true" />
+        Done at {stationLabel(flow.station)}: waiting for the rest of family {patient.family} here. They move on together.
+      </div>
+    );
+  }
 
   return (
     <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/50 bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-500/10">

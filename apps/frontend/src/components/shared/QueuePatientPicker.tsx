@@ -13,13 +13,15 @@ import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { tbCardClass } from "./TbBadge";
+import FamilyBadge from "./FamilyBadge";
+import { stationMoveMessage } from "@/lib/family";
 import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, CircleCheck, ListChecks, X } from "lucide-react";
+import { Check, CircleCheck, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -91,15 +93,13 @@ export default function QueuePatientPicker({
     if (!token) return;
 
     try {
-      const next = await completeStation(patient.visit_id, station, token);
-      if (selectedVisitId === patient.visit_id) {
+      const move = await completeStation(patient.visit_id, station, token);
+      const left = [patient.visit_id, ...move.family_moved.map((member) => member.visit_id)];
+      // A patient waiting for family is still here, so stays selected.
+      if (selectedVisitId && !move.held && left.includes(selectedVisitId)) {
         onSelectPatient(null);
       }
-      toast.success(
-        next
-          ? `${patient.english_name || "Patient"} moved to ${stationLabel(next)}.`
-          : `${patient.english_name || "Patient"} has finished all stations.`
-      );
+      toast.success(stationMoveMessage(patient.english_name || "Patient", move));
     } catch (err) {
       console.error("Failed to complete station:", err);
       toast.error(err instanceof Error ? err.message : "Failed to complete station");
@@ -224,6 +224,7 @@ export default function QueuePatientPicker({
                     {patient.queue_no}
                   </span>
                   {tbFlagged && <TbBadge />}
+                  {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
                 <span className="min-w-0 flex-1 border-l border-border pl-3">
                   <span className="block break-words font-medium text-foreground">{patient.english_name || "Unknown name"}</span>
@@ -232,7 +233,11 @@ export default function QueuePatientPicker({
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {next ? `Next: ${stationLabel(next)}` : "Last station"}
                   </span>
-                  {patient.station_done && (
+                  {patient.family_waiting ? (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+                      <Hourglass className="size-3.5" aria-hidden="true" /> Waiting for family
+                    </span>
+                  ) : patient.station_done && (
                     <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
                       <CircleCheck className="size-3.5" aria-hidden="true" /> Done here
                     </span>

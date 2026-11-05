@@ -2,7 +2,8 @@
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role: 'user' } }) }));
-jest.mock('../src/lib/api/queue/stations', () => ({ completeStation: jest.fn(async () => 'pharmacy') }));
+const move = (next_station, more = {}) => ({ next_station, held: false, waiting_for: [], family_moved: [], ...more });
+jest.mock('../src/lib/api/queue/stations', () => ({ completeStation: jest.fn(async () => move('pharmacy')) }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 jest.mock('../src/components/ui/button', () => ({ Button: props => require('react').createElement('button', props) }));
 const toast = require('react-hot-toast').default;
@@ -53,7 +54,7 @@ test('nothing moves when the save fails', async () => {
 });
 
 test('the last patient leaves an empty selection, and a finished visit is reported', async () => {
-  completeStation.mockResolvedValueOnce(null);
+  completeStation.mockResolvedValueOnce(move(null));
   await render(React.createElement(SaveAndNextButton, { patient: dara, onSave: async () => true }), [dara]);
   await act(async () => button().props.onClick());
   expect(onSelectPatient).toHaveBeenCalledWith(null);
@@ -66,6 +67,30 @@ test('a failure to send the patient on is shown, after the save', async () => {
   await act(async () => button().props.onClick());
   expect(toast.error).toHaveBeenCalledWith('Patient is no longer waiting at this station. Refresh the queue.');
   expect(onSelectPatient).not.toHaveBeenCalled();
+});
+
+test('a family member who is done waits for their family; the next one still to be seen opens', async () => {
+  // Dara and Sok are family A; Chan already waits for his own family here.
+  const tan = { ...sok, family: 'A' }, waiting = { ...chan, family: 'B', family_waiting: true }, vanna = patient(8, '10', 'Vanna');
+  completeStation.mockResolvedValueOnce(move(null, { held: true, waiting_for: [{ visit_id: 6, queue_no: '8', english_name: 'Sok' }] }));
+  await render(React.createElement(SaveAndNextButton, { patient: { ...dara, family: 'A' }, onSave: async () => true }), [{ ...dara, family: 'A' }, waiting, tan, vanna]);
+  await act(async () => button().props.onClick());
+  expect(onSelectPatient).toHaveBeenCalledWith(tan);
+  expect(toast.success.mock.calls[0][0]).toBe('Dara is done here and waits for their family (8 Sok). They move on together. Now seeing number 8, Sok.');
+});
+
+test('the last of a family to be done takes them all on; those who moved are not opened next', async () => {
+  completeStation.mockResolvedValueOnce(move('pharmacy', { family_moved: [{ visit_id: 6, queue_no: '8', next_station: 'pharmacy' }] }));
+  await render(React.createElement(SaveAndNextButton, { patient: dara, onSave: async () => true }), [dara, sok, chan]);
+  await act(async () => button().props.onClick());
+  expect(onSelectPatient).toHaveBeenCalledWith(chan);
+  expect(toast.success.mock.calls[0][0]).toBe('Dara sent to Pharmacy, with family 8. Now seeing number 9, Chan.');
+});
+
+test('a patient waiting for family is told so instead of being offered to send on', async () => {
+  await render(React.createElement(StationDonePrompt, { patient: { ...dara, family: 'A', family_waiting: true }, done: true }));
+  expect(renderer.root.findAllByType('button')).toHaveLength(0);
+  expect(text(renderer.root)).toMatch(/waiting for the rest of family A here/);
 });
 
 test('the done prompt appears once the station is done, and sends the patient on', async () => {

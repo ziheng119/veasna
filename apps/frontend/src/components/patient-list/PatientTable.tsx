@@ -3,6 +3,7 @@ import React from 'react';
 import { PatientInfo } from '@/lib/types/patient';
 import { PatientTableRow } from './PatientTableRow';
 import { PersonIcon } from '@/assets/icons';
+import { groupFamilies } from '@/lib/family';
 
 interface PatientTableProps {
     patients: PatientInfo[];
@@ -33,7 +34,8 @@ export function PatientTable({ patients, onViewPatient, onDeletePatient}: Patien
             </thead>
 
             <tbody className="bg-card divide-y divide-border">
-              {patients
+              {/* Members of the same family (on the day shown) sit together, marked by a coloured stripe. */}
+              {groupFamilies(patients, (patient) => patient.day_family)
                 .map((patient)=> (
                 <PatientTableRow
                   key={patient.id}

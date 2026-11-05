@@ -40,27 +40,37 @@ registration form shows the number the next patient will get. It updates by itse
 when someone registers a patient on another device, and the number actually given is
 shown once you submit.
 
-To show that patients came together, group them into a **family**. Everyone in a
-family shares a letter on the end of their number:
+To show that patients came together, group them into a **family**. A family has its
+own letter (A, B, ... Z, then AA, AB...); queue numbers don't change:
 
 1. Register each family member as usual, e.g. mother 3, father 4 and child 5.
-2. On **Patient List**, find the father and press the **Add to family** icon (people)
-   on his row. It opens a small search of today's queue.
-3. Type the mother's name or number and pick her. Both get the next free family letter:
-   3A and 4A.
-4. Do the same for the child, picking the mother or father: the child joins their
-   family as 5A.
+2. On **Patient List**, press the **Add to family** icon (people) on the father's row.
+   A pop-up opens over the list, and his row is highlighted so you can see who it is
+   about.
+3. Under **Start a family with**, search for the mother by name or number and pick
+   her. Both are now in the next free family, e.g. family A: still numbers 3 and 4.
+4. Open the child's pop-up and pick family A under **Join a family** (search by name,
+   number or the letter): the child joins it, still number 5.
 
-The next family that day gets B, then C, and so on (after Z: AA, AB...). Each
-location and day starts again at A. Picking someone already in a family adds the
-patient to that family. To undo a mistake, open the patient's **Add to family** search
-and press **Remove from family**: 4A becomes 4 again; the rest of the family keeps
-its letter.
+Any of today's families can be joined, whichever member was registered first. The
+next family that day gets the next letter; each location and day starts again at A.
+Picking someone who isn't in a family while the patient is in one adds them to the
+patient's family. To undo a mistake, open the pop-up and press **Remove from family**;
+the rest of the family stays together.
 
-Only today's visits at the same location can be grouped. Older numbers that start
-with a letter (such as A12) can't join a family; an admin can correct them on
-**Patient Details**, where a corrected number can't jump ahead of the next number
-either.
+Where families are shown:
+
+- Every queue shows the queue number with a small coloured family badge (e.g. **A**)
+  beside it, and puts the family's members together where its first member is, in
+  either sort order. The colour is the same wherever the family appears.
+- **Patient List** puts family members side by side (for today, or the date filtered),
+  with a coloured stripe down the left edge and the family badge after the name. Rows
+  keep their usual size.
+
+Families move between stations together: see
+[families](station-routing.md#families-move-together).
+
+Only today's visits at the same location can be grouped.
 
 ## Technical details
 
@@ -78,8 +88,13 @@ either.
 - Registration takes the location's queue lock (`lockQueue`) before reading the next
   number, so two devices registering at once never get the same number. A
   `visit.queue_no` sent by an older app is ignored.
-- Families are read from the queue number itself (`utils/family.js`); grouping takes the
-  same lock, so two devices can't start two families with the same letter.
+- Families are kept in `visits.family` (migration `019_visit_families.sql`). Grouping and
+  moving families take the location's family lock (`lockFamilies` in
+  `utils/familyMoves.js`), so two devices can't start two families with the same letter.
+  Numbers grouped the old way (`3A`) were changed to 3 in family A, unless the plain
+  number was already used that day.
+- `groupFamilies` in `apps/frontend/src/lib/family.ts` keeps families together in queues
+  and on Patient List.
 - `queueNoJumpError` in `apps/backend/utils/queueNumber.js` checks admin corrections on
   Patient Details.
 

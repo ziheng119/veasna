@@ -104,7 +104,8 @@ A few things worth knowing:
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
   the same form. The form shows the queue number the patient will get; it is assigned
   automatically. To group a family, register each member, then use **Add to family** on
-  Patient List: 3, 4 and 5 become 3A, 4A and 5A (see
+  Patient List: they share a family letter, keep their numbers, sit together in every
+  queue and move between stations together (see
   [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
   Number fields (height, weight, blood pressure, temperature, age) only accept digits
   as you type, with one decimal place where it makes sense.

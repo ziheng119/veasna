@@ -46,6 +46,23 @@ A patient is **done** at a station once everything needed there is saved:
 - A form that is already saved can't be saved again by a user, so use **Send to next
   station** (or **Next** on the card) for it.
 
+### Families move together
+
+Members of a family (see [queue numbers and families](queue-ordering.md#queue-numbers-and-families))
+waiting at the same station move on together:
+
+- When a family member is done (**Next**, **Save & next** or **Send to next station**)
+  while others in the family are still waiting at that station, they stay in the queue
+  with an amber **Waiting for family** and the toast names who is still to be seen.
+  **Save & next** opens the next patient still to be seen, usually the next family
+  member, since families sit together.
+- When the last of them is done, the whole family there moves on at once, each to
+  their own next station (or finishing their visit).
+- A family member at another station doesn't hold anyone up.
+- Removing a member from the family, discharging them, or sending them elsewhere with
+  **Send to** lets the others who were waiting for them move on. A patient waiting for
+  family who is removed from it moves on straight away.
+
 While a patient is in the clinic, anyone signed in (user or admin) can send them to
 the next station, change which stations they still go to and in what order, or
 discharge them. (To change how a queue is sorted, see

@@ -1,7 +1,7 @@
 // utils/queueNumber.js
 // Queue numbers are issued automatically, in order per location per visit date, starting at 1.
-// A family shares a letter: 3A, 4A, 5A (utils/family.js). Admins may correct a number on Patient
-// Details. They are stored as text, upper-cased, and must be unique per location and date.
+// Families have their own letter, apart from the number (utils/family.js). Admins may correct a
+// number on Patient Details. They are stored as text, upper-cased, and must be unique per location and date.
 
 const { localDate } = require('./validation');
 

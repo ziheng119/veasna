@@ -126,6 +126,7 @@ const SCHEMA_STEPS = [
   schema.ensureTbFlag,
   schema.ensurePrescriptions,
   schema.ensureDentalPharmacyStations,
+  schema.ensureVisitFamilies,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.

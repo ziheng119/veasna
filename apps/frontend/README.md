@@ -40,7 +40,7 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Page | Address | Purpose |
 | --- | --- | --- |
 | Home | `/` | Register patients and see the clinic queue |
-| Patient List | `/patient-list` | Search patients; **+** adds a new one |
+| Patient List | `/patient-list` | Search patients; **+** adds a new one; **Add to family** (people icon) groups today's patients, shown side by side |
 | Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
 | Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |

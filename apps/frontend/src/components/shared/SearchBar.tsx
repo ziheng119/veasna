@@ -8,6 +8,7 @@ import { SearchIcon } from "@/assets/icons/SearchIcon"
 import { CrossIcon } from "@/assets/icons/CrossIcon"
 import StationBadge from "./StationBadge"
 import TbBadge from "./TbBadge"
+import FamilyBadge from "./FamilyBadge";
 import { QueuedPatient } from "@/lib/types/patient"
 import { Location } from "@/lib/types/location"
 import { StationId, stationLabel, stationPageHref } from "@/constants/stations"
@@ -250,6 +251,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
                         </span>
                       </span>
                       {patient.tb_flagged && <TbBadge />}
+                      {patient.family && <FamilyBadge family={patient.family} />}
                       {here && (
                         <span className="shrink-0 rounded-full border border-primary/30 px-1.5 py-0.5 text-[11px] font-medium text-primary">
                           Here

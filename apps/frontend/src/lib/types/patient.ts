@@ -15,12 +15,20 @@ export type PatientInfo = {
     lastUpdated: string;
     // Most recent screening date (YYYY-MM-DD); only returned by the patient list.
     last_visit_date?: string | null;
+    // Patient list only: the visit here on the day shown (today, or the filtered date), if any.
+    day_visit_id?: number | null;
+    day_queue_no?: string | null;
+    day_family?: string | null;
 }
 
 export type QueuedPatient = {
     visit_id: number;
     patient_id: number;
     queue_no: string;
+    // Family letter shared by patients who came together (A, B, ...), or null.
+    family?: string | null;
+    // Done at the current station, waiting for the rest of the family there.
+    family_waiting?: boolean;
     // Station the patient is currently waiting at, and every station indicated for the visit.
     current_station?: StationId | null;
     stations?: { station: StationId; completed: boolean }[];

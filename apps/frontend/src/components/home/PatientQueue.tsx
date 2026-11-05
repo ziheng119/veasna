@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 import TbBadge, { tbCardClass } from "../shared/TbBadge";
+import FamilyBadge from "../shared/FamilyBadge";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -101,6 +102,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     {patient.queue_no}
                   </span>
                   {patient.tb_flagged && <TbBadge />}
+                  {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
                 <span className="block min-w-0 border-l border-border pl-3">
                   <span className="block font-medium text-foreground truncate">{patient.english_name}</span>

@@ -1,60 +1,56 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Users, X } from "lucide-react";
+import { Search, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import FamilyBadge from "@/components/shared/FamilyBadge";
 import { CLINIC_TODAY, getQueue } from "@/lib/api/queue/getQueue";
 import { joinFamily, leaveFamily } from "@/lib/api/family";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { cn } from "@/lib/utils";
 
 const MAX_RESULTS = 6;
-const RESULTS_WIDTH = 288;
-
-// A family letter is on the end of the number: 3A is in family A.
-const familyOf = (queueNo: string) => /^\d+([A-Z]+)$/.exec(queueNo)?.[1] ?? null;
 
 interface Props {
   patientId: number;
   patientName: string;
+  // Tells the row the pop-up is open, so the list can show which patient it is about.
+  onOpenChange?: (open: boolean) => void;
 }
 
+const matches = (patient: QueuedPatient, text: string) =>
+  [patient.queue_no, patient.english_name, patient.khmer_name].some((value) => value?.toLowerCase().includes(text));
+
 /**
- * "Add to family" on a Patient List row: an icon that expands into a search of today's queue. Picking
- * someone gives both patients the same family letter (3 and 4 become 3A and 4A); joining someone
- * already in a family takes their letter. A patient in a family can be taken out again.
+ * "Add to family" on a Patient List row: opens a pop-up over the list to put the patient in any of
+ * today's families, start a family with someone else in today's queue, or leave their family.
+ * Queue numbers don't change; family members move between stations together.
  */
-export default function FamilyButton({ patientId, patientName }: Props) {
+export default function FamilyButton({ patientId, patientName, onOpenChange }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const locationId = useLocationStore((state) => state.currentLocation?.id);
   const [open, setOpen] = useState(false);
   const [queue, setQueue] = useState<QueuedPatient[] | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-  const anchor = useRef<HTMLDivElement>(null);
-  // The results float over the page (the table scrolls and would clip them), under the search box.
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
-  useLayoutEffect(() => {
-    if (!open) return;
-    const place = () => {
-      const box = anchor.current?.getBoundingClientRect();
-      if (box) setPosition({ top: box.bottom + 4, left: Math.max(8, box.right - RESULTS_WIDTH) });
-    };
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [open]);
+  const setOpenState = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+    if (!next) setQuery("");
+  };
 
-  // Today's queue is loaded only when the search is opened, so the list stays light.
+  // Today's queue is loaded only when the pop-up is opened, so the list stays light.
   useEffect(() => {
     if (!open || !token || !locationId) return;
     const controller = new AbortController();
@@ -62,27 +58,32 @@ export default function FamilyButton({ patientId, patientName }: Props) {
     getQueue(locationId, CLINIC_TODAY, token, undefined, controller.signal)
       .then((patients: QueuedPatient[]) => setQueue(patients))
       .catch(() => { if (!controller.signal.aborted) toast.error("Failed to load today's queue"); });
-    input.current?.focus();
     return () => controller.abort();
   }, [open, token, locationId]);
 
   const mine = queue?.find((patient) => patient.patient_id === patientId) ?? null;
-  const results = useMemo(() => {
-    const text = query.trim().toLowerCase();
-    return (queue ?? [])
-      .filter((patient) => patient.patient_id !== patientId)
-      .filter((patient) => !text || [patient.queue_no, patient.english_name, patient.khmer_name]
-        .some((value) => value?.toLowerCase().includes(text)))
-      .slice(0, MAX_RESULTS);
-  }, [queue, query, patientId]);
+  const text = query.trim().toLowerCase();
 
-  const close = () => { setOpen(false); setQuery(""); };
+  // Today's families other than the patient's own, each with its members; and everyone else.
+  const { families, others } = useMemo(() => {
+    const rest = (queue ?? []).filter((patient) => patient.patient_id !== patientId);
+    const byFamily = new Map<string, QueuedPatient[]>();
+    for (const patient of rest) {
+      if (patient.family && patient.family !== mine?.family) byFamily.set(patient.family, [...(byFamily.get(patient.family) ?? []), patient]);
+    }
+    return {
+      families: Array.from(byFamily.entries())
+        .filter(([family, members]) => !text || family.toLowerCase() === text || members.some((member) => matches(member, text)))
+        .sort(([a], [b]) => a.length - b.length || a.localeCompare(b)),
+      others: rest.filter((patient) => !patient.family && (!text || matches(patient, text))).slice(0, MAX_RESULTS),
+    };
+  }, [queue, patientId, mine?.family, text]);
 
   const run = async (action: () => Promise<string>) => {
     setBusy(true);
     try {
       toast.success(await action(), { duration: 5000 });
-      close();
+      setOpenState(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update the family");
     } finally {
@@ -92,72 +93,91 @@ export default function FamilyButton({ patientId, patientName }: Props) {
 
   const join = (other: QueuedPatient) => run(async () => {
     const result = await joinFamily(mine!.visit_id, other.visit_id, token!);
-    const [me, them] = result.visits;
-    return `${patientName} is now ${me.queue_no}, in family ${result.family} with ${other.english_name || "them"} (${them.queue_no}).`;
+    const them = other.english_name ? `${other.english_name} (${other.queue_no})` : `number ${other.queue_no}`;
+    return `${patientName} (${mine!.queue_no}) is in family ${result.family} with ${them}.`;
   });
 
   const leave = () => run(async () => {
-    const result = await leaveFamily(mine!.visit_id, token!);
-    return `${patientName} is now ${result.queue_no}, not in a family.`;
+    await leaveFamily(mine!.visit_id, token!);
+    return `${patientName} (${mine!.queue_no}) is no longer in a family.`;
   });
 
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="text-primary hover:text-primary/80"
+  const nameOf = (patient: QueuedPatient) => `${patient.queue_no} ${patient.english_name || "Unknown name"}`;
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpenState(true)} className="text-primary hover:text-primary/80"
         title="Add to family" aria-label={`Add ${patientName} to a family`}>
         <Users className="size-4" />
       </button>
-    );
-  }
+      <Dialog open={open} onOpenChange={(next) => { if (!busy) setOpenState(next); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add {patientName} to a family</DialogTitle>
+            <DialogDescription>
+              {mine
+                ? <>Number {mine.queue_no}{mine.family ? `, in family ${mine.family}` : ""}. Queue numbers stay the same; a family moves between stations together.</>
+                : queue === null ? "Loading today's queue…" : `${patientName} isn't in today's queue at this location.`}
+            </DialogDescription>
+          </DialogHeader>
 
-  return (
-    <div onKeyDown={(event) => { if (event.key === "Escape") close(); }}>
-      <div ref={anchor} className="flex w-56 items-center gap-1 rounded-md border border-input bg-background px-2 py-1">
-        <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <input
-          ref={input}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Family member: name or number"
-          aria-label={`Find a family member for ${patientName} in today's queue`}
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-        />
-        <button type="button" onClick={close} aria-label="Close" className="text-muted-foreground hover:text-foreground">
-          <X className="size-4" />
-        </button>
-      </div>
-      {position && createPortal(
-      <div
-        style={{ top: position.top, left: position.left, width: RESULTS_WIDTH }}
-        className="fixed z-50 rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md"
-        onKeyDown={(event) => { if (event.key === "Escape") close(); }}
-      >
-        {queue === null ? (
-          <p className="px-2 py-1.5 text-muted-foreground">Loading today&apos;s queue…</p>
-        ) : !mine ? (
-          <p className="px-2 py-1.5 text-muted-foreground">{patientName} isn&apos;t in today&apos;s queue at this location.</p>
-        ) : (
-          <>
-            {familyOf(mine.queue_no) && (
-              <button type="button" disabled={busy} onClick={leave}
-                className="w-full rounded px-2 py-1.5 text-left text-destructive hover:bg-accent">
-                Remove {mine.queue_no} from family {familyOf(mine.queue_no)}
-              </button>
-            )}
-            {results.length === 0 && <p className="px-2 py-1.5 text-muted-foreground">No one else in today&apos;s queue matches.</p>}
-            {results.map((other) => (
-              <button key={other.visit_id} type="button" disabled={busy} onClick={() => join(other)}
-                className={cn("flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent", busy && "opacity-50")}>
-                <span className="min-w-[2.5rem] font-bold tabular-nums">{other.queue_no}</span>
-                <span className="min-w-0 truncate">{other.english_name || "Unknown name"}</span>
-                {familyOf(other.queue_no) && <span className="ml-auto text-xs text-muted-foreground">family {familyOf(other.queue_no)}</span>}
-              </button>
-            ))}
-          </>
-        )}
-      </div>,
-      document.body,
-      )}
-    </div>
+          {mine && (
+            <div className="space-y-4 text-sm">
+              {mine.family && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                  <span className="flex items-center gap-2">In family <FamilyBadge family={mine.family} /></span>
+                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={leave} className="text-destructive">
+                    Remove from family {mine.family}
+                  </Button>
+                </div>
+              )}
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Name, number or family letter"
+                  aria-label={`Find a family member for ${patientName} in today's queue`}
+                  className="pl-9"
+                />
+              </div>
+
+              <section aria-label="Today's families" className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Join a family</h3>
+                {families.length === 0 && <p className="text-muted-foreground">{text ? "No family matches." : "No other families today yet."}</p>}
+                <div className="max-h-40 space-y-1 overflow-y-auto">
+                  {families.map(([family, members]) => (
+                    <button key={family} type="button" disabled={busy} onClick={() => join(members[0])}
+                      aria-label={`Join family ${family}`}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50">
+                      <FamilyBadge family={family} />
+                      <span className="min-w-0 flex-1 truncate">{members.map(nameOf).join(", ")}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section aria-label="Patients not in a family" className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {mine.family ? `Add to family ${mine.family}` : "Start a family with"}
+                </h3>
+                {others.length === 0 && <p className="text-muted-foreground">{text ? "No one else matches." : "Everyone else today is in a family."}</p>}
+                <div className="max-h-48 space-y-1 overflow-y-auto">
+                  {others.map((other) => (
+                    <button key={other.visit_id} type="button" disabled={busy} onClick={() => join(other)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50">
+                      <span className="min-w-[2.5rem] font-bold tabular-nums">{other.queue_no}</span>
+                      <span className="min-w-0 truncate">{other.english_name || "Unknown name"}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
