@@ -111,8 +111,8 @@ A few things worth knowing:
   suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient. A
   flagged patient goes only to the Consult queue, shown in red and marked **TB** in
   every queue, and their stations can't be changed. The doctor who sees them in the
-  TB tent presses **Clear TB** on their queue card, then **Finish**; their
-  prescriptions then wait at Pharmacy. See
+  TB tent presses **Clear TB** on their card in the Consult queue (and confirms), then
+  **Finish**; their prescriptions then wait at Pharmacy. See
   [suspected TB patients](docs/station-routing.md#suspected-tb-patients).
 - **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
   The stock is reserved at once. The pharmacy hands it over from **Pharmacy →

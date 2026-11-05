@@ -157,8 +157,9 @@ These rules are enforced by the server, so they apply on every device:
   `apps/frontend/src/constants/tb.ts`). The patient goes only to Consultation (`TB_ROUTE`):
   their other unfinished stations are removed, and `PUT /api/queue/:visitId/stations` is
   refused for any visit with a TB record. They are shown in red with a "TB" label in every
-  queue. Anyone can clear the flag; clearing also sends the patient to Consultation if
-  they aren't there (`sendToConsultation`). Finishing Consultation ends their stations, and
+  queue. Anyone can clear the flag, but only while the visit is waiting at Consultation
+  (`409` otherwise); clearing also removes any other stations left on its route
+  (`sendToConsultation`). Finishing Consultation ends their stations, and
   their prescriptions wait at Pharmacy. Only an admin can change an existing flag's red
   flags or notes.
 - **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,

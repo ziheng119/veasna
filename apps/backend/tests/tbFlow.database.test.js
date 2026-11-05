@@ -105,10 +105,26 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     expect(await history()).toEqual([]);
   });
 
-  test('clearing a patient still waiting elsewhere (flagged before this change) sends them to Consultation only', async () => {
-    await setRoute(WAITING_AT_TRIAGE, { flagged: true });
-    const res = await flag({ flagged: false });
-    expect(res.body).toMatchObject({ flagged: false, current_station: 'consultation' });
+  test.each([
+    ['still waiting at Triage (flagged before this update)', WAITING_AT_TRIAGE, {}],
+    ['past a finished Consultation', `(1,'consultation',1,NOW(),NOW(),${USER_ID}), (1,'physiotherapy',2,NOW(),NULL,${USER_ID})`, {}],
+    ['discharged', `(1,'consultation',1,NOW(),NULL,${USER_ID})`, { completed: true }],
+  ])('the flag is cleared only at Consult: a patient %s is refused, for admins too', async (_, rows, options) => {
+    await setRoute(rows, { flagged: true, ...options });
+    const before = await route();
+    for (const role of ['user', 'admin']) {
+      const res = await flag({ flagged: false }, role);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/cleared at Consult/);
+    }
+    expect((await client.query('SELECT status FROM tb_screening')).rows[0].status).toBe('suspected');
+    expect(await route()).toEqual(before);
+    expect(await history()).toEqual([]);
+  });
+
+  test('clearing at Consult also removes stations left over after it (flagged before this update)', async () => {
+    await setRoute(`(1,'consultation',1,NOW(),NULL,${USER_ID}), (1,'seva',2,NULL,NULL,${USER_ID})`, { flagged: true });
+    expect((await flag({ flagged: false })).body).toMatchObject({ flagged: false, current_station: 'consultation' });
     expect(await pending()).toEqual(['consultation']);
   });
 
@@ -139,26 +155,19 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     expect((await client.query('SELECT completed_at IS NOT NULL AS done FROM visits')).rows[0].done).toBe(true);
   });
 
-  test('a finished Consultation is not reopened', async () => {
-    await setRoute(`(1,'consultation',1,NOW(),NOW(),${USER_ID}), (1,'physiotherapy',2,NOW(),NULL,${USER_ID})`, { flagged: true });
-    expect((await flag({ flagged: false })).body).toMatchObject({ flagged: false, current_station: 'physiotherapy' });
+  test('a finished Consultation is not reopened by a new flag', async () => {
+    await setRoute(`(1,'consultation',1,NOW(),NOW(),${USER_ID}), (1,'physiotherapy',2,NOW(),NULL,${USER_ID})`);
+    expect((await flag({ flagged: true, red_flags: THREE_FLAGS })).body).toMatchObject({ flagged: true, current_station: 'physiotherapy' });
     expect(await history()).toEqual([]);
   });
 
-  test('a discharged visit can be cleared without changing its route', async () => {
-    await setRoute(WAITING_AT_TRIAGE, { flagged: true, completed: true });
-    expect((await flag({ flagged: false })).body).toMatchObject({ flagged: false, current_station: null });
-    expect(await pending()).toEqual(['triage', 'seva', 'consultation']);
-  });
-
   test('clearing a flag someone already cleared changes nothing', async () => {
-    await setRoute(WAITING_AT_TRIAGE, { flagged: true });
+    await setRoute(`(1,'consultation',1,NOW(),NULL,${USER_ID})`, { flagged: true });
     await flag({ flagged: false }, 'admin');
     const res = await flag({ flagged: false });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ visit_id: 1, status: 'cleared', flagged: false });
     expect((await client.query('SELECT reviewed_by FROM tb_screening')).rows[0].reviewed_by).toBe(ADMIN_ID);
-    expect(await history()).toHaveLength(1);
   });
 
   test('fewer than 3 red flags do not flag the patient, and nothing changes', async () => {

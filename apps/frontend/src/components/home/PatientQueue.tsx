@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 import TbBadge, { tbCardClass } from "../shared/TbBadge";
-import ClearTbButton from "../shared/ClearTbButton";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -80,7 +79,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
               key={patient.visit_id}
               data-visit-id={patient.visit_id}
               onClick={(event) => {
-                // The card's own buttons (Discharge) handle their own clicks.
+                // The card's own button (Discharge) handles its own clicks.
                 if (href && !(event.target as Element).closest("button")) router.push(href);
               }}
               className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${href ? "cursor-pointer" : ""} ${
@@ -120,10 +119,6 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                   <div>{patient.age}y, {patient.sex}</div>
                   <div>{patient.timestamp}</div>
                 </div>
-                {/* The queue refreshes through live updates once the flag is cleared. */}
-                {patient.tb_flagged && (
-                  <ClearTbButton patient={patient} className="h-auto gap-1 px-2 py-1 text-xs" />
-                )}
                 {onRemovePatient && (
                   <Button
                     type="button"

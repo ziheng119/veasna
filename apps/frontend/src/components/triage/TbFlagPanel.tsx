@@ -15,13 +15,12 @@ import { StationId, stationLabel } from "@/constants/stations";
 
 interface Props {
   visitId: number;
-  // Called after the flag is set or removed, with the patient's station afterwards (both send them
-  // to Consultation), so the queue can update.
-  onChanged: (flagged: boolean, currentStation: StationId | null) => void;
+  // Called after the patient is flagged, with their station afterwards (Consult), so the queue can update.
+  onFlagged: (currentStation: StationId | null) => void;
 }
 
-/** Flag suspected TB at triage, or clear the flag. Anyone can do either; both leave Consult as the patient's only station. */
-export default function TbFlagPanel({ visitId, onChanged }: Props) {
+/** Flag suspected TB at triage; the patient then goes to Consult only. The flag is cleared at Consult. */
+export default function TbFlagPanel({ visitId, onFlagged }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const [screening, setScreening] = useState<TbScreening | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -43,19 +42,17 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
 
   const flagged = Boolean(screening?.flagged);
 
-  const save = async (flag: boolean) => {
+  const flag = async () => {
     if (!token) return;
-    if (!flag && !window.confirm("Clear the TB flag? Do this once a doctor has seen the patient. Their red TB marker is removed and they go to Consult only.")) return;
     setSaving(true);
     try {
-      const result = await setTbFlag(visitId, flag ? { flagged: true, red_flags: redFlags, notes } : { flagged: false }, token);
+      const result = await setTbFlag(visitId, { flagged: true, red_flags: redFlags, notes }, token);
       const station = result.current_station ?? null;
       setScreening(await getTbScreening(visitId, token));
       setOpen(false);
-      onChanged(flag, station);
+      onFlagged(station);
       const where = station ? ` The patient is in the ${stationLabel(station)} queue.` : "";
-      if (flag) toast.error(`Flagged for suspected TB and marked red in every queue.${where}`, { duration: 6000 });
-      else toast.success(`TB flag cleared.${where}`);
+      toast.error(`Flagged for suspected TB and marked red in every queue.${where}`, { duration: 6000 });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update TB flag");
     } finally {
@@ -76,10 +73,8 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
             <p className="text-foreground">{screening.red_flags.map(tbRedFlagLabel).join(" · ")}</p>
           )}
           {screening.flag_notes && <p className="whitespace-pre-wrap text-muted-foreground">{screening.flag_notes}</p>}
+          <p className="text-xs text-muted-foreground">The doctor clears the flag at Consult.</p>
         </div>
-        <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => save(false)}>
-          Clear TB flag
-        </Button>
       </div>
     );
   }
@@ -133,7 +128,7 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        <Button type="button" variant="destructive" size="sm" disabled={saving || !meetsTbThreshold(redFlags)} onClick={() => save(true)}>
+        <Button type="button" variant="destructive" size="sm" disabled={saving || !meetsTbThreshold(redFlags)} onClick={flag}>
           {saving ? "Saving..." : "Flag suspected TB"}
         </Button>
       </div>

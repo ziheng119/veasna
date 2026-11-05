@@ -228,7 +228,8 @@ export default function QueuePatientPicker({
                 </span>
               </button>
               <div className="flex shrink-0 items-center">
-                {tbFlagged && (
+                {/* TB is cleared only at Consult, by the doctor who saw the patient. */}
+                {tbFlagged && station === "consultation" && (
                   <ClearTbButton
                     patient={patient}
                     onCleared={(currentStation) => handleTbCleared(patient, currentStation)}

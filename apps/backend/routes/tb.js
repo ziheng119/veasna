@@ -40,8 +40,10 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
 
 // POST /api/tb/:visitId/flag - Body: { flagged: boolean, red_flags?: string[], notes?: string }
 // Flagging needs at least TB_MIN_RED_FLAGS red flags (3).
-// Anyone may flag a patient (e.g. at triage) or clear the flag (the doctor who saw them in the TB
-// tent). Either makes Consultation the patient's only remaining station. Changing an existing flag's red flags or notes is
+// Anyone may flag a patient (e.g. at triage). The flag is cleared at Consult, by the doctor who saw
+// the patient: clearing is refused (409) unless the visit is waiting at Consultation. Admins
+// correct other visits' flags on Patient Details (PUT /api/visits/:visitId/tb). Flagging or
+// clearing makes Consultation the patient's only remaining station. Changing an existing flag's red flags or notes is
 // an edit of saved data and needs an admin. Clearing a visit that is not flagged changes nothing.
 // Responds with the screening, `flagged`, and the visit's `current_station` afterwards.
 router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -72,7 +74,7 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
     }
     try {
         await client.query('BEGIN');
-        const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
         if (!visit.rows.length) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Visit not found. It may have been deleted on another device.' });
@@ -88,6 +90,17 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
         if (!flagged && !wasFlagged) {
             await client.query('ROLLBACK');
             return res.status(200).json({ visit_id: visitId, status: existing.rows[0]?.status ?? null, flagged: false });
+        }
+
+        if (!flagged) {
+            const { rows } = await client.query(
+                'SELECT station FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL ORDER BY position, id LIMIT 1',
+                [visitId]
+            );
+            if (visit.rows[0].completed_at || rows[0]?.station !== 'consultation') {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ error: 'The TB flag is cleared at Consult, while the patient is waiting there.' });
+            }
         }
 
         const screening = flagged

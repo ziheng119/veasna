@@ -42,9 +42,10 @@ there. Veasna follows that:
    red with a **TB** label in every queue. Consult is their only station: any others
    (Triage, Partner NGO, Physiotherapy) are taken off their route, and the registration
    form doesn't offer them.
-3. **Clear:** the doctor who sees them in the TB tent (or anyone) presses **Clear TB** on
-   the patient's queue card, or **Clear TB flag** at Triage. The red marker goes; the
-   patient stays in the Consult queue.
+3. **Clear:** the doctor who sees them in the TB tent presses **Clear TB** on the
+   patient's card in the **Consult** queue and confirms in the pop-up. The red marker
+   goes; the patient stays in the Consult queue. Clear TB isn't offered on Home, at
+   Triage or in other queues.
 4. **Finish:** the doctor writes the consultation notes, prescribes, and presses
    **Finish**. That ends the patient's stations, and their prescriptions wait under
    **Pharmacy → Prescriptions to dispense**.
@@ -54,9 +55,11 @@ A TB patient's stations can't be changed, before or after the flag is cleared, s
 
 Good to know:
 
-- Clearing someone who isn't at Consult (e.g. flagged before this update) sends them
-  there too, as their only station. A finished Consultation isn't reopened, and a
-  discharged visit stays discharged.
+- The flag can only be cleared while the patient is waiting at Consult; the server
+  refuses it anywhere else, for admins too. An admin can correct the flag of a finished
+  or discharged visit on **Patient Details**. Clearing also removes any other stations
+  left on an older visit's route.
+- Flagging a patient whose Consultation is already finished doesn't reopen it.
 - If two people clear the same patient, the second press changes nothing.
 - Only an admin can change the red flags or notes of an existing flag (on **Patient
   Details**). That never moves the patient.
