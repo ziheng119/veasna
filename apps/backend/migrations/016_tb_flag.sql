@@ -54,6 +54,8 @@ BEGIN
     END LOOP;
 END $$;
 
+-- Also allows the stations added later (018: dental, pharmacy), so re-running this at startup
+-- never rejects their rows.
 ALTER TABLE visit_stations
     ADD CONSTRAINT visit_stations_station_check
-        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation'));
+        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation', 'dental', 'pharmacy'));
