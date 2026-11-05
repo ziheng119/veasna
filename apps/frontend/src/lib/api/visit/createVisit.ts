@@ -19,7 +19,6 @@ export async function createVisit(
     
     const payload = {
         patientInfo: data.patientInfo,
-        visit: { queue_no: data.patientInfo.queue_no },
         vitals: data.vitals,
         hef: data.hef,
         stations: data.stations,

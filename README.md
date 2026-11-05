@@ -102,9 +102,10 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 A few things worth knowing:
 
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
-  the same form. Leave the queue number blank to get the next one, or type one with
-  letters, such as `12A` for a family member of number 12. A typed number can't jump
-  ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
+  the same form. The form shows the queue number the patient will get; it is assigned
+  automatically. To group a family, register each member, then use **Add to family** on
+  Patient List: 3, 4 and 5 become 3A, 4A and 5A (see
+  [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
   Number fields (height, weight, blood pressure, temperature, age) only accept digits
   as you type, with one decimal place where it makes sense.
 - **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag

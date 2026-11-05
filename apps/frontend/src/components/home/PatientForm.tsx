@@ -31,7 +31,6 @@ import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel 
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
-import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
 import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
@@ -41,7 +40,6 @@ interface PatientFormProps {
 }
 
 type FormErrors = {
-    queue_no?: string;
     english_name?: string;
     sex?: string;
     height?: string;
@@ -88,7 +86,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     const previewRequest = useRef<AbortController | null>(null);
 
-    // The backend assigns the queue number on submit; this is only a preview.
+    // The server assigns the queue number on submit; this previews it. It reloads after every change
+    // on any device (live updates), so it moves on when someone else registers a patient first.
     const refreshNextQueueNo = useCallback(async () => {
       previewRequest.current?.abort();
       const controller = new AbortController();
@@ -191,13 +190,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const bpDiastolic = Number(vitals.bp_diastolic);
       const temperature = Number(vitals.temperature);
 
-      if (patientInfo.queue_no?.trim()) {
-        // The server checks again against the latest number; this preview may be a moment old.
-        const queueError = isValidQueueNo(patientInfo.queue_no)
-          ? nextQueueNo && queueNoJumpError(patientInfo.queue_no, nextQueueNo)
-          : QUEUE_NO_ERROR;
-        if (queueError) nextErrors.queue_no = queueError;
-      }
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
 
@@ -214,7 +206,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["queue_no", "english_name", "sex"];
+      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
       const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
 
@@ -306,10 +298,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         setMatchPrompt(null);
         setIsSubmitting(true);
 
-        // A blank queue number is assigned by the server.
+        // The queue number is assigned by the server.
         const completePatientInfo = {
           ...patientInfo,
-          queue_no: normalizeQueueNo(patientInfo.queue_no) || undefined,
           location_id: locationId,
           id: patientId,
         };
@@ -444,23 +435,16 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
-                    <FilteredInput
+                    <output
                       id="queueNumber"
-                      format="queueNo"
-                      transform={(value) => value.toUpperCase()}
-                      value={patientInfo.queue_no ?? ""}
-                      onValueChange={(queue_no) => {
-                        setPatientInfo(prev => ({ ...prev, queue_no }));
-                        clearFieldError("queue_no");
-                      }}
-                      autoCapitalize="characters"
-                      placeholder={nextQueueNo ? `${nextQueueNo} (next)` : "Assigned automatically"}
-                      aria-invalid={!!errors.queue_no}
+                      aria-live="polite"
                       aria-describedby="queueNumberHint"
-                      className="mt-2 font-semibold tracking-wide"
-                      />
-                    <p id="queueNumberHint" className={`mt-1 text-xs ${errors.queue_no ? "text-destructive" : "text-muted-foreground"}`}>
-                      {errors.queue_no ?? QUEUE_NO_HINT}
+                      className="mt-2 flex h-9 items-center rounded-md border border-input bg-muted px-3 text-lg font-bold tabular-nums tracking-wide"
+                    >
+                      {nextQueueNo || "–"}
+                    </output>
+                    <p id="queueNumberHint" className="mt-1 text-xs text-muted-foreground">
+                      Assigned automatically when you submit. To group a family, use Add to family on Patient List.
                     </p>
                   </div>
                   <div>

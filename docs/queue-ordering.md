@@ -33,27 +33,34 @@ have waited longer.
   Escape to clear it. Your selected patient stays selected.
 - Searching and live updates keep your chosen order.
 
-## Typing a queue number
+## Queue numbers and families
 
-Leave **Queue Number** blank at registration to get the next number. Type one only to
-group patients together:
+Queue numbers are given automatically: 1, 2, 3... per location each day. The
+registration form shows the number the next patient will get. It updates by itself
+when someone registers a patient on another device, and the number actually given is
+shown once you submit.
 
-- `13A`, `13B`: family members or companions of patient 13.
-- `A1`, `A2`: a separate lettered series. It never affects the plain numbers.
+To show that patients came together, group them into a **family**. Everyone in a
+family shares a letter on the end of their number:
 
-A typed number can't jump ahead of the next number, because every later patient would
-then be numbered after it. If the next number is 14:
+1. Register each family member as usual, e.g. mother 3, father 4 and child 5.
+2. On **Patient List**, find the father and press the **Add to family** icon (people)
+   on his row. It opens a small search of today's queue.
+3. Type the mother's name or number and pick her. Both get the next free family letter:
+   3A and 4A.
+4. Do the same for the child, picking the mother or father: the child joins their
+   family as 5A.
 
-| Typed | Result |
-| --- | --- |
-| `14`, or an unused lower number such as `9` | Accepted. |
-| `13A` | Accepted: number 13 already exists. |
-| `132` (meant `13A`) | Refused: "ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A." |
-| `20A` | Refused: there is no patient 20 yet. |
-| `A12` | Accepted: lettered series are separate. |
+The next family that day gets B, then C, and so on (after Z: AA, AB...). Each
+location and day starts again at A. Picking someone already in a family adds the
+patient to that family. To undo a mistake, open the patient's **Add to family** search
+and press **Remove from family**: 4A becomes 4 again; the rest of the family keeps
+its letter.
 
-An admin correcting a number on **Patient Details** follows the same rule for that
-visit's location and date.
+Only today's visits at the same location can be grouped. Older numbers that start
+with a letter (such as A12) can't join a family; an admin can correct them on
+**Patient Details**, where a corrected number can't jump ahead of the next number
+either.
 
 ## Technical details
 
@@ -68,10 +75,13 @@ visit's location and date.
   time, the server falls back to when the visit was created. Older servers without
   this field make cards show **Registered** instead of **Arrived**.
 - Arrival order never depends on device clocks.
-- `queueNoJumpError` in `apps/backend/utils/queueNumber.js` enforces the typed-number
-  rule inside the same lock that issues numbers, so it can't race with another device.
-  `apps/frontend/src/lib/queueNumber.ts` mirrors it to show the message before saving;
-  a frontend test checks the two give the same answers.
+- Registration takes the location's queue lock (`lockQueue`) before reading the next
+  number, so two devices registering at once never get the same number. A
+  `visit.queue_no` sent by an older app is ignored.
+- Families are read from the queue number itself (`utils/family.js`); grouping takes the
+  same lock, so two devices can't start two families with the same letter.
+- `queueNoJumpError` in `apps/backend/utils/queueNumber.js` checks admin corrections on
+  Patient Details.
 
 ```bash
 npm test --workspace apps/frontend

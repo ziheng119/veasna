@@ -2,6 +2,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { EyeIcon, TrashIcon } from "@/assets/icons";
 import formatDate from "@/helper/format_date";
 import { PatientInfo } from "@/lib/types/patient";
+import FamilyButton from "./FamilyButton";
 
 interface PatientTableRowProps {
     patient: PatientInfo
@@ -48,6 +49,9 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
                         >
                             <EyeIcon className="w-4- h-4"/>
                         </button>
+
+                        {/* Group with a family member in today's queue */}
+                        {patient.id && <FamilyButton patientId={patient.id} patientName={patient.english_name || "This patient"} />}
 
                         {/* Delete Patient*/}
                         <button

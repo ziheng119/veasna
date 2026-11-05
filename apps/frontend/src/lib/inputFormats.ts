@@ -10,8 +10,6 @@ export const INPUT_FORMATS = {
   wholeNumber: /^\d{0,3}$/,
   // Digits, spaces, + and -, e.g. +855 12 345 678.
   phone: /^[\d +-]{0,20}$/,
-  // Queue numbers are upper-cased before checking: letters and digits only, e.g. 12A.
-  queueNo: /^[A-Z0-9]{0,10}$/,
 } as const;
 
 export type InputFormat = keyof typeof INPUT_FORMATS;

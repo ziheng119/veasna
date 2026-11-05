@@ -63,7 +63,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```
 
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
-- Omit `visit.queue_no` to get the next number automatically. A typed queue number is 1-10 letters and digits with at least one digit (`12`, `12A`, `A12`), stored upper-case; `400` if malformed, `409` if already used at the location today. A typed number that starts with digits must not run ahead of the sequence, or later numbers would skip: a plain number may be at most the next number, and a suffixed one (`13A`) needs its number (`13`) to be issued already; otherwise `400` with a message such as `Queue number 132 is ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A. Leave it blank to use 14.` Numbers starting with a letter are a separate series and do not affect the automatic numbers. The visit date is always the host's today.
+- The queue number is always the next one for the location today, assigned under the location's queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
 - `stations` defaults to every station; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - Returns `400` for missing or invalid fields, including an unknown location or patient.
 
@@ -138,11 +138,17 @@ Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still ha
 **PUT** `queue/{visitId}/stations/{station}`
 Body `{ "needed": true }` adds one station to the remaining route in clinic order, never ahead of the station the patient is waiting at; `{ "needed": false }` takes it off. Used for the partner NGO at Triage and Physiotherapy at Consult. Returns `{ "visit_id", "stations" }` with the remaining route. `400` for `pharmacy` (added by prescribing); `409` for a TB visit, a finished visit, a station already finished, or removing the station the patient is waiting at. Recorded in `visit_station_route_history`.
 
+**POST** `family`
+Body `{ "visit_id": 14, "with_visit_id": 13 }` puts visit 14 in visit 13's family: both end with the same letter. If visit 13 has no family yet, both get the next free letter for that location and day (A, B, ... Z, AA, ...). Returns `{ "family": "A", "visits": [{ "visit_id": 14, "queue_no": "4A" }, { "visit_id": 13, "queue_no": "3A" }] }`. `400` for the same visit, visits at different locations or on different days, or a number that starts with a letter; `404` for an unknown visit; `409` if the new number is already used that day (an older typed number). Users and admins may both group families.
+
+**POST** `family/leave`
+Body `{ "visit_id": 14 }` takes the visit out of its family: `{ "visit_id": 14, "queue_no": "4" }`. The rest of the family keeps its letter. `409` if the plain number is already used that day.
+
 **GET**, **POST** `visits/dental/{visitId}`
 Dental notes: `{ "notes": "...", "referral_needed": true }`. `GET` returns `null` before the first save. `POST` creates the record; only admins can change a saved one (`403`). The Consult page shows both fields so the doctor can refer the patient.
 
 **GET** `queue/next?location_id={id}`
-Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number when `visit.queue_no` is omitted.
+Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number.
 
 **POST** `queue/{visitId}/complete`
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.

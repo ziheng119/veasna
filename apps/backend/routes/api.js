@@ -20,6 +20,7 @@ const pharmacyRoutes = require('./pharmacy');
 const prescriptionRoutes = require('./prescriptions');
 const triageRoutes = require('./triage');
 const tbRoutes = require('./tb');
+const familyRoutes = require('./family');
 const analyticsRoutes = require('./analytics');
 
 router.use('/auth', sessionRoutes);
@@ -33,6 +34,7 @@ router.use('/pharmacy', pharmacyRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/triage', triageRoutes);
 router.use('/tb', tbRoutes);
+router.use('/family', familyRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/patient', patientRoutes);
 

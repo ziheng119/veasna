@@ -40,6 +40,9 @@ function canAccessApi(rawRole, method, rawPath) {
       "/triage/visual-acuity",
       "/triage/presenting-complaint",
       "/triage/history",
+      // Grouping today's patients into a family, or taking one out (routes/family.js).
+      "/family",
+      "/family/leave",
     ].includes(path) ||
     /^\/visits\/(seva|physiotherapy|dental|consultation|referral)\/\d+$/.test(path) ||
     // Flagging suspected TB is a first entry; the route refuses users removing or editing a flag.

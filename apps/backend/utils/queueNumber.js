@@ -1,7 +1,7 @@
 // utils/queueNumber.js
-// Queue numbers are issued sequentially per location per visit date, starting at 1. Staff may
-// instead type one in, e.g. "12A" for a family member of 12 or "A12" for a lettered series.
-// They are stored as text, upper-cased, and must be unique per location and date.
+// Queue numbers are issued automatically, in order per location per visit date, starting at 1.
+// A family shares a letter: 3A, 4A, 5A (utils/family.js). Admins may correct a number on Patient
+// Details. They are stored as text, upper-cased, and must be unique per location and date.
 
 const { localDate } = require('./validation');
 
@@ -20,11 +20,10 @@ function isValidQueueNo(queueNo) {
   return QUEUE_NO_PATTERN.test(queueNo);
 }
 
-// Refuses a typed number that runs ahead of the sequence, which would make every later assigned
-// number skip. With next number 14: "132" (a mistyped "13A") and "20A" (there is no 20 yet) are
-// refused; "14", a free gap such as "9", and "13A" are allowed. Numbers that start with a letter
+// Refuses a corrected number (admin edits) that runs ahead of the sequence, which would make every
+// later assigned number skip. With next number 14: "132" (a mistyped "13A") and "20A" (there is no
+// 20 yet) are refused; "14", a free gap such as "9", and "13A" are allowed. Numbers that start with a letter
 // ("A12") are a separate series and always allowed. Returns an error message, or null when allowed.
-// Must match apps/frontend/src/lib/queueNumber.ts.
 function queueNoJumpError(queueNo, nextQueueNo) {
   const digits = /^[0-9]+/.exec(queueNo)?.[0];
   if (!digits) return null;
@@ -36,22 +35,10 @@ function queueNoJumpError(queueNo, nextQueueNo) {
     let prefix = digits.slice(0, -1);
     while (prefix && !(Number(prefix) >= 1 && Number(prefix) < next)) prefix = prefix.slice(0, -1);
     const group = prefix ? ` To group with patient ${Number(prefix)}, add a letter, e.g. ${Number(prefix)}A.` : '';
-    return `Queue number ${queueNo} is ahead of the next number, ${next}.${group} Leave it blank to use ${next}.`;
+    return `Queue number ${queueNo} is ahead of the next number, ${next}.${group}`;
   }
   if (base < next) return null;
   return `No patient has number ${base} yet, so ${queueNo} can't be used. The next number is ${next}.`;
-}
-
-// True when another visit at the location and date already has this number (any letter case).
-async function isQueueNoTaken(client, locationId, visitDate, queueNo, exceptVisitId = null) {
-  const { rows } = await client.query(
-    `SELECT 1 FROM visits
-     WHERE location_id IS NOT DISTINCT FROM $1 AND visit_date = $2::date AND UPPER(queue_no) = $3
-       AND ($4::int IS NULL OR id <> $4)
-     LIMIT 1`,
-    [locationId, visitDate, queueNo, exceptVisitId]
-  );
-  return rows.length > 0;
 }
 
 // Today's clinic date in the backend host's time zone (not UTC: in Cambodia the UTC
@@ -85,7 +72,6 @@ module.exports = {
   normalizeQueueNo,
   isValidQueueNo,
   queueNoJumpError,
-  isQueueNoTaken,
   currentVisitDate,
   lockQueue,
   getNextQueueNo,

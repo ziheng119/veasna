@@ -1,11 +1,11 @@
-// Registration refuses typed queue numbers that would make the sequence skip (routes/visits.js).
+// Registration always assigns the next queue number itself (routes/visits.js).
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 jest.mock('../config/db', () => ({ query: jest.fn(), pool: { connect: jest.fn() } }));
 const db = require('../config/db');
 
-describe('Typed queue numbers at registration', () => {
+describe('Automatic queue numbers at registration', () => {
   const secret = 'queue-number-tests';
   let app, previousSecret, client;
 
@@ -31,33 +31,35 @@ describe('Typed queue numbers at registration', () => {
     db.pool.connect.mockResolvedValue(client);
   });
 
-  const register = queueNo => request(app).post('/api/visits')
+  const register = visit => request(app).post('/api/visits')
     .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`)
     .send({
       patientInfo: { english_name: 'Test Only', location_id: 1, sex: 'F' },
-      visit: { queue_no: queueNo }, stations: ['triage'], hef: {},
+      ...(visit ? { visit } : {}), stations: ['triage'], hef: {},
       vitals: { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diastolic: 70, temperature: 37, below_3rd_percentile: false },
     });
-  const inserted = () => client.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO visits'));
+  const sql = () => client.query.mock.calls.map(([text]) => text);
 
-  test('"132" typed for "13A" is refused and nothing is saved', async () => {
-    const res = await register('132');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/ahead of the next number, 14.*e\.g\. 13A/);
-    expect(inserted()).toBe(false);
-    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
-    expect(client.release).toHaveBeenCalled();
-  });
-
-  test.each(['13a', '14', 'A50'])('%s is accepted', async queueNo => {
-    const res = await register(queueNo);
-    expect(res.status).toBe(201);
-    expect(res.body.queue_no).toBe(queueNo.toUpperCase());
-  });
-
-  test('a blank number is assigned the next one', async () => {
-    const res = await register('');
+  test('the next number is assigned', async () => {
+    const res = await register();
     expect(res.status).toBe(201);
     expect(res.body.queue_no).toBe('14');
+  });
+
+  test.each(['132', '13A', 'A50', 'not a number'])('a number sent by an older app (%s) is ignored', async queueNo => {
+    const res = await register({ queue_no: queueNo });
+    expect(res.status).toBe(201);
+    expect(res.body.queue_no).toBe('14');
+  });
+
+  test('the queue is locked before the next number is read, so devices registering at once get different numbers', async () => {
+    await register();
+    const lock = sql().findIndex(text => text.includes('pg_advisory_xact_lock'));
+    const next = sql().findIndex(text => text.includes('next_queue_no'));
+    const insert = sql().findIndex(text => text.includes('INSERT INTO visits'));
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(next);
+    expect(next).toBeLessThan(insert);
+    expect(sql()).toContain('COMMIT');
   });
 });

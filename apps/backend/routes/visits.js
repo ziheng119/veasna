@@ -9,7 +9,7 @@ integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
-const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
+const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueNumber');
 const { REGISTRATION_STATIONS, DEFAULT_REGISTRATION_STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
@@ -51,7 +51,7 @@ router.get('/referrals', authenticateToken, async (req, res) => {
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
-    const { patientInfo, visit, vitals, hef } = req.body;
+    const { patientInfo, vitals, hef } = req.body;
     // Stations the patient is indicated for, from those offered at registration (Physiotherapy is
     // chosen at Consultation and Pharmacy is added on prescribing). Optional: defaults to
     // DEFAULT_REGISTRATION_STATIONS.
@@ -66,9 +66,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const locationId = toPositiveInt(patientInfo?.location_id);
     // Present only when registering a new visit for an existing patient.
     const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
-    // Optional: when omitted, the next sequential number for the location and date is assigned.
-    // A typed number may contain letters, e.g. 12A or A12.
-    let queueNo = normalizeQueueNo(visit?.queue_no);
+    // The queue number is always the next one for the location and date (assigned below). A
+    // visit.queue_no sent by an older client is ignored; families are grouped later (routes/family.js).
 
     if (!locationId) {
         return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
@@ -88,10 +87,6 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     if (patientInfo.date_of_birth && !isIsoDate(patientInfo.date_of_birth)) {
         return res.status(400).json({ error: 'patientInfo.date_of_birth must be a valid YYYY-MM-DD date.' });
-    }
-
-    if (queueNo && !isValidQueueNo(queueNo)) {
-        return res.status(400).json({ error: QUEUE_NO_ERROR });
     }
 
     if (!hef || typeof hef !== 'object') {
@@ -176,19 +171,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         // Step 2: Insert into visits table
         const visitDate = currentVisitDate();
-        // Held until commit, so two devices cannot issue or claim the same number.
+        // Held until commit, so two devices registering at once cannot be given the same number.
         await lockQueue(client, locationId);
-        const nextQueueNo = await getNextQueueNo(client, locationId, visitDate);
-        const jumpError = queueNo ? queueNoJumpError(queueNo, nextQueueNo) : null;
-        if (!queueNo) {
-            queueNo = nextQueueNo;
-        } else if (jumpError) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: jumpError });
-        } else if (await isQueueNoTaken(client, locationId, visitDate, queueNo)) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: `Queue number ${queueNo} is already used today. Choose another, or leave it blank to assign one.` });
-        }
+        const queueNo = await getNextQueueNo(client, locationId, visitDate);
         const visitQuery = `
             INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
             VALUES ($1, $2, $3, $4, $5)
