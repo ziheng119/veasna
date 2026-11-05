@@ -7,6 +7,7 @@ const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation
 integerParams(router, ['id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
+const { currentVisitDate } = require('../utils/queueNumber');
 
 // (location id) -> patients[]
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -22,7 +23,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
   }
 
   try {
-    const values = [location_id];
+    // $2: today's clinic date, for where the patient is waiting now.
+    const values = [location_id, currentVisitDate()];
     let visitFilter = '';
 
     if (visit_date) {
@@ -33,7 +35,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           FROM visits v
           WHERE v.patient_id = p.id
             AND v.location_id = p.location_id
-            AND v.visit_date = $2::date
+            AND v.visit_date = $3::date
         )
       `;
     }
@@ -45,9 +47,22 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           SELECT TO_CHAR(MAX(lv.visit_date), 'YYYY-MM-DD')
           FROM visits lv
           WHERE lv.patient_id = p.id
-        ) AS last_visit_date
+        ) AS last_visit_date,
+        -- In today's queue here: the open visit and the station it waits at (null when not queued).
+        q.visit_id AS queue_visit_id, q.station AS current_station
       FROM patients p
       JOIN locations l ON l.id = p.location_id
+      LEFT JOIN LATERAL (
+        SELECT v.id AS visit_id, (
+          SELECT s.station FROM visit_stations s
+          WHERE s.visit_id = v.id AND s.completed_at IS NULL
+          ORDER BY s.position LIMIT 1
+        ) AS station
+        FROM visits v
+        WHERE v.patient_id = p.id AND v.location_id = p.location_id
+          AND v.visit_date = $2::date AND v.completed_at IS NULL
+        ORDER BY v.id DESC LIMIT 1
+      ) q ON TRUE
       WHERE p.location_id = $1
       ${visitFilter}
       ORDER BY p.english_name ASC

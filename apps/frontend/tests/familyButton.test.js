@@ -2,6 +2,7 @@
 // together in the list (PatientTable.tsx).
 const React = require('react');
 const { act, create } = require('react-test-renderer');
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role: 'user' } }) }));
 jest.mock('../src/lib/api/family', () => ({
   joinFamily: jest.fn(async () => ({ family: 'A', patients: [] })),

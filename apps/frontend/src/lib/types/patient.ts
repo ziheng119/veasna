@@ -17,6 +17,9 @@ export type PatientInfo = {
     last_visit_date?: string | null;
     // Family letter shared with the patients they come with (A, B, ...), or null.
     family?: string | null;
+    // Patient list only: the open visit in today's queue here and the station it waits at, or null.
+    queue_visit_id?: number | null;
+    current_station?: StationId | null;
 }
 
 export type QueuedPatient = {
