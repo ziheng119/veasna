@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import PrintDailyReferrals from "@/components/doctors-consultation/PrintDailyReferrals";
+import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 // Queue, patient snapshot and triage summary share the top row; the consultation notes take the
 // full page width underneath. The page scrolls as a whole instead of fitting one screen.
@@ -28,29 +29,31 @@ export default function DoctorsConsultation() {
   }, [location]);
 
   return (
-    <div className="flex flex-col gap-5 pb-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
-        <PrintDailyReferrals locationId={location?.id} />
-      </div>
-      <div className={TOP_ROW}>
-        <QueuePatientPicker
-          station="consultation"
-          onSelectPatient={setSelectedPatient}
-          selectedVisitId={selectedPatient?.visit_id}
-        />
-        {!selectedPatient ? (
-          <div className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
-        ) : (
-          <>
-            <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
-            <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
-          </>
+    <StationFlowProvider station="consultation" onSelectPatient={setSelectedPatient}>
+      <div className="flex flex-col gap-5 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
+          <PrintDailyReferrals locationId={location?.id} />
+        </div>
+        <div className={TOP_ROW}>
+          <QueuePatientPicker
+            station="consultation"
+            onSelectPatient={setSelectedPatient}
+            selectedVisitId={selectedPatient?.visit_id}
+          />
+          {!selectedPatient ? (
+            <div className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
+          ) : (
+            <>
+              <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
+              <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
+            </>
+          )}
+        </div>
+        {selectedPatient && (
+          <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
         )}
       </div>
-      {selectedPatient && (
-        <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
-      )}
-    </div>
+    </StationFlowProvider>
   )
 }

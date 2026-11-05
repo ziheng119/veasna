@@ -141,3 +141,11 @@ test('the Home queue card lets a user discharge a TB patient, but not clear TB',
     delete global.localStorage;
   }
 });
+
+test('a patient done at this station is marked "Done here" on their card', async () => {
+  stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null, station_done: true }, { ...tbPatient, visit_id: 6, tb_flagged: false, tb_status: null }];
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+  const card = id => label(renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === id));
+  expect(card(5)).toMatch(/Done here/);
+  expect(card(6)).not.toMatch(/Done here/);
+});

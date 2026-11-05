@@ -19,7 +19,8 @@ import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, ListChecks, X } from "lucide-react";
+import { Check, CircleCheck, ListChecks, X } from "lucide-react";
+import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
 
@@ -149,6 +150,12 @@ export default function QueuePatientPicker({
     return sortQueuePatients(filtered, mode);
   }, [patients, searchQuery, mode]);
 
+  // "Save & next" on this page opens the next patient in the order shown here.
+  const flow = useStationFlow();
+  useEffect(() => {
+    flow?.registerQueue(sortedPatients, loadQueue);
+  }, [flow, sortedPatients, loadQueue]);
+
   return (
     <PageCard
       title={`${stationLabel(station)} Queue`}
@@ -225,6 +232,11 @@ export default function QueuePatientPicker({
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {next ? `Next: ${stationLabel(next)}` : "Last station"}
                   </span>
+                  {patient.station_done && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <CircleCheck className="size-3.5" aria-hidden="true" /> Done here
+                    </span>
+                  )}
                 </span>
               </button>
               <div className="flex shrink-0 items-center">

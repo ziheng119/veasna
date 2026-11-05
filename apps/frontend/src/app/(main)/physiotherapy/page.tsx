@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 export default function Physiotherapy() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -25,26 +26,28 @@ export default function Physiotherapy() {
   }, [location]);
 
   return (
-    <div className={PAGE_SHELL}>
-      <SearchBar station="physiotherapy" onSelectPatient={setSelectedPatient} />
-      <div className={PANEL_GRID}>
-        <QueuePatientPicker
-          station="physiotherapy"
-          onSelectPatient={setSelectedPatient}
-          selectedVisitId={selectedPatient?.visit_id}
-        />
-        <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-          {!selectedPatient ? (
-            <NoPatientSelected />
-          ) : (
-            <div className={PANEL_GRID}>
-              <PatientContainer selectedPatient = {selectedPatient}/>
-              <TriageContainer selectedPatient = {selectedPatient}/>
-              <PhysiotherapyNotesContainer patient={selectedPatient} />
-            </div>
-          )}
+    <StationFlowProvider station="physiotherapy" onSelectPatient={setSelectedPatient}>
+      <div className={PAGE_SHELL}>
+        <SearchBar station="physiotherapy" onSelectPatient={setSelectedPatient} />
+        <div className={PANEL_GRID}>
+          <QueuePatientPicker
+            station="physiotherapy"
+            onSelectPatient={setSelectedPatient}
+            selectedVisitId={selectedPatient?.visit_id}
+          />
+          <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+            {!selectedPatient ? (
+              <NoPatientSelected />
+            ) : (
+              <div className={PANEL_GRID}>
+                <PatientContainer selectedPatient = {selectedPatient}/>
+                <TriageContainer selectedPatient = {selectedPatient}/>
+                <PhysiotherapyNotesContainer patient={selectedPatient} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </StationFlowProvider>
   )
 }

@@ -28,6 +28,8 @@ export type QueuedPatient = {
     // visit was never flagged.
     tb_status?: TbStatus | null;
     tb_flagged?: boolean;
+    // From the queue: the patient's current station has everything it needs saved.
+    station_done?: boolean;
     english_name?: string;
     khmer_name?: string;
     age?: number;

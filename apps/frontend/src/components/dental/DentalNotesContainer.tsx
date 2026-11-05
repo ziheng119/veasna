@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import toast from "react-hot-toast";
 import SaveButton from "../shared/SaveButton";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { PageCard } from "../shared/PageCard";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +19,7 @@ interface Props {
 
 /** What the dental students did, and whether the doctor should refer the patient on. */
 export default function DentalNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const referralId = useId();
   const [notes, setNotes] = useState("");
@@ -40,19 +41,23 @@ export default function DentalNotesContainer({ patient }: Props) {
     return () => controller.abort();
   }, [patient.visit_id, markSaved]);
 
-  const handleSave = async () => {
-    if (!editable) return;
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
     try {
       await postDental(patient.visit_id, { notes, referral_needed: referralNeeded });
       markSaved();
       toast.success("Dental notes saved");
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save dental notes");
+      return false;
     }
   };
 
   return (
     <PageCard title="Dental Notes" className="xl:col-span-4" contentClassName="space-y-4">
+      <StationDonePrompt patient={patient} done={saved} />
       <SavedRecordFields locked={!editable}>
         <div className="space-y-2">
           <Label htmlFor={notesId}>What was done</Label>
@@ -73,8 +78,9 @@ export default function DentalNotesContainer({ patient }: Props) {
           <Label htmlFor={referralId}>Referral needed</Label>
         </div>
         <p className="text-xs text-muted-foreground">The doctor sees these notes at Consult and refers the patient to a hospital if needed.</p>
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
           <SaveButton onClick={handleSave} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} disabled={!editable} />
         </div>
       </SavedRecordFields>
     </PageCard>

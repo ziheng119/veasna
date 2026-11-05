@@ -49,6 +49,19 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 tb.status AS tb_status,
                 -- Suspected TB: shown in red in every queue so doctors can attend to the patient.
                 COALESCE(tb.status IN ('suspected', 'tb_likely'), FALSE) AS tb_flagged,
+                -- Done at the current station: its form is saved (every Triage section), or at
+                -- Pharmacy nothing is left to dispense. The app then offers to send the patient on.
+                CASE cur.station
+                    WHEN 'triage' THEN EXISTS (SELECT 1 FROM visual_acuity x WHERE x.visit_id = v.id)
+                        AND EXISTS (SELECT 1 FROM presenting_complaint x WHERE x.visit_id = v.id)
+                        AND EXISTS (SELECT 1 FROM history x WHERE x.visit_id = v.id)
+                    WHEN 'consultation' THEN EXISTS (SELECT 1 FROM consultation x WHERE x.visit_id = v.id)
+                    WHEN 'physiotherapy' THEN EXISTS (SELECT 1 FROM physiotherapy x WHERE x.visit_id = v.id)
+                    WHEN 'dental' THEN EXISTS (SELECT 1 FROM dental x WHERE x.visit_id = v.id)
+                    WHEN 'seva' THEN EXISTS (SELECT 1 FROM seva x WHERE x.visit_id = v.id)
+                    WHEN 'pharmacy' THEN NOT EXISTS (SELECT 1 FROM prescriptions x WHERE x.visit_id = v.id AND x.status = 'pending')
+                    ELSE FALSE
+                END AS station_done,
                 (
                     SELECT COALESCE(json_agg(json_build_object(
                         'station', s.station,

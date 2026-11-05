@@ -26,7 +26,9 @@ have waited longer.
   waiting at, with them already selected.
 - Suspected TB patients' cards are red. When hovered or selected they turn a darker
   red, instead of the blue other cards use.
-- Station cards show **Arrived** with the time the patient reached that station.
+- Station cards show **Arrived** with the time the patient reached that station, and a
+  green **Done here** once everything needed at the station is saved (see
+  [finishing at a station](station-routing.md#finishing-at-a-station)).
 - The search icon opens a lookup across the whole clinic queue. Close it or press
   Escape to clear it. Your selected patient stays selected.
 - Searching and live updates keep your chosen order.

@@ -9,6 +9,8 @@ import { cancelPrescription, dispensePrescription, getLocationPrescriptions } fr
 import { Prescription } from "@/lib/types/prescription";
 import { useUserStore } from "@/stores/useUserStore";
 import { cn } from "@/lib/utils";
+import { QueuedPatient } from "@/lib/types/patient";
+import { StationDonePrompt } from "@/components/shared/StationFlow";
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -16,12 +18,12 @@ interface Props {
   locationId: number;
   // Called after a dispense or cancel, so stock figures elsewhere on the page refresh.
   onStockChanged: () => void;
-  // Only this visit's prescriptions (the patient selected in the Pharmacy queue).
-  visitId?: number;
+  // Only this patient's prescriptions (the patient selected in the Pharmacy queue).
+  patient?: QueuedPatient | null;
 }
 
 /** Prescriptions waiting at the pharmacy. Dispensing finalises the stock deduction. */
-export default function PendingPrescriptions({ locationId, onStockChanged, visitId }: Props) {
+export default function PendingPrescriptions({ locationId, onStockChanged, patient }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const load = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
@@ -29,7 +31,7 @@ export default function PendingPrescriptions({ locationId, onStockChanged, visit
     return getLocationPrescriptions(locationId, "pending", signal);
   }, [locationId, token]);
   const { data: all, refresh, loaded } = useLiveList(load);
-  const pending = visitId ? all.filter((prescription) => prescription.visit_id === visitId) : all;
+  const pending = patient ? all.filter((prescription) => prescription.visit_id === patient.visit_id) : all;
   const [busy, setBusy] = useState<number | null>(null);
 
   const act = async (prescription: Prescription, action: "dispense" | "cancel") => {
@@ -54,9 +56,10 @@ export default function PendingPrescriptions({ locationId, onStockChanged, visit
   };
 
   if (loaded && pending.length === 0) {
-    return <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-      {visitId ? "Nothing left to dispense for this patient. Press Finish in the queue." : "No prescriptions waiting to be dispensed."}
-    </p>;
+    // Everything dispensed (or cancelled): the patient is done at Pharmacy.
+    return patient
+      ? <div className="px-6 py-6"><StationDonePrompt patient={patient} done /></div>
+      : <p className="px-6 py-10 text-center text-sm text-muted-foreground">No prescriptions waiting to be dispensed.</p>;
   }
 
   return (

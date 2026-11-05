@@ -14,6 +14,7 @@ import { PageCard } from "@/components/shared/PageCard";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { StationId } from "@/constants/stations";
+import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 export default function Traige() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -48,46 +49,48 @@ export default function Traige() {
 
 
     return (
-      <div className={PAGE_SHELL}>
-        <SearchBar station="triage" onSelectPatient={setSelectedPatient} />
-        <div className={PANEL_GRID}>
-          <QueuePatientPicker
-            station="triage"
-            onSelectPatient={setSelectedPatient}
-            selectedVisitId={selectedPatient?.visit_id}
-            refreshKey={queueVersion}
-          />
-          <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
-            {!selectedPatient ? (
-              <NoPatientSelected />
-            ) : (
-              <div className={PANEL_GRID}>
-                <PageCard
-                  title="Patient Details"
-                  className="xl:col-span-4"
-                  contentClassName="space-y-4"
-                >
-                  <PatientDetails patient={selectedPatient} />
-                </PageCard>
-                <div className={`${PANEL_WRAPPER} flex flex-col xl:col-span-8`}>
-                  <TbFlagPanel
-                    key={`tb-${selectedPatient.visit_id}`}
-                    visitId={selectedPatient.visit_id}
-                    onFlagged={handleTbFlagged}
-                  />
-                  <div className="min-h-0 flex-1">
-                    <TriageTabs patient_id={selectedPatient.patient_id!}
-                      key={selectedPatient.visit_id}
-                      visit_id={selectedPatient.visit_id}
-                      stations={selectedPatient.stations}
-                      onStationsChanged={handleStationsChanged}
+      <StationFlowProvider station="triage" onSelectPatient={setSelectedPatient}>
+        <div className={PAGE_SHELL}>
+          <SearchBar station="triage" onSelectPatient={setSelectedPatient} />
+          <div className={PANEL_GRID}>
+            <QueuePatientPicker
+              station="triage"
+              onSelectPatient={setSelectedPatient}
+              selectedVisitId={selectedPatient?.visit_id}
+              refreshKey={queueVersion}
+            />
+            <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+              {!selectedPatient ? (
+                <NoPatientSelected />
+              ) : (
+                <div className={PANEL_GRID}>
+                  <PageCard
+                    title="Patient Details"
+                    className="xl:col-span-4"
+                    contentClassName="space-y-4"
+                  >
+                    <PatientDetails patient={selectedPatient} />
+                  </PageCard>
+                  <div className={`${PANEL_WRAPPER} flex flex-col xl:col-span-8`}>
+                    <TbFlagPanel
+                      key={`tb-${selectedPatient.visit_id}`}
+                      visitId={selectedPatient.visit_id}
+                      onFlagged={handleTbFlagged}
                     />
+                    <div className="min-h-0 flex-1">
+                      <TriageTabs patient={selectedPatient} patient_id={selectedPatient.patient_id!}
+                        key={selectedPatient.visit_id}
+                        visit_id={selectedPatient.visit_id}
+                        stations={selectedPatient.stations}
+                        onStationsChanged={handleStationsChanged}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </StationFlowProvider>
     )
 }

@@ -5,6 +5,7 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useState } from "react";
 import SaveButton from "../shared/SaveButton";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import toast from "react-hot-toast";
 import { Seva } from "@/lib/types/seva";
@@ -32,7 +33,7 @@ interface Props {
 }
 
 export default function SevaNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
   const [leftWithPinholeNew, setLeftWithPinholeNew] = useState<string>("");
   const [rightWithPinholeNew, setRightWithPinholeNew] = useState<string>("");
   const [leftWithoutPinholeNew, setLeftWithoutPinholeNew] =
@@ -89,8 +90,9 @@ export default function SevaNotesContainer({ patient }: Props) {
     };
   }, [patient.visit_id, markSaved]);
 
-  const handleSave = async () => {
-    if (!editable) return;
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
     const fractions = normalizeSnellenFields({
       leftWithPinholeNew,
       leftWithoutPinholeNew,
@@ -99,7 +101,7 @@ export default function SevaNotesContainer({ patient }: Props) {
     });
     if (!fractions) {
       toast.error(SNELLEN_ERROR);
-      return;
+      return false;
     }
 
     const data: Seva = {
@@ -114,8 +116,10 @@ export default function SevaNotesContainer({ patient }: Props) {
       await postSeva(data, patient.visit_id);
       markSaved();
       toast.success("Save Success");
+      return true;
     } catch (error) {
       toast.error("An error has occurred");
+      return false;
     }
   };
 
@@ -129,6 +133,7 @@ export default function SevaNotesContainer({ patient }: Props) {
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
+      <StationDonePrompt patient={patient} done={saved} />
       <SavedRecordFields locked={!editable}>
         {/* Kept deliberately simple: the fields may change with the partner NGO's requests.
             Free-text notes come first; eye readings are optional. */}
@@ -215,8 +220,9 @@ export default function SevaNotesContainer({ patient }: Props) {
           </div>
         </details>
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
           <SaveButton onClick={handleSave} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} disabled={!editable} />
         </div>
       </SavedRecordFields>
     </PageCard>

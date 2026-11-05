@@ -17,13 +17,14 @@ import { PageCard } from "../shared/PageCard";
 import PrescriptionPanel from "./PrescriptionPanel";
 import DentalSummary from "./DentalSummary";
 import SendToPhysiotherapy from "./SendToPhysiotherapy";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
 
 interface Props {
   patient: QueuedPatient;
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [conditionCategories, setConditionCategories] = useState<string[] | null>(null);
@@ -36,9 +37,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null);
 
-  const handleSave = async () => {
-    if (!editable) return;
-    if (saving || !loaded) return;
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
+    if (saving || !loaded) return false;
     setSaving(true);
     const data: Consultation = {
       notes: notes,
@@ -52,9 +54,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       await postConsultation(data, patient.visit_id);
       markSaved();
       toast.success("Save Success");
+      return true;
     } catch (error) {
       console.error("Consultation save failed:", error);
       toast.error("An error has occurred");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -136,6 +140,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       headerClassName="text-base"
       contentClassName="space-y-4 text-sm leading-5"
     >
+      <StationDonePrompt patient={patient} done={saved} />
       {/* Full page width: notes and conditions on the left, prescribing on the right. */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="min-w-0 space-y-4">
@@ -189,6 +194,8 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         >
           {saving ? "Saving..." : "Save consultation notes"}
         </GlassButton>
+        {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
+        <SaveAndNextButton patient={patient} onSave={handleSave} disabled={saving || !loaded || !editable} />
         <div className="ml-auto">
           {loadFailed ? (
             <p role="alert" className="text-sm text-destructive">

@@ -24,6 +24,28 @@ Patients go through the stations they need in this order:
   order, never ahead of the station the patient is waiting at, and keeps any custom order
   made with **Send to**.
 
+## Finishing at a station
+
+A patient is **done** at a station once everything needed there is saved:
+
+| Station | Done when |
+| --- | --- |
+| Triage | All three sections are saved: Visual Acuity, Presenting Complaints and Medical History |
+| Consult, Physiotherapy, Dental, Partner NGO | The station's notes are saved |
+| Pharmacy | Nothing is left to dispense (every prescription dispensed or cancelled) |
+
+- Their card in the station queue then shows a green **Done here**, and the form shows
+  **Done at [station]** with a **Send to next station** button.
+- **Save & next**, beside each form's Save, does it in one go: it saves the form, sends
+  the patient to their next station (or finishes their visit after the last one), and
+  opens the next patient waiting in this queue, in the order shown.
+- At Triage, **Save & next** on any section saves that section, then names any other
+  section still to be saved instead of moving the patient on.
+- At Consult, prescribe and tick **Send to Physiotherapy** before **Save & next**, so the
+  patient goes to the right place.
+- A form that is already saved can't be saved again by a user, so use **Send to next
+  station** (or **Next** on the card) for it.
+
 While a patient is in the clinic, anyone signed in (user or admin) can send them to
 the next station, change which stations they still go to and in what order, or
 discharge them. (To change how a queue is sorted, see
