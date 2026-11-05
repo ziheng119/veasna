@@ -20,7 +20,7 @@ interface Props {
   onChanged: (flagged: boolean, currentStation: StationId | null) => void;
 }
 
-/** Flag suspected TB at triage, or clear the flag. Anyone can do either; both send the patient to Consult. */
+/** Flag suspected TB at triage, or clear the flag. Anyone can do either; both leave Consult as the patient's only station. */
 export default function TbFlagPanel({ visitId, onChanged }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const [screening, setScreening] = useState<TbScreening | null>(null);
@@ -45,7 +45,7 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
 
   const save = async (flag: boolean) => {
     if (!token) return;
-    if (!flag && !window.confirm("Clear the TB flag? Do this once a doctor has seen the patient. They go to the Consult queue and their red TB marker is removed.")) return;
+    if (!flag && !window.confirm("Clear the TB flag? Do this once a doctor has seen the patient. Their red TB marker is removed and they go to Consult only.")) return;
     setSaving(true);
     try {
       const result = await setTbFlag(visitId, flag ? { flagged: true, red_flags: redFlags, notes } : { flagged: false }, token);
@@ -89,7 +89,7 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
       <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
         <span className="flex items-center gap-2 text-muted-foreground">
           <ShieldAlert className="size-4 text-red-600" aria-hidden="true" />
-          TB red flags? Flag the patient to send them straight to Consult, marked red in every queue.
+          TB red flags? Flag the patient to send them to Consult only, marked red in every queue.
         </span>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
           Flag suspected TB

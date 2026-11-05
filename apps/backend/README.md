@@ -149,10 +149,13 @@ These rules are enforced by the server, so they apply on every device:
   Physiotherapy, Consultation), waiting in one queue at a time.
 - **TB flag:** suspected TB is a flag on the visit, set at registration or at Triage when
   3 or more red flags are ticked (`TB_MIN_RED_FLAGS` in `utils/tb.js`, mirrored in
-  `apps/frontend/src/constants/tb.ts`). The patient goes straight to Consultation, with their other stations queued
-  after it, and is shown in red with a "TB" label in every queue. Anyone can clear the flag;
-  clearing also sends the patient to Consultation if they aren't there (`sendToConsultation`
-  in `utils/tb.js`). Only an admin can change an existing flag's red flags or notes.
+  `apps/frontend/src/constants/tb.ts`). The patient goes only to Consultation (`TB_ROUTE`):
+  their other unfinished stations are removed, and `PUT /api/queue/:visitId/stations` is
+  refused for any visit with a TB record. They are shown in red with a "TB" label in every
+  queue. Anyone can clear the flag; clearing also sends the patient to Consultation if
+  they aren't there (`sendToConsultation`). Finishing Consultation ends their stations, and
+  their prescriptions wait at Pharmacy. Only an admin can change an existing flag's red
+  flags or notes.
 - **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
   e.g. `12A` for a family member or `A12`. Unique per location and day. A typed number
   that starts with digits can't run ahead of the next number (`queueNoJumpError` in

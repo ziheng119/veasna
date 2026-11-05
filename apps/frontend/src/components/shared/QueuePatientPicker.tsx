@@ -14,6 +14,8 @@ import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
 import ClearTbButton from "./ClearTbButton";
+import DisabledActionHint from "./DisabledActionHint";
+import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -177,6 +179,8 @@ export default function QueuePatientPicker({
           const isSelected = selectedVisitId === patient.visit_id;
           const next = nextStation(patient);
           const tbFlagged = !!patient.tb_flagged;
+          // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
+          const routeLocked = patient.tb_status != null;
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -241,17 +245,20 @@ export default function QueuePatientPicker({
                     <Check className="size-3.5" />
                     {next ? "Next" : "Finish"}
                   </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
-                  title="Send to station…: choose which stations this patient goes to next, and in what order"
-                  aria-label={`Send ${patient.english_name || "patient"} to another station`}
-                  onClick={() => setEditingPatient(patient)}
-                >
-                  <ListChecks className="size-3.5" />
-                  Send to
-                </Button>
+                <DisabledActionHint disabled={routeLocked} message={TB_ROUTE_LOCKED_HINT}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={routeLocked}
+                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
+                    title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
+                    aria-label={`Send ${patient.english_name || "patient"} to another station`}
+                    onClick={() => setEditingPatient(patient)}
+                  >
+                    <ListChecks className="size-3.5" />
+                    Send to
+                  </Button>
+                </DisabledActionHint>
                 <Button
                   type="button"
                   variant="ghost"

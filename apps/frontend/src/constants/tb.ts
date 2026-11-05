@@ -1,6 +1,7 @@
-// Suspected TB is a flag on the visit, set at registration or triage. A flagged patient goes
-// straight to the Consult queue and is marked in red ("TB") in every queue; anyone can clear the
-// flag once a doctor has seen them. A patient is flagged only with TB_MIN_RED_FLAGS or more red
+// Suspected TB is a flag on the visit, set at registration or triage. A flagged patient goes only
+// to the Consult queue (TB_STATIONS) and is marked in red ("TB") in every queue. The doctor who sees
+// them can clear the flag; finishing Consult leaves their prescriptions at Pharmacy. Their stations
+// can't be changed. A patient is flagged only with TB_MIN_RED_FLAGS or more red
 // flags ticked. Update this list to match the
 // red flags provided by the doctors.
 export const TB_RED_FLAGS = [
@@ -13,6 +14,12 @@ export const TB_RED_FLAGS = [
   { id: "past_tb", label: "Previous TB or unfinished TB treatment" },
   { id: "other", label: "Other concern (describe in notes)" },
 ] as const;
+
+import type { StationId } from "./stations";
+
+// The only station a TB patient goes to. Must match TB_ROUTE in apps/backend/utils/tb.js.
+export const TB_STATIONS: StationId[] = ["consultation"];
+export const TB_ROUTE_LOCKED_HINT = "Suspected TB patients only go to Consult, so their stations can't be changed.";
 
 // Must match TB_MIN_RED_FLAGS in apps/backend/utils/tb.js.
 export const TB_MIN_RED_FLAGS = 3;

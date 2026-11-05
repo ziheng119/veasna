@@ -1,8 +1,8 @@
 // utils/tb.js
-// Suspected TB is a flag on the visit, kept in tb_screening. A flagged visit goes straight to the
-// Consultation queue, marked in red in every queue, so a doctor sees the patient (in the TB tent)
-// first. Anyone can clear the flag; the patient then stays at, or returns to, Consultation, since
-// the doctor's tent visit is their consultation. Their other unfinished stations stay queued after it.
+// Suspected TB is a flag on the visit, kept in tb_screening. A flagged visit goes only to the
+// Consultation queue (TB_ROUTE), marked in red in every queue: the doctor sees the patient in the
+// TB tent, can clear the flag there, and finishing Consultation leaves their prescriptions at
+// Pharmacy. The route of a visit that was ever flagged cannot be edited.
 //   status 'suspected' = flagged; 'cleared' = flag removed (no TB);
 //   'tb_likely' = flagged (older records reviewed at the former TB Tent).
 
@@ -59,41 +59,47 @@ async function flagTb(client, visitId, { redFlags = [], notes = '' }, userId) {
   return rows[0];
 }
 
-// The route a TB-flagged visit takes: Consultation first, then its other stations in order.
-function consultationFirst(stations) {
-  return ['consultation', ...stations.filter((station) => station !== 'consultation')];
+// The only station a TB visit goes to: the doctor sees them at Consultation (in the TB tent), and
+// finishing it ends their stations, leaving their prescriptions at Pharmacy.
+const TB_ROUTE = ['consultation'];
+const TB_ROUTE_LOCKED_ERROR = 'This patient was flagged for suspected TB, so they only go to Consult and their stations cannot be changed.';
+
+// True when the visit was ever flagged for TB (flagged or cleared): its route is then fixed.
+async function isTbVisit(client, visitId) {
+  const { rows } = await client.query('SELECT EXISTS (SELECT 1 FROM tb_screening WHERE visit_id = $1) AS tb', [visitId]);
+  return Boolean(rows[0]?.tb);
 }
 
-// Makes Consultation the visit's current station, ahead of its other unfinished stations, adding it
-// when missing. Nothing changes when the visit is discharged, Consultation is already current, or
-// Consultation is already finished. The old route is kept in visit_station_route_history, as for any
-// route edit. The caller must hold the visit's row lock. Returns the current station afterwards
-// (null when the visit is discharged or finished).
+// Makes Consultation the visit's only remaining station: other unfinished stations are removed and
+// Consultation is added when missing. Nothing changes when the visit is discharged, the route is
+// already just Consultation, or Consultation is already finished (the doctor has seen them). The old
+// route is kept in visit_station_route_history, as for any route edit. The caller must hold the
+// visit's row lock. Returns the current station afterwards (null when discharged or finished).
 async function sendToConsultation(client, visitId, userId) {
   const visit = await client.query('SELECT completed_at FROM visits WHERE id = $1', [visitId]);
   if (!visit.rows.length || visit.rows[0].completed_at) return null;
   const { rows: route } = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
   const pending = route.filter((row) => !row.completed_at).map((row) => row.station);
   const consultationDone = route.some((row) => row.station === 'consultation' && row.completed_at);
-  if (consultationDone || pending[0] === 'consultation') return pending[0] ?? null;
+  if (consultationDone || pending.join() === TB_ROUTE.join()) return pending[0] ?? null;
 
-  const wanted = consultationFirst(pending);
   await client.query(
     'INSERT INTO visit_station_route_history (visit_id, previous_stations, requested_stations, last_updated_by) VALUES ($1, $2::jsonb, $3::jsonb, $4)',
-    [visitId, JSON.stringify(route), JSON.stringify(wanted), userId]
+    [visitId, JSON.stringify(route), JSON.stringify(TB_ROUTE), userId]
   );
-  // Consultation gets a new arrival time; the station the patient left waits without one until
-  // it becomes current again, as when a station is skipped.
-  for (const [index, station] of wanted.entries()) {
-    await client.query(
-      `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
-       VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)
-       ON CONFLICT (visit_id, station) DO UPDATE SET
-          position = EXCLUDED.position, entered_at = EXCLUDED.entered_at,
-          last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
-      [visitId, station, index + 1, index === 0, userId]
-    );
-  }
+  await client.query(
+    "DELETE FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL AND station <> 'consultation'",
+    [visitId]
+  );
+  // A patient already waiting at Consultation keeps their place; otherwise they arrive now.
+  await client.query(
+    `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
+     VALUES ($1, 'consultation', 1, NOW(), $2)
+     ON CONFLICT (visit_id, station) DO UPDATE SET
+        position = 1, entered_at = CASE WHEN $3 THEN visit_stations.entered_at ELSE NOW() END,
+        last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
+    [visitId, userId, pending[0] === 'consultation']
+  );
   return 'consultation';
 }
 
@@ -118,6 +124,8 @@ module.exports = {
   rejectUnsavableVisit,
   flagTb,
   clearTbFlag,
-  consultationFirst,
+  TB_ROUTE,
+  TB_ROUTE_LOCKED_ERROR,
+  isTbVisit,
   sendToConsultation,
 };

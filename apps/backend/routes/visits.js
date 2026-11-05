@@ -13,7 +13,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQu
 const { STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, consultationFirst } = require('../utils/tb');
+const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -54,8 +54,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const { patientInfo, visit, vitals, hef } = req.body;
     // Stations the patient is indicated for. Optional: defaults to every station.
     const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
-    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes straight to
-    // Consultation, then its other stations, and is marked in red in every queue.
+    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes only to
+    // Consultation, whatever stations were ticked, and is marked in red in every queue.
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
@@ -202,7 +202,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const visitTimestamp = visitResult.rows[0].created_at;
 
         // Step 2b: Queue the visit at its first station; later stations are entered as each one completes
-        const route = tbFlagged ? consultationFirst(stations) : stations;
+        const route = tbFlagged ? TB_ROUTE : stations;
         for (const [index, station] of route.entries()) {
             await client.query(
                 `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)

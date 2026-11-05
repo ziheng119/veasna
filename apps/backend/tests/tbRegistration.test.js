@@ -1,4 +1,4 @@
-// A patient registered with TB red flags goes straight to Consultation (routes/visits.js).
+// A patient registered with TB red flags goes only to Consultation (routes/visits.js).
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
@@ -44,16 +44,16 @@ describe('Registering a suspected TB patient', () => {
     .filter(([sql]) => sql.includes('INSERT INTO visit_stations'))
     .map(([, params]) => [params[1], params[2], params[3]]);
 
-  test('a flagged patient starts at Consultation, then their other stations in order', async () => {
+  test('a flagged patient is queued only at Consultation, whatever stations were ticked', async () => {
     const res = await register({ stations: ['triage', 'seva', 'consultation'], tb: { red_flags: THREE_FLAGS, notes: '' } });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ current_station: 'consultation', tb_status: 'suspected' });
-    expect(queued()).toEqual([['consultation', 1, true], ['triage', 2, false], ['seva', 3, false]]);
+    expect(queued()).toEqual([['consultation', 1, true]]);
   });
 
-  test('Consultation is added for a flagged patient who was not sent there', async () => {
+  test('Consultation is used for a flagged patient who was not sent there', async () => {
     await register({ stations: ['triage', 'physiotherapy'], tb: { red_flags: THREE_FLAGS } });
-    expect(queued().map(([station]) => station)).toEqual(['consultation', 'triage', 'physiotherapy']);
+    expect(queued()).toEqual([['consultation', 1, true]]);
   });
 
   test('fewer than 3 red flags are refused and nothing is saved', async () => {

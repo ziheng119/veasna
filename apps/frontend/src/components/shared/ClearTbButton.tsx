@@ -19,7 +19,7 @@ interface Props {
 
 /**
  * Clears a patient's suspected-TB flag once a doctor has seen them in the TB tent. Anyone may.
- * The patient stays at, or goes to, Consultation, since the tent visit is their consultation.
+ * The patient stays at (or goes to) Consult, their only station; the doctor then presses Finish.
  */
 export default function ClearTbButton({ patient, onCleared, className }: Props) {
   const token = useUserStore((state) => state.user?.token);
@@ -30,7 +30,7 @@ export default function ClearTbButton({ patient, onCleared, className }: Props) 
     if (!token) return;
     if (!window.confirm(
       `Clear the TB flag for ${name} (number ${patient.queue_no})? Do this once a doctor has seen them. ` +
-      "They go to the Consult queue and their red TB marker is removed."
+      "Their red TB marker is removed and they stay in the Consult queue: press Finish when the consultation is done."
     )) return;
     setSaving(true);
     try {
@@ -50,7 +50,7 @@ export default function ClearTbButton({ patient, onCleared, className }: Props) 
       type="button"
       variant="ghost"
       disabled={saving}
-      title="Doctor has seen this patient: clear the TB flag and send them to Consult"
+      title="Doctor has seen this patient: clear the TB flag. They stay at Consult until you press Finish."
       aria-label={`Clear TB flag for ${name}`}
       onClick={clear}
       className={cn("text-red-700 hover:text-red-800 dark:text-red-300", className)}

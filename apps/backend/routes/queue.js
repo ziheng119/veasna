@@ -9,6 +9,7 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
 const { planStationRoute } = require('../utils/stationRoute');
+const { isTbVisit, TB_ROUTE_LOCKED_ERROR } = require('../utils/tb');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
@@ -170,6 +171,7 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
 // PUT /api/queue/:visitId/stations
 // ordered=true treats stations as the explicit remaining route (including repeat stations).
 // The UI supplies its original snapshot to reject stale edits from concurrent users.
+// A visit that was ever flagged for TB only goes to Consultation: its route is refused (409).
 router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = Number(req.params.visitId);
     const userId = req.user.id;
@@ -189,6 +191,10 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
         if (!visit.rows.length || visit.rows[0].completed_at) {
             await client.query('ROLLBACK');
             return res.status(visit.rows.length ? 409 : 404).json({ error: visit.rows.length ? 'Visit is already completed' : 'Visit not found' });
+        }
+        if (await isTbVisit(client, visitId)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: TB_ROUTE_LOCKED_ERROR });
         }
         const existing = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
         const plan = planStationRoute(existing.rows, req.body);

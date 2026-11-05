@@ -24,6 +24,7 @@ user's own entries too, on any day.
 | Change saved details: names, queue numbers, vitals, HEF, clinical notes | No | Yes |
 | Change or clear a saved signature, or delete a referral | No | Yes |
 | Send a patient to the next station (**Next/Finish**), change their stations or their order (**Send to**), or discharge them | Yes | Yes |
+| Change a suspected TB patient's stations (they only go to Consult) | No | No |
 | Add a new medicine to the pharmacy | Yes | Yes |
 | Prescribe from the pharmacy (reserves the stock) | Yes | Yes |
 | Change stock, rename or delete a medicine, dispense, or cancel a prescription | No | Yes |

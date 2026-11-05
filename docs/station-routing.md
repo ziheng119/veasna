@@ -26,7 +26,7 @@ Good to know:
 - Finishing the last station still completes the visit.
 - A discharged visit can't be reopened here. Register a new visit if the patient comes back.
 - Suspected TB is not a stop. It is a flag on the visit that sends the patient to
-  Consultation first (see below).
+  Consultation only, and their route can't be changed (see below).
 - If someone else changed the route while you had the dialog open, saving shows a
   conflict message. Close the dialog and open it again to see the current route.
 
@@ -37,31 +37,40 @@ there. Veasna follows that:
 
 1. **Flag:** tick **3 or more** TB red flags at registration, or press **Flag suspected
    TB** at Triage and tick 3 or more. With fewer, the patient isn't flagged and goes
-   through their stations as usual; the form shows how many are ticked. The patient goes **straight to the Consult queue**, shown in red with a
-   **TB** label in every queue. Their other stations (e.g. Triage, Partner NGO) stay on
-   their route, after Consultation.
-2. **Clear:** once the doctor has seen them, anyone presses **Clear TB** on the patient's
-   queue card (Home or any station queue), or **Clear TB flag** at Triage. The red marker
-   goes and the patient is in the Consult queue, since the tent visit is their
-   consultation.
-3. **Consult as usual:** the doctor writes the consultation notes and presses **Next**
-   or **Finish**. Use **Send to** to remove stations the patient no longer needs.
+   through their stations as usual; the form shows how many are ticked.
+2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
+   red with a **TB** label in every queue. Consult is their only station: any others
+   (Triage, Partner NGO, Physiotherapy) are taken off their route, and the registration
+   form doesn't offer them.
+3. **Clear:** the doctor who sees them in the TB tent (or anyone) presses **Clear TB** on
+   the patient's queue card, or **Clear TB flag** at Triage. The red marker goes; the
+   patient stays in the Consult queue.
+4. **Finish:** the doctor writes the consultation notes, prescribes, and presses
+   **Finish**. That ends the patient's stations, and their prescriptions wait under
+   **Pharmacy → Prescriptions to dispense**.
+
+A TB patient's stations can't be changed, before or after the flag is cleared, so
+**Send to** is greyed out on their card. **Finish** and **Discharge** still work.
 
 Good to know:
 
-- Clearing someone who isn't at Consultation (e.g. flagged before this update) sends
-  them there too. A finished Consultation isn't reopened, and a discharged visit stays
-  discharged.
+- Clearing someone who isn't at Consult (e.g. flagged before this update) sends them
+  there too, as their only station. A finished Consultation isn't reopened, and a
+  discharged visit stays discharged.
 - If two people clear the same patient, the second press changes nothing.
 - Only an admin can change the red flags or notes of an existing flag (on **Patient
   Details**). That never moves the patient.
+- A patient flagged by mistake still goes to Consult only. The doctor can **Finish**
+  them; register a new visit if they need other stations.
 
 ## Technical details
 
 `visit_stations.position` holds each visit's own route. Finishing a station moves the
 patient to the next unfinished station by position. Flagging or clearing TB makes
-Consultation the current station (`sendToConsultation` in `apps/backend/utils/tb.js`),
-recorded in `visit_station_route_history` like any route change.
+Consultation the only unfinished station (`TB_ROUTE` and `sendToConsultation` in
+`apps/backend/utils/tb.js`), recorded in `visit_station_route_history` like any route
+change. `PUT /api/queue/:visitId/stations` returns HTTP 409 for any visit with a TB
+record (flagged or cleared), for admins too.
 
 `PUT /api/queue/:visitId/stations` takes the new route and the route the dialog
 started from:

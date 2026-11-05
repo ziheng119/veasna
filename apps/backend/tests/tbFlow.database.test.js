@@ -1,5 +1,6 @@
-// Suspected-TB flow (routes/tb.js, utils/tb.js) against real PostgreSQL temp tables: flagging or
-// clearing sends the patient to Consultation, and anyone may clear a flag.
+// Suspected-TB flow (routes/tb.js, utils/tb.js, routes/queue.js) against real PostgreSQL temp
+// tables: flagging or clearing leaves Consultation as the only remaining station, the route can't
+// be edited, and anyone may clear a flag.
 // Run with RUN_DB_TESTS=1 and a configured apps/backend/.env. No clinic tables are touched.
 const express = require('express');
 const request = require('supertest');
@@ -59,7 +60,9 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     app = express();
     app.use(express.json());
     app.use('/api/tb', require('../routes/tb'));
+    app.use('/api/queue', require('../routes/queue'));
   });
+  const asRole = (req, role) => req.set('Authorization', `Bearer ${jwt.sign({ id: role === 'admin' ? ADMIN_ID : USER_ID, role }, secret)}`);
 
   beforeEach(() => client.query(`
     TRUNCATE visit_station_route_history, tb_screening, visit_stations, visits, users RESTART IDENTITY CASCADE;
@@ -72,17 +75,24 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     else process.env.JWT_SECRET = previousSecret;
   });
 
-  test('flagging at Triage sends the patient straight to Consultation; other stations stay queued', async () => {
+  test('flagging at Triage sends the patient straight to Consultation, their only remaining station', async () => {
     await setRoute(WAITING_AT_TRIAGE);
     const res = await flag({ flagged: true, red_flags: THREE_FLAGS });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ flagged: true, status: 'suspected', current_station: 'consultation' });
+    expect(await route()).toEqual([{ station: 'consultation', entered: true, completed: false }]);
+    expect(await history()).toEqual([{ requested_stations: ['consultation'], last_updated_by: USER_ID }]);
+  });
+
+  test('finished stations are kept, and a patient already at Consultation keeps their arrival time', async () => {
+    await setRoute(`(1,'triage',1,NOW(),NOW(),${USER_ID}), (1,'consultation',2,'2026-11-05 08:00',NULL,${USER_ID}), (1,'seva',3,NULL,NULL,${USER_ID})`);
+    await flag({ flagged: true, red_flags: THREE_FLAGS });
     expect(await route()).toEqual([
+      { station: 'triage', entered: true, completed: true },
       { station: 'consultation', entered: true, completed: false },
-      { station: 'triage', entered: false, completed: false },
-      { station: 'seva', entered: false, completed: false },
     ]);
-    expect(await history()).toEqual([{ requested_stations: ['consultation', 'triage', 'seva'], last_updated_by: USER_ID }]);
+    const { rows } = await client.query("SELECT entered_at FROM visit_stations WHERE station = 'consultation'");
+    expect(rows[0].entered_at.getHours()).toBe(8);
   });
 
   test('any user can clear the flag; the patient stays at Consultation', async () => {
@@ -95,17 +105,38 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     expect(await history()).toEqual([]);
   });
 
-  test('clearing a patient still waiting elsewhere (flagged before this change) sends them to Consultation', async () => {
+  test('clearing a patient still waiting elsewhere (flagged before this change) sends them to Consultation only', async () => {
     await setRoute(WAITING_AT_TRIAGE, { flagged: true });
     const res = await flag({ flagged: false });
     expect(res.body).toMatchObject({ flagged: false, current_station: 'consultation' });
-    expect(await pending()).toEqual(['consultation', 'triage', 'seva']);
+    expect(await pending()).toEqual(['consultation']);
   });
 
   test('Consultation is added when the route does not include it', async () => {
     await setRoute(`(1,'triage',1,NOW(),NULL,${USER_ID}), (1,'physiotherapy',2,NULL,NULL,${USER_ID})`);
     expect((await flag({ flagged: true, red_flags: THREE_FLAGS })).body.current_station).toBe('consultation');
-    expect(await pending()).toEqual(['consultation', 'triage', 'physiotherapy']);
+    expect(await pending()).toEqual(['consultation']);
+  });
+
+  test.each(['user', 'admin'])("a TB patient's stations cannot be changed, even by %s, before or after clearing", async role => {
+    await setRoute(`(1,'consultation',1,NOW(),NULL,${USER_ID})`, { flagged: true });
+    const reroute = () => asRole(request(app).put('/api/queue/1/stations'), role)
+      .send({ stations: ['triage'], ordered: true, expected_stations: [{ station: 'consultation', completed: false }] });
+    for (const step of ['flagged', 'cleared']) {
+      const res = await reroute();
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/only go to Consult/);
+      expect(await pending()).toEqual(['consultation']);
+      if (step === 'flagged') await flag({ flagged: false });
+    }
+  });
+
+  test("finishing Consultation ends a TB patient's stations", async () => {
+    await setRoute(`(1,'consultation',1,NOW(),NULL,${USER_ID})`, { flagged: true });
+    await flag({ flagged: false });
+    const res = await asRole(request(app).post('/api/queue/1/stations/consultation/complete'), 'user');
+    expect(res.body).toMatchObject({ completed_station: 'consultation', next_station: null });
+    expect((await client.query('SELECT completed_at IS NOT NULL AS done FROM visits')).rows[0].done).toBe(true);
   });
 
   test('a finished Consultation is not reopened', async () => {

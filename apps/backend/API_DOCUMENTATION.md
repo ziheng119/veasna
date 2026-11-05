@@ -133,7 +133,7 @@ Visits currently waiting at one station, ordered by when they arrived there. Wit
 Finish a station and move the visit to its next indicated station: `{ "next_station": "consultation" }`. Finishing the last station completes the visit (`next_station` is `null`). Returns `409` if the visit is not currently waiting at that station.
 
 **PUT** `queue/{visitId}/stations`
-Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still has to go through. Completed stations are kept; pending ones are added or removed to match.
+Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still has to go through. Completed stations are kept; pending ones are added or removed to match. Returns `409` for a visit that was ever flagged for TB (flagged or cleared): such a visit only goes to Consultation.
 
 **GET** `queue/next?location_id={id}`
 Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number when `visit.queue_no` is omitted.
@@ -142,7 +142,7 @@ Preview of the next queue number for the location today: `{ "queue_no": "7" }`. 
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed.
 
 **TB flag**
-Suspected TB is a flag on the visit, not a station. A flagged visit goes straight to `consultation` (added if it was not on the route), with its other unfinished stations queued after it in order, and every queue returns it with `tb_flagged: true`, so the app marks it in red. Clearing the flag also makes `consultation` current, unless it is already finished or the visit is discharged. Each such move is recorded in `visit_station_route_history`. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
+Suspected TB is a flag on the visit, not a station. A flagged visit goes only to `consultation` (`TB_ROUTE`): at registration it is queued there whatever `stations` says, and flagging or clearing later removes its other unfinished stations and adds `consultation` if missing (unless Consultation is already finished or the visit is discharged). Each such move is recorded in `visit_station_route_history`. Every queue returns the visit with `tb_flagged: true`, so the app marks it in red. Its route can't be edited afterwards, even once cleared (see `PUT queue/{visitId}/stations`); finishing Consultation completes its stations, and its prescriptions stay pending for Pharmacy. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
 
 Flag at registration with `POST visits` body field `tb: { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "..." }` (red flags are short keys, see `apps/frontend/src/constants/tb.ts`), or at triage with `POST tb/{visitId}/flag`. A visit is flagged only with **3 or more** red flags (`TB_MIN_RED_FLAGS`); with fewer, both return `400` and nothing is saved. Leave `tb` out to register a patient who isn't flagged.
 

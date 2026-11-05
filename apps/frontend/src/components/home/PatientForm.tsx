@@ -28,7 +28,7 @@ import { StationCheckboxes } from "../shared/StationCheckboxes";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
 import { ShieldAlert } from "lucide-react";
 
@@ -208,7 +208,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
-      if (stations.length === 0) nextErrors.stations = "Select at least one station.";
+      if (!tbFlagged && stations.length === 0) nextErrors.stations = "Select at least one station.";
 
       setErrors(nextErrors);
 
@@ -318,7 +318,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               patientInfo: completePatientInfo,
               vitals,
               hef,
-              stations,
+              // The server also queues a TB patient only at Consult.
+              stations: tbFlagged ? TB_STATIONS : stations,
               tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
             },
             token
@@ -804,7 +805,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes straight to the Consult queue, shown in red in every queue, so a doctor sees them first.
+                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {TB_RED_FLAGS.map((flag) => (
@@ -849,14 +850,22 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
                   </p>
-                  <StationCheckboxes
-                    idPrefix="station"
-                    selected={stations}
-                    onChange={(next) => {
-                      setStations(next);
-                      clearFieldError("stations");
-                    }}
-                  />
+                  {tbFlagged ? (
+                    // The ticked stations are kept, in case the red flags are unticked again.
+                    <p className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive" role="status">
+                      <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                      Suspected TB: the patient goes to Consult only, then Pharmacy for their prescriptions. Other stations can&apos;t be chosen.
+                    </p>
+                  ) : (
+                    <StationCheckboxes
+                      idPrefix="station"
+                      selected={stations}
+                      onChange={(next) => {
+                        setStations(next);
+                        clearFieldError("stations");
+                      }}
+                    />
+                  )}
                   {errors.stations && <p className="mt-2 text-xs text-destructive">{errors.stations}</p>}
                 </div>
               </TabsContent>

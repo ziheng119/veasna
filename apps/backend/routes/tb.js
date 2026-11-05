@@ -1,5 +1,5 @@
 // routes/tb.js
-// Suspected-TB flag on a visit. A flagged patient goes straight to the Consultation queue and is
+// Suspected-TB flag on a visit. A flagged patient goes only to the Consultation queue and is
 // shown in red in every queue, so a doctor sees them first (see utils/tb.js).
 const express = require('express');
 const router = express.Router();
@@ -41,7 +41,7 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
 // POST /api/tb/:visitId/flag - Body: { flagged: boolean, red_flags?: string[], notes?: string }
 // Flagging needs at least TB_MIN_RED_FLAGS red flags (3).
 // Anyone may flag a patient (e.g. at triage) or clear the flag (the doctor who saw them in the TB
-// tent). Either sends the patient to Consultation. Changing an existing flag's red flags or notes is
+// tent). Either makes Consultation the patient's only remaining station. Changing an existing flag's red flags or notes is
 // an edit of saved data and needs an admin. Clearing a visit that is not flagged changes nothing.
 // Responds with the screening, `flagged`, and the visit's `current_station` afterwards.
 router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -93,7 +93,7 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
         const screening = flagged
             ? await flagTb(client, visitId, { redFlags, notes: textOrEmpty(req.body.notes) }, req.user.id)
             : await clearTbFlag(client, visitId, req.user.id);
-        // A new flag or a cleared one sends the patient to Consultation; editing a flag's details does not.
+        // A new flag or a cleared one fixes the route to Consultation; editing a flag's details does not.
         const currentStation = flagged && wasFlagged ? undefined : await sendToConsultation(client, visitId, req.user.id);
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, req.user.id]);
         await client.query('COMMIT');

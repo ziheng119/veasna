@@ -37,10 +37,17 @@ afterEach(async () => {
 });
 
 test('a user can use Next, Send to and Discharge on a station queue card', async () => {
-  stationPatients = [{ ...tbPatient, tb_flagged: false }];
+  stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null }];
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
   for (const text of ['Next', 'Send to', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
   expect(button(renderer, 'Clear TB')).toBeUndefined();
+});
+
+test.each(['suspected', 'cleared'])('a TB patient (%s) can be finished or discharged, but not sent to other stations', async status => {
+  stationPatients = [{ ...tbPatient, tb_status: status, tb_flagged: status === 'suspected', stations: [{ station: 'consultation', completed: false }] }];
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+  expect(button(renderer, 'Send to').props.disabled).toBe(true);
+  for (const text of ['Finish', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
 });
 
 test('a user can clear a TB flag from the station queue card; the selected patient stays selected', async () => {
