@@ -1,16 +1,17 @@
 // routes/family.js
-// Grouping today's patients into families (visits.family, see utils/family.js). Queue numbers are
-// not changed. Anyone may do it: it is how registration staff group a family after registering each
-// member. Members waiting at the same station move on together (utils/familyMoves.js).
+// Grouping patients into families (patients.family, see utils/family.js). Queue numbers are not
+// changed. Anyone may do it: it is how registration staff group a family after registering each
+// member. A family always has at least two members. Members waiting at the same station move on
+// together (utils/familyMoves.js).
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { toPositiveInt } = require('../utils/validation');
 const { nextFamilyLetters } = require('../utils/family');
-const { lockFamilies, visitLocation, releaseFamily, releaseAlone } = require('../utils/familyMoves');
+const { lockFamilies, releasePatient } = require('../utils/familyMoves');
 
-const VISIT_NOT_FOUND = { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
+const PATIENT_NOT_FOUND = { status: 404, body: { error: 'Patient not found. They may have been deleted on another device.' } };
 
 // Runs work(client) in a transaction; work returns { status, body } to send.
 async function inTransaction(res, what, work) {
@@ -35,88 +36,100 @@ async function inTransaction(res, what, work) {
     }
 }
 
-// Locks the visits (in id order, after the location's family lock) and returns them.
-async function lockVisits(client, ids) {
-    const locationId = await visitLocation(client, ids[0]);
-    if (locationId === null) return [];
-    await lockFamilies(client, locationId);
+// Locks the patients (in id order, after the location's family lock) and returns them.
+async function lockPatients(client, ids) {
+    const { rows: first } = await client.query('SELECT location_id FROM patients WHERE id = $1', [ids[0]]);
+    if (!first.length) return [];
+    await lockFamilies(client, first[0].location_id);
     const { rows } = await client.query(
-        `SELECT id, queue_no, family, location_id, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
-         FROM visits WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE`,
+        'SELECT id, english_name, family, location_id FROM patients WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
         [ids]
     );
     return rows;
 }
 
-async function setFamily(client, visit, family, userId) {
+async function setFamily(client, patientId, family, userId) {
     await client.query(
-        'UPDATE visits SET family = $2, last_updated_by = $3, last_updated_at = NOW() WHERE id = $1',
-        [visit.id, family, userId]
+        'UPDATE patients SET family = $2, last_updated_by = $3, last_updated_at = NOW() WHERE id = $1',
+        [patientId, family, userId]
     );
 }
 
-// POST /api/family - Body: { visit_id, with_visit_id }
-// Puts visit_id in with_visit_id's family. When with_visit_id has no family, it joins visit_id's
-// family instead, or both start a new family (the next free letter that day). Both visits must be
-// at the same location on the same day. Returns { family, visits: [{ visit_id, queue_no, family }] }.
+// A family left with one member is no longer a family: that patient's letter is taken off, and the
+// letter is free for the next family. Returns the remaining patients' ids, for releasePatient.
+async function tidyFamily(client, locationId, family, userId) {
+    const { rows } = await client.query(
+        'SELECT id FROM patients WHERE location_id = $1 AND family = $2 ORDER BY id FOR UPDATE',
+        [locationId, family]
+    );
+    if (rows.length === 1) await setFamily(client, rows[0].id, null, userId);
+    return rows.map((row) => row.id);
+}
+
+// POST /api/family - Body: { patient_id, with_patient_id }
+// Puts patient_id in with_patient_id's family, or, when that patient has none, starts a new family
+// of the two with the first free letter at the location. A patient leaving another family for it
+// leaves that family behind (dissolved if only one member is left). Both patients must belong to the
+// same location. Returns { family, patients: [{ patient_id, family }] }.
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
-    const visitId = toPositiveInt(req.body.visit_id);
-    const withVisitId = toPositiveInt(req.body.with_visit_id);
-    if (!visitId || !withVisitId) return res.status(400).json({ error: 'visit_id and with_visit_id must be positive integers' });
-    if (visitId === withVisitId) return res.status(400).json({ error: 'Choose another patient to group with.' });
+    const patientId = toPositiveInt(req.body.patient_id);
+    const withPatientId = toPositiveInt(req.body.with_patient_id);
+    if (!patientId || !withPatientId) return res.status(400).json({ error: 'patient_id and with_patient_id must be positive integers' });
+    if (patientId === withPatientId) return res.status(400).json({ error: 'Choose another patient to group with.' });
 
     await inTransaction(res, 'grouping a family', async (client) => {
-        const rows = await lockVisits(client, [visitId, withVisitId]);
-        const visit = rows.find((row) => row.id === visitId);
-        const other = rows.find((row) => row.id === withVisitId);
-        if (!visit || !other) return VISIT_NOT_FOUND;
-        if (visit.location_id !== other.location_id || visit.visit_date !== other.visit_date) {
-            return { status: 400, body: { error: 'Both patients must be in the same day\'s queue at the same location.' } };
+        const rows = await lockPatients(client, [patientId, withPatientId]);
+        const patient = rows.find((row) => row.id === patientId);
+        const other = rows.find((row) => row.id === withPatientId);
+        if (!patient || !other) return PATIENT_NOT_FOUND;
+        if (patient.location_id !== other.location_id) {
+            return { status: 400, body: { error: 'Both patients must belong to the same location.' } };
+        }
+        if (other.family && other.family === patient.family) {
+            return { status: 200, body: { family: other.family, patients: [{ patient_id: patientId, family: other.family }, { patient_id: withPatientId, family: other.family }] } };
         }
 
-        let family = other.family || visit.family;
+        const userId = req.user.id;
+        const old = patient.family;
+        if (old) {
+            await setFamily(client, patientId, null, userId);
+        }
+        let family = other.family;
         if (!family) {
-            const { rows: day } = await client.query(
-                'SELECT DISTINCT family FROM visits WHERE location_id = $1 AND visit_date = $2::date AND family IS NOT NULL',
-                [visit.location_id, visit.visit_date]
+            const { rows: used } = await client.query(
+                'SELECT DISTINCT family FROM patients WHERE location_id = $1 AND family IS NOT NULL',
+                [patient.location_id]
             );
-            family = nextFamilyLetters(day.map((row) => row.family));
+            family = nextFamilyLetters(used.map((row) => row.family));
+            await setFamily(client, withPatientId, family, userId);
         }
-        const left = [];
-        for (const row of [visit, other]) {
-            if (row.family === family) continue;
-            if (row.family) left.push(row.family);
-            await setFamily(client, row, family, req.user.id);
-        }
-        // A member done at a station may now have no one left to wait for in its old family, or
-        // may complete the group waiting at its station in the new one.
-        for (const changed of [...left, family]) await releaseFamily(client, visit, changed, req.user.id);
+        await setFamily(client, patientId, family, userId);
+        const leftBehind = old ? await tidyFamily(client, patient.location_id, old, userId) : [];
+
+        // Whoever was waiting at a station for a member who changed family may now move on.
+        for (const id of [patientId, withPatientId, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, userId);
         return {
             status: 200,
-            body: {
-                family,
-                visits: [visit, other].map((row) => ({ visit_id: row.id, queue_no: row.queue_no, family })),
-            },
+            body: { family, patients: [{ patient_id: patientId, family }, { patient_id: withPatientId, family }] },
         };
     });
 });
 
-// POST /api/family/leave - Body: { visit_id }
-// Takes the visit out of its family; its queue number stays. The rest of the family stays together.
+// POST /api/family/leave - Body: { patient_id }
+// Takes the patient out of their family. A family left with one member is dissolved.
 router.post('/leave', authenticateToken, requireRole(['any']), async (req, res) => {
-    const visitId = toPositiveInt(req.body.visit_id);
-    if (!visitId) return res.status(400).json({ error: 'visit_id must be a positive integer' });
+    const patientId = toPositiveInt(req.body.patient_id);
+    if (!patientId) return res.status(400).json({ error: 'patient_id must be a positive integer' });
 
     await inTransaction(res, 'leaving a family', async (client) => {
-        const [visit] = await lockVisits(client, [visitId]);
-        if (!visit) return VISIT_NOT_FOUND;
-        if (visit.family) {
-            await setFamily(client, visit, null, req.user.id);
-            // Whoever was waiting only for this patient moves on, and so does this patient if done here.
-            await releaseFamily(client, visit, visit.family, req.user.id);
-            await releaseAlone(client, visitId, req.user.id);
+        const [patient] = await lockPatients(client, [patientId]);
+        if (!patient) return PATIENT_NOT_FOUND;
+        if (patient.family) {
+            await setFamily(client, patientId, null, req.user.id);
+            const leftBehind = await tidyFamily(client, patient.location_id, patient.family, req.user.id);
+            for (const id of [patientId, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, req.user.id);
         }
-        return { status: 200, body: { visit_id: visitId, queue_no: visit.queue_no, family: null } };
+        return { status: 200, body: { patient_id: patientId, family: null } };
     });
 });
 

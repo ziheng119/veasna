@@ -12,6 +12,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 import TbBadge, { tbCardClass } from "../shared/TbBadge";
 import FamilyBadge from "../shared/FamilyBadge";
+import { ENTER_FAST, LIFT } from "@/lib/motion";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -83,7 +84,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                 // The card's own button (Discharge) handles its own clicks.
                 if (href && !(event.target as Element).closest("button")) router.push(href);
               }}
-              className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${href ? "cursor-pointer" : ""} ${
+              className={`flex items-center justify-between p-4 rounded-lg gap-3 ${ENTER_FAST} ${href ? `cursor-pointer ${LIFT}` : "transition-colors"} ${
                 patient.tb_flagged ? tbCardClass() : "border border-border bg-card hover:bg-accent"
               }`}
             >

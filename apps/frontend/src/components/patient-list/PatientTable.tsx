@@ -7,14 +7,19 @@ import { groupFamilies } from '@/lib/family';
 
 interface PatientTableProps {
     patients: PatientInfo[];
+    // Everyone on the list before searching, for finding family members; defaults to patients.
+    allPatients?: PatientInfo[];
     onViewPatient?: (patientId: number) => void
     onDeletePatient?: (patientId: number) => void;
+    // Called after a family changed, to reload the list.
+    onFamilyChanged?: () => void | Promise<unknown>;
 }
 
-export function PatientTable({ patients, onViewPatient, onDeletePatient}: PatientTableProps) {
-  
+export function PatientTable({ patients, allPatients = patients, onViewPatient, onDeletePatient, onFamilyChanged }: PatientTableProps) {
+
     return (
-      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+      // Sized to its rows (no empty space under the last one), scrolling once it reaches the page bottom.
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden xl:flex xl:min-h-0 xl:flex-col">
 
         <div className="overflow-x-auto xl:min-h-0 xl:overflow-y-auto">
           <table className="w-full min-w-[1180px] table-fixed">
@@ -34,14 +39,17 @@ export function PatientTable({ patients, onViewPatient, onDeletePatient}: Patien
             </thead>
 
             <tbody className="bg-card divide-y divide-border">
-              {/* Members of the same family (on the day shown) sit together, marked by a coloured stripe. */}
-              {groupFamilies(patients, (patient) => patient.day_family)
-                .map((patient)=> (
+              {/* Members of the same family sit together, marked by a coloured stripe. */}
+              {groupFamilies(patients, (patient) => patient.family)
+                .map((patient, index)=> (
                 <PatientTableRow
                   key={patient.id}
+                  index={index}
                   patient={patient}
+                  allPatients={allPatients}
                   onViewPatient={onViewPatient}
                   onDeletePatient={onDeletePatient}
+                  onFamilyChanged={onFamilyChanged}
                 />
               ))}
             </tbody>

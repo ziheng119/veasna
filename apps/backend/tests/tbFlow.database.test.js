@@ -43,7 +43,8 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
       user: process.env.DB_USER, password: process.env.DB_PASSWORD, connectionTimeoutMillis: 3000,
     });
     await client.connect();
-    await client.query('SET search_path TO pg_temp; CREATE TEMP TABLE users (id INT PRIMARY KEY);');
+    // Only the family letter of patients is read (families move together, utils/familyMoves.js).
+    await client.query('SET search_path TO pg_temp; CREATE TEMP TABLE users (id INT PRIMARY KEY); CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, family TEXT);');
     // Real table definitions, so constraints match production.
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8').replace(/\r\n/g, '\n');
     for (const table of ['visits', 'visit_stations', 'tb_screening']) {
@@ -65,8 +66,8 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
   const asRole = (req, role) => req.set('Authorization', `Bearer ${jwt.sign({ id: role === 'admin' ? ADMIN_ID : USER_ID, role }, secret)}`);
 
   beforeEach(() => client.query(`
-    TRUNCATE visit_station_route_history, tb_screening, visit_stations, visits, users RESTART IDENTITY CASCADE;
-    INSERT INTO users VALUES (${ADMIN_ID}), (${USER_ID});
+    TRUNCATE visit_station_route_history, tb_screening, visit_stations, visits, users, patients RESTART IDENTITY CASCADE;
+    INSERT INTO users VALUES (${ADMIN_ID}), (${USER_ID}); INSERT INTO patients (id) VALUES (1);
     INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by) VALUES (1, 1, '7', CURRENT_DATE, ${USER_ID});`));
 
   afterAll(async () => {

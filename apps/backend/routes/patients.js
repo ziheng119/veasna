@@ -7,7 +7,6 @@ const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation
 integerParams(router, ['id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
-const { currentVisitDate } = require('../utils/queueNumber');
 
 // (location id) -> patients[]
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -23,10 +22,21 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
   }
 
   try {
-    // The day whose queue number and family are shown: the filtered day, or today.
-    const values = [location_id, visit_date || currentVisitDate()];
-    // With a date: only patients seen that day.
-    const visitFilter = visit_date ? 'AND dv.id IS NOT NULL' : '';
+    const values = [location_id];
+    let visitFilter = '';
+
+    if (visit_date) {
+      values.push(visit_date);
+      visitFilter = `
+        AND EXISTS (
+          SELECT 1
+          FROM visits v
+          WHERE v.patient_id = p.id
+            AND v.location_id = p.location_id
+            AND v.visit_date = $2::date
+        )
+      `;
+    }
 
     const queryText = `
       SELECT p.*, l.name AS location_name,
@@ -35,16 +45,9 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           SELECT TO_CHAR(MAX(lv.visit_date), 'YYYY-MM-DD')
           FROM visits lv
           WHERE lv.patient_id = p.id
-        ) AS last_visit_date,
-        -- That day's visit here, so Patient List can show families together.
-        dv.id AS day_visit_id, dv.queue_no AS day_queue_no, dv.family AS day_family
+        ) AS last_visit_date
       FROM patients p
       JOIN locations l ON l.id = p.location_id
-      LEFT JOIN LATERAL (
-        SELECT v.id, v.queue_no, v.family FROM visits v
-        WHERE v.patient_id = p.id AND v.location_id = p.location_id AND v.visit_date = $2::date
-        ORDER BY v.id DESC LIMIT 1
-      ) dv ON TRUE
       WHERE p.location_id = $1
       ${visitFilter}
       ORDER BY p.english_name ASC

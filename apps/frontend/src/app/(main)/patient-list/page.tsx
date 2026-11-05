@@ -126,8 +126,10 @@ export default function PatientListPage() {
 
       <PatientTable
         patients={filteredPatients}
+        allPatients={patients}
         onViewPatient={handleViewPatient}
         onDeletePatient={handleDeletePatient}
+        onFamilyChanged={refreshAllPatients}
       />  
     </div>
   )

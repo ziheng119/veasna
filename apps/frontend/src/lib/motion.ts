@@ -13,3 +13,11 @@ export const GLASS_SURFACE =
 
 // Press feedback for buttons and clickable cards.
 export const PRESS = "active:scale-[0.97] motion-reduce:transform-none";
+
+// Small icon buttons (table actions): pop out on hover with a soft tinted circle.
+export const POP =
+  "rounded-md p-1.5 transition-[transform,background-color,box-shadow,color] duration-150 hover:scale-115 hover:bg-primary/10 hover:shadow-sm active:scale-95 disabled:pointer-events-none disabled:opacity-40 motion-reduce:transform-none";
+
+// Clickable cards (queue cards, pick lists): lift slightly with a shadow on hover.
+export const LIFT =
+  "transition-[transform,box-shadow,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none";

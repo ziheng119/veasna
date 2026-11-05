@@ -167,7 +167,7 @@ These rules are enforced by the server, so they apply on every device:
   their prescriptions wait at Pharmacy. Only an admin can change an existing flag's red
   flags or notes.
 - **Queue numbers** are text, always issued automatically: 1, 2, 3... per location and
-  day, under the location's queue lock. Families have their own letter (`visits.family`),
+  day, under the location's queue lock. Families have their own letter (`patients.family`),
   set with `POST /api/family` (`routes/family.js`, `utils/family.js`), and move between
   stations together (`utils/familyMoves.js`). Queue numbers are unique per location and day,
   kept so by the app (there is no database constraint). Admin corrections can't run

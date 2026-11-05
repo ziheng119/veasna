@@ -58,7 +58,8 @@ waiting at the same station move on together:
   member, since families sit together.
 - When the last of them is done, the whole family there moves on at once, each to
   their own next station (or finishing their visit).
-- A family member at another station doesn't hold anyone up.
+- A family member at another station, or not in the clinic that day, doesn't hold
+  anyone up.
 - Removing a member from the family, discharging them, or sending them elsewhere with
   **Send to** lets the others who were waiting for them move on. A patient waiting for
   family who is removed from it moves on straight away.

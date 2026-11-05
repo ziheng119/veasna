@@ -19,7 +19,7 @@ user's own entries too, on any day.
 | View and search all pages, queues, past records and Analytics | Yes | Yes |
 | Print saved referrals, one at a time or the whole day | Yes | Yes |
 | Register a patient or start a new visit | Yes | Yes |
-| Group today's patients into a family, or take one out (**Add to family** on Patient List) | Yes | Yes |
+| Group patients into a family, or take one out (**Add to family** on Patient List) | Yes | Yes |
 | Fill in a station form or triage section for the first time | Yes | Yes |
 | Create a referral and sign it for the first time | Yes | Yes |
 | Change saved details: names, queue numbers, vitals, HEF, clinical notes | No | Yes |

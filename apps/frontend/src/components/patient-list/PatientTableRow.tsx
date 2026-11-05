@@ -5,20 +5,28 @@ import { PatientInfo } from "@/lib/types/patient";
 import FamilyButton from "./FamilyButton";
 import FamilyBadge from "@/components/shared/FamilyBadge";
 import { familyTone } from "@/lib/family";
+import { ENTER_FAST, POP } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
+// Rows fade in one after another when the list loads, up to this many (the rest appear at once).
+const STAGGERED_ROWS = 15;
+
 interface PatientTableRowProps {
     patient: PatientInfo
+    // Position in the list, for the entrance animation.
+    index?: number;
+    allPatients: PatientInfo[];
     onViewPatient?: (patientId: number) => void;
     onDeletePatient?: (patientId: number) => void;
+    onFamilyChanged?: () => void | Promise<unknown>;
 }
 
-export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: PatientTableRowProps) {
+export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient, onDeletePatient, onFamilyChanged }: PatientTableRowProps) {
     const isAdmin = useUserStore(state => state.user?.role === "admin");
     // While this patient's "Add to family" pop-up is open, the row is highlighted.
     const [grouping, setGrouping] = useState(false);
-    const family = patient.day_family;
+    const family = patient.family;
 
     const calculateAge = (birthDate: string): number => {
             const today = new Date();
@@ -36,9 +44,11 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
         <tr
             data-family={family || undefined}
             aria-current={grouping || undefined}
+            style={{ animationDelay: `${Math.min(index, STAGGERED_ROWS) * 25}ms` }}
             className={cn(
-                "h-16 align-middle transition-colors duration-150",
-                grouping ? "bg-primary/10 ring-2 ring-inset ring-primary" : "hover:bg-accent/50",
+                "h-16 align-middle transition-colors duration-200",
+                ENTER_FAST,
+                grouping ? "bg-primary/10 ring-2 ring-inset ring-primary" : "hover:bg-accent",
             )}
         >
                 <td className="relative px-4 py-3 text-sm text-foreground">
@@ -60,26 +70,35 @@ export function PatientTableRow({ patient, onViewPatient, onDeletePatient}: Pati
                     {patient.last_visit_date || "-"}
                 </td>
                 <td className="py-3 text-sm text-foreground">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
 
                         {/* View Patient */}
                         <button
                         onClick={() => patient.id && onViewPatient?.(patient.id)}
-                        className="text-primary hover:text-primary/80"
+                        className={cn(POP, "text-primary")}
                         title="View patient"
+                        aria-label={`View ${patient.english_name || "patient"}`}
                         >
-                            <EyeIcon className="w-4- h-4"/>
+                            <EyeIcon className="h-4 w-4"/>
                         </button>
 
-                        {/* Group with a family member in today's queue */}
-                        {patient.id && <FamilyButton patientId={patient.id} patientName={patient.english_name || "This patient"} onOpenChange={setGrouping} />}
+                        {/* Group with the patients they came with */}
+                        {patient.id && (
+                            <FamilyButton
+                                patient={patient}
+                                patients={allPatients}
+                                onOpenChange={setGrouping}
+                                onChanged={onFamilyChanged}
+                            />
+                        )}
 
                         {/* Delete Patient*/}
                         <button
                         disabled={!isAdmin}
                         onClick={() => patient.id && onDeletePatient?.(patient.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className={cn(POP, "text-red-600 hover:bg-red-500/10 hover:text-red-700")}
                         title="Delete Patient"
+                        aria-label={`Delete ${patient.english_name || "patient"}`}
                         >
                             <TrashIcon className="w-4 h-4" />
                         </button>

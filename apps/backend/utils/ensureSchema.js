@@ -175,21 +175,21 @@ function ensureDentalPharmacyStations() {
   return dentalPharmacyStationsPromise;
 }
 
-let visitFamiliesPromise;
-function ensureVisitFamilies() {
-  if (!visitFamiliesPromise) {
+let familiesPromise;
+function ensureFamilies() {
+  if (!familiesPromise) {
     // Needs only visits and visit_stations, so a failing earlier step can't hold it up.
-    visitFamiliesPromise = ensureVisitStations()
-      .then(() => runMigration('019_visit_families.sql'))
-      .catch(err => { visitFamiliesPromise = null; throw err; });
+    familiesPromise = ensureVisitStations()
+      .then(() => runMigration('019_families.sql'))
+      .catch(err => { familiesPromise = null; throw err; });
   }
-  return visitFamiliesPromise;
+  return familiesPromise;
 }
 
 module.exports = {
   ensureTbFlag,
   ensureDentalPharmacyStations,
-  ensureVisitFamilies,
+  ensureFamilies,
   ensurePrescriptions,
   ensureConsultationConditions,
   ensureReferralSignature,

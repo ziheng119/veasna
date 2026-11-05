@@ -47,30 +47,38 @@ own letter (A, B, ... Z, then AA, AB...); queue numbers don't change:
 2. On **Patient List**, press the **Add to family** icon (people) on the father's row.
    A pop-up opens over the list, and his row is highlighted so you can see who it is
    about.
-3. Under **Start a family with**, search for the mother by name or number and pick
-   her. Both are now in the next free family, e.g. family A: still numbers 3 and 4.
-4. Open the child's pop-up and pick family A under **Join a family** (search by name,
-   number or the letter): the child joins it, still number 5.
+3. Search the patient list for the mother (name, phone number or family letter). Pick
+   her (the box is highlighted), then press **Make a family with Mother**. Both are
+   now family A, still numbers 3 and 4.
+4. Open the child's pop-up and search for either parent. The whole family shows as one
+   box; pick it and press **Add to family A**.
 
-Any of today's families can be joined, whichever member was registered first. The
-next family that day gets the next letter; each location and day starts again at A.
-Picking someone who isn't in a family while the patient is in one adds them to the
-patient's family. To undo a mistake, open the pop-up and press **Remove from family**;
-the rest of the family stays together.
+Things to know:
+
+- Any patient on the Patient List can be grouped, whether or not they are in today's
+  queue. A family belongs to the patients, so it is the same at the next screening.
+- The pop-up only puts the patient whose row you opened into the family of the person
+  you pick. Nothing changes until you confirm.
+- A family always has at least two people. Picking a single patient starts a new
+  family of the two.
+- Moving a patient to another family, or pressing **Remove from family**, leaves the
+  rest of their old family together. A family left with one person is no longer a
+  family: that person loses the letter and is shown like everyone else.
+- A new family takes the first free letter at the location. If family B lost its
+  second member, the next new family is B again; families that still exist keep
+  their letters.
+- The list reloads by itself after a change, on every device.
 
 Where families are shown:
 
 - Every queue shows the queue number with a small coloured family badge (e.g. **A**)
   beside it, and puts the family's members together where its first member is, in
   either sort order. The colour is the same wherever the family appears.
-- **Patient List** puts family members side by side (for today, or the date filtered),
-  with a coloured stripe down the left edge and the family badge after the name. Rows
+- **Patient List** puts family members side by side, with a coloured stripe down the left edge and the family badge after the name. Rows
   keep their usual size.
 
 Families move between stations together: see
 [families](station-routing.md#families-move-together).
-
-Only today's visits at the same location can be grouped.
 
 ## Technical details
 
@@ -88,11 +96,9 @@ Only today's visits at the same location can be grouped.
 - Registration takes the location's queue lock (`lockQueue`) before reading the next
   number, so two devices registering at once never get the same number. A
   `visit.queue_no` sent by an older app is ignored.
-- Families are kept in `visits.family` (migration `019_visit_families.sql`). Grouping and
-  moving families take the location's family lock (`lockFamilies` in
+- Families are kept in `patients.family` (migration `019_families.sql`), per location.
+  Grouping and moving families take the location's family lock (`lockFamilies` in
   `utils/familyMoves.js`), so two devices can't start two families with the same letter.
-  Numbers grouped the old way (`3A`) were changed to 3 in family A, unless the plain
-  number was already used that day.
 - `groupFamilies` in `apps/frontend/src/lib/family.ts` keeps families together in queues
   and on Patient List.
 - `queueNoJumpError` in `apps/backend/utils/queueNumber.js` checks admin corrections on

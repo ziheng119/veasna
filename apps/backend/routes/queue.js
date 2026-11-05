@@ -39,7 +39,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 v.id AS visit_id,
                 p.id AS patient_id,
                 v.queue_no,
-                v.family,
+                p.family,
                 p.english_name,
                 p.khmer_name,
                 p.sex,
@@ -152,8 +152,8 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
         await lockFamilies(client, locationId);
         // Lock the visit so two devices cannot advance it at the same time
         const visit = await client.query(
-            `SELECT id, completed_at, family, location_id, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
-             FROM visits WHERE id = $1 FOR UPDATE`,
+            `SELECT v.id, v.completed_at, p.family, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
+             FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1 FOR UPDATE OF v`,
             [visitId]
         );
         if (visit.rows.length === 0) {
@@ -228,8 +228,8 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
         // This is the same row lock used by station completion, so routing cannot
         // race with another device moving or discharging the patient.
         const visit = await client.query(
-            `SELECT id, completed_at, family, location_id, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
-             FROM visits WHERE id = $1 FOR UPDATE`,
+            `SELECT v.id, v.completed_at, p.family, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
+             FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1 FOR UPDATE OF v`,
             [visitId]
         );
         if (!visit.rows.length || visit.rows[0].completed_at) {
@@ -370,8 +370,9 @@ router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async
                 last_updated_by = $1,
                 last_updated_at = NOW()
             WHERE id = $2
-            RETURNING id, completed_at, last_updated_at, last_updated_by, family, location_id,
-                TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date
+            RETURNING id, completed_at, last_updated_at, last_updated_by, location_id,
+                TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date,
+                (SELECT family FROM patients WHERE patients.id = visits.patient_id) AS family
             `,
             [last_updated_by, visitId]
         );

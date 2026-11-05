@@ -15,6 +15,7 @@ import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { tbCardClass } from "./TbBadge";
 import FamilyBadge from "./FamilyBadge";
 import { stationMoveMessage } from "@/lib/family";
+import { ENTER_FAST, LIFT } from "@/lib/motion";
 import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
@@ -196,7 +197,7 @@ export default function QueuePatientPicker({
                 // The native buttons handle their own actions; all remaining card space selects.
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
-              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
                 tbFlagged
                   ? tbCardClass(isSelected)
                   : isSelected

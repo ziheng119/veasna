@@ -1,12 +1,12 @@
 // utils/familyMoves.js
-// A family moves between stations together. A member who is done at a station is marked
-// family_ready_at and waits there; once every member of the family waiting at that station is done,
-// they all move on, each to their own next station. See docs/queue-ordering.md.
+// A family (patients.family) moves between stations together. A member who is done at a station is
+// marked family_ready_at and waits there; once every member of the family waiting at that station
+// that day is done, they all move on, each to their own next station. See docs/station-routing.md.
 
 const FAMILY_LOCK_NAMESPACE = 7102;
 
 // Serializes family changes and station moves at a location until the transaction ends. Take it
-// before any visit row lock, so moving a family (which locks every member) cannot deadlock.
+// before any visit or patient row lock, so moving a family (which locks every member) can't deadlock.
 function lockFamilies(client, locationId) {
   return client.query('SELECT pg_advisory_xact_lock($1, $2)', [FAMILY_LOCK_NAMESPACE, locationId]);
 }
@@ -44,35 +44,34 @@ async function advanceVisit(client, visitId, userId) {
   return next ? next.station : null;
 }
 
-// The open visits of a family with their current station, locked. The caller holds lockFamilies.
-async function familyMembers(client, visit, family) {
-  await client.query(
-    `SELECT id FROM visits WHERE location_id = $1 AND visit_date = $2::date AND family = $3 AND completed_at IS NULL
-     ORDER BY id FOR UPDATE`,
-    [visit.location_id, visit.visit_date, family]
-  );
+// The family's open visits at a location on a day, with their current station, locked. The caller
+// holds lockFamilies.
+async function familyMembers(client, place, family) {
+  const params = [place.location_id, place.visit_date, family];
+  const where = `v.location_id = $1 AND v.visit_date = $2::date AND p.family = $3 AND v.completed_at IS NULL`;
+  await client.query(`SELECT v.id FROM visits v JOIN patients p ON p.id = v.patient_id WHERE ${where} ORDER BY v.id FOR UPDATE OF v`, params);
   const { rows } = await client.query(
     `SELECT v.id AS visit_id, v.queue_no, p.english_name, cur.station, cur.family_ready_at IS NOT NULL AS ready
      FROM visits v
-     LEFT JOIN patients p ON p.id = v.patient_id
+     JOIN patients p ON p.id = v.patient_id
      JOIN LATERAL (
          SELECT s.station, s.family_ready_at FROM visit_stations s
          WHERE s.visit_id = v.id AND s.completed_at IS NULL ORDER BY s.position LIMIT 1
      ) cur ON TRUE
-     WHERE v.location_id = $1 AND v.visit_date = $2::date AND v.family = $3 AND v.completed_at IS NULL
+     WHERE ${where}
      ORDER BY v.id`,
-    [visit.location_id, visit.visit_date, family]
+    params
   );
   return rows;
 }
 
 // Moves on every group of family members who are all done at the station they wait at.
-// visit gives the location and day ({ location_id, visit_date }). Returns
+// place gives the location and day ({ location_id, visit_date }). Returns
 // { moved: [{ visit_id, queue_no, completed_station, next_station }], members } where members are
-// the family's open visits before the move.
-async function releaseFamily(client, visit, family, userId) {
+// the family's open visits there before the move.
+async function releaseFamily(client, place, family, userId) {
   if (!family) return { moved: [], members: [] };
-  const members = await familyMembers(client, visit, family);
+  const members = await familyMembers(client, place, family);
   const moved = [];
   for (const station of new Set(members.map((member) => member.station))) {
     const here = members.filter((member) => member.station === station);
@@ -85,15 +84,26 @@ async function releaseFamily(client, visit, family, userId) {
   return { moved, members };
 }
 
-// A visit that is done at its station but no longer in a family (it left, or its family was
-// changed) has no one to wait for: it moves on. Returns the next station, or undefined if not waiting.
-async function releaseAlone(client, visitId, userId) {
+// After a patient's family changed (joined, left, or the family was dissolved), lets their open
+// visits move on if no one is left to wait for: with the family's other members, or alone.
+async function releasePatient(client, patientId, userId) {
   const { rows } = await client.query(
-    `SELECT family_ready_at FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL ORDER BY position LIMIT 1`,
-    [visitId]
+    `SELECT v.id, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
+     FROM visits v JOIN patients p ON p.id = v.patient_id
+     WHERE v.patient_id = $1 AND v.completed_at IS NULL`,
+    [patientId]
   );
-  if (!rows.length || !rows[0].family_ready_at) return undefined;
-  return advanceVisit(client, visitId, userId);
+  for (const visit of rows) {
+    if (visit.family) {
+      await releaseFamily(client, visit, visit.family, userId);
+      continue;
+    }
+    const { rows: current } = await client.query(
+      'SELECT family_ready_at FROM visit_stations WHERE visit_id = $1 AND completed_at IS NULL ORDER BY position LIMIT 1',
+      [visit.id]
+    );
+    if (current.length && current[0].family_ready_at) await advanceVisit(client, visit.id, userId);
+  }
 }
 
-module.exports = { lockFamilies, visitLocation, advanceVisit, releaseFamily, releaseAlone };
+module.exports = { lockFamilies, visitLocation, advanceVisit, releaseFamily, releasePatient };
