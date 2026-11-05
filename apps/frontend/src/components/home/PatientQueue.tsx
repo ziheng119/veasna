@@ -6,10 +6,11 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
 import { X } from "lucide-react";
-import { stationLabel } from "@/constants/stations";
+import { stationLabel, stationPageHref } from "@/constants/stations";
+import { useRouter } from "next/navigation";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
-import TbBadge, { TB_CARD_CLASS } from "../shared/TbBadge";
+import TbBadge, { tbCardClass } from "../shared/TbBadge";
 import ClearTbButton from "../shared/ClearTbButton";
 
 import QueueSortControl from "../shared/QueueSortControl";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
+  const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");  
 
@@ -70,14 +72,29 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
             {searchQuery ? "No patients found matching search" : "No patients in queue today"}
           </p>
         ) : (
-          sortedPatients.map((patient) => (
+          sortedPatients.map((patient) => {
+            // Opens the patient at the station they are waiting at, already selected there.
+            const href = patient.current_station ? stationPageHref(patient.current_station, patient.visit_id) : null;
+            return (
             <div
               key={patient.visit_id}
-              className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${
-                patient.tb_flagged ? TB_CARD_CLASS : "border border-border bg-card hover:bg-accent"
+              data-visit-id={patient.visit_id}
+              onClick={(event) => {
+                // The card's own buttons (Discharge) handle their own clicks.
+                if (href && !(event.target as Element).closest("button")) router.push(href);
+              }}
+              className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${href ? "cursor-pointer" : ""} ${
+                patient.tb_flagged ? tbCardClass() : "border border-border bg-card hover:bg-accent"
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                disabled={!href}
+                aria-label={`Open ${patient.english_name || "patient"}, queue ${patient.queue_no}${
+                  patient.current_station ? `, at ${stationLabel(patient.current_station)}` : ""}${patient.tb_flagged ? ", suspected TB" : ""}`}
+                onClick={() => href && router.push(href)}
+                className="flex items-center gap-3 min-w-0 text-left disabled:cursor-default"
+              >
                 <span className="flex shrink-0 flex-col items-center gap-1">
                   <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
                     patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
@@ -86,18 +103,18 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                   </span>
                   {patient.tb_flagged && <TbBadge />}
                 </span>
-                <div className="min-w-0 border-l border-border pl-3">
-                  <div className="font-medium text-foreground truncate">{patient.english_name}</div>
-                  <div className="text-sm text-muted-foreground truncate">
+                <span className="block min-w-0 border-l border-border pl-3">
+                  <span className="block font-medium text-foreground truncate">{patient.english_name}</span>
+                  <span className="block text-sm text-muted-foreground truncate">
                     {patient.khmer_name}
-                  </div>
+                  </span>
                   {patient.current_station && (
-                    <div className="text-xs font-medium truncate text-primary">
+                    <span className="block text-xs font-medium truncate text-primary">
                       At {stationLabel(patient.current_station)}
-                    </div>
+                    </span>
                   )}
-                </div>
-              </div>
+                </span>
+              </button>
               <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right text-sm text-muted-foreground">
                   <div>{patient.age}y, {patient.sex}</div>
@@ -126,7 +143,8 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
     </PageCard>
   );

@@ -20,8 +20,12 @@ have waited longer.
 
 ## Using the queue
 
-- Click anywhere on a patient card to select the patient. The buttons on the card
-  (**Next/Finish**, **Stations**, **Discharge**) work separately.
+- Click anywhere on a patient card in a station queue to select the patient. The
+  buttons on the card (**Next/Finish**, **Send to**, **Discharge**) work separately.
+- On **Home**, clicking a patient in **Today's Queue** opens the station they are
+  waiting at, with them already selected.
+- Suspected TB patients' cards are red. When hovered or selected they turn a darker
+  red, instead of the blue other cards use.
 - Station cards show **Arrived** with the time the patient reached that station.
 - The search icon opens a lookup across the whole clinic queue. Close it or press
   Escape to clear it. Your selected patient stays selected.

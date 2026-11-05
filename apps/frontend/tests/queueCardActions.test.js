@@ -1,8 +1,9 @@
-// Queue card actions for a non-admin user: moving patients is open to everyone, and a suspected
-// TB patient's card offers Clear TB.
+// Queue cards for a non-admin user: moving patients is open to everyone, a suspected TB patient's
+// card offers Clear TB and stays red when selected, and Home cards open the patient's station.
 const React = require('react');
 const { act, create } = require('react-test-renderer');
-jest.mock('next/navigation', () => ({ useRouter: () => ({ replace: jest.fn() }), usePathname: () => '/doctors-consultation', useSearchParams: () => new URLSearchParams() }));
+const push = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ replace: jest.fn(), push }), usePathname: () => '/doctors-consultation', useSearchParams: () => new URLSearchParams() }));
 jest.mock('../src/stores/useUserStore', () => {
   const { create } = require('zustand'); return { useUserStore: create(() => ({ user: { id: 2, role: 'user', token: 't' } })) };
 });
@@ -50,6 +51,19 @@ test.each(['suspected', 'cleared'])('a TB patient (%s) can be finished or discha
   for (const text of ['Finish', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
 });
 
+test('a selected TB card is highlighted in red only, not with the blue selection', async () => {
+  stationPatients = [tbPatient, { ...tbPatient, visit_id: 6, queue_no: '8', tb_flagged: false, tb_status: null }];
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 5 })); });
+  const card = id => renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === id).props.className;
+  expect(card(5)).toMatch(/ring-red-500/);
+  expect(card(5)).not.toMatch(/primary/);
+  // Unselected TB cards still change on hover, like other cards.
+  await act(async () => renderer.update(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 6 })));
+  expect(card(5)).toMatch(/hover:bg-red-100/);
+  expect(card(5)).not.toMatch(/ring/);
+  expect(card(6)).toMatch(/border-primary bg-primary\/10/);
+});
+
 test('a user can clear a TB flag from the station queue card; the selected patient stays selected', async () => {
   stationPatients = [tbPatient];
   const onSelectPatient = jest.fn();
@@ -75,6 +89,29 @@ test('nothing is cleared when the confirmation is cancelled', async () => {
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
   await act(async () => button(renderer, 'Clear TB').props.onClick());
   expect(setTbFlag).not.toHaveBeenCalled();
+});
+
+test('clicking a Home queue card opens the patient at their station; Discharge does not', async () => {
+  global.localStorage = { getItem: () => null, setItem: () => {} };
+  const onRemovePatient = jest.fn();
+  const patients = [{ ...tbPatient, tb_flagged: false, tb_status: null, current_station: 'seva' }];
+  try {
+    await act(async () => { renderer = create(React.createElement(PatientQueue, { patients, onRemovePatient })); });
+    const card = renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === 5);
+    card.props.onClick({ target: { closest: () => null } });
+    expect(push).toHaveBeenCalledWith('/seva?visit=5');
+    button(renderer, 'Dara').props.onClick();
+    expect(push).toHaveBeenCalledTimes(2);
+
+    push.mockClear();
+    const discharge = renderer.root.findAllByType('button').find(node => node.props.title === 'Discharge patient');
+    card.props.onClick({ target: { closest: () => discharge } });
+    discharge.props.onClick();
+    expect(push).not.toHaveBeenCalled();
+    expect(onRemovePatient).toHaveBeenCalledWith(5);
+  } finally {
+    delete global.localStorage;
+  }
 });
 
 test('the Home queue card lets a user discharge and clear TB', async () => {

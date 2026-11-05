@@ -12,7 +12,7 @@ import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
-import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
+import TbBadge, { tbCardClass } from "./TbBadge";
 import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
@@ -191,7 +191,7 @@ export default function QueuePatientPicker({
               }}
               className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
                 tbFlagged
-                  ? `${TB_CARD_CLASS} ${isSelected ? "ring-2 ring-primary" : ""}`
+                  ? tbCardClass(isSelected)
                   : isSelected
                     ? "border-primary bg-primary/10"
                     : "border-border hover:bg-accent/60"
