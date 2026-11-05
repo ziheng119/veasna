@@ -8,7 +8,7 @@ const { integerParams, toPositiveInt } = require('../utils/validation');
 integerParams(router, ['visitId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
-const { TB_FLAGGED_STATUSES, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
+const { TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
 const { textOrEmpty } = require('../utils/partialFields');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
@@ -39,6 +39,7 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
 });
 
 // POST /api/tb/:visitId/flag - Body: { flagged: boolean, red_flags?: string[], notes?: string }
+// Flagging needs at least TB_MIN_RED_FLAGS red flags (3).
 // Anyone may flag a patient (e.g. at triage) or clear the flag (the doctor who saw them in the TB
 // tent). Either sends the patient to Consultation. Changing an existing flag's red flags or notes is
 // an edit of saved data and needs an admin. Clearing a visit that is not flagged changes nothing.
@@ -57,6 +58,9 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
     }
     if (redFlags === null) {
         return res.status(400).json({ error: 'red_flags must be a list of text' });
+    }
+    if (flagged && redFlags.length < TB_MIN_RED_FLAGS) {
+        return res.status(400).json({ error: TB_MIN_RED_FLAGS_ERROR });
     }
 
     let client;

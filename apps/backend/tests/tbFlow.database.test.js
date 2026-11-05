@@ -12,6 +12,8 @@ const db = require('../config/db');
 
 const ADMIN_ID = 1;
 const USER_ID = 2;
+// The fewest red flags that flag a patient (TB_MIN_RED_FLAGS).
+const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
 
 (process.env.RUN_DB_TESTS === '1' ? describe : describe.skip)('Suspected TB flow', () => {
   let client, app, previousSecret;
@@ -72,7 +74,7 @@ const USER_ID = 2;
 
   test('flagging at Triage sends the patient straight to Consultation; other stations stay queued', async () => {
     await setRoute(WAITING_AT_TRIAGE);
-    const res = await flag({ flagged: true, red_flags: ['fever'] });
+    const res = await flag({ flagged: true, red_flags: THREE_FLAGS });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ flagged: true, status: 'suspected', current_station: 'consultation' });
     expect(await route()).toEqual([
@@ -102,7 +104,7 @@ const USER_ID = 2;
 
   test('Consultation is added when the route does not include it', async () => {
     await setRoute(`(1,'triage',1,NOW(),NULL,${USER_ID}), (1,'physiotherapy',2,NULL,NULL,${USER_ID})`);
-    expect((await flag({ flagged: true, red_flags: ['fever'] })).body.current_station).toBe('consultation');
+    expect((await flag({ flagged: true, red_flags: THREE_FLAGS })).body.current_station).toBe('consultation');
     expect(await pending()).toEqual(['consultation', 'triage', 'physiotherapy']);
   });
 
@@ -128,22 +130,31 @@ const USER_ID = 2;
     expect(await history()).toHaveLength(1);
   });
 
+  test('fewer than 3 red flags do not flag the patient, and nothing changes', async () => {
+    await setRoute(WAITING_AT_TRIAGE);
+    const res = await flag({ flagged: true, red_flags: ['fever', 'night_sweats'] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/3 or more red flags/);
+    expect((await client.query('SELECT 1 FROM tb_screening')).rows).toHaveLength(0);
+    expect(await pending()).toEqual(['triage', 'seva', 'consultation']);
+  });
+
   test('a user flag is saved with its red flags; bad input and missing visits are refused', async () => {
     await setRoute(WAITING_AT_TRIAGE);
-    expect((await flag({ flagged: true, red_flags: ['fever'] })).body).toMatchObject({ flagged: true, red_flags: ['fever'] });
+    expect((await flag({ flagged: true, red_flags: THREE_FLAGS })).body).toMatchObject({ flagged: true, red_flags: THREE_FLAGS });
     expect((await flag({ flagged: 'yes' })).status).toBe(400);
     expect((await flag({ flagged: true, red_flags: 'fever' })).status).toBe(400);
     const missing = await request(app).post('/api/tb/2/flag')
-      .set('Authorization', `Bearer ${jwt.sign({ id: ADMIN_ID, role: 'admin' }, secret)}`).send({ flagged: true });
+      .set('Authorization', `Bearer ${jwt.sign({ id: ADMIN_ID, role: 'admin' }, secret)}`).send({ flagged: true, red_flags: THREE_FLAGS });
     expect(missing.status).toBe(404);
   });
 
   test('users still cannot edit an existing flag; an admin edit leaves the route alone', async () => {
     await setRoute(WAITING_AT_TRIAGE, { flagged: true });
     const before = (await client.query('SELECT * FROM tb_screening')).rows;
-    expect((await flag({ flagged: true, red_flags: ['night_sweats'] })).status).toBe(403);
+    expect((await flag({ flagged: true, red_flags: ['night_sweats', 'fever', 'weight_loss'] })).status).toBe(403);
     expect((await client.query('SELECT * FROM tb_screening')).rows).toEqual(before);
-    const res = await flag({ flagged: true, red_flags: ['night_sweats'] }, 'admin');
+    const res = await flag({ flagged: true, red_flags: ['night_sweats', 'fever', 'weight_loss'] }, 'admin');
     expect(res.status).toBe(200);
     expect(res.body.current_station).toBeUndefined();
     expect(await pending()).toEqual(['triage', 'seva', 'consultation']);

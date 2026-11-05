@@ -35,8 +35,9 @@ Good to know:
 A patient with TB red flags is kept apart in the TB tent, and a doctor goes to see them
 there. Veasna follows that:
 
-1. **Flag:** tick the TB red flags at registration, or press **Flag suspected TB** at
-   Triage. The patient goes **straight to the Consult queue**, shown in red with a
+1. **Flag:** tick **3 or more** TB red flags at registration, or press **Flag suspected
+   TB** at Triage and tick 3 or more. With fewer, the patient isn't flagged and goes
+   through their stations as usual; the form shows how many are ticked. The patient goes **straight to the Consult queue**, shown in red with a
    **TB** label in every queue. Their other stations (e.g. Triage, Partner NGO) stay on
    their route, after Consultation.
 2. **Clear:** once the doctor has seen them, anyone presses **Clear TB** on the patient's

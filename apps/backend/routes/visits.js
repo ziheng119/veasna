@@ -13,7 +13,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQu
 const { STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { normalizeRedFlags, rejectUnsavableVisit, flagTb, consultationFirst } = require('../utils/tb');
+const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, consultationFirst } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
@@ -100,6 +100,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
         return res.status(400).json({ error: 'tb must be an object with red_flags as a list of text.' });
+    }
+    if (tb !== null && tbRedFlags.length < TB_MIN_RED_FLAGS) {
+        return res.status(400).json({ error: `${TB_MIN_RED_FLAGS_ERROR} Leave tb out for fewer.` });
     }
     const tbFlagged = tb !== null;
 

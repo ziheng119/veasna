@@ -147,8 +147,9 @@ These rules are enforced by the server, so they apply on every device:
   correctly.
 - **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
   Physiotherapy, Consultation), waiting in one queue at a time.
-- **TB flag:** suspected TB is a flag on the visit, set at registration (TB red flags) or
-  at Triage. The patient goes straight to Consultation, with their other stations queued
+- **TB flag:** suspected TB is a flag on the visit, set at registration or at Triage when
+  3 or more red flags are ticked (`TB_MIN_RED_FLAGS` in `utils/tb.js`, mirrored in
+  `apps/frontend/src/constants/tb.ts`). The patient goes straight to Consultation, with their other stations queued
   after it, and is shown in red with a "TB" label in every queue. Anyone can clear the flag;
   clearing also sends the patient to Consultation if they aren't there (`sendToConsultation`
   in `utils/tb.js`). Only an admin can change an existing flag's red flags or notes.

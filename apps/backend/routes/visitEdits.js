@@ -18,7 +18,7 @@ const { authenticateToken, requireRole } = require('./auth');
 const { lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, QUEUE_NO_ERROR } = require('../utils/queueNumber');
 const { textOrEmpty } = require('../utils/partialFields');
 const { normalizeVitals } = require('../utils/vitals');
-const { TB_STATUSES, normalizeRedFlags } = require('../utils/tb');
+const { TB_STATUSES, TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags } = require('../utils/tb');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -201,10 +201,18 @@ router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
     // Same row lock as POST /api/tb/:visitId/flag, so the two cannot interleave.
     const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
     if (!visit.rows.length) return { status: 404, body: { error: 'Visit not found' } };
-    const screening = await client.query('SELECT status FROM tb_screening WHERE visit_id = $1', [visitId]);
+    const screening = await client.query('SELECT status, red_flags FROM tb_screening WHERE visit_id = $1', [visitId]);
     if (!screening.rows.length) return { status: 404, body: { error: 'This visit was not flagged for TB' } };
+    const saved = screening.rows[0];
 
-    const statusChanged = status !== undefined && status !== screening.rows[0].status;
+    const statusChanged = status !== undefined && status !== saved.status;
+    // A flag must keep at least TB_MIN_RED_FLAGS red flags. Only a change is checked, so older
+    // flags with fewer can still have their notes corrected.
+    const flagsChanged = redFlags !== undefined && [...redFlags].sort().join() !== [...saved.red_flags].sort().join();
+    const flaggedAfter = TB_FLAGGED_STATUSES.includes(status ?? saved.status);
+    if ((statusChanged || flagsChanged) && flaggedAfter && (redFlags ?? saved.red_flags).length < TB_MIN_RED_FLAGS) {
+      return { status: 400, body: { error: TB_MIN_RED_FLAGS_ERROR } };
+    }
 
     const { rows } = await client.query(
       `UPDATE tb_screening SET

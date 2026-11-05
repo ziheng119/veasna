@@ -166,9 +166,26 @@ const USER_ID = 2;
       ));
 
       test("red flags and notes can be corrected while the visit is open", async () => {
-        const res = await put("/visits/1/tb", { red_flags: ["fever", "night_sweats"], flag_notes: "Fixed", doctor_notes: "Seen" });
+        const redFlags = ["fever", "night_sweats", "weight_loss"];
+        const res = await put("/visits/1/tb", { red_flags: redFlags, flag_notes: "Fixed", doctor_notes: "Seen" });
         expect(res.status).toBe(200);
-        expect(res.body).toMatchObject({ red_flags: ["fever", "night_sweats"], flag_notes: "Fixed", status: "suspected", last_updated_by: ADMIN_ID });
+        expect(res.body).toMatchObject({ red_flags: redFlags, flag_notes: "Fixed", status: "suspected", last_updated_by: ADMIN_ID });
+      });
+
+      test("a flag cannot be changed to fewer than 3 red flags", async () => {
+        const res = await put("/visits/1/tb", { red_flags: ["fever", "night_sweats"] });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/3 or more red flags/);
+        expect((await client.query("SELECT red_flags FROM tb_screening")).rows[0].red_flags).toEqual(["fever"]);
+        // Removing the flag is still allowed whatever the count.
+        expect((await put("/visits/1/tb", { red_flags: ["fever"], status: "cleared" })).status).toBe(200);
+        expect((await put("/visits/1/tb", { status: "suspected" })).status).toBe(400);
+      });
+
+      test("an older flag with fewer red flags keeps them when only notes change", async () => {
+        const res = await put("/visits/1/tb", { red_flags: ["fever"], status: "suspected", doctor_notes: "Seen" });
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ red_flags: ["fever"], doctor_notes: "Seen" });
       });
 
       test("the flag can be removed while the visit is open, and is attributed", async () => {

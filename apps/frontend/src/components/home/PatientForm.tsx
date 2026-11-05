@@ -28,7 +28,7 @@ import { StationCheckboxes } from "../shared/StationCheckboxes";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { TB_RED_FLAGS } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
 import { ShieldAlert } from "lucide-react";
 
@@ -142,7 +142,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // stations as usual and are marked in red in every queue.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
     const [tbNotes, setTbNotes] = useState("");
-    const tbFlagged = tbRedFlags.length > 0;
+    // Fewer red flags than the threshold are not sent: the patient is not flagged.
+    const tbFlagged = meetsTbThreshold(tbRedFlags);
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -803,7 +804,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. A patient with a red flag is flagged for suspected TB and goes straight to the Consult queue, shown in red in every queue, so a doctor sees them first.
+                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes straight to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {TB_RED_FLAGS.map((flag) => (
@@ -824,6 +825,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       </div>
                     ))}
                   </div>
+                  {!tbFlagged && tbRedFlags.length > 0 && (
+                    <p className="mt-3 text-xs text-muted-foreground" role="status">{tbThresholdHint(tbRedFlags.length)}</p>
+                  )}
                   {tbFlagged && (
                     <div className="mt-3 space-y-3">
                       <p className="flex items-start gap-2 text-sm font-medium text-destructive">

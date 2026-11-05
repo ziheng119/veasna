@@ -11,6 +11,11 @@ const { toPositiveInt } = require('./validation');
 const TB_STATUSES = ['suspected', 'cleared', 'tb_likely'];
 const TB_FLAGGED_STATUSES = ['suspected', 'tb_likely'];
 
+// A patient is flagged for suspected TB only with at least this many red flags (symptoms).
+// Must match TB_MIN_RED_FLAGS in apps/frontend/src/constants/tb.ts.
+const TB_MIN_RED_FLAGS = 3;
+const TB_MIN_RED_FLAGS_ERROR = `A patient is flagged for suspected TB only with ${TB_MIN_RED_FLAGS} or more red flags.`;
+
 // Red flags are short keys or labels chosen at registration or triage; free text goes in notes.
 function normalizeRedFlags(input) {
   if (input === undefined || input === null) return [];
@@ -107,6 +112,8 @@ async function clearTbFlag(client, visitId, userId) {
 module.exports = {
   TB_STATUSES,
   TB_FLAGGED_STATUSES,
+  TB_MIN_RED_FLAGS,
+  TB_MIN_RED_FLAGS_ERROR,
   normalizeRedFlags,
   rejectUnsavableVisit,
   flagTb,

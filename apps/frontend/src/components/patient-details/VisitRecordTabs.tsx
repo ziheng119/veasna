@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 import { REFERRAL_DESTINATIONS, parseReferralDestinations } from "@/constants/referral";
 import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
-import { TB_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -323,6 +323,14 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
               { label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
             ]}
             editHint="Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."
+            validate={(d: TbDraft) => {
+              // Same rule as the server: only a change to the flags or status is checked.
+              const original = drafts.tb!;
+              const changed = d.status !== original.status || [...d.red_flags].sort().join() !== [...original.red_flags].sort().join();
+              return changed && isTbFlagged(d.status) && !meetsTbThreshold(d.red_flags)
+                ? `A flagged patient needs ${TB_MIN_RED_FLAGS} or more red flags. Tick more, or set the flag to Removed.`
+                : null;
+            }}
             onSave={saved((d: TbDraft) => updateVisitTb(visitId, {
               red_flags: d.red_flags,
               flag_notes: d.flag_notes,

@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import TbBadge from "@/components/shared/TbBadge";
-import { TB_RED_FLAGS, tbRedFlagLabel } from "@/constants/tb";
+import { TB_RED_FLAGS, meetsTbThreshold, tbRedFlagLabel, tbThresholdHint } from "@/constants/tb";
 import { getTbScreening, setTbFlag, TbScreening } from "@/lib/api/tb/tb";
 import { useUserStore } from "@/stores/useUserStore";
 import { StationId, stationLabel } from "@/constants/stations";
@@ -120,6 +120,9 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
           </div>
         ))}
       </div>
+      {!meetsTbThreshold(redFlags) && (
+        <p className="text-xs text-muted-foreground" role="status">{tbThresholdHint(redFlags.length)}</p>
+      )}
       <Textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
@@ -130,7 +133,7 @@ export default function TbFlagPanel({ visitId, onChanged }: Props) {
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        <Button type="button" variant="destructive" size="sm" disabled={saving || redFlags.length === 0} onClick={() => save(true)}>
+        <Button type="button" variant="destructive" size="sm" disabled={saving || !meetsTbThreshold(redFlags)} onClick={() => save(true)}>
           {saving ? "Saving..." : "Flag suspected TB"}
         </Button>
       </div>
