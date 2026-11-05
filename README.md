@@ -29,13 +29,16 @@ You need **Node.js 18 or newer** and **PostgreSQL 12 or newer** on the host lapt
 2. Create the database. Follow [database setup](apps/backend/README.md#database-setup-first-time)
    in the backend guide.
 
-3. Copy the example settings files, then fill in your database password and a long
-   random `JWT_SECRET`:
+3. Create the settings files, then fill in your database password and a long random
+   `JWT_SECRET` in `apps/backend/.env`:
 
    ```bash
-   cp apps/backend/.env.example apps/backend/.env
-   cp apps/frontend/.env.example apps/frontend/.env.local
+   npm run setup:env
    ```
+
+   `npm run dev` uses the `.env.development` files (`localhost`), and `npm run build` /
+   `npm start` use the `.env.production` files (clinic network). See
+   [development and clinic settings](docs/performance-and-lan.md#development-and-clinic-settings).
 
 4. Check the database connection and create the sign-in accounts:
 

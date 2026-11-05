@@ -1,4 +1,5 @@
-require('dotenv').config();
+// .env.development or .env.production (by mode), then the shared .env. See config/env.js.
+const loadedEnv = require('./config/env').loadEnv();
 require('./middleware/asyncErrors');
 
 const express = require('express');
@@ -167,7 +168,8 @@ async function start() {
   });
   process.once('SIGINT', () => shutdown('SIGINT'));
   process.once('SIGTERM', () => shutdown('SIGTERM'));
-  console.log(`Server listening on port ${PORT} (all interfaces)`);
+  console.log(`Server listening on port ${PORT} (all interfaces), ${loadedEnv.mode} settings from ` +
+    (loadedEnv.files.length ? loadedEnv.files.join(' + ') : 'no .env files'));
   console.log(`  This host: http://localhost:${PORT}/health`);
   for (const address of lanAddresses()) console.log(`  LAN:       http://${address}:${PORT}/health`);
   mdns = startMdns(process.env.MDNS_NAME);

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../config/env').loadEnv();
 const db = require('../config/db');
 const { ensureUserRole } = require('../utils/ensureSchema');
 const { ensurePasswordColumn } = require('../routes/session');

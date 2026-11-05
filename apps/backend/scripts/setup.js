@@ -1,5 +1,5 @@
 // scripts/setup.js
-require('dotenv').config();
+require('../config/env').loadEnv();
 
 const db = require('../config/db');
 const fs = require('fs');
@@ -14,7 +14,7 @@ async function runSetup() {
   const envPath = path.join(__dirname, '..', '.env');
   if (!fs.existsSync(envPath)) {
     console.error('.env file not found!');
-    console.log('Please create a .env file with your database configuration.');
+    console.log('Run "npm run setup:env" from the project folder, then fill in the database settings in apps/backend/.env.');
     process.exit(1);
   }
 

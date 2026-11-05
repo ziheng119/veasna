@@ -33,10 +33,10 @@ password, then create a database `veasna_screening` owned by that role.
 
 ### 3. Enter your settings
 
-From the project folder, copy the example file:
+From the project folder, create the settings files from their templates:
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
+npm run setup:env
 ```
 
 Open `apps/backend/.env` and change at least these lines:
@@ -109,7 +109,12 @@ To check that it is working, open `/health` in a browser:
 
 ## Settings
 
-All settings live in `apps/backend/.env`.
+Settings shared by both modes live in `apps/backend/.env`. Settings for one mode go in
+`apps/backend/.env.development` (`npm run dev`) or `apps/backend/.env.production`
+(`npm start`), and win over `.env` (`config/env.js`). The templates put
+`NEXT_PUBLIC_FRONTEND_URL`, `ALLOW_LAN_ORIGINS` and `MDNS_NAME` in the mode files. Mode
+comes from the command, so `NODE_ENV` lines in the files are ignored. See
+[development and clinic settings](../../docs/performance-and-lan.md#development-and-clinic-settings).
 
 | Setting | What it does |
 | --- | --- |

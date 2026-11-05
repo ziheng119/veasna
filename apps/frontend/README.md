@@ -9,20 +9,20 @@ Install from the project folder (not this folder):
 
 ```bash
 npm install
-cp apps/frontend/.env.example apps/frontend/.env.local
+npm run setup:env
 ```
 
-`.env.local` has one setting, the backend's address:
+The web app has one setting, the backend's address `NEXT_PUBLIC_BACKEND_URL`, with a
+file per mode:
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000
-```
+| File | Used by | Default |
+| --- | --- | --- |
+| `.env.development` | `npm run dev` | `http://localhost:3000` |
+| `.env.production` | `npm run build`, `npm start` | Unset: browsers use the address they opened the app on, port `3000`. Set it to the host's IP (e.g. `http://192.168.68.50:3000`) only if the backend runs on another laptop or port. |
 
-Use the host laptop's IP, not `localhost`, so that other devices can reach it too.
-If you leave it empty, the app assumes the backend is on the same laptop that serves
-the web app, port `3000`.
-
-This setting is built into the app. **After changing it, run `npm run build` again.**
+Don't set it in `.env.local`: Next.js reads that file in both modes and lets it win.
+The production value is built into the app. **After changing it, run `npm run build`
+again.**
 
 ## Running
 
