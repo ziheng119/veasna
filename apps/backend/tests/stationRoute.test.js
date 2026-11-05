@@ -28,3 +28,21 @@ test('rejects missing snapshots and changed routes', () => {
 test('TB is a flag on the visit, not a station', () => {
   expect(plan(['tb', 'seva']).status).toBe(400);
 });
+
+describe('adding one station in clinic order', () => {
+  const { insertInClinicOrder } = require('../utils/stationRoute');
+  test.each([
+    [['consultation', 'dental', 'seva'], 'physiotherapy', ['consultation', 'physiotherapy', 'dental', 'seva']],
+    [['triage', 'consultation', 'dental'], 'seva', ['triage', 'consultation', 'dental', 'seva']],
+    [['consultation', 'dental'], 'pharmacy', ['consultation', 'dental', 'pharmacy']],
+    // Never ahead of the station the patient is waiting at, even if it comes later in clinic order.
+    [['seva', 'consultation'], 'physiotherapy', ['seva', 'consultation', 'physiotherapy']],
+    // A custom order around it is kept.
+    [['triage', 'seva', 'consultation'], 'dental', ['triage', 'dental', 'seva', 'consultation']],
+    [['consultation', 'pharmacy'], 'physiotherapy', ['consultation', 'physiotherapy', 'pharmacy']],
+    [[], 'pharmacy', ['pharmacy']],
+    [['consultation', 'dental'], 'dental', ['consultation', 'dental']],
+  ])('%j + %s -> %j', (pending, station, expected) => {
+    expect(insertInClinicOrder(pending, station)).toEqual(expected);
+  });
+});

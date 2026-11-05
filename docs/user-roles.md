@@ -36,7 +36,7 @@ user's own entries too, on any day.
 ## What "first time" means
 
 - Each form has its own first save: every triage section, consultation notes, partner
-  NGO notes, physiotherapy and referral. Once saved, even half-filled, the form is locked
+  NGO notes, physiotherapy, dental notes and referral. Once saved, even half-filled, the form is locked
   for users.
 - Flagging suspected TB counts as a first entry. Anyone can clear the flag in the
   Consult queue, since the doctor who sees the patient in the TB tent needs to. Changing the red flags or notes of
@@ -71,7 +71,7 @@ the same as part of first-time setup. It never runs on its own when the server s
   a changed role takes effect immediately, even with an old sign-in.
 - Users are allowed only a fixed list of "create" requests, plus moving patients
   between stations (`POST queue/{id}/stations/{station}/complete`,
-  `PUT queue/{id}/stations`, `POST queue/{id}/complete`). Other changes (PUT, PATCH,
+  `PUT queue/{id}/stations`, `PUT queue/{id}/stations/{station}`, `POST queue/{id}/complete`). Other changes (PUT, PATCH,
   DELETE and admin requests) are refused. Older edit addresses are admin-only, so
   they can't be used to get around these checks.
 - First saves rely on the database's one-record-per-visit rule. An update to an

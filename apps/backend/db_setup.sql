@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS referral CASCADE;
 DROP TABLE IF EXISTS painpoints CASCADE;
 DROP TABLE IF EXISTS consultation CASCADE;
 DROP TABLE IF EXISTS physiotherapy CASCADE;
+DROP TABLE IF EXISTS dental CASCADE;
 DROP TABLE IF EXISTS seva CASCADE;
 DROP TABLE IF EXISTS history CASCADE;
 DROP TABLE IF EXISTS presenting_complaint CASCADE;
@@ -112,7 +113,7 @@ CREATE TABLE visit_stations (
         ON DELETE CASCADE ON UPDATE CASCADE,
     station VARCHAR(30) NOT NULL
         CONSTRAINT visit_stations_station_check
-        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation')),
+        CHECK (station IN ('triage', 'consultation', 'physiotherapy', 'dental', 'seva', 'pharmacy')),
     position INT NOT NULL,                 -- remaining route order; may change when a station is deferred or revisited
     entered_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
@@ -235,6 +236,18 @@ CREATE TABLE seva (
     referral VARCHAR(30)                               -- NULL = no referral
         CHECK (referral IN ('cataract_surgery', 'seva_general')),
     notes TEXT DEFAULT '',
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Dental: what the dental students did, and whether the doctor should refer the patient on.
+CREATE TABLE dental (
+    id SERIAL PRIMARY KEY,
+    visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    notes TEXT NOT NULL DEFAULT '',
+    referral_needed BOOLEAN NOT NULL DEFAULT FALSE,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()

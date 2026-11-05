@@ -44,6 +44,7 @@ export interface VisitDetails {
     history: VisitHistory | null;
     seva: VisitSeva | null;
     physiotherapy: VisitPhysiotherapy | null;
+    dental: VisitDental | null;
     consultation: VisitConsultation | null;
     referrals: VisitReferral[];
     tb: VisitTb | null;
@@ -99,6 +100,11 @@ export interface VisitSeva {
     date_of_referral: string | null;
     referral: string | null;
     notes: string | null;
+}
+
+export interface VisitDental {
+    notes: string;
+    referral_needed: boolean;
 }
 
 export interface VisitPhysiotherapy {

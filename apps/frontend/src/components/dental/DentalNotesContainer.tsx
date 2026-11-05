@@ -1,0 +1,82 @@
+"use client";
+
+import { useEffect, useId, useState } from "react";
+import toast from "react-hot-toast";
+import SaveButton from "../shared/SaveButton";
+import SavedRecordFields from "@/components/shared/SavedRecordFields";
+import { PageCard } from "../shared/PageCard";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
+import { getDental, postDental } from "@/lib/api/visit/dental";
+import { QueuedPatient } from "@/lib/types/patient";
+
+interface Props {
+  patient: QueuedPatient;
+}
+
+/** What the dental students did, and whether the doctor should refer the patient on. */
+export default function DentalNotesContainer({ patient }: Props) {
+  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const notesId = useId();
+  const referralId = useId();
+  const [notes, setNotes] = useState("");
+  const [referralNeeded, setReferralNeeded] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getDental(patient.visit_id, controller.signal)
+      .then((data) => {
+        markSaved(data !== null);
+        setNotes(data?.notes ?? "");
+        setReferralNeeded(data?.referral_needed ?? false);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error("Error loading dental notes:", error);
+        toast.error("Failed to load dental notes");
+      });
+    return () => controller.abort();
+  }, [patient.visit_id, markSaved]);
+
+  const handleSave = async () => {
+    if (!editable) return;
+    try {
+      await postDental(patient.visit_id, { notes, referral_needed: referralNeeded });
+      markSaved();
+      toast.success("Dental notes saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save dental notes");
+    }
+  };
+
+  return (
+    <PageCard title="Dental Notes" className="xl:col-span-4" contentClassName="space-y-4">
+      <SavedRecordFields locked={!editable}>
+        <div className="space-y-2">
+          <Label htmlFor={notesId}>What was done</Label>
+          <Textarea
+            id={notesId}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="e.g. Cleaned teeth, extracted lower left molar"
+            rows={6}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={referralId}
+            checked={referralNeeded}
+            onCheckedChange={(checked) => setReferralNeeded(checked === true)}
+          />
+          <Label htmlFor={referralId}>Referral needed</Label>
+        </div>
+        <p className="text-xs text-muted-foreground">The doctor sees these notes at Consult and refers the patient to a hospital if needed.</p>
+        <div className="flex items-center justify-end">
+          <SaveButton onClick={handleSave} />
+        </div>
+      </SavedRecordFields>
+    </PageCard>
+  );
+}

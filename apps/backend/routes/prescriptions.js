@@ -14,6 +14,7 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 const { ensurePrescriptions } = require('../utils/ensureSchema');
 const { lockDrug } = require('../utils/pharmacyStock');
 const { textOrEmpty } = require('../utils/partialFields');
+const { setStationNeeded } = require('../utils/stationRoute');
 
 const STATUSES = ['pending', 'dispensed', 'cancelled'];
 const MAX_INSTRUCTIONS = 500;
@@ -165,7 +166,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
 
     await inTransaction(res, 'creating prescription', async (client) => {
-        const visit = await client.query('SELECT id, location_id FROM visits WHERE id = $1', [visitId]);
+        // Locked: prescribing may add Pharmacy to the visit's route.
+        const visit = await client.query('SELECT id, location_id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
         if (!visit.rows.length) {
             return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
         }
@@ -189,6 +191,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
             [visitId, drugId, drug.drug_name, quantity, instructions, req.user.id]
         );
+        // The patient now queues at Pharmacy after their other stations, TB patients included. A
+        // visit that is already finished keeps its prescription pending for the pharmacy list.
+        await setStationNeeded(client, visitId, 'pharmacy', true, req.user.id);
         const prescription = await fetchPrescription(client, rows[0].id);
         return { status: 201, body: { ...prescription, available_count: drug.available_count - quantity } };
     });

@@ -43,10 +43,11 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Patient List | `/patient-list` | Search patients; **+** adds a new one |
 | Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
+| Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |
+| Physiotherapy | `/physiotherapy` | Physiotherapy assessment (patients sent by the doctor) |
+| Dental | `/dental` | Triage notes, what the dental students did, and "referral needed" |
 | Partner NGO | `/seva` | Partner NGO notes and referrals (name set in `constants/partnerNgo.ts`) |
-| Physiotherapy | `/physiotherapy` | Physiotherapy assessment |
-| Consultation | `/doctors-consultation` | Doctor's notes, prescribing from pharmacy stock, and referrals |
-| Pharmacy | `/pharmacy` | Dispense prescriptions, view stock, and each patient's prescription history |
+| Pharmacy | `/pharmacy` | The Pharmacy queue, dispensing prescriptions, stock, and each patient's prescription history |
 | Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock |
 | Analytics | `/analytics` | Clinic numbers, from the user menu |
 

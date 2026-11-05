@@ -1,4 +1,28 @@
-# Returning to and skipping stations
+# Stations, returning to and skipping them
+
+## Stations and their order
+
+Patients go through the stations they need in this order:
+
+| Station | Who sends the patient there |
+| --- | --- |
+| Triage | Ticked at registration |
+| Consult | Ticked at registration |
+| Physiotherapy | The doctor, with **Send to Physiotherapy** on the Consult page |
+| Dental | Ticked at registration |
+| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected |
+| Pharmacy | Added automatically when the doctor prescribes something |
+
+- **Dental** shows the patient's triage notes, where tooth problems found at Triage are
+  written. The students note what they did and tick **Referral needed** if the patient
+  should go to hospital. The doctor sees both on the Consult page, under **Dental notes**,
+  and makes the referral from there.
+- **Pharmacy** has its own queue on the Pharmacy page. Picking a patient shows only their
+  prescriptions; once they are dispensed, press **Finish** to complete the visit. A
+  patient with no prescription finishes at their last station.
+- A station added later (Physiotherapy, Partner NGO, Pharmacy) goes in its place in this
+  order, never ahead of the station the patient is waiting at, and keeps any custom order
+  made with **Send to**.
 
 While a patient is in the clinic, anyone signed in (user or admin) can send them to
 the next station, change which stations they still go to and in what order, or
@@ -40,15 +64,16 @@ there. Veasna follows that:
    through their stations as usual; the form shows how many are ticked.
 2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
    red with a **TB** label in every queue. Consult is their only station: any others
-   (Triage, Partner NGO, Physiotherapy) are taken off their route, and the registration
-   form doesn't offer them.
+   (Triage, Dental, Partner NGO) are taken off their route, the registration form doesn't
+   offer them, and the doctor can't send them to Physiotherapy. If the doctor prescribes,
+   Pharmacy is added after Consult as for any patient.
 3. **Clear:** the doctor who sees them in the TB tent presses **Clear TB** on the
    patient's card in the **Consult** queue and confirms in the pop-up. The red marker
    goes; the patient stays in the Consult queue. Clear TB isn't offered on Home, at
    Triage or in other queues.
-4. **Finish:** the doctor writes the consultation notes, prescribes, and presses
-   **Finish**. That ends the patient's stations, and their prescriptions wait under
-   **Pharmacy → Prescriptions to dispense**.
+4. **Next:** the doctor writes the consultation notes, prescribes, and presses **Next**.
+   The patient moves to the Pharmacy queue for their prescriptions (or, with nothing
+   prescribed, **Finish** ends their visit).
 
 A TB patient's stations can't be changed, before or after the flag is cleared, so
 **Send to** is greyed out on their card. **Finish** and **Discharge** still work.

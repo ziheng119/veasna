@@ -10,7 +10,7 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
 const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
-const { STATIONS, normalizeStations } = require('../utils/stations');
+const { REGISTRATION_STATIONS, DEFAULT_REGISTRATION_STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
@@ -52,8 +52,12 @@ router.get('/referrals', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
     const { patientInfo, visit, vitals, hef } = req.body;
-    // Stations the patient is indicated for. Optional: defaults to every station.
-    const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
+    // Stations the patient is indicated for, from those offered at registration (Physiotherapy is
+    // chosen at Consultation and Pharmacy is added on prescribing). Optional: defaults to
+    // DEFAULT_REGISTRATION_STATIONS.
+    const stations = req.body.stations === undefined
+        ? [...DEFAULT_REGISTRATION_STATIONS]
+        : normalizeStations(req.body.stations, REGISTRATION_STATIONS);
     // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes only to
     // Consultation, whatever stations were ticked, and is marked in red in every queue.
     const tb = req.body.tb ?? null;
@@ -95,7 +99,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
 
     if (!stations || stations.length === 0) {
-        return res.status(400).json({ error: `stations must be a non-empty list of: ${STATIONS.join(', ')}.` });
+        return res.status(400).json({ error: `stations must be a non-empty list of: ${REGISTRATION_STATIONS.join(', ')}. Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing.` });
     }
 
     if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
@@ -396,6 +400,57 @@ router.get('/presenting-complaint/:id/:visit_id', authenticateToken, requireRole
     res.status(200).json(result.rows[0]); // one record per visit
   } catch (err) {
     console.error('Error fetching presenting complaint:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// === DENTAL === //
+// What the dental students did, and whether the doctor should refer the patient on. The doctor sees
+// both on the Consult page. One record per visit: users create it, only admins change it.
+
+// GET /api/visits/dental/:visit_id - the record, or null before the first save
+router.get('/dental/:visit_id', authenticateToken, async (req, res) => {
+  const visitId = toPositiveInt(req.params.visit_id);
+  if (!visitId) return res.status(400).json({ error: 'Invalid visit_id' });
+  try {
+    const { rows } = await db.query(
+      `SELECT d.visit_id, d.notes, d.referral_needed, d.last_updated_at, u.username AS last_updated_by
+       FROM dental d LEFT JOIN users u ON u.id = d.last_updated_by
+       WHERE d.visit_id = $1`,
+      [visitId]
+    );
+    res.status(200).json(rows[0] || null);
+  } catch (err) {
+    console.error('Error fetching dental notes:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// POST /api/visits/dental/:visit_id - Body: { notes, referral_needed }
+router.post('/dental/:visit_id', authenticateToken, async (req, res) => {
+  if (await rejectUnsavableVisit(db, res, req.params.visit_id)) return;
+  const referralNeeded = req.body.referral_needed ?? false;
+  if (typeof referralNeeded !== 'boolean') {
+    return res.status(400).json({ error: 'referral_needed must be true or false' });
+  }
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO dental (visit_id, notes, referral_needed, last_updated_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (visit_id) DO UPDATE SET
+         notes = EXCLUDED.notes,
+         referral_needed = EXCLUDED.referral_needed,
+         last_updated_by = EXCLUDED.last_updated_by,
+         last_updated_at = NOW()
+       -- Only the verified admin role may update a saved record.
+       WHERE ${req.user.role === 'admin'}
+       RETURNING visit_id, notes, referral_needed, last_updated_at, last_updated_by`,
+      [toPositiveInt(req.params.visit_id), textOrEmpty(req.body.notes), referralNeeded, req.user.id]
+    );
+    if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved dental notes.' });
+    res.status(200).json(rows[0]);
+  } catch (err) {
+    console.error('Error saving dental notes:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

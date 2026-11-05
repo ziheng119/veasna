@@ -12,12 +12,12 @@ const LEGACY_ROLES = [
 function normalizeRole(role) {
   return LEGACY_ROLES.includes(role) ? "user" : role;
 }
-// Moving a patient through the clinic: finish a station, change the remaining route, or
-// discharge. This is patient flow, not an edit of saved records, so users may do it.
+// Moving a patient through the clinic: finish a station, change the remaining route or one station
+// on it, or discharge. This is patient flow, not an edit of saved records, so users may do it.
 function isQueueMovement(method, path) {
   return (
     (method === "POST" && /^\/queue\/\d+\/(complete|stations\/[a-z]+\/complete)$/.test(path)) ||
-    (method === "PUT" && /^\/queue\/\d+\/stations$/.test(path))
+    (method === "PUT" && /^\/queue\/\d+\/stations(\/[a-z]+)?$/.test(path))
   );
 }
 function canAccessApi(rawRole, method, rawPath) {
@@ -41,7 +41,7 @@ function canAccessApi(rawRole, method, rawPath) {
       "/triage/presenting-complaint",
       "/triage/history",
     ].includes(path) ||
-    /^\/visits\/(seva|physiotherapy|consultation|referral)\/\d+$/.test(path) ||
+    /^\/visits\/(seva|physiotherapy|dental|consultation|referral)\/\d+$/.test(path) ||
     // Flagging suspected TB is a first entry; the route refuses users removing or editing a flag.
     /^\/tb\/\d+\/flag$/.test(path) ||
     // Prescribing is a first entry (it reserves stock). Dispensing or cancelling a prescription

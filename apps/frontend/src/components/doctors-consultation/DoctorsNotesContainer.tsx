@@ -15,6 +15,8 @@ import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsult
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
 import { PageCard } from "../shared/PageCard";
 import PrescriptionPanel from "./PrescriptionPanel";
+import DentalSummary from "./DentalSummary";
+import SendToPhysiotherapy from "./SendToPhysiotherapy";
 
 interface Props {
   patient: QueuedPatient;
@@ -170,8 +172,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             </fieldset>
           </SavedRecordFields>
         </div>
-        {/* Prescriptions are separate records: they can be added after the notes are saved. */}
-        <div className="min-w-0 lg:border-l lg:border-border lg:pl-6">
+        {/* Prescriptions are separate records: they can be added after the notes are saved.
+            Prescribing adds Pharmacy to the patient's route. */}
+        <div className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6">
+          <DentalSummary visitId={patient.visit_id} />
+          <SendToPhysiotherapy patient={patient} />
           <PrescriptionPanel visitId={patient.visit_id} legacyPrescription={prescription} />
         </div>
       </div>

@@ -20,7 +20,7 @@ import { MedicalHistory } from "@/lib/types/medicalHistory";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
-import { updateVisitStations } from "@/lib/api/queue/stations";
+import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 
@@ -106,11 +106,8 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
         const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
             saved("acuity");
             if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
-            // Add Seva after triage without discarding a previously customized route.
-            const remaining: StationId[] = remainingStations.filter(id => id !== "seva");
-            if (sendToSeva) remaining.splice(Math.max(0, remaining.indexOf("triage") + 1), 0, "seva");
-            await updateVisitStations(visit_id, remaining, token, stations);
-            onStationsChanged?.(remaining);
+            // The server places the partner NGO in clinic order, keeping any custom route.
+            onStationsChanged?.(await setStationNeeded(visit_id, "seva", sendToSeva, token));
         });
         toast.promise(promise, {
             loading: 'Saving Visual Acuity data...',

@@ -44,6 +44,7 @@ const db = require("../config/db");
         "seva",
         "physiotherapy",
         "painpoints",
+        "dental",
       ]) {
         const start = setup.indexOf("CREATE TABLE " + table + " (");
         const sql = setup.slice(start, setup.indexOf("\n);", start) + 3);
@@ -90,6 +91,7 @@ const db = require("../config/db");
         "physiotherapy",
         { notes: "Initial", painpoints: [{ xCoord: 1, yCoord: 2 }] },
       ],
+      ["/visits/dental/1", "dental", { notes: "Initial", referral_needed: true }],
     ])(
       "%s allows creation and denies subsequent user changes",
       async (url, table, body) => {

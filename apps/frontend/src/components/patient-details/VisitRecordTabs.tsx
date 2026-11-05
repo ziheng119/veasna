@@ -20,6 +20,7 @@ import { updateVisitDetails, updateVisitTb, updateVisitVitals } from "@/lib/api/
 import { saveMedicalHistory, savePresentingComplaint, saveVisualAcuity } from "@/lib/api/triage/triageService";
 import { postSeva } from "@/lib/api/visit/seva/postSeva";
 import { postPhysiotherapy } from "@/lib/api/visit/physiotherapy/postPhysiotherapy";
+import { postDental } from "@/lib/api/visit/dental";
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
 import { postReferral } from "@/lib/api/visit/postReferral";
 import { PainPoint } from "@/lib/types/physiotherapy";
@@ -46,6 +47,7 @@ type SevaDraft = {
   diagnosis: string; referral: string; date_of_referral: string; notes: string;
 };
 type PhysioDraft = { notes: string; painpoints: PainPoint[] };
+type DentalDraft = { notes: string; referral_needed: boolean };
 type ConsultDraft = { notes: string; prescription: string; condition_categories: string[] | null };
 type ReferralDraft = { referral_date: string; destinations: string[]; illness: string; duration: string; reason: string };
 
@@ -103,6 +105,10 @@ const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
   { key: "referral", label: "Referral Needed", kind: "select", options: SEVA_REFERRAL_OPTIONS, allowBlank: "No referral" },
   { key: "date_of_referral", label: "Date of Referral", kind: "date" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
+];
+const DENTAL_FIELDS: FieldSpec<DentalDraft>[] = [
+  { key: "notes", label: "What was done", kind: "textarea", wide: true },
+  { key: "referral_needed", label: "Referral needed", kind: "boolean" },
 ];
 const PHYSIO_FIELDS: FieldSpec<PhysioDraft>[] = [
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
@@ -233,7 +239,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
   const drafts = useMemo(() => {
-    const { vitals, hef, visual_acuity: va, presenting_complaint: pc, history, seva, physiotherapy, consultation, tb } = visit;
+    const { vitals, hef, visual_acuity: va, presenting_complaint: pc, history, seva, physiotherapy, dental, consultation, tb } = visit;
     const referral = visit.referrals[0] ?? null;
     return {
       info: { queue_no: visit.queue_no, visit_date: visit.visit_date, location_id: text(visit.location_id) } as VisitInfoDraft,
@@ -261,6 +267,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
         notes: text(physiotherapy.notes),
         painpoints: (physiotherapy.painpoints ?? []).map((p) => ({ xCoord: p.x_coord, yCoord: p.y_coord })),
       } as PhysioDraft),
+      dental: dental && ({ notes: text(dental.notes), referral_needed: dental.referral_needed } as DentalDraft),
       consult: consultation && ({
         notes: text(consultation.notes), prescription: text(consultation.prescription),
         condition_categories: consultation.condition_categories,
@@ -303,9 +310,11 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     ...(visit.tb ? [tab("tb", "TB Flag", ShieldAlert, true)] : []),
     tab("registration", "Registration", ClipboardList, hasRegistration),
     tab("triage", "Triage", STATION_ICONS.triage, hasTriage),
-    tab("seva", PARTNER_NGO_NAME, STATION_ICONS.seva, Boolean(visit.seva)),
-    tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
+    // Clinic order (constants/stations.ts).
     tab("consult", "Consultation", STATION_ICONS.consultation, hasConsultation),
+    tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
+    tab("dental", "Dental", STATION_ICONS.dental, Boolean(visit.dental)),
+    tab("seva", PARTNER_NGO_NAME, STATION_ICONS.seva, Boolean(visit.seva)),
   ];
 
   return (
@@ -444,6 +453,17 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           canEdit={canEdit}
           emptyDraft={{ notes: "", painpoints: [] }}
           onSave={saved((d: PhysioDraft) => postPhysiotherapy(d, visitId))}
+        />
+      </StationPanel>
+
+      <StationPanel value="dental">
+        <EditableRecordSection
+          title="Dental"
+          record={drafts.dental}
+          fields={DENTAL_FIELDS}
+          canEdit={canEdit}
+          emptyDraft={{ notes: "", referral_needed: false }}
+          onSave={saved((d: DentalDraft) => postDental(visitId, d))}
         />
       </StationPanel>
 

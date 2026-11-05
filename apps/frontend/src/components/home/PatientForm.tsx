@@ -27,7 +27,8 @@ import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
 import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
-import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
@@ -847,7 +848,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="border-t border-border pt-4">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
+                    Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Consult, Physiotherapy, Dental, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
                   </p>
                   {tbFlagged ? (
                     // The ticked stations are kept, in case the red flags are unticked again.
@@ -858,6 +859,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   ) : (
                     <StationCheckboxes
                       idPrefix="station"
+                      options={REGISTRATION_STATION_IDS}
                       selected={stations}
                       onChange={(next) => {
                         setStations(next);

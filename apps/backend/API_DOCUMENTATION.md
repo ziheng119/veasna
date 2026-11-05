@@ -101,7 +101,7 @@ Users can create records but cannot change them once saved; admins can correct e
 | Vitals, HEF | `PUT visits/{visitId}/vitals` |
 | TB screening | `PUT visits/{visitId}/tb` |
 | Visual acuity, presenting complaint, medical history | `POST triage/visual-acuity`, `POST triage/presenting-complaint`, `POST triage/history` |
-| Seva, physiotherapy, consultation, referral | `POST visits/seva/{visitId}`, `POST visits/physiotherapy/{visitId}`, `POST visits/consultation/{visitId}`, `POST visits/referral/{visitId}` |
+| Seva, physiotherapy, dental, consultation, referral | `POST visits/seva/{visitId}`, `POST visits/physiotherapy/{visitId}`, `POST visits/dental/{visitId}`, `POST visits/consultation/{visitId}`, `POST visits/referral/{visitId}` |
 
 The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
 
@@ -124,7 +124,7 @@ A referral's signature is not edited from Patient Details. The page resends the 
 Today’s active queue for a location (visits with `completed_at` unset). `date` is optional: omitted, the backend uses its own current date (host time zone), the same date `POST visits` assigns. The frontend omits it so client devices with a wrong clock or time zone still see the same queue. An invalid `location_id` or a non-existent date (e.g. `2026-02-30`) returns `400`.
 
 **Station queues**
-Each visit lists the stations it is indicated for (`triage`, `seva`, `physiotherapy`, `consultation`) and moves through them in that order. Users and admins may both finish a station, change the remaining route and discharge a visit; this is patient flow, not an edit of saved records. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array (defaults to every station) and an optional `tb` object (see TB flag). The `seva` station is shown as the partner NGO in the app.
+Each visit lists the stations it is indicated for and moves through them in clinic order: `triage`, `consultation`, `physiotherapy`, `dental`, `seva`, `pharmacy`. Users and admins may both finish a station, change the remaining route and discharge a visit; this is patient flow, not an edit of saved records. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array from `triage`, `consultation`, `dental` and `seva` (defaults to `triage`, `consultation`, `dental`; `400` for `physiotherapy` or `pharmacy`) and an optional `tb` object (see TB flag). Physiotherapy is added by the doctor (`PUT queue/{visitId}/stations/physiotherapy`), and `pharmacy` is added as the last stop when a prescription is created (`POST prescriptions`), TB visits included. A visit that is already finished keeps its new prescription pending without a Pharmacy stop. The `seva` station is shown as the partner NGO in the app.
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD&station={station}`
 Visits currently waiting at one station, ordered by when they arrived there. Without `station`, the endpoint returns every active visit as before. Each row includes `current_station`, `stations` (`[{ "station": "triage", "completed": true }, ...]`), `tb_status` (`null` unless the visit was ever flagged for TB) and `tb_flagged` (`true` while it is flagged: shown in red in every queue).
@@ -134,6 +134,12 @@ Finish a station and move the visit to its next indicated station: `{ "next_stat
 
 **PUT** `queue/{visitId}/stations`
 Body `{ "stations": ["seva", "consultation"] }`: the stations the visit still has to go through. Completed stations are kept; pending ones are added or removed to match. Returns `409` for a visit that was ever flagged for TB (flagged or cleared): such a visit only goes to Consultation.
+
+**PUT** `queue/{visitId}/stations/{station}`
+Body `{ "needed": true }` adds one station to the remaining route in clinic order, never ahead of the station the patient is waiting at; `{ "needed": false }` takes it off. Used for the partner NGO at Triage and Physiotherapy at Consult. Returns `{ "visit_id", "stations" }` with the remaining route. `400` for `pharmacy` (added by prescribing); `409` for a TB visit, a finished visit, a station already finished, or removing the station the patient is waiting at. Recorded in `visit_station_route_history`.
+
+**GET**, **POST** `visits/dental/{visitId}`
+Dental notes: `{ "notes": "...", "referral_needed": true }`. `GET` returns `null` before the first save. `POST` creates the record; only admins can change a saved one (`403`). The Consult page shows both fields so the doctor can refer the patient.
 
 **GET** `queue/next?location_id={id}`
 Preview of the next queue number for the location today: `{ "queue_no": "7" }`. Numbers are sequential per location per day, starting at 1. This is a preview only; `POST visits` assigns the actual number when `visit.queue_no` is omitted.

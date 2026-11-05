@@ -1,4 +1,5 @@
-// A patient registered with TB red flags goes only to Consultation (routes/visits.js).
+// Registration stations (routes/visits.js): a patient registered with TB red flags goes only to
+// Consultation, and Physiotherapy and Pharmacy can't be chosen at registration.
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
@@ -52,7 +53,7 @@ describe('Registering a suspected TB patient', () => {
   });
 
   test('Consultation is used for a flagged patient who was not sent there', async () => {
-    await register({ stations: ['triage', 'physiotherapy'], tb: { red_flags: THREE_FLAGS } });
+    await register({ stations: ['triage', 'dental'], tb: { red_flags: THREE_FLAGS } });
     expect(queued()).toEqual([['consultation', 1, true]]);
   });
 
@@ -61,6 +62,16 @@ describe('Registering a suspected TB patient', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/3 or more red flags/);
     expect(db.pool.connect).not.toHaveBeenCalled();
+  });
+
+  test('registration offers Triage, Consult, Dental and the partner NGO, defaulting to the first three', async () => {
+    for (const station of ['physiotherapy', 'pharmacy']) {
+      const res = await register({ stations: ['triage', station] });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing/);
+    }
+    await register({});
+    expect(queued().map(([station]) => station)).toEqual(['triage', 'consultation', 'dental']);
   });
 
   test('other patients keep the normal order', async () => {

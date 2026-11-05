@@ -8,7 +8,7 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
-const { planStationRoute } = require('../utils/stationRoute');
+const { planStationRoute, setStationNeeded } = require('../utils/stationRoute');
 const { isTbVisit, TB_ROUTE_LOCKED_ERROR } = require('../utils/tb');
 
 // GET /api/queue?location_id=...&date=...[&station=...]
@@ -233,6 +233,56 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error updating visit stations:', err);
+        res.status(500).json({ error: 'Unable to update stations' });
+    } finally {
+        client.release();
+    }
+});
+
+// PUT /api/queue/:visitId/stations/:station - Body: { needed: boolean }
+// Adds one station to the remaining route in clinic order, or removes it: the partner NGO at
+// Triage, Physiotherapy at Consultation. Refused (409) for a TB visit, whose route is fixed, and in
+// the cases described at setStationNeeded. Returns { visit_id, stations } (the remaining route).
+router.put('/:visitId/stations/:station', authenticateToken, requireRole(['any']), async (req, res) => {
+    const visitId = toPositiveInt(req.params.visitId);
+    const { station } = req.params;
+    const { needed } = req.body;
+    if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
+    // Pharmacy is added by prescribing, not by hand.
+    if (!STATIONS.includes(station) || station === 'pharmacy') {
+        return res.status(400).json({ error: `station must be one of: ${STATIONS.filter(s => s !== 'pharmacy').join(', ')}` });
+    }
+    if (typeof needed !== 'boolean') return res.status(400).json({ error: 'needed must be true or false' });
+
+    let client;
+    try {
+        client = await db.pool.connect();
+    } catch (err) {
+        console.error('Failed to acquire database connection:', err);
+        return res.status(500).json({ error: 'Database connection unavailable' });
+    }
+    try {
+        await client.query('BEGIN');
+        const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        if (!visit.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Visit not found' });
+        }
+        if (await isTbVisit(client, visitId)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: TB_ROUTE_LOCKED_ERROR });
+        }
+        const result = await setStationNeeded(client, visitId, station, needed, req.user.id);
+        if (result.error) {
+            await client.query('ROLLBACK');
+            return res.status(result.status).json({ error: result.error });
+        }
+        await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, req.user.id]);
+        await client.query('COMMIT');
+        res.status(200).json({ visit_id: visitId, stations: result.stations });
+    } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
+        console.error('Error updating a visit station:', err);
         res.status(500).json({ error: 'Unable to update stations' });
     } finally {
         client.release();

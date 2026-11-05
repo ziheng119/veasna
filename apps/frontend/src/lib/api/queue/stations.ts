@@ -50,3 +50,24 @@ export async function updateVisitStations(
 
   clearQueueCache();
 }
+
+// Adds one station to the visit's remaining route in clinic order, or takes it off: the partner NGO
+// at Triage, Physiotherapy at Consult. Resolves to the remaining route. Refused for TB patients.
+export async function setStationNeeded(
+  visitId: number,
+  station: StationId,
+  needed: boolean,
+  token: string
+): Promise<StationId[]> {
+  const res = await fetch(`${backend_url}/api/queue/${visitId}/stations/${station}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ needed }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || error.message || "Failed to update stations");
+  }
+  clearQueueCache();
+  return (await res.json()).stations;
+}

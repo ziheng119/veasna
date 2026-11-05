@@ -8,6 +8,9 @@ jest.mock('../src/components/shared/read-only/patient-container/referral/Referra
   __esModule: true, default: props => props.showPopUp ? React.createElement('referral-editor', props) : null,
 }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
+// Tested on their own in consultationPanels.test.js.
+jest.mock('../src/components/doctors-consultation/DentalSummary', () => ({ __esModule: true, default: () => null }));
+jest.mock('../src/components/doctors-consultation/SendToPhysiotherapy', () => ({ __esModule: true, default: () => null }));
 const { getConsultation } = require('../src/lib/api/visit/doctors-consultation/getConsultation');
 const { postConsultation } = require('../src/lib/api/visit/doctors-consultation/postConsultation');
 const DoctorsNotesContainer = require('../src/components/doctors-consultation/DoctorsNotesContainer').default;

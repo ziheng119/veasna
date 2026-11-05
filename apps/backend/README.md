@@ -150,8 +150,12 @@ These rules are enforced by the server, so they apply on every device:
   saved ones. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
   correctly.
-- **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
-  Physiotherapy, Consultation), waiting in one queue at a time.
+- **Stations:** each visit goes through only the stations it needs, in clinic order
+  (`STATIONS` in `utils/stations.js`): Triage, Consultation, Physiotherapy, Dental, Partner
+  NGO (`seva`), Pharmacy. It waits in one queue at a time. Registration offers
+  `REGISTRATION_STATIONS`; Physiotherapy is added by the doctor and Pharmacy by prescribing
+  (`setStationNeeded` in `utils/stationRoute.js`). Migration `018_dental_pharmacy_stations.sql`
+  adds the two stations and the `dental` table.
 - **TB flag:** suspected TB is a flag on the visit, set at registration or at Triage when
   3 or more red flags are ticked (`TB_MIN_RED_FLAGS` in `utils/tb.js`, mirrored in
   `apps/frontend/src/constants/tb.ts`). The patient goes only to Consultation (`TB_ROUTE`):

@@ -164,8 +164,20 @@ function ensurePrescriptions() {
   return prescriptionsPromise;
 }
 
+// Rewrites the station constraint after 016 did, so it runs after ensureTbFlag.
+let dentalPharmacyStationsPromise = null;
+function ensureDentalPharmacyStations() {
+  if (!dentalPharmacyStationsPromise) {
+    dentalPharmacyStationsPromise = ensureTbFlag()
+      .then(() => runMigration('018_dental_pharmacy_stations.sql'))
+      .catch(err => { dentalPharmacyStationsPromise = null; throw err; });
+  }
+  return dentalPharmacyStationsPromise;
+}
+
 module.exports = {
   ensureTbFlag,
+  ensureDentalPharmacyStations,
   ensurePrescriptions,
   ensureConsultationConditions,
   ensureReferralSignature,

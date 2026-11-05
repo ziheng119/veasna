@@ -16,17 +16,20 @@ interface Props {
   locationId: number;
   // Called after a dispense or cancel, so stock figures elsewhere on the page refresh.
   onStockChanged: () => void;
+  // Only this visit's prescriptions (the patient selected in the Pharmacy queue).
+  visitId?: number;
 }
 
 /** Prescriptions waiting at the pharmacy. Dispensing finalises the stock deduction. */
-export default function PendingPrescriptions({ locationId, onStockChanged }: Props) {
+export default function PendingPrescriptions({ locationId, onStockChanged, visitId }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const load = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
     if (!token) return [];
     return getLocationPrescriptions(locationId, "pending", signal);
   }, [locationId, token]);
-  const { data: pending, refresh, loaded } = useLiveList(load);
+  const { data: all, refresh, loaded } = useLiveList(load);
+  const pending = visitId ? all.filter((prescription) => prescription.visit_id === visitId) : all;
   const [busy, setBusy] = useState<number | null>(null);
 
   const act = async (prescription: Prescription, action: "dispense" | "cancel") => {
@@ -51,7 +54,9 @@ export default function PendingPrescriptions({ locationId, onStockChanged }: Pro
   };
 
   if (loaded && pending.length === 0) {
-    return <p className="px-6 py-10 text-center text-sm text-muted-foreground">No prescriptions waiting to be dispensed.</p>;
+    return <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+      {visitId ? "Nothing left to dispense for this patient. Press Finish in the queue." : "No prescriptions waiting to be dispensed."}
+    </p>;
   }
 
   return (

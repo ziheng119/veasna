@@ -20,6 +20,8 @@ import SegmentedTabs from "@/components/shared/SegmentedTabs"
 import PendingPrescriptions from "@/components/pharmacy/PendingPrescriptions"
 import PatientPrescriptionHistory from "@/components/pharmacy/PatientPrescriptionHistory"
 import { Boxes, ClipboardList, Users } from "lucide-react"
+import QueuePatientPicker from "@/components/shared/QueuePatientPicker"
+import { QueuedPatient } from "@/lib/types/patient"
 
 // Prescriptions waiting to be dispensed come first: they are the pharmacy's main queue.
 const PHARMACY_TABS = [
@@ -33,6 +35,8 @@ export default function Pharmacy() {
     const [stats, setStats] = useState<PharmacyStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [tab, setTab] = useState("prescriptions")
+    // The patient picked in the Pharmacy queue; their prescriptions are shown. None shows all.
+    const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null)
 
     const location = useLocationStore((state) => state.currentLocation)
     // Prescribing elsewhere changes available stock; reload when another device makes a change.
@@ -115,11 +119,27 @@ export default function Pharmacy() {
           <SegmentedTabs tabs={PHARMACY_TABS} value={tab} label="Pharmacy sections" />
 
           <TabsContent value="prescriptions" className="mt-0">
-            <PageCard title="Prescriptions to dispense" contentClassName="px-0">
-              {location
-                ? <PendingPrescriptions locationId={location.id} onStockChanged={() => void fetchData()} />
-                : <p className="px-6 text-sm text-muted-foreground">Select a location.</p>}
-            </PageCard>
+            {/* Pharmacy is the last station for prescribed patients: Finish completes their visit. */}
+            <div className={PANEL_GRID}>
+              <QueuePatientPicker
+                station="pharmacy"
+                onSelectPatient={setSelectedPatient}
+                selectedVisitId={selectedPatient?.visit_id}
+              />
+              <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+                <PageCard
+                  title={selectedPatient ? `Prescriptions for ${selectedPatient.english_name || "this patient"}` : "Prescriptions to dispense"}
+                  action={selectedPatient && (
+                    <button type="button" className="text-sm text-primary underline" onClick={() => setSelectedPatient(null)}>Show all</button>
+                  )}
+                  contentClassName="px-0"
+                >
+                  {location
+                    ? <PendingPrescriptions locationId={location.id} visitId={selectedPatient?.visit_id} onStockChanged={() => void fetchData()} />
+                    : <p className="px-6 text-sm text-muted-foreground">Select a location.</p>}
+                </PageCard>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="inventory" className="mt-0 xl:min-h-0">

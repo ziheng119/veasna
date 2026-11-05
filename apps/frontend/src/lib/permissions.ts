@@ -8,10 +8,12 @@ export const ROLE_OPTIONS = [
 export const NAVIGATION = [
   { href: "/", label: "Home" },
   { href: "/patient-list", label: "Patient List" },
+  // Stations in clinic order (constants/stations.ts).
   { href: "/triage", label: "Triage" },
-  { href: "/seva", label: PARTNER_NGO_NAME },
-  { href: "/physiotherapy", label: "Physiotherapy" },
   { href: "/doctors-consultation", label: "Consult" },
+  { href: "/physiotherapy", label: "Physiotherapy" },
+  { href: "/dental", label: "Dental" },
+  { href: "/seva", label: PARTNER_NGO_NAME },
   { href: "/pharmacy", label: "Pharmacy" },
 ] as const;
 

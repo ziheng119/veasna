@@ -136,4 +136,33 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     expect((await save(['tb', 'seva', 'consultation'])).status).toBe(400);
     expect(await pending()).toEqual(['seva', 'consultation']);
   });
+  const indicate = (station, needed, role = 'user') => request(app).put(`/api/queue/1/stations/${station}`)
+    .set('Authorization', `Bearer ${jwt.sign({ id: 1, role }, secret)}`).send({ needed });
+
+  test('Physiotherapy chosen at Consultation is added in clinic order, and can be taken off again', async () => {
+    await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE station = 'seva'; UPDATE visit_stations SET entered_at = NOW() WHERE station = 'consultation';");
+    await client.query("INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES (1, 'dental', 4, 1)");
+    const res = await indicate('physiotherapy', true);
+    expect(res.body).toEqual({ visit_id: 1, stations: ['consultation', 'physiotherapy', 'dental'] });
+    expect(await pending()).toEqual(['consultation', 'physiotherapy', 'dental']);
+    expect((await indicate('physiotherapy', true)).body.stations).toEqual(['consultation', 'physiotherapy', 'dental']);
+    expect((await indicate('physiotherapy', false)).body.stations).toEqual(['consultation', 'dental']);
+    expect((await client.query('SELECT COUNT(*)::int AS n FROM visit_station_route_history')).rows[0].n).toBe(2);
+  });
+
+  test('the station the patient is waiting at, or a finished one, is refused', async () => {
+    expect((await indicate('seva', false)).status).toBe(409);
+    expect((await indicate('triage', true)).status).toBe(409);
+    expect(await pending()).toEqual(['seva', 'consultation']);
+  });
+
+  test('Pharmacy is added by prescribing, not by hand; TB visits are refused', async () => {
+    expect((await indicate('pharmacy', true)).status).toBe(400);
+    expect((await indicate('physiotherapy', 'yes')).status).toBe(400);
+    await client.query("INSERT INTO tb_screening (visit_id, red_flags, status) VALUES (1, '{a,b,c}', 'suspected')");
+    const res = await indicate('physiotherapy', true);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/only go to Consult/);
+    expect(await pending()).toEqual(['seva', 'consultation']);
+  });
 });

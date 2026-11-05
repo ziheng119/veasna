@@ -283,6 +283,11 @@ router.get(
           -- Physiotherapy
           pt.id AS physio_id,
           pt.notes AS physio_notes,
+
+          -- Dental
+          d.id AS dental_id,
+          d.notes AS dental_notes,
+          d.referral_needed AS dental_referral_needed,
           
           -- Consultation
           c.id AS consultation_id,
@@ -308,6 +313,7 @@ router.get(
         LEFT JOIN history hist ON v.id = hist.visit_id
         LEFT JOIN seva s ON v.id = s.visit_id
         LEFT JOIN physiotherapy pt ON v.id = pt.visit_id
+        LEFT JOIN dental d ON v.id = d.visit_id
         LEFT JOIN consultation c ON v.id = c.visit_id
         LEFT JOIN tb_screening tb ON v.id = tb.visit_id
         WHERE v.id = $1
@@ -456,6 +462,10 @@ router.get(
               notes: visit.physio_notes,
               painpoints: painpoints,
             }
+          : null,
+
+        dental: visit.dental_id
+          ? { notes: visit.dental_notes, referral_needed: visit.dental_referral_needed }
           : null,
 
         consultation: visit.consultation_id
