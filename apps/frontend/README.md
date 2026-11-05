@@ -61,6 +61,7 @@ after a dropped connection refresh themselves when the connection returns.
 | The logo on printed referral letters | Save it as `public/btb-logo.png`. Without the file, letters print with the name only. |
 | The organisation name on referral letters | `LETTERHEAD` in `src/constants/letterhead.ts` |
 | The TB red flags offered at registration and Triage | `TB_RED_FLAGS` in `src/constants/tb.ts` |
+| What can be typed into registration fields (e.g. digits and one decimal place for height and weight) | `INPUT_FORMATS` in `src/lib/inputFormats.ts` |
 | Places a doctor can refer to | `REFERRAL_DESTINATIONS` in `src/constants/referral.ts` |
 
 Run `npm run build` again afterwards for clinic use.

@@ -105,6 +105,8 @@ A few things worth knowing:
   the same form. Leave the queue number blank to get the next one, or type one with
   letters, such as `12A` for a family member of number 12. A typed number can't jump
   ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
+  Number fields (height, weight, blood pressure, temperature, age) only accept digits
+  as you type, with one decimal place where it makes sense.
 - **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag
   suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient. A
   flagged patient goes only to the Consult queue, shown in red and marked **TB** in

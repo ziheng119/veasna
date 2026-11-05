@@ -25,6 +25,7 @@ import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
+import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
@@ -442,16 +443,16 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
-                    <Input
+                    <FilteredInput
                       id="queueNumber"
+                      format="queueNo"
+                      transform={(value) => value.toUpperCase()}
                       value={patientInfo.queue_no ?? ""}
-                      onChange={(e) => {
-                        setPatientInfo(prev => ({ ...prev, queue_no: e.target.value.toUpperCase() }));
+                      onValueChange={(queue_no) => {
+                        setPatientInfo(prev => ({ ...prev, queue_no }));
                         clearFieldError("queue_no");
                       }}
-                      maxLength={10}
                       autoCapitalize="characters"
-                      autoComplete="off"
                       placeholder={nextQueueNo ? `${nextQueueNo} (next)` : "Assigned automatically"}
                       aria-invalid={!!errors.queue_no}
                       aria-describedby="queueNumberHint"
@@ -561,22 +562,23 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="age" className="text-muted-foreground">Age</Label>
-                    <Input
+                    <FilteredInput
                       id="age"
-                      type="number"
-                      value={patientInfo.age || ""}
+                      format="wholeNumber"
+                      value={String(patientInfo.age || "")}
                       readOnly={!!patientInfo.date_of_birth}
-                      onChange={(e) => setPatientInfo(prev => ({ ...prev, age: e.target.value || "" }))}
+                      onValueChange={(age) => setPatientInfo(prev => ({ ...prev, age }))}
                       placeholder="Auto from date of birth"
                       className={`mt-2 ${patientInfo.date_of_birth ? "bg-muted" : ""}`}
                     />
                   </div>
                   <div>
                     <Label htmlFor="phoneNumber" className="text-muted-foreground">Phone Number</Label>
-                    <Input
+                    <FilteredInput
                       id="phoneNumber"
+                      format="phone"
                       value={patientInfo.phone_number || ""}
-                      onChange={(e) => setPatientInfo(prev => ({ ...prev, phone_number: e.target.value }))}
+                      onValueChange={(phone_number) => setPatientInfo(prev => ({ ...prev, phone_number }))}
                       placeholder="Phone number"
                       className="mt-2"
                     />
@@ -611,14 +613,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="height" className="text-muted-foreground">Height (cm)</Label>
-                    <Input
+                    <FilteredInput
                       id="height"
-                      type="number"
-                      step="0.1"
+                      format="measurement"
                       value={vitals.height}
                       aria-invalid={!!errors.height}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, height: e.target.value }));
+                      onValueChange={(height) => {
+                        setVitals(prev => ({ ...prev, height }));
                         clearFieldError("height");
                       }}
                       placeholder="Height in cm"
@@ -628,14 +629,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="weight" className="text-muted-foreground">Weight (kg)</Label>
-                    <Input
+                    <FilteredInput
                       id="weight"
-                      type="number"
-                      step="0.1"
+                      format="measurement"
                       value={vitals.weight}
                       aria-invalid={!!errors.weight}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, weight: e.target.value }));
+                      onValueChange={(weight) => {
+                        setVitals(prev => ({ ...prev, weight }));
                         clearFieldError("weight");
                       }}
                       placeholder="Weight in kg"
@@ -684,13 +684,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="systolic" className="text-muted-foreground">Blood Pressure - Systolic</Label>
-                    <Input
+                    <FilteredInput
                       id="systolic"
-                      type="number"
+                      format="wholeNumber"
                       value={vitals.bp_systolic}
                       aria-invalid={!!errors.bp_systolic}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, bp_systolic: e.target.value }));
+                      onValueChange={(bp_systolic) => {
+                        setVitals(prev => ({ ...prev, bp_systolic }));
                         clearFieldError("bp_systolic");
                       }}
                       placeholder="Systolic"
@@ -700,13 +700,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="diastolic" className="text-muted-foreground">Blood Pressure - Diastolic</Label>
-                    <Input
+                    <FilteredInput
                       id="diastolic"
-                      type="number"
+                      format="wholeNumber"
                       value={vitals.bp_diastolic}
                       aria-invalid={!!errors.bp_diastolic}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, bp_diastolic: e.target.value }));
+                      onValueChange={(bp_diastolic) => {
+                        setVitals(prev => ({ ...prev, bp_diastolic }));
                         clearFieldError("bp_diastolic");
                       }}
                       placeholder="Diastolic"
@@ -718,14 +718,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     
                 <div>
                   <Label htmlFor="temperature" className="text-muted-foreground">Temperature (°C)</Label>
-                  <Input
+                  <FilteredInput
                     id="temperature"
-                    type="number"
-                    step="0.1"
+                    format="temperature"
                     value={vitals.temperature}
                     aria-invalid={!!errors.temperature}
-                    onChange={(e) => {
-                      setVitals(prev => ({ ...prev, temperature: e.target.value }));
+                    onValueChange={(temperature) => {
+                      setVitals(prev => ({ ...prev, temperature }));
                       clearFieldError("temperature");
                     }}
                     placeholder="Temperature in Celsius"
