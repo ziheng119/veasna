@@ -213,6 +213,11 @@ Save the Snellen's test for a visit. Body: `visit_id`, `left_with_pinhole`, `lef
 
 `POST visits/seva/{visit_id}` also takes `referral`: `"cataract_surgery"`, `"seva_general"`, or blank/`null` for no referral.
 
+**GET** `visits/referrals?location_id={id|all}&date=YYYY-MM-DD` (or `&from=YYYY-MM-DD&to=YYYY-MM-DD`, or `&all=true`)
+Saved referrals for printing, signed or not, oldest first: one day, a period (both days included) or every date, at one location or `all`. A referral counts on its `referral_date`, or its visit's date when it has none. Each row has the referral fields, `signature`, `signer_name`, `signed_at`, and the patient's `patient_id`, `location_id`, names, `sex`, `address` and `date_of_birth`. `400` unless exactly one of `date`, `from`+`to` or `all=true` is given, or when `from` is after `to`. Never cached.
+
+**POST** `visits/referral/{visitId}` `signature` is either drawn strokes (`[[[x, y], ...], ...]`, each 0..1) or an uploaded picture `{ "image": "data:image/png;base64,..." }` (PNG or JPEG, at most 90,000 characters, its contents must match its type); `400` otherwise.
+
 **GET** `visits/seva-referrals?location_id={id}`
 Patients at the location that Seva marked for referral (any date, newest visit first), with `referral`, `diagnosis`, `visit_date` and patient details.
 

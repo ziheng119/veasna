@@ -6,6 +6,7 @@ import { postReferral } from "@/lib/api/visit/postReferral";
 import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
+import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
@@ -43,7 +44,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const user = useUserStore((state) => state.user)
 
   const readOnly = user?.role !== "admin" && retrievedReferral !== null;
-  const [signature, setSignature] = useState<Signature | null>(retrievedReferral?.signature ?? null);
+  // A signature this user saved earlier in the session fills in on each new referral.
+  const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
+  const saveSignature = useSavedSignatureStore((state) => state.save);
+  const forgetSignature = useSavedSignatureStore((state) => state.forget);
+  const [signature, setSignature] = useState<Signature | null>(
+    () => retrievedReferral ? retrievedReferral.signature ?? null : savedSignature,
+  );
+  const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -167,8 +175,15 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
           <section className="space-y-3 border-t border-border pt-5">
             <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{user?.username}</span></p>
-            <SignaturePad value={signature} onChange={setSignature} disabled={saving} />
-            <p className="text-xs text-muted-foreground">Your saved signature stays in this box. Draw to add strokes, or clear it to start again. Save referral to keep your changes.</p>
+            <SignaturePad value={signature} onChange={setSignature} disabled={saving}
+              saved={signatureSaved}
+              onSave={value => {
+                if (!user) return;
+                saveSignature(user.id, value);
+                toast.success("Signature saved. It fills in on your next referrals until you sign out.");
+              }}
+              onForget={forgetSignature} />
+            <p className="text-xs text-muted-foreground">The signature stays in this box. Draw to add strokes, or clear it to start again. Save referral to keep your changes.</p>
             {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">

@@ -1,5 +1,6 @@
 const { validConditions } = require('../utils/consultationConditions');
 const { validateSignature } = require('../utils/referralSignature');
+const { parseReferralFilter } = require('../utils/referralFilter');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
@@ -18,32 +19,31 @@ const { normalizeVitals } = require('../utils/vitals');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
-// Include completed visits and unsigned drafts, not just patients still queued.
+// Saved referrals to print, for a day, a period or every date, at one location or all
+// (utils/referralFilter.js). Includes completed visits and unsigned drafts, not just patients still
+// queued. Ordered by referral date, then registration.
 router.get('/referrals', authenticateToken, async (req, res) => {
-  const locationId = Number(req.query.location_id);
-  const date = req.query.date;
-  if (!Number.isSafeInteger(locationId) || locationId <= 0 ||
-      typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
-    return res.status(400).json({ error: 'A valid location_id and date (YYYY-MM-DD) are required' });
-  }
+  const filter = parseReferralFilter(req.query);
+  if (filter.error) return res.status(400).json({ error: filter.error });
   try {
     const { rows } = await db.query(`
       SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
         r.signature, r.signer_name, r.signer_id, r.signed_at,
-        p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
+        p.id AS patient_id, v.location_id, p.english_name, p.khmer_name, p.sex, p.address,
         TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
       FROM referral r
       JOIN visits v ON v.id = r.visit_id
       JOIN patients p ON p.id = v.patient_id
-      WHERE v.location_id = $1 AND COALESCE(r.referral_date, v.visit_date) = $2::date
-      ORDER BY v.created_at ASC, v.id ASC
-    `, [locationId, date]);
+      WHERE ($1::int IS NULL OR v.location_id = $1)
+        AND ($2::date IS NULL OR COALESCE(r.referral_date, v.visit_date) >= $2::date)
+        AND ($3::date IS NULL OR COALESCE(r.referral_date, v.visit_date) <= $3::date)
+      ORDER BY COALESCE(r.referral_date, v.visit_date) ASC, v.created_at ASC, v.id ASC
+    `, [filter.locationId, filter.from, filter.to]);
     res.setHeader('Cache-Control', 'no-store');
     res.json(rows);
   } catch (error) {
-    console.error('Daily referral retrieval failed:', error);
+    console.error('Referral retrieval failed:', error);
     res.status(500).json({ error: 'Unable to load referrals' });
   }
 });

@@ -11,7 +11,7 @@ import { SET_LOCATION_MESSAGE } from "@/messages/info";
 import toast from "react-hot-toast";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import PrintDailyReferrals from "@/components/doctors-consultation/PrintDailyReferrals";
+import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 // Queue, patient snapshot and triage summary share the top row; the consultation notes take the
@@ -33,7 +33,7 @@ export default function DoctorsConsultation() {
       <div className="flex flex-col gap-5 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
-          <PrintDailyReferrals locationId={location?.id} />
+          <PrintReferrals locationId={location?.id} />
         </div>
         <div className={TOP_ROW}>
           <QueuePatientPicker

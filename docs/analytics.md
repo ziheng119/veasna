@@ -6,6 +6,10 @@ signatures.
 
 ## Using the page
 
+- **Printing referrals:** hover over (or tap) the **Visits with referrals** card and
+  press **Print referrals** to print saved referral letters for today, a date, a period
+  or all dates, at the chosen location. The letters contain patient details; the
+  analytics numbers do not. See [printing saved referrals](consultation-referrals.md#printing-saved-referrals).
 - **Filters:** choose a location (or **All locations**), a period (**Day**, **Week**,
   **30 days** or **Overall**) and the end date. Every section uses these filters.
 - **Section links** at the top jump to Summary, Trends, Conditions, Locations and
