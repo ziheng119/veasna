@@ -9,6 +9,7 @@ jest.mock('../src/assets/icons', () => ({ EyeIcon: () => null, TrashIcon: () => 
 jest.mock('../src/components/patient-list/FamilyButton', () => ({ __esModule: true, default: () => null }));
 const { sortPatients, nextPatientSort, DEFAULT_PATIENT_SORT } = require('../src/lib/patientSort');
 const { PatientTable } = require('../src/components/patient-list/PatientTable');
+const { ArrowDown, ArrowUp } = require('lucide-react');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const person = (id, english_name, more = {}) => ({ id, english_name, date_of_birth: '2000-01-01', ...more });
@@ -64,9 +65,13 @@ describe('the table', () => {
     await render([person(1, 'Bo', { sex: 'M' }), person(2, 'Ann', { sex: 'F' }), person(3, 'Cy', { sex: 'M' })]);
     expect(names()).toEqual(['Ann', 'Bo', 'Cy']);
     expect(header('English Name').props['aria-sort']).toBe('ascending');
+    // The arrow points the way the values grow: down for A to Z, up for Z to A.
+    const arrow = label => header(label).findByType('button').findByProps({ 'aria-hidden': 'true' }).type;
+    expect(arrow('English Name')).toBe(ArrowDown);
     await act(async () => header('English Name').findByType('button').props.onClick());
     expect(names()).toEqual(['Cy', 'Bo', 'Ann']);
     expect(header('English Name').props['aria-sort']).toBe('descending');
+    expect(arrow('English Name')).toBe(ArrowUp);
     await act(async () => header('Sex').findByType('button').props.onClick());
     expect(names()).toEqual(['Ann', 'Bo', 'Cy']);
     expect(header('Sex').props['aria-sort']).toBe('ascending');

@@ -54,7 +54,8 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
               <tr>
                 {COLUMNS.map(({ key, label, width }, index) => {
                   const active = sort.key === key;
-                  const Arrow = sort.direction === 'asc' ? ArrowUp : ArrowDown;
+                  // Points the way the values grow: down for A to Z (ascending), up for Z to A.
+                  const Arrow = sort.direction === 'asc' ? ArrowDown : ArrowUp;
                   return (
                     <th
                       key={key}
