@@ -55,7 +55,7 @@ const DAY = '2026-11-05';
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE,
         family TEXT CHECK (family ~ '^[A-Z]{1,4}$'), last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT REFERENCES patients(id), location_id INT, queue_no TEXT, visit_date DATE,
-        completed_at TIMESTAMP, last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW());
+        completed_at TIMESTAMP, last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW(), sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
         entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
         last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), UNIQUE (visit_id, station));

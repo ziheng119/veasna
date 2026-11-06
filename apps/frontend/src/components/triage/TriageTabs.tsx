@@ -13,7 +13,7 @@ import { Save } from "lucide-react";
 import toast from "react-hot-toast";
 import { saveVisualAcuity,savePresentingComplaint, saveMedicalHistory} from "@/lib/api/triage/triageService";   
 import { VisualAcuity } from "@/lib/types/visualAcuity";
-import SnellenInput from "@/components/shared/SnellenInput";
+import EyeReadingsGrid, { EMPTY_EYE_READINGS, EYE_READING_FIELDS, EyeReadings, REQUIRED_EYE_READING_FIELDS } from "@/components/shared/EyeReadingsGrid";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
@@ -62,8 +62,8 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
       ]).then(([acuity, complaint, history]) => {
         if (cancelled) return;
         setVisualAcuity({
-          left_with_pinhole: acuity?.left_with_pinhole ?? "", left_without_pinhole: acuity?.left_without_pinhole ?? "",
-          right_with_pinhole: acuity?.right_with_pinhole ?? "", right_without_pinhole: acuity?.right_without_pinhole ?? "", notes: acuity?.notes ?? "",
+          ...Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, acuity?.[field] ?? ""])) as EyeReadings,
+          notes: acuity?.notes ?? "",
         });
         setPresentingComplaint({ history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "" });
         setMedicalHistory({ past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "" });
@@ -81,13 +81,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
 
     const [isLoading, setIsLoading] = useState(false);
 
-    const [visualAcuity, setVisualAcuity] = useState<VisualAcuity> ({
-        left_with_pinhole: "",
-        left_without_pinhole: "",
-        right_with_pinhole: "",
-        right_without_pinhole: "",
-        notes: ""
-    });
+    const [visualAcuity, setVisualAcuity] = useState<VisualAcuity>({ ...EMPTY_EYE_READINGS, notes: "" });
 
     const [presentingComplaint, setPresentingComplaint] = useState<PresentingComplaint>({
         history: "",
@@ -150,7 +144,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     // ready when it is complete or already saved. "Save & next" turns green once all three are ready.
     const filled = (values: string[]) => values.every((value) => value.trim() !== "");
     const sectionComplete: Record<SectionId, boolean> = {
-        acuity: filled([visualAcuity.left_with_pinhole, visualAcuity.left_without_pinhole, visualAcuity.right_with_pinhole, visualAcuity.right_without_pinhole]),
+        acuity: filled(REQUIRED_EYE_READING_FIELDS.map((field) => visualAcuity[field])),
         complaint: filled(Object.values(presentingComplaint)),
         history: filled(Object.values(medicalHistory)),
     };
@@ -205,30 +199,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                     <Card className="bg-card border-border">
                         <CardHeader><CardTitle className="text-foreground">Snellen's Test (Visual Acuity)</CardTitle></CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h4 className="text-foreground">Left Eye</h4>
-                                    <div>
-                                        <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.left_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_with_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.left_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_without_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-foreground">Right Eye</h4>
-                                    <div>
-                                        <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.right_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_with_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.right_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_without_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                </div>
-                            </div>
+                            <EyeReadingsGrid values={visualAcuity} onChange={(field, value) => setVisualAcuity(p => ({ ...p, [field]: value }))} />
                             {stations && (
                                 <div className="flex items-start space-x-2 rounded-md border border-border p-3">
                                     <Checkbox

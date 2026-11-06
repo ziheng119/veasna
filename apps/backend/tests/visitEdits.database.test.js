@@ -94,6 +94,13 @@ const USER_ID = 2;
       expect(res.body).toMatchObject({ queue_no: "B7", visit_date: "2026-10-02", location_id: 2, last_updated_by: ADMIN_ID });
     });
 
+    test("the sticker colour can be set, changed and cleared on its own", async () => {
+      expect((await put("/visits/1", { sticker_colour: "gold" })).body).toMatchObject({ queue_no: "1", sticker_colour: "gold", last_updated_by: ADMIN_ID });
+      expect((await put("/visits/1", { queue_no: "1" })).body.sticker_colour).toBe("gold");
+      expect((await put("/visits/1", { sticker_colour: "tartan" })).status).toBe(400);
+      expect((await put("/visits/1", { sticker_colour: null })).body.sticker_colour).toBeNull();
+    });
+
     test("a number ahead of the sequence is rejected, so later numbers do not skip", async () => {
       // Visits 1 and 2 hold numbers 1 and 2; leaving visit 1 out, the next number is 3.
       const res = await put("/visits/1", { queue_no: "23" });

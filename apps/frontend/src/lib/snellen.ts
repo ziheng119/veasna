@@ -1,4 +1,4 @@
-// Visual acuity is recorded as a Snellen fraction such as "6/6" or "6/9". The chart lines offered
+// Visual acuity is recorded as a Snellen fraction such as "20/20" or "20/40". The chart lines offered
 // in forms are an editable list (useFormOptions("snellen")).
 
 const SNELLEN_PATTERN = /^\d+(\.\d+)?\/\d+(\.\d+)?$/;
@@ -26,4 +26,4 @@ export function normalizeSnellenFields<K extends string>(fields: Record<K, strin
   return result;
 }
 
-export const SNELLEN_ERROR = "Visual acuity must be a fraction such as 6/6 or 6/9, or left unselected.";
+export const SNELLEN_ERROR = "Visual acuity must be a fraction such as 20/20 or 20/40, or left unselected.";

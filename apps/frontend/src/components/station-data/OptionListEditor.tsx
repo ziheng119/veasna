@@ -39,7 +39,11 @@ export function draftError(listKey: FormOptionKey, items: FormOption[]): string 
   if (items.some(item => !item.label.trim())) return "Every choice needs a name.";
   if (listKey === "snellen") {
     const bad = items.find(item => !normalizeSnellen(item.label));
-    if (bad) return `"${bad.label}" is not a Snellen fraction such as 6/6 or 6/9.`;
+    if (bad) return `"${bad.label}" is not a Snellen fraction such as 20/20 or 20/40.`;
+  }
+  if (listKey === "sticker_colours") {
+    const bad = items.find(item => !/^#[0-9a-f]{6}$/i.test(item.colour ?? ""));
+    if (bad) return `Pick a colour for "${bad.label}".`;
   }
   const names = items.map(item => item.label.trim().toLowerCase());
   if (new Set(names).size !== names.length) return "Each choice must appear only once.";
@@ -52,6 +56,9 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
   const setList = useFormOptionsStore(state => state.setList);
   const [draft, setDraft] = useState<FormOption[]>(list.items);
   const [newLabel, setNewLabel] = useState("");
+  // Sticker colours only: each choice has a colour, picked with a swatch.
+  const withColour = listKey === "sticker_colours";
+  const [newColour, setNewColour] = useState("#9ca3af");
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const { confirm, dialog } = useConfirm();
@@ -71,6 +78,8 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
 
   const update = (index: number, label: string) =>
     setDraft(items => items.map((item, i) => i !== index ? item : kind === "value" ? { id: label, label } : { ...item, label }));
+  const recolour = (index: number, colour: string) =>
+    setDraft(items => items.map((item, i) => i !== index ? item : { ...item, colour }));
   const reorder = (from: number, to: number) => {
     setDraft(items => moveItem(items, from, to));
     setRowKeys(keys => moveItem(keys, from, to));
@@ -88,7 +97,8 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
   const add = () => {
     const label = newLabel.trim();
     if (!label) return;
-    setDraft(items => [...items, { id: kind === "value" ? label : newOptionId(label, items.map(item => item.id)), label }]);
+    const id = kind === "value" ? label : newOptionId(label, draft.map(item => item.id));
+    setDraft(items => [...items, withColour ? { id, label, colour: newColour } : { id, label }]);
     setRowKeys(keys => [...keys, `row-${nextKey.current++}`]);
     setNewLabel("");
   };
@@ -143,6 +153,7 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
             <>
               {handle}
               <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+              {withColour && <ColourSwatch label={`Colour of ${item.label || `choice ${index + 1}`}`} value={item.colour ?? ""} onChange={colour => recolour(index, colour)} />}
               <Input aria-label={`Choice ${index + 1}`} value={item.label} maxLength={100}
                 onChange={event => update(index, event.target.value)} />
               <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${item.label}`}
@@ -153,6 +164,7 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
           )}
         />
         <form className="flex items-center gap-2 pl-[3.75rem]" onSubmit={event => { event.preventDefault(); add(); }}>
+          {withColour && <ColourSwatch label="Colour of the new choice" value={newColour} onChange={setNewColour} />}
           <Input aria-label={`New choice for ${title}`} placeholder={placeholder} value={newLabel} maxLength={100}
             onChange={event => setNewLabel(event.target.value)} />
           <Button type="submit" variant="outline" disabled={!newLabel.trim()}><Plus className="size-4" /> Add</Button>
@@ -177,3 +189,13 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
   );
 }
 
+// A colour picker shown as a small sticker-shaped swatch.
+function ColourSwatch({ label, value, onChange }: { label: string; value: string; onChange: (colour: string) => void }) {
+  return (
+    <label className="relative grid size-9 shrink-0 cursor-pointer place-items-center rounded-md border border-input transition-transform hover:scale-105 active:scale-95 focus-within:ring-2 focus-within:ring-ring">
+      <span className="size-5 rotate-6 rounded-[3px] shadow-sm ring-1 ring-black/25" style={{ backgroundColor: value || "transparent" }} />
+      <input type="color" aria-label={label} value={value || "#9ca3af"} onChange={event => onChange(event.target.value)}
+        className="absolute inset-0 cursor-pointer opacity-0" />
+    </label>
+  );
+}

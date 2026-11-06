@@ -1,5 +1,5 @@
 // Choices offered in station forms that an admin can change on the Station data page. Each list is
-// [{ id, label }] in display order. Lists never changed use the defaults in shared/ (also used by the
+// [{ id, label }] in display order (sticker colours also carry a colour, '#rrggbb'). Lists never changed use the defaults in shared/ (also used by the
 // web app before it has loaded the saved lists). Saved records keep the ids/labels they were saved
 // with, so renaming or removing a choice never changes earlier visits.
 const db = require('../config/db');
@@ -14,6 +14,8 @@ const LISTS = {
   tb_red_flags: { kind: 'id', defaults: DEFAULTS_FILE.tb_red_flags },
   referral_destinations: { kind: 'value', defaults: DEFAULTS_FILE.referral_destinations },
   consultation_conditions: { kind: 'id', defaults: CONDITIONS },
+  // Sticker given at registration; shown as a coloured tag on the patient in every queue.
+  sticker_colours: { kind: 'id', defaults: DEFAULTS_FILE.sticker_colours },
 };
 const MAX_ITEMS = 50;
 const MAX_LABEL = 100;
@@ -33,10 +35,16 @@ function validateItems(key, input) {
     let id = label;
     if (key === 'snellen') {
       id = normalizeSnellen(label);
-      if (!id) return { error: `"${label}" is not a Snellen fraction such as 6/6 or 6/9.` };
+      if (!id) return { error: `"${label}" is not a Snellen fraction such as 20/20 or 20/40.` };
     } else if (list.kind === 'id') {
       id = typeof raw.id === 'string' ? raw.id.trim() : '';
       if (!/^[a-z0-9_]{1,40}$/.test(id)) return { error: `Choice "${label}" has an invalid id.` };
+    }
+    if (key === 'sticker_colours') {
+      const colour = typeof raw.colour === 'string' ? raw.colour.trim().toLowerCase() : '';
+      if (!/^#[0-9a-f]{6}$/.test(colour)) return { error: `Choice "${label}" needs a colour such as #1f5fd1.` };
+      items.push({ id, label, colour });
+      continue;
     }
     items.push({ id, label: key === 'snellen' ? id : label });
   }
@@ -77,4 +85,15 @@ async function getOptions(key, client = db) {
   return rows[0]?.items ?? LISTS[key].defaults;
 }
 
-module.exports = { LISTS, validateItems, getAllOptions, getOptions };
+// A visit's sticker colour: blank means no sticker (null); otherwise the id of a choice on the
+// current sticker_colours list. Returns { value } or { error }.
+async function normalizeStickerColour(input, client = db) {
+  if (input === undefined || input === null || input === '') return { value: null };
+  const colours = await getOptions('sticker_colours', client);
+  if (typeof input !== 'string' || !colours.some(colour => colour.id === input)) {
+    return { error: `sticker_colour must be one of: ${colours.map(colour => colour.id).join(', ')}, or blank.` };
+  }
+  return { value: input };
+}
+
+module.exports = { LISTS, validateItems, getAllOptions, getOptions, normalizeStickerColour };

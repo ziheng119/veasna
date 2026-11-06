@@ -138,7 +138,8 @@ const { localDate } = require('../utils/validation');
   test('admins change form choices; everyone reads them; built-in choices can be restored', async () => {
     const before = (await as('user', 'get', '/form-options')).body;
     expect(before.snellen.customized).toBe(false);
-    expect(before.snellen.items[0]).toEqual({ id: '6/5', label: '6/5' });
+    expect(before.snellen.items[0]).toEqual({ id: '20/20', label: '20/20' });
+    expect(before.sticker_colours.items.find(item => item.id === 'light_blue')).toEqual({ id: 'light_blue', label: 'Light blue', colour: '#8ccbf2' });
     expect((await as('user', 'put', '/form-options/snellen').send({ items: [{ id: '6/6', label: '6/6' }] })).status).toBe(403);
     expect((await as('admin', 'put', '/form-options/snellen').send({ items: [{ label: 'six' }] })).status).toBe(400);
     expect((await as('admin', 'put', '/form-options/snellen').send({ items: [{ label: '6/6' }, { label: '6 / 6' }] })).status).toBe(400);

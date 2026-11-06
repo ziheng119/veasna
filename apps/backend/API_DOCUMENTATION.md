@@ -58,6 +58,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
   "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
   "hef": { "know_of_hef": "yes", "has_hef": "no" },
   "stations": ["triage", "dental", "consultation"],
+  "sticker_colour": "light_blue",
   "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" }
 }
 ```
@@ -65,6 +66,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
 - The queue number is always the next one for the location today, assigned under the location's queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
 - `stations` defaults to `triage`, `dental`, `consultation`; `tb` is optional and flags the visit for suspected TB (see TB flag).
+- `sticker_colour` is optional: the id of a sticker colour from `form-options` (`sticker_colours`), or blank/`null` for no sticker. Returned on the visit and in `GET queue` rows.
 - Returns `400` for missing or invalid fields, including an unknown location or patient.
 
 ---
@@ -97,7 +99,7 @@ Users can create records but cannot change them once saved; admins can correct e
 
 | Section | Endpoint |
 | --- | --- |
-| Visit details | `PUT visits/{visitId}` |
+| Visit details (queue number, date, location, `sticker_colour`) | `PUT visits/{visitId}` |
 | Vitals, HEF | `PUT visits/{visitId}/vitals` |
 | TB screening | `PUT visits/{visitId}/tb` |
 | Visual acuity, presenting complaint, medical history | `POST triage/visual-acuity`, `POST triage/presenting-complaint`, `POST triage/history` |
@@ -216,7 +218,7 @@ earlier visits), and save only on that date. See [accounts](../../docs/user-role
   **DELETE** `accounts/{id}`: admin only; only screening-day accounts can be changed.
 - **GET** `patients/lookup?location_id={id}&q={name}`: returning patients by name
   (3+ letters), identifying fields only.
-- **GET** `form-options`; **PUT** / **DELETE** `form-options/{snellen|tb_red_flags|referral_destinations|consultation_conditions}`
+- **GET** `form-options`; **PUT** / **DELETE** `form-options/{snellen|tb_red_flags|referral_destinations|consultation_conditions|sticker_colours}`
   (admin). See [station data](../../docs/station-data.md).
 - **GET** `export/patients`: every patient and visit, one row per visit. Admin only.
 - **DELETE** `visits/{id}`: removes a visit and all its records. Admin only.
@@ -226,7 +228,7 @@ earlier visits), and save only on that date. See [accounts](../../docs/user-role
 ### Triage and Seva
 
 **POST** `triage/visual-acuity`
-Save the Snellen's test for a visit. Body: `visit_id`, `left_with_pinhole`, `left_without_pinhole`, `right_with_pinhole`, `right_without_pinhole`, optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"6/6"` or `"6/9"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields.
+Save the Snellen's test for a visit. Body: `visit_id`, `left_without_pinhole`, `right_without_pinhole`, `left_with_pinhole`, `right_with_pinhole`, `left_with_glasses`, `right_with_glasses` (with the patient's own glasses; optional), optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"20/20"` or `"20/40"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields, including `left_with_glasses_new` and `right_with_glasses_new`.
 
 `POST visits/seva/{visit_id}` also takes `referral`: `"cataract_surgery"`, `"seva_general"`, or blank/`null` for no referral.
 

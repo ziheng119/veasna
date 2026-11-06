@@ -46,11 +46,11 @@ A patient is **done** at a station once everything needed there is saved:
 
   | Station | Green when |
   | --- | --- |
-  | Triage | All four eye readings, and every field of Presenting Complaints and Medical History, are filled in or saved |
+  | Triage | All four eye readings (without and with pinhole; **with glasses** is optional), and every field of Presenting Complaints and Medical History, are filled in or saved |
   | Dental | What was done is written |
   | Consult | Notes are written and the conditions addressed are ticked (or **None of the listed conditions**) |
   | Physiotherapy | Notes are written or the body chart is marked |
-  | Partner NGO | All four eye readings are taken and a diagnosis is written |
+  | Partner NGO | All four eye readings (with glasses optional) are taken and a diagnosis is written |
 
   It still saves a part-filled form if you press it while grey.
 - At Triage, **Save & next** on any section saves that section and any other section

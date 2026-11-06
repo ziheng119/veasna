@@ -14,6 +14,7 @@ import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
 import TbBadge, { tbCardClass } from "./TbBadge";
 import FamilyBadge from "./FamilyBadge";
+import StickerTag, { findSticker, stickerLabel, useStickerColours } from "./StickerTag";
 import { stationMoveMessage } from "@/lib/family";
 import { ENTER_FAST, LIFT } from "@/lib/motion";
 import ClearTbButton from "./ClearTbButton";
@@ -53,6 +54,7 @@ export default function QueuePatientPicker({
   const token = useUserStore((state) => state.user?.token);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const stickerColours = useStickerColours();
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
   const locationId = location?.id;
@@ -193,6 +195,7 @@ export default function QueuePatientPicker({
           const tbFlagged = !!patient.tb_flagged;
           // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
           const routeLocked = patient.tb_status != null;
+          const sticker = findSticker(stickerColours, patient.sticker_colour);
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -211,22 +214,25 @@ export default function QueuePatientPicker({
             >
               <button
                 type="button"
-                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${tbFlagged ? ", suspected TB" : ""}`}
+                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
                 aria-pressed={isSelected}
                 onClick={() => onSelectPatient(patient)}
                 className="flex min-w-0 flex-1 items-start gap-3 text-left"
               >
                 {/* Queue number first and large: it is what staff call out. */}
                 <span className="flex shrink-0 flex-col items-center gap-1">
-                  <span
-                    data-queue-no
-                    className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                      tbFlagged
-                        ? "bg-red-600 text-white"
-                        : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {patient.queue_no}
+                  <span className="relative flex">
+                    <span
+                      data-queue-no
+                      className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                        tbFlagged
+                          ? "bg-red-600 text-white"
+                          : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {patient.queue_no}
+                    </span>
+                    <StickerTag sticker={sticker} pinned />
                   </span>
                   {tbFlagged && <TbBadge />}
                   {patient.family && <FamilyBadge family={patient.family} />}

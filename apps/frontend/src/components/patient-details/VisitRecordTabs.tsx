@@ -26,9 +26,11 @@ import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsu
 import { postReferral } from "@/lib/api/visit/postReferral";
 import { PainPoint } from "@/lib/types/physiotherapy";
 import { VisitDetails } from "@/lib/types/visit";
+import StickerColourSelect from "@/components/shared/StickerColourSelect";
+import { StickerColourValue } from "@/components/shared/StickerTag";
 
 // Edit-form shapes. Numbers are kept as the text typed so partially entered values survive.
-type VisitInfoDraft = { queue_no: string; visit_date: string; location_id: string };
+type VisitInfoDraft = { queue_no: string; visit_date: string; location_id: string; sticker_colour: string };
 type VitalsDraft = {
   height: string; weight: string; bmi: string; below_3rd_percentile: boolean;
   bp_systolic: string; bp_diastolic: string; temperature: string; notes: string;
@@ -38,13 +40,15 @@ type HefDraft = { know_of_hef: boolean; has_hef: boolean; notes: string };
 type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doctor_notes: string };
 type AcuityDraft = {
   left_with_pinhole: string; left_without_pinhole: string;
-  right_with_pinhole: string; right_without_pinhole: string; notes: string;
+  right_with_pinhole: string; right_without_pinhole: string;
+  left_with_glasses: string; right_with_glasses: string; notes: string;
 };
 type ComplaintDraft = { history: string; red_flags: string; systems_review: string; drug_allergies: string };
 type HistoryDraft = { past: string; drug_and_treatment: string; family: string; social: string; systems_review: string };
 type SevaDraft = {
   left_with_pinhole_new: string; left_without_pinhole_new: string;
   right_with_pinhole_new: string; right_without_pinhole_new: string;
+  left_with_glasses_new: string; right_with_glasses_new: string;
   diagnosis: string; referral: string; date_of_referral: string; notes: string;
 };
 type PhysioDraft = { notes: string; painpoints: PainPoint[] };
@@ -77,10 +81,12 @@ const HEF_FIELDS: FieldSpec<HefDraft>[] = [
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
-  { key: "left_with_pinhole", label: "Left (with pinhole)", kind: "snellen" },
   { key: "left_without_pinhole", label: "Left (without pinhole)", kind: "snellen" },
-  { key: "right_with_pinhole", label: "Right (with pinhole)", kind: "snellen" },
   { key: "right_without_pinhole", label: "Right (without pinhole)", kind: "snellen" },
+  { key: "left_with_pinhole", label: "Left (with pinhole)", kind: "snellen" },
+  { key: "right_with_pinhole", label: "Right (with pinhole)", kind: "snellen" },
+  { key: "left_with_glasses", label: "Left (with glasses)", kind: "snellen" },
+  { key: "right_with_glasses", label: "Right (with glasses)", kind: "snellen" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const COMPLAINT_FIELDS: FieldSpec<ComplaintDraft>[] = [
@@ -97,10 +103,12 @@ const HISTORY_FIELDS: FieldSpec<HistoryDraft>[] = [
   { key: "systems_review", label: "Systems Review", kind: "textarea", wide: true },
 ];
 const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
-  { key: "left_with_pinhole_new", label: "Left (with pinhole)", kind: "snellen" },
   { key: "left_without_pinhole_new", label: "Left (without pinhole)", kind: "snellen" },
-  { key: "right_with_pinhole_new", label: "Right (with pinhole)", kind: "snellen" },
   { key: "right_without_pinhole_new", label: "Right (without pinhole)", kind: "snellen" },
+  { key: "left_with_pinhole_new", label: "Left (with pinhole)", kind: "snellen" },
+  { key: "right_with_pinhole_new", label: "Right (with pinhole)", kind: "snellen" },
+  { key: "left_with_glasses_new", label: "Left (with glasses)", kind: "snellen" },
+  { key: "right_with_glasses_new", label: "Right (with glasses)", kind: "snellen" },
   { key: "diagnosis", label: "Diagnosis", kind: "textarea", wide: true },
   { key: "referral", label: "Referral Needed", kind: "select", options: SEVA_REFERRAL_OPTIONS, allowBlank: "No referral" },
   { key: "date_of_referral", label: "Date of Referral", kind: "date" },
@@ -250,7 +258,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     const { vitals, hef, visual_acuity: va, presenting_complaint: pc, history, seva, physiotherapy, dental, consultation, tb } = visit;
     const referral = visit.referrals[0] ?? null;
     return {
-      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, location_id: text(visit.location_id) } as VisitInfoDraft,
+      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, location_id: text(visit.location_id), sticker_colour: text(visit.sticker_colour) } as VisitInfoDraft,
       vitals: vitals && ({
         height: text(vitals.height), weight: text(vitals.weight), bmi: text(vitals.bmi),
         below_3rd_percentile: vitals.below_3rd_percentile, bp_systolic: text(vitals.bp_systolic),
@@ -261,6 +269,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
       acuity: va && ({
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
         right_with_pinhole: text(va.right_with_pinhole), right_without_pinhole: text(va.right_without_pinhole),
+        left_with_glasses: text(va.left_with_glasses), right_with_glasses: text(va.right_with_glasses),
         notes: text(va.notes),
       } as AcuityDraft),
       complaint: pc && ({ ...pc } as ComplaintDraft),
@@ -268,6 +277,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
       seva: seva && ({
         left_with_pinhole_new: text(seva.left_with_pinhole_new), left_without_pinhole_new: text(seva.left_without_pinhole_new),
         right_with_pinhole_new: text(seva.right_with_pinhole_new), right_without_pinhole_new: text(seva.right_without_pinhole_new),
+        left_with_glasses_new: text(seva.left_with_glasses_new), right_with_glasses_new: text(seva.right_with_glasses_new),
         diagnosis: text(seva.diagnosis), referral: text(seva.referral), date_of_referral: text(seva.date_of_referral),
         notes: text(seva.notes),
       } as SevaDraft),
@@ -300,6 +310,14 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     { key: "queue_no", label: "Queue Number", kind: "text" },
     { key: "visit_date", label: "Visit Date", kind: "date" },
     { key: "location_id", label: "Location", kind: "select", options: locationOptions },
+    {
+      key: "sticker_colour",
+      label: "Sticker colour",
+      kind: "custom",
+      render: (value, onChange, editing) => editing
+        ? <StickerColourSelect value={value as string} onChange={onChange} />
+        : <StickerColourValue id={value as string} />,
+    },
   ];
 
   // Wraps a station save so the page reloads afterwards.
@@ -375,6 +393,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             queue_no: d.queue_no.trim().toUpperCase(),
             visit_date: d.visit_date,
             location_id: Number(d.location_id),
+            sticker_colour: d.sticker_colour || null,
           }))}
         />
         <EditableRecordSection
@@ -409,7 +428,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           record={drafts.acuity}
           fields={ACUITY_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", notes: "" }}
+          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", left_with_glasses: "", right_with_glasses: "", notes: "" }}
           onSave={saved((d: AcuityDraft) => saveVisualAcuity({ visit_id: visitId, ...d }))}
         />
         <EditableRecordSection
@@ -438,6 +457,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           canEdit={canEdit}
           emptyDraft={{
             left_with_pinhole_new: "", left_without_pinhole_new: "", right_with_pinhole_new: "", right_without_pinhole_new: "",
+            left_with_glasses_new: "", right_with_glasses_new: "",
             diagnosis: "", referral: "", date_of_referral: "", notes: "",
           }}
           onSave={saved((d: SevaDraft) => postSeva({
@@ -445,6 +465,8 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             leftWithoutPinholeNew: d.left_without_pinhole_new,
             rightWithPinholeNew: d.right_with_pinhole_new,
             rightWithoutPinholeNew: d.right_without_pinhole_new,
+            leftWithGlassesNew: d.left_with_glasses_new,
+            rightWithGlassesNew: d.right_with_glasses_new,
             diagnosis: d.diagnosis,
             dateOfReferral: d.date_of_referral,
             referral: d.referral as SevaReferral | "",

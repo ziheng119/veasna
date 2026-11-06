@@ -197,7 +197,18 @@ function ensureDayAccountsAndFormOptions() {
   return dayAccountsPromise;
 }
 
+// "With glasses" eye readings and the registration sticker colour.
+let glassesStickerPromise;
+function ensureGlassesAndStickerColour() {
+  if (!glassesStickerPromise) {
+    glassesStickerPromise = runMigration('021_glasses_sticker_colour.sql')
+      .catch(err => { glassesStickerPromise = null; throw err; });
+  }
+  return glassesStickerPromise;
+}
+
 module.exports = {
+  ensureGlassesAndStickerColour,
   ensureDayAccountsAndFormOptions,
   ensureTbFlag,
   ensureDentalPharmacyStations,

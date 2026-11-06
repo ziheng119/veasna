@@ -107,6 +107,8 @@ CREATE TABLE visits (
         ON DELETE SET NULL ON UPDATE CASCADE,
     queue_no VARCHAR(50) NOT NULL,
     visit_date DATE NOT NULL,
+    -- Registration sticker colour: an id from the sticker_colours form list, NULL if none.
+    sticker_colour VARCHAR(40),
     completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -194,10 +196,12 @@ CREATE TABLE visual_acuity (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    left_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    left_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
+    left_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
+    right_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -238,10 +242,12 @@ CREATE TABLE seva (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    left_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    left_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
+    left_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_with_glasses_new VARCHAR(15), -- with the patient's own glasses; NULL if not taken
+    right_with_glasses_new VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     diagnosis TEXT NOT NULL,
     date_of_referral DATE,
     referral VARCHAR(30)                               -- NULL = no referral

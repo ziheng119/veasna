@@ -1,15 +1,14 @@
 {
   "snellen": [
-    { "id": "6/5", "label": "6/5" },
-    { "id": "6/6", "label": "6/6" },
-    { "id": "6/9", "label": "6/9" },
-    { "id": "6/12", "label": "6/12" },
-    { "id": "6/18", "label": "6/18" },
-    { "id": "6/24", "label": "6/24" },
-    { "id": "6/36", "label": "6/36" },
-    { "id": "6/60", "label": "6/60" },
-    { "id": "3/60", "label": "3/60" },
-    { "id": "1/60", "label": "1/60" }
+    { "id": "20/20", "label": "20/20" },
+    { "id": "20/25", "label": "20/25" },
+    { "id": "20/30", "label": "20/30" },
+    { "id": "20/40", "label": "20/40" },
+    { "id": "20/50", "label": "20/50" },
+    { "id": "20/60", "label": "20/60" },
+    { "id": "20/70", "label": "20/70" },
+    { "id": "20/100", "label": "20/100" },
+    { "id": "20/200", "label": "20/200" }
   ],
   "tb_red_flags": [
     { "id": "cough_2_weeks", "label": "Cough for 2 weeks or more" },
@@ -28,5 +27,22 @@
     { "id": "Optometrist", "label": "Optometrist" },
     { "id": "Dentist", "label": "Dentist" },
     { "id": "Bong Bondol", "label": "Bong Bondol" }
+  ],
+  "sticker_colours": [
+    { "id": "silver", "label": "Silver", "colour": "#c0c0c0" },
+    { "id": "gold", "label": "Gold", "colour": "#d4af37" },
+    { "id": "black", "label": "Black", "colour": "#1f1f1f" },
+    { "id": "white", "label": "White", "colour": "#ffffff" },
+    { "id": "grey", "label": "Grey", "colour": "#8a8a8a" },
+    { "id": "brown", "label": "Brown", "colour": "#8b5a2b" },
+    { "id": "purple", "label": "Purple", "colour": "#7e3fbf" },
+    { "id": "blue", "label": "Blue", "colour": "#1f5fd1" },
+    { "id": "light_blue", "label": "Light blue", "colour": "#8ccbf2" },
+    { "id": "green", "label": "Green", "colour": "#1e8a3c" },
+    { "id": "light_green", "label": "Light green", "colour": "#9be08f" },
+    { "id": "red", "label": "Red", "colour": "#d62828" },
+    { "id": "pink", "label": "Pink", "colour": "#f49ac1" },
+    { "id": "yellow", "label": "Yellow", "colour": "#f7d917" },
+    { "id": "orange", "label": "Orange", "colour": "#f28c28" }
   ]
 }

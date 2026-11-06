@@ -14,6 +14,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
 import TbBadge, { tbCardClass } from "../shared/TbBadge";
 import FamilyBadge from "../shared/FamilyBadge";
+import StickerTag, { findSticker, stickerLabel, useStickerColours } from "../shared/StickerTag";
 import { ENTER_FAST, LIFT } from "@/lib/motion";
 
 import QueueSortControl from "../shared/QueueSortControl";
@@ -29,7 +30,8 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
   const { confirm, dialog } = useConfirm();
   const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
-  const [searchQuery, setSearchQuery] = useState("");  
+  const [searchQuery, setSearchQuery] = useState("");
+  const stickerColours = useStickerColours();
 
   const filteredPatients = patients.filter((patient) => {
     if (!searchQuery) return true;
@@ -79,6 +81,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
           sortedPatients.map((patient) => {
             // Opens the patient at the station they are waiting at, already selected there.
             const href = patient.current_station ? stationPageHref(patient.current_station, patient.visit_id) : null;
+            const sticker = findSticker(stickerColours, patient.sticker_colour);
             return (
             <div
               key={patient.visit_id}
@@ -94,16 +97,19 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
               <button
                 type="button"
                 disabled={!href}
-                aria-label={`Open ${patient.english_name || "patient"}, queue ${patient.queue_no}${
+                aria-label={`Open ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${
                   patient.current_station ? `, at ${stationLabel(patient.current_station)}` : ""}${patient.tb_flagged ? ", suspected TB" : ""}`}
                 onClick={() => href && router.push(href)}
                 className="flex items-center gap-3 min-w-0 text-left disabled:cursor-default"
               >
                 <span className="flex shrink-0 flex-col items-center gap-1">
-                  <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                    patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
-                  }`}>
-                    {patient.queue_no}
+                  <span className="relative flex">
+                    <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                      patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+                    }`}>
+                      {patient.queue_no}
+                    </span>
+                    <StickerTag sticker={sticker} pinned />
                   </span>
                   {patient.tb_flagged && <TbBadge />}
                   {patient.family && <FamilyBadge family={patient.family} />}

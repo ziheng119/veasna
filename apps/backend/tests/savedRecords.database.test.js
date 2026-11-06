@@ -118,5 +118,16 @@ const db = require("../config/db");
         ).toBe(1);
       },
     );
+    test("with glasses readings are optional and saved with the pinhole readings", async () => {
+      const save = (url, body) =>
+        request(app).post(url).set("Authorization", "Bearer " + token("admin")).send(body);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_with_glasses: "glasses" })).status).toBe(400);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_without_pinhole: "20/40", left_with_glasses: "20 / 25" })).status).toBe(200);
+      expect((await client.query("SELECT left_without_pinhole, left_with_glasses, right_with_glasses FROM visual_acuity")).rows[0])
+        .toEqual({ left_without_pinhole: "20/40", left_with_glasses: "20/25", right_with_glasses: null });
+      expect((await save("/visits/seva/1", { diagnosis: "Cataract", right_with_glasses_new: "20/30" })).status).toBe(200);
+      const seva = (await request(app).get("/visits/seva/1").set("Authorization", "Bearer " + token("admin"))).body;
+      expect(seva).toMatchObject({ right_with_glasses_new: "20/30", left_with_glasses_new: null });
+    });
   },
 );

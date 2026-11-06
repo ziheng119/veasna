@@ -22,10 +22,15 @@ export default function StationDataPage() {
         </p>
       </header>
 
+      <h2 id="registration" className={SECTION_TITLE}>Registration</h2>
+      <OptionListEditor listKey="sticker_colours" kind="id" title="Sticker colours"
+        description="The colour of the sticker given to the patient at registration. It shows as a small tag on their card in every queue."
+        placeholder="e.g. Dark green" />
+
       <h2 id="triage" className={SECTION_TITLE}>Triage</h2>
       <OptionListEditor listKey="snellen" anchor="snellen" kind="value" title="Visual acuity (Snellen) readings"
-        description={`The pinhole and no-pinhole readings for each eye in the Snellen test, at Triage and ${PARTNER_NGO_NAME}.`}
-        placeholder="e.g. 6/7.5" />
+        description={`The readings for each eye in the Snellen test (without pinhole, with pinhole and with glasses), at Triage and ${PARTNER_NGO_NAME}.`}
+        placeholder="e.g. 20/15" />
       <OptionListEditor listKey="tb_red_flags" kind="id" title="TB red flags"
         description={`Ticked at registration and Triage. A patient with ${TB_MIN_RED_FLAGS} or more is flagged for suspected TB.`}
         placeholder="e.g. Chest pain" />

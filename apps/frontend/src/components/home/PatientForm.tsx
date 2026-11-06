@@ -18,6 +18,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import StickerColourSelect from "@/components/shared/StickerColourSelect";
 import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPatients";
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
@@ -165,6 +166,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
+    // Colour of the sticker handed to the patient (sticker_colours on Station data); "" for none.
+    const [stickerColour, setStickerColour] = useState("");
     // TB red flags. Ticking any of them flags the patient for suspected TB: they go through their
     // stations as usual and are marked in red in every queue.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
@@ -340,6 +343,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               hef,
               // The server also queues a TB patient only at Consult.
               stations: tbFlagged ? TB_STATIONS : stations,
+              sticker_colour: stickerColour,
               tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
             },
             token
@@ -360,6 +364,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           setLinkedPatient(null);
           setPatientInfo(emptyPatientInfo);
           setStations(DEFAULT_STATION_IDS);
+          setStickerColour("");
           setTbRedFlags([]);
           setTbNotes("");
           setVitals({
@@ -459,7 +464,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     </Button>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-[1fr_1fr_1fr] gap-4">
                   <div>
                     <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
                     <output
@@ -473,6 +478,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     <p id="queueNumberHint" className="mt-1 text-xs text-muted-foreground">
                       Assigned automatically when you submit. To group a family, use Add to family on Patient List.
                     </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="stickerColour" className="text-muted-foreground">Sticker colour</Label>
+                    <StickerColourSelect id="stickerColour" value={stickerColour} onChange={setStickerColour} className="mt-2" />
+                    <p className="mt-1 text-xs text-muted-foreground">Shown on their card in every queue.</p>
                   </div>
                   <div>
                     <Label htmlFor="sex" className="text-muted-foreground">Sex *</Label>

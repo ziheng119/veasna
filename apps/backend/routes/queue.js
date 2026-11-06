@@ -40,6 +40,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 v.id AS visit_id,
                 p.id AS patient_id,
                 v.queue_no,
+                v.sticker_colour,
                 p.family,
                 p.english_name,
                 p.khmer_name,

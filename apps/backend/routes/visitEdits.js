@@ -4,7 +4,7 @@
 // Station notes (triage, SEVA, physiotherapy, consultation, referral) are edited through their
 // existing upsert endpoints, which already let admins overwrite a saved row. This router covers
 // the parts of a visit that have no such endpoint:
-//   PUT /api/visits/:visitId         visit details: queue number, visit date, location
+//   PUT /api/visits/:visitId         visit details: queue number, visit date, location, sticker
 //   PUT /api/visits/:visitId/vitals  vitals and HEF captured at registration
 //   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, flag status)
 //   DELETE /api/visits/:visitId      the whole visit and every record of it (e.g. entered in error)
@@ -21,6 +21,7 @@ const { textOrEmpty } = require('../utils/partialFields');
 const { normalizeVitals } = require('../utils/vitals');
 const { TB_STATUSES, TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags } = require('../utils/tb');
 const { lockFamilies, releaseFamily } = require('../utils/familyMoves');
+const { normalizeStickerColour } = require('../utils/formOptions');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -63,7 +64,8 @@ async function inTransaction(res, label, work) {
 }
 
 // PUT /api/visits/:visitId
-// Body: { queue_no?, visit_date? (YYYY-MM-DD), location_id? }. Omitted fields keep their value.
+// Body: { queue_no?, visit_date? (YYYY-MM-DD), location_id?, sticker_colour? (blank = none) }.
+// Omitted fields keep their value.
 router.put('/:visitId', ...adminOnly, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
@@ -78,13 +80,23 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
   }
   const locationId = location_id === undefined ? undefined : parsePositiveInt(location_id);
   if (locationId === null) return res.status(400).json({ error: 'location_id must be a positive integer' });
-  if (queueNo === undefined && visit_date === undefined && locationId === undefined) {
-    return res.status(400).json({ error: 'Provide at least one of queue_no, visit_date or location_id' });
+  let stickerColour;
+  if (req.body.sticker_colour !== undefined) {
+    try {
+      stickerColour = await normalizeStickerColour(req.body.sticker_colour);
+    } catch (err) {
+      console.error('Failed to load sticker colours:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (stickerColour.error) return res.status(400).json({ error: stickerColour.error });
+  }
+  if (queueNo === undefined && visit_date === undefined && locationId === undefined && stickerColour === undefined) {
+    return res.status(400).json({ error: 'Provide at least one of queue_no, visit_date, location_id or sticker_colour' });
   }
 
   await inTransaction(res, 'visit details', async (client) => {
     const current = await client.query(
-      `SELECT id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date, location_id FROM visits WHERE id = $1 FOR UPDATE`,
+      `SELECT id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date, location_id, sticker_colour FROM visits WHERE id = $1 FOR UPDATE`,
       [visitId]
     );
     if (!current.rows.length) return { status: 404, body: { error: 'Visit not found' } };
@@ -94,6 +106,7 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
       queue_no: queueNo ?? saved.queue_no,
       visit_date: visit_date ?? saved.visit_date,
       location_id: locationId ?? saved.location_id,
+      sticker_colour: stickerColour === undefined ? saved.sticker_colour : stickerColour.value,
     };
     if (next.location_id) {
       const location = await client.query('SELECT 1 FROM locations WHERE id = $1', [next.location_id]);
@@ -118,11 +131,11 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
 
     const { rows } = await client.query(
       `UPDATE visits
-       SET queue_no = $2, visit_date = $3::date, location_id = $4, last_updated_by = $5, last_updated_at = NOW()
+       SET queue_no = $2, visit_date = $3::date, location_id = $4, sticker_colour = $6, last_updated_by = $5, last_updated_at = NOW()
        WHERE id = $1
        RETURNING id AS visit_id, patient_id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date,
-         location_id, last_updated_at, last_updated_by`,
-      [visitId, next.queue_no, next.visit_date, next.location_id, req.user.id]
+         location_id, sticker_colour, last_updated_at, last_updated_by`,
+      [visitId, next.queue_no, next.visit_date, next.location_id, req.user.id, next.sticker_colour]
     );
     return { status: 200, body: rows[0] };
   });

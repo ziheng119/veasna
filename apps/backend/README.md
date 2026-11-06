@@ -177,7 +177,7 @@ These rules are enforced by the server, so they apply on every device:
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.
 - **Prescriptions** are chosen from the location's pharmacy. Prescribing reserves stock
   at once; the pharmacy dispenses (stock goes down) or cancels (stock is released).
-- **Visual acuity** is recorded as a Snellen fraction such as `6/6` or `6/9`.
+- **Visual acuity** is recorded as a Snellen fraction such as `20/20` or `20/40`.
 - **Unique ID** is made automatically from the first 3 letters of the English and
   Khmer names plus the date of birth (e.g. `SOKសុខ07031990`). It updates when those
   details change and can't be typed in. Two patients can share one Unique ID.

@@ -112,6 +112,9 @@ A few things worth knowing:
   Patient List: they share a family letter, keep their numbers, sit together in every
   queue and move between stations together (see
   [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
+  Pick the **Sticker colour** of the sticker you give the patient (on **Patient Info**):
+  it shows as a small coloured tag on their queue number in every queue. An admin can
+  change the colours on **Station data**.
   Number fields (height, weight, blood pressure, temperature, age) only accept digits
   as you type, with one decimal place where it makes sense.
 - **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag

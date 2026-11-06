@@ -11,10 +11,11 @@ interface Props {
   value: string
   onChange: (value: string) => void
   className?: string
+  "aria-label"?: string
 }
 
 // Dropdown for a Snellen fraction. Shows "Please select" until a reading is chosen.
-export default function SnellenInput({ value, onChange, className }: Props) {
+export default function SnellenInput({ value, onChange, className, "aria-label": ariaLabel }: Props) {
   // Chart lines from the Station data page. Keep a previously saved reading selectable even if it
   // is not on the current list.
   const listed = useFormOptions("snellen").map((option) => option.label)
@@ -22,7 +23,7 @@ export default function SnellenInput({ value, onChange, className }: Props) {
 
   return (
     <Select value={value || UNSET} onValueChange={(next) => onChange(next === UNSET ? "" : next)}>
-      <SelectTrigger className={cn("w-full", className)}>
+      <SelectTrigger className={cn("w-full", className)} aria-label={ariaLabel}>
         <SelectValue placeholder="Please select" />
       </SelectTrigger>
       {/* Always open downwards; when space below is short the list scrolls instead of flipping up. */}

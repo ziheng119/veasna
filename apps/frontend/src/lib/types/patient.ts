@@ -26,6 +26,8 @@ export type QueuedPatient = {
     visit_id: number;
     patient_id: number;
     queue_no: string;
+    // Colour of the sticker given at registration: an id from the sticker_colours list, or null.
+    sticker_colour?: string | null;
     // Family letter shared by patients who came together (A, B, ...), or null.
     family?: string | null;
     // Done at the current station, waiting for the rest of the family there.

@@ -17,6 +17,7 @@ const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 const { patientOnDaySql } = require('../utils/dayScope');
+const { normalizeStickerColour } = require('../utils/formOptions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
@@ -115,6 +116,18 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: normalizedVitals.error });
     }
 
+    // Optional colour of the sticker given at registration (sticker_colours on Station data).
+    let stickerColour;
+    try {
+        stickerColour = await normalizeStickerColour(req.body.sticker_colour);
+    } catch (err) {
+        console.error('Failed to load sticker colours:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (stickerColour.error) {
+        return res.status(400).json({ error: stickerColour.error });
+    }
+
     let client;
     try {
         client = await db.pool.connect();
@@ -176,8 +189,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         await lockQueue(client, locationId);
         const queueNo = await getNextQueueNo(client, locationId, visitDate);
         const visitQuery = `
-            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by, sticker_colour)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, created_at;
         `;
         const visitValues = [
@@ -185,7 +198,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             locationId,
             queueNo,
             visitDate,
-            last_updated_by
+            last_updated_by,
+            stickerColour.value
         ];
         const visitResult = await client.query(visitQuery, visitValues);
         const visitId = visitResult.rows[0].id;
@@ -245,6 +259,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             visit_id: visitId,
             patient_id: patientId,
             queue_no: queueNo,
+            sticker_colour: stickerColour.value,
             current_station: route[0],
             tb_status: tbFlagged ? 'suspected' : null,
             english_name: patientInfo.english_name,
@@ -460,6 +475,8 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
       right_with_pinhole_new,
       left_without_pinhole_new,
       right_without_pinhole_new,
+      left_with_glasses_new,
+      right_with_glasses_new,
       diagnosis,
       date_of_referral,
       referral,
@@ -552,6 +569,9 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     'right_with_pinhole_new',
     'left_without_pinhole_new',
     'right_without_pinhole_new',
+    // Optional: only for patients who brought their glasses.
+    'left_with_glasses_new',
+    'right_with_glasses_new',
   ]);
   if (acuity.error) {
     return res.status(400).json({ error: acuity.error });
@@ -561,6 +581,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     right_with_pinhole_new,
     left_without_pinhole_new,
     right_without_pinhole_new,
+    left_with_glasses_new,
+    right_with_glasses_new,
   } = acuity.values;
 
   const last_updated_by = req.user.id;
@@ -576,14 +598,18 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       date_of_referral,
       notes,
       last_updated_by,
-      referral
+      referral,
+      left_with_glasses_new,
+      right_with_glasses_new
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (visit_id) DO UPDATE SET
       left_with_pinhole_new = EXCLUDED.left_with_pinhole_new,
       right_with_pinhole_new = EXCLUDED.right_with_pinhole_new,
       left_without_pinhole_new = EXCLUDED.left_without_pinhole_new,
       right_without_pinhole_new = EXCLUDED.right_without_pinhole_new,
+      left_with_glasses_new = EXCLUDED.left_with_glasses_new,
+      right_with_glasses_new = EXCLUDED.right_with_glasses_new,
       diagnosis = EXCLUDED.diagnosis,
       date_of_referral = EXCLUDED.date_of_referral,
       referral = EXCLUDED.referral,
@@ -607,6 +633,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       textOrEmpty(notes),
       last_updated_by,
       referral,
+      left_with_glasses_new,
+      right_with_glasses_new,
     ]);
 
     if (rows.length === 0) {

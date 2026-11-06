@@ -58,6 +58,8 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
       rightWithPinholeNew: json.right_with_pinhole_new ?? "",
       leftWithoutPinholeNew: json.left_without_pinhole_new ?? "",
       rightWithoutPinholeNew: json.right_without_pinhole_new ?? "",
+      leftWithGlassesNew: json.left_with_glasses_new ?? "",
+      rightWithGlassesNew: json.right_with_glasses_new ?? "",
       diagnosis: json.diagnosis ?? "",
       dateOfReferral: json.date_of_referral,
       referral: json.referral ?? "",

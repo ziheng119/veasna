@@ -13,20 +13,23 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
     if (await rejectUnsavableVisit(db, res, visit_id)) return;
-    const acuity = normalizeSnellenFields(req.body, ['left_with_pinhole', 'left_without_pinhole', 'right_with_pinhole', 'right_without_pinhole']);
+    // With glasses is optional: only for patients who brought their glasses.
+    const acuity = normalizeSnellenFields(req.body, ['left_with_pinhole', 'left_without_pinhole', 'right_with_pinhole', 'right_without_pinhole', 'left_with_glasses', 'right_with_glasses']);
     if (acuity.error) {
         return res.status(400).json({ error: acuity.error });
     }
-    const { left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole } = acuity.values;
+    const { left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, left_with_glasses, right_with_glasses } = acuity.values;
     const last_updated_by = req.user.id;
     const query = `
-        INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by, left_with_glasses, right_with_glasses)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (visit_id) DO UPDATE SET
             left_with_pinhole = EXCLUDED.left_with_pinhole,
             left_without_pinhole = EXCLUDED.left_without_pinhole,
             right_with_pinhole = EXCLUDED.right_with_pinhole,
             right_without_pinhole = EXCLUDED.right_without_pinhole,
+            left_with_glasses = EXCLUDED.left_with_glasses,
+            right_with_glasses = EXCLUDED.right_with_glasses,
             notes = EXCLUDED.notes,
             last_updated_by = EXCLUDED.last_updated_by,
             last_updated_at = NOW()
@@ -35,7 +38,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
     RETURNING *;
     `;
     try {
-        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by]);
+        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by, left_with_glasses, right_with_glasses]);
         if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved records.' });
         res.status(200).json(rows[0]);
     } catch (err) {

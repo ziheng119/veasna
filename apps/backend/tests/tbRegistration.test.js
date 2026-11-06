@@ -74,6 +74,26 @@ describe('Registering a suspected TB patient', () => {
     expect(queued().map(([station]) => station)).toEqual(['triage', 'dental', 'consultation']);
   });
 
+  test('the sticker colour is saved on the visit, and must be on the sticker colours list', async () => {
+    db.query.mockResolvedValue({ rows: [] }); // no saved list: the built-in colours apply
+    const visitInsert = () => client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO visits'));
+    const res = await register({ sticker_colour: 'light_blue' });
+    expect(res.status).toBe(201);
+    expect(res.body.sticker_colour).toBe('light_blue');
+    expect(visitInsert()[1][5]).toBe('light_blue');
+
+    jest.clearAllMocks();
+    db.pool.connect.mockResolvedValue(client);
+    await register({ sticker_colour: '' });
+    expect(visitInsert()[1][5]).toBeNull();
+
+    jest.clearAllMocks();
+    const bad = await register({ sticker_colour: 'tartan' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/sticker_colour must be one of: silver, gold/);
+    expect(db.pool.connect).not.toHaveBeenCalled();
+  });
+
   test('other patients keep the normal order', async () => {
     const res = await register({ stations: ['consultation', 'triage'] });
     expect(res.body.current_station).toBe('triage');

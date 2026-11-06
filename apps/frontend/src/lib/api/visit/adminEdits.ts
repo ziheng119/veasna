@@ -28,6 +28,8 @@ export interface VisitDetailsUpdate {
   queue_no: string;
   visit_date: string; // YYYY-MM-DD
   location_id: number;
+  // Id from the sticker_colours list; null for no sticker.
+  sticker_colour?: string | null;
 }
 
 export function updateVisitDetails(visitId: number, details: VisitDetailsUpdate) {
