@@ -147,12 +147,12 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
 
   test('Physiotherapy chosen at Consultation is added in clinic order, and can be taken off again', async () => {
     await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE station = 'seva'; UPDATE visit_stations SET entered_at = NOW() WHERE station = 'consultation';");
-    await client.query("INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES (1, 'dental', 4, 1)");
+    await client.query("INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES (1, 'pharmacy', 4, 1)");
     const res = await indicate('physiotherapy', true);
-    expect(res.body).toEqual({ visit_id: 1, stations: ['consultation', 'physiotherapy', 'dental'] });
-    expect(await pending()).toEqual(['consultation', 'physiotherapy', 'dental']);
-    expect((await indicate('physiotherapy', true)).body.stations).toEqual(['consultation', 'physiotherapy', 'dental']);
-    expect((await indicate('physiotherapy', false)).body.stations).toEqual(['consultation', 'dental']);
+    expect(res.body).toEqual({ visit_id: 1, stations: ['consultation', 'physiotherapy', 'pharmacy'] });
+    expect(await pending()).toEqual(['consultation', 'physiotherapy', 'pharmacy']);
+    expect((await indicate('physiotherapy', true)).body.stations).toEqual(['consultation', 'physiotherapy', 'pharmacy']);
+    expect((await indicate('physiotherapy', false)).body.stations).toEqual(['consultation', 'pharmacy']);
     expect((await client.query('SELECT COUNT(*)::int AS n FROM visit_station_route_history')).rows[0].n).toBe(2);
   });
 

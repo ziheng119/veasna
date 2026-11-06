@@ -64,14 +64,14 @@ describe('Registering a suspected TB patient', () => {
     expect(db.pool.connect).not.toHaveBeenCalled();
   });
 
-  test('registration offers Triage, Consult, Dental and the partner NGO, defaulting to the first three', async () => {
+  test('registration offers Triage, Dental, Consult and the partner NGO, defaulting to the first three', async () => {
     for (const station of ['physiotherapy', 'pharmacy']) {
       const res = await register({ stations: ['triage', station] });
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing/);
     }
     await register({});
-    expect(queued().map(([station]) => station)).toEqual(['triage', 'consultation', 'dental']);
+    expect(queued().map(([station]) => station)).toEqual(['triage', 'dental', 'consultation']);
   });
 
   test('other patients keep the normal order', async () => {

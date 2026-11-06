@@ -7,13 +7,14 @@ Patients go through the stations they need in this order:
 | Station | Who sends the patient there |
 | --- | --- |
 | Triage | Ticked at registration |
+| Dental | Ticked at registration |
 | Consult | Ticked at registration |
 | Physiotherapy | The doctor, with **Send to Physiotherapy** on the Consult page |
-| Dental | Ticked at registration |
 | Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected |
 | Pharmacy | Added automatically when the doctor prescribes something |
 
-- **Dental** shows the patient's triage notes, where tooth problems found at Triage are
+- **Dental** comes before Consult so the doctor already has the dental notes and can
+  refer the patient on. It shows the patient's triage notes, where tooth problems found at Triage are
   written. The students note what they did and tick **Referral needed** if the patient
   should go to hospital. The doctor sees both on the Consult page, under **Dental notes**,
   and makes the referral from there.
@@ -31,7 +32,7 @@ A patient is **done** at a station once everything needed there is saved:
 | Station | Done when |
 | --- | --- |
 | Triage | All three sections are saved: Visual Acuity, Presenting Complaints and Medical History |
-| Consult, Physiotherapy, Dental, Partner NGO | The station's notes are saved |
+| Dental, Consult, Physiotherapy, Partner NGO | The station's notes are saved |
 | Pharmacy | Nothing is left to dispense (every prescription dispensed or cancelled) |
 
 - Their card in the station queue then shows a green **Done here**, and the form shows
@@ -46,9 +47,9 @@ A patient is **done** at a station once everything needed there is saved:
   | Station | Green when |
   | --- | --- |
   | Triage | All four eye readings, and every field of Presenting Complaints and Medical History, are filled in or saved |
+  | Dental | What was done is written |
   | Consult | Notes are written and the conditions addressed are ticked (or **None of the listed conditions**) |
   | Physiotherapy | Notes are written or the body chart is marked |
-  | Dental | What was done is written |
   | Partner NGO | All four eye readings are taken and a diagnosis is written |
 
   It still saves a part-filled form if you press it while grey.

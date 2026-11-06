@@ -4,13 +4,14 @@
 // Must match apps/frontend/src/constants/stations.ts.
 // Suspected TB is a flag on the visit (utils/tb.js), not a station.
 
-const STATIONS = ['triage', 'consultation', 'physiotherapy', 'dental', 'seva', 'pharmacy'];
+// Dental comes before Consultation so the doctor sees anything dental found and can refer on.
+const STATIONS = ['triage', 'dental', 'consultation', 'physiotherapy', 'seva', 'pharmacy'];
 
 // Stations that can be ticked at registration. Physiotherapy is chosen by the doctor at
 // Consultation, and Pharmacy is added when the doctor prescribes (see utils/stationRoute.js).
-const REGISTRATION_STATIONS = ['triage', 'consultation', 'dental', 'seva'];
+const REGISTRATION_STATIONS = ['triage', 'dental', 'consultation', 'seva'];
 // Used when registration does not say. The partner NGO is added at Triage for suspected cataracts.
-const DEFAULT_REGISTRATION_STATIONS = ['triage', 'consultation', 'dental'];
+const DEFAULT_REGISTRATION_STATIONS = ['triage', 'dental', 'consultation'];
 
 // Returns the valid stations from the input, de-duplicated and in station order,
 // or null when the input is not an array or contains an unknown station.

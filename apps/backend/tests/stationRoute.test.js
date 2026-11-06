@@ -32,9 +32,11 @@ test('TB is a flag on the visit, not a station', () => {
 describe('adding one station in clinic order', () => {
   const { insertInClinicOrder } = require('../utils/stationRoute');
   test.each([
-    [['consultation', 'dental', 'seva'], 'physiotherapy', ['consultation', 'physiotherapy', 'dental', 'seva']],
-    [['triage', 'consultation', 'dental'], 'seva', ['triage', 'consultation', 'dental', 'seva']],
-    [['consultation', 'dental'], 'pharmacy', ['consultation', 'dental', 'pharmacy']],
+    [['dental', 'consultation', 'seva'], 'physiotherapy', ['dental', 'consultation', 'physiotherapy', 'seva']],
+    [['triage', 'dental', 'consultation'], 'seva', ['triage', 'dental', 'consultation', 'seva']],
+    [['dental', 'consultation'], 'pharmacy', ['dental', 'consultation', 'pharmacy']],
+    // Dental comes before Consultation, so it goes ahead of a later Consultation.
+    [['triage', 'consultation'], 'dental', ['triage', 'dental', 'consultation']],
     // Never ahead of the station the patient is waiting at, even if it comes later in clinic order.
     [['seva', 'consultation'], 'physiotherapy', ['seva', 'consultation', 'physiotherapy']],
     // A custom order around it is kept.

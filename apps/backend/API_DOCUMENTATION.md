@@ -57,14 +57,14 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
   "visit": { "queue_no": "A12" },
   "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
   "hef": { "know_of_hef": "yes", "has_hef": "no" },
-  "stations": ["triage", "consultation"],
+  "stations": ["triage", "dental", "consultation"],
   "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" }
 }
 ```
 
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
 - The queue number is always the next one for the location today, assigned under the location's queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
-- `stations` defaults to every station; `tb` is optional and flags the visit for suspected TB (see TB flag).
+- `stations` defaults to `triage`, `dental`, `consultation`; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - Returns `400` for missing or invalid fields, including an unknown location or patient.
 
 ---
@@ -124,7 +124,7 @@ A referral's signature is not edited from Patient Details. The page resends the 
 Today’s active queue for a location (visits with `completed_at` unset). `date` is optional: omitted, the backend uses its own current date (host time zone), the same date `POST visits` assigns. The frontend omits it so client devices with a wrong clock or time zone still see the same queue. An invalid `location_id` or a non-existent date (e.g. `2026-02-30`) returns `400`.
 
 **Station queues**
-Each visit lists the stations it is indicated for and moves through them in clinic order: `triage`, `consultation`, `physiotherapy`, `dental`, `seva`, `pharmacy`. Users and admins may both finish a station, change the remaining route and discharge a visit; this is patient flow, not an edit of saved records. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array from `triage`, `consultation`, `dental` and `seva` (defaults to `triage`, `consultation`, `dental`; `400` for `physiotherapy` or `pharmacy`) and an optional `tb` object (see TB flag). Physiotherapy is added by the doctor (`PUT queue/{visitId}/stations/physiotherapy`), and `pharmacy` is added as the last stop when a prescription is created (`POST prescriptions`), TB visits included. A visit that is already finished keeps its new prescription pending without a Pharmacy stop. The `seva` station is shown as the partner NGO in the app.
+Each visit lists the stations it is indicated for and moves through them in clinic order: `triage`, `dental`, `consultation`, `physiotherapy`, `seva`, `pharmacy`. Users and admins may both finish a station, change the remaining route and discharge a visit; this is patient flow, not an edit of saved records. A visit waits in one station's queue at a time: its first station not yet completed. `POST visits` accepts an optional top-level `stations` array from `triage`, `dental`, `consultation` and `seva` (defaults to `triage`, `dental`, `consultation`; `400` for `physiotherapy` or `pharmacy`) and an optional `tb` object (see TB flag). Physiotherapy is added by the doctor (`PUT queue/{visitId}/stations/physiotherapy`), and `pharmacy` is added as the last stop when a prescription is created (`POST prescriptions`), TB visits included. A visit that is already finished keeps its new prescription pending without a Pharmacy stop. The `seva` station is shown as the partner NGO in the app.
 
 **GET** `queue?location_id={id}&date=YYYY-MM-DD&station={station}`
 Visits currently waiting at one station, ordered by when they arrived there. Without `station`, the endpoint returns every active visit as before. Each row includes `current_station`, `stations` (`[{ "station": "triage", "completed": true }, ...]`), `tb_status` (`null` unless the visit was ever flagged for TB), `tb_flagged` (`true` while it is flagged: shown in red in every queue), `family` (the patient's family letter, or `null`), `family_waiting` (`true` when done at the current station and waiting for the rest of the family there) and `station_done` (`true` when everything needed at the current station is saved: every Triage section, the station's notes at Consult, Physiotherapy, Dental and the partner NGO, or nothing left to dispense at Pharmacy).

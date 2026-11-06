@@ -151,8 +151,8 @@ These rules are enforced by the server, so they apply on every device:
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
   correctly.
 - **Stations:** each visit goes through only the stations it needs, in clinic order
-  (`STATIONS` in `utils/stations.js`): Triage, Consultation, Physiotherapy, Dental, Partner
-  NGO (`seva`), Pharmacy. It waits in one queue at a time. Registration offers
+  (`STATIONS` in `utils/stations.js`): Triage, Dental, Consultation, Physiotherapy, Partner
+  NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration offers
   `REGISTRATION_STATIONS`; Physiotherapy is added by the doctor and Pharmacy by prescribing
   (`setStationNeeded` in `utils/stationRoute.js`). Migration `018_dental_pharmacy_stations.sql`
   adds the two stations and the `dental` table.

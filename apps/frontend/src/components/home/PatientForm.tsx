@@ -859,7 +859,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="border-t border-border pt-4">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Consult, Physiotherapy, Dental, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
+                    Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Dental, Consult, Physiotherapy, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
                   </p>
                   {tbFlagged ? (
                     // The ticked stations are kept, in case the red flags are unticked again.

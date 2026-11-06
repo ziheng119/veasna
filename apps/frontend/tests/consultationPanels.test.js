@@ -59,10 +59,10 @@ test.each([
   expect(shown).toMatch(hint);
 });
 
-test('registration offers Triage, Consult, Dental and the partner NGO, in clinic order', async () => {
+test('registration offers Triage, Dental, Consult and the partner NGO, in clinic order', async () => {
   const shown = await render(React.createElement(StationCheckboxes, {
     idPrefix: 's', selected: [], onChange: jest.fn(), options: REGISTRATION_STATION_IDS,
   }));
-  expect(renderer.root.findAllByType('input').map(input => input.props.id)).toEqual(['s-triage', 's-consultation', 's-dental', 's-seva']);
+  expect(renderer.root.findAllByType('input').map(input => input.props.id)).toEqual(['s-triage', 's-dental', 's-consultation', 's-seva']);
   expect(shown).not.toMatch(/Physiotherapy|Pharmacy/);
 });

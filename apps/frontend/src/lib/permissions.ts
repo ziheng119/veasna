@@ -10,9 +10,9 @@ export const NAVIGATION = [
   { href: "/patient-list", label: "Patient List" },
   // Stations in clinic order (constants/stations.ts).
   { href: "/triage", label: "Triage" },
+  { href: "/dental", label: "Dental" },
   { href: "/doctors-consultation", label: "Consult" },
   { href: "/physiotherapy", label: "Physiotherapy" },
-  { href: "/dental", label: "Dental" },
   { href: "/seva", label: PARTNER_NGO_NAME },
   { href: "/pharmacy", label: "Pharmacy" },
 ] as const;
