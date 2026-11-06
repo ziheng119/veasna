@@ -1,6 +1,7 @@
 "use client";
 
-import { CONDITION_COLORS, CONSULTATION_CONDITIONS, PRIMARY_SERIES_COLOR } from "@/constants/consultationConditions";
+import { PRIMARY_SERIES_COLOR, conditionColor } from "@/constants/consultationConditions";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import Link from "next/link";
 import { ComponentType, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -80,7 +81,10 @@ export default function AnalyticsDashboard() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationId, setLocationId] = useState<AnalyticsLocation>(currentLocation?.id ?? 0);
   const [date, setDate] = useState(() => localDate());
-  const [condition, setCondition] = useState("diabetes");
+  const conditions = useFormOptions("consultation_conditions");
+  const [chosenCondition, setCondition] = useState("diabetes");
+  // Falls back to the first listed condition if the chosen one was removed on the Station data page.
+  const condition = conditions.some(item => item.id === chosenCondition) ? chosenCondition : conditions[0]?.id ?? "";
   const [period, setPeriod] = useState<AnalyticsPeriod>("day");
   const [data, setData] = useState<Analytics | null>(null);
   const [trend, setTrend] = useState<AnalyticsTrend | null>(null);
@@ -159,7 +163,7 @@ export default function AnalyticsDashboard() {
   const exportCsv = () => {
     if (!visible) return;
     const slug = locationName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    downloadFile(buildAnalyticsCsv(visible, trend, { location: locationName, period: PERIOD_NAMES[period] }), `veasna-analytics-${slug}-${period}-${date}.csv`);
+    downloadFile(buildAnalyticsCsv(visible, trend, { location: locationName, period: PERIOD_NAMES[period] }, conditions), `veasna-analytics-${slug}-${period}-${date}.csv`);
     toast.success("Spreadsheet downloaded");
   };
 
@@ -292,13 +296,13 @@ export default function AnalyticsDashboard() {
               </div>
               <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">Condition
                 <select aria-label="Condition" value={condition} onChange={event => setCondition(event.target.value)} className={cn(fieldClass, "text-foreground")}>
-                  {CONSULTATION_CONDITIONS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  {conditions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
                 </select>
               </label>
               <div key={condition} className="rounded-xl bg-muted/50 p-4 animate-in fade-in slide-in-from-left-1 duration-300 motion-reduce:animate-none">
                 <p className="flex items-center gap-2 text-sm font-medium">
-                  <span className="size-2.5 rounded-full" style={{ background: CONDITION_COLORS[condition] }} aria-hidden="true" />
-                  Patients consulted with {CONSULTATION_CONDITIONS.find(item => item.id === condition)?.label.toLowerCase()}
+                  <span className="size-2.5 rounded-full" style={{ background: conditionColor(condition, conditions) }} aria-hidden="true" />
+                  Patients consulted with {conditions.find(item => item.id === condition)?.label.toLowerCase()}
                 </p>
                 <p className="mt-2 text-4xl font-semibold">{consulted > 0 && reviewed === 0 ? "Not recorded" : (visible.conditions?.find(item => item.id === condition)?.count ?? 0)}</p>
               </div>
@@ -315,7 +319,7 @@ export default function AnalyticsDashboard() {
                 <InfoTip label="Condition mix">Each slice is that condition&apos;s share of all conditions ticked in this period. A patient with two conditions adds to both slices.</InfoTip></div>
               {conditionTotal > 0
                 ? <DonutChart caption="Condition mix for the selected period" centerLabel="conditions ticked" selected={condition} onSelect={setCondition}
-                    items={visible.conditions.map(item => ({ ...item, color: CONDITION_COLORS[item.id] }))} />
+                    items={visible.conditions.map(item => ({ ...item, color: conditionColor(item.id, conditions) }))} />
                 : <p className="grid h-48 place-items-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">No conditions recorded for this period.</p>}
             </div>
           </div>

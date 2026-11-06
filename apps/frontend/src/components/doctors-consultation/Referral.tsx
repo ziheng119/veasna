@@ -1,7 +1,7 @@
 "use client"
 
 import { calculateAge } from "@/helper/calculate_age";
-import { REFERRAL_DESTINATIONS } from "@/constants/referral";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { postReferral } from "@/lib/api/visit/postReferral";
 import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
@@ -37,6 +37,10 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const [referralType, setReferralType] = useState<string[]>(
     retrievedReferral?.referralType ?? []
   );
+  // Destinations from the Station data page, plus any this referral was saved with that are no
+  // longer listed, so they stay ticked.
+  const listedDestinations = useFormOptions("referral_destinations").map(option => option.label);
+  const destinations = [...listedDestinations, ...referralType.filter(item => !listedDestinations.includes(item))];
   const [illness, setIllness] = useState<string>(retrievedReferral? retrievedReferral.illness : "")
   const [duration, setDuration] = useState<string>(retrievedReferral ? retrievedReferral.duration : "")
   const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : "")
@@ -147,7 +151,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             <legend className="mb-1 font-semibold">Referral destinations</legend>
             <p className="mb-3 text-xs text-muted-foreground">Select all that apply. Only selected destinations appear on the referral.</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {REFERRAL_DESTINATIONS.map(destination => (
+              {destinations.map(destination => (
                 <label key={destination} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors motion-reduce:transition-none ${referralType.includes(destination) ? "border-foreground/25 bg-muted/60" : "border-border hover:bg-muted/30"}`}>
                   <input type="checkbox" name="referral" value={destination} checked={referralType.includes(destination)}
                     className="size-4 shrink-0 accent-foreground"

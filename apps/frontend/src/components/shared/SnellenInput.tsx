@@ -1,7 +1,7 @@
 "use client"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SNELLEN_OPTIONS } from "@/lib/snellen"
+import { useFormOptions } from "@/stores/useFormOptionsStore"
 import { cn } from "@/lib/utils"
 
 // Radix Select items cannot have an empty value, so "not chosen" needs a stand-in.
@@ -15,8 +15,10 @@ interface Props {
 
 // Dropdown for a Snellen fraction. Shows "Please select" until a reading is chosen.
 export default function SnellenInput({ value, onChange, className }: Props) {
-  // Keep a previously saved reading selectable even if it is not a standard chart line.
-  const options = value && !SNELLEN_OPTIONS.includes(value) ? [value, ...SNELLEN_OPTIONS] : SNELLEN_OPTIONS
+  // Chart lines from the Station data page. Keep a previously saved reading selectable even if it
+  // is not on the current list.
+  const listed = useFormOptions("snellen").map((option) => option.label)
+  const options = value && !listed.includes(value) ? [value, ...listed] : listed
 
   return (
     <Select value={value || UNSET} onValueChange={(next) => onChange(next === UNSET ? "" : next)}>

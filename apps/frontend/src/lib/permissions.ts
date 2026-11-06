@@ -17,11 +17,19 @@ export const NAVIGATION = [
   { href: "/pharmacy", label: "Pharmacy" },
 ] as const;
 
-/** Both roles can observe every page. The API separately enforces saved-record edits. */
-export function canAccessPage(role: string | undefined, _path: string): boolean {
-  return role === "admin" || role === "user";
+// Pages only an admin may open. Every other page is open to both roles; the API separately
+// enforces saved-record edits and limits screening-day accounts to their day's patients.
+export const ADMIN_PAGES = ["/analytics", "/station-data", "/accounts"] as const;
+
+export function canAccessPage(role: string | undefined, path: string): boolean {
+  if (role === "admin") return true;
+  return role === "user" && !ADMIN_PAGES.some(page => path === page || path.startsWith(`${page}/`));
 }
 export function canEditSavedData(role: string | undefined): boolean {
+  return role === "admin";
+}
+/** Analytics, bulk referral printing and downloading every patient's data are admin-only. */
+export function isAdmin(role: string | undefined): boolean {
   return role === "admin";
 }
 export function defaultPage(role: string | undefined): string {

@@ -27,13 +27,17 @@ test.each(['admin', 'user'])('menu and direct page access for %s', async role =>
   try {
     await act(async () => { nav = create(React.createElement(TopNav)); page = create(React.createElement(Page)); });
     expect(JSON.stringify(nav.toJSON())).not.toContain('Add User');
-    const entry = nav.root.findAll(n => n.type === 'div' && n.children.join('') === 'Analytics');
-    expect(entry).toHaveLength(1);
-    expect(page.root.findAllByType('analytics-dashboard')).toHaveLength(1);
+    // Analytics, Station data and Accounts are admin-only menu entries; the page itself is
+    // guarded by AuthWrapper (pageAccess.test.js) and the API.
+    for (const label of ['Analytics', 'Station data', 'Accounts']) {
+      expect(nav.root.findAll(n => n.type === 'div' && n.children.join('') === label)).toHaveLength(role === 'admin' ? 1 : 0);
+    }
     if (role === 'admin') {
+      const entry = nav.root.findAll(n => n.type === 'div' && n.children.join('') === 'Analytics');
       await act(async () => entry[0].props.onClick());
       expect(push).toHaveBeenCalledWith('/analytics');
     }
+    expect(page.root.findAllByType('analytics-dashboard')).toHaveLength(1);
     expect(replace).not.toHaveBeenCalled();
   } finally {
     if (nav) await act(async () => nav.unmount());

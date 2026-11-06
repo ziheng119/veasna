@@ -16,7 +16,9 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { NAVIGATION, canAccessPage } from "@/lib/permissions";
+import { NAVIGATION, canAccessPage, isAdmin } from "@/lib/permissions";
+import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
+import { formatDayLabel } from "@/helper/format_date";
 
 export default function TopNav() {
 
@@ -37,11 +39,17 @@ export default function TopNav() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const pathname = usePathname();
+  // Form choices change rarely (Station data page), so reload them on each page change.
+  useEffect(() => {
+    void useFormOptionsStore.getState().load();
+  }, [pathname]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     useRealtimeStore.getState().invalidate();
     try {
-      await fetchData();
+      await Promise.all([fetchData(), useFormOptionsStore.getState().load()]);
     } finally {
       setIsRefreshing(false);
     }
@@ -56,8 +64,6 @@ export default function TopNav() {
     router.push("/login");
   };
 
-  const pathname = usePathname();
-  
   const isActive = (path: string) => {
     return pathname === path;
   };
@@ -105,12 +111,18 @@ export default function TopNav() {
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {(
+              <DropdownMenuContent align="end" className="min-w-44">
+                {isAdmin(user.role) && <>
                   <DropdownMenuItem onClick={() => router.push("/analytics")}>
                     Analytics
                   </DropdownMenuItem>
-                )}
+                  <DropdownMenuItem onClick={() => router.push("/station-data")}>
+                    Station data
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/accounts")}>
+                    Accounts
+                  </DropdownMenuItem>
+                </>}
                 <DropdownMenuItem onClick={handleLogout}>
                   Logout
                 </DropdownMenuItem>
@@ -127,7 +139,11 @@ export default function TopNav() {
           )}
         </div>
       </div>
-      {user?.role === "user" && <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages and create new records. Ask an admin to change saved data or queues.</p>}
+      {user?.role === "user" && (user.screening_date
+        ? <p className="px-6 pb-2 text-xs text-muted-foreground">
+            Screening day {formatDayLabel(user.screening_date)}: you see the patients queued that day and their earlier visits. Enter new records; ask an admin to change saved data.
+          </p>
+        : <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages and create new records. Ask an admin to change saved data.</p>)}
     </nav>
   );
 }

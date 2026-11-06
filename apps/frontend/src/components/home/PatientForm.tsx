@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
@@ -18,19 +18,21 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPatients";
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
 import { calculateAge } from "@/helper/calculate_age";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
 import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
@@ -117,6 +119,30 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // Matches awaiting a choice. onSubmit: the prompt interrupted a submit and can continue it.
     const [matchPrompt, setMatchPrompt] = useState<{ matches: PatientInfo[]; onSubmit: boolean } | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // A screening-day account's patient list holds only that day's patients, so returning patients
+    // are looked up on the host by the name being typed (debounced) and added to the matches.
+    const screeningDay = useUserStore((state) => state.user?.screening_date);
+    const lookupName = (patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim() || "");
+    const [lookedUp, setLookedUp] = useState<PatientInfo[]>([]);
+    useEffect(() => {
+      if (!screeningDay || !locationId || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
+        setLookedUp([]);
+        return;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        lookupPatients(locationId, lookupName, token, controller.signal)
+          .then(setLookedUp)
+          .catch((err) => { if (!controller.signal.aborted) console.error("Patient lookup failed:", err); });
+      }, 250);
+      return () => { clearTimeout(timer); controller.abort(); };
+    }, [screeningDay, locationId, token, lookupName]);
+    const knownPatients = useMemo(() => {
+      if (!lookedUp.length) return existingPatients;
+      const ids = new Set(existingPatients.map((p) => p.id));
+      return [...existingPatients, ...lookedUp.filter((p) => !ids.has(p.id))];
+    }, [existingPatients, lookedUp]);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
     const [vitals, setVitals] = useState<Vitals>({
@@ -143,6 +169,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // stations as usual and are marked in red in every queue.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
     const [tbNotes, setTbNotes] = useState("");
+    const tbRedFlagOptions = useFormOptions("tb_red_flags");
     // Fewer red flags than the threshold are not sent: the patient is not flagged.
     const tbFlagged = meetsTbThreshold(tbRedFlags);
 
@@ -252,7 +279,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const name = normalizeName(patientInfo.english_name) || normalizeName(patientInfo.khmer_name);
       if (!name) return;
 
-      const matches = existingPatients.filter((p) =>
+      const matches = knownPatients.filter((p) =>
         normalizeName(p.english_name).includes(name) || normalizeName(p.khmer_name).includes(name)
       );
 
@@ -269,7 +296,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const findSameNamePatients = () => {
       const englishName = normalizeName(patientInfo.english_name);
       const khmerName = normalizeName(patientInfo.khmer_name);
-      return existingPatients.filter((p) =>
+      return knownPatients.filter((p) =>
         (englishName && normalizeName(p.english_name) === englishName) ||
         (khmerName && normalizeName(p.khmer_name) === khmerName)
       );
@@ -368,7 +395,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // existing patients by English name or by Unique ID (face_id).
     const nameQuery = normalizeName(patientInfo.english_name);
     const suggestions = !linkedPatient && nameQuery
-      ? existingPatients
+      ? knownPatients
           .filter((p) =>
             normalizeName(p.english_name).includes(nameQuery) ||
             normalizeName(p.face_id ?? "").includes(nameQuery)
@@ -792,7 +819,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                    {TB_RED_FLAGS.map((flag) => (
+                    {tbRedFlagOptions.map((flag) => (
                       <div key={flag.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`tb-flag-${flag.id}`}
@@ -800,7 +827,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                           onCheckedChange={(checked) =>
                             setTbRedFlags((prev) =>
                               checked === true
-                                ? TB_RED_FLAGS.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
+                                ? tbRedFlagOptions.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
                                 : prev.filter((id) => id !== flag.id)
                             )
                           }

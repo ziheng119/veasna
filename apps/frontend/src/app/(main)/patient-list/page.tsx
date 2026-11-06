@@ -4,6 +4,7 @@ import { PlusIcon } from "@/assets/icons";
 import { CrossIcon } from "@/assets/icons/CrossIcon";
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
+import DownloadAllPatientsButton from "@/components/patient-list/DownloadAllPatientsButton";
 import { PatientTable } from "@/components/patient-list/PatientTable";
 import { Location } from "@/lib/types/location";
 import { PatientInfo } from "@/lib/types/patient";
@@ -93,6 +94,7 @@ export default function PatientListPage() {
         />
 
         <div className="flex items-center gap-2 shrink-0">
+          <DownloadAllPatientsButton />
           <Input
             type="date"
             value={visitDate}
@@ -130,7 +132,7 @@ export default function PatientListPage() {
         onViewPatient={handleViewPatient}
         onDeletePatient={handleDeletePatient}
         onFamilyChanged={refreshAllPatients}
-      />  
+      />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # Analytics
 
-Open **Analytics** from the user menu (both Admin and User can). It shows clinic
+Open **Analytics** from the user menu. Only the **admin** account can. It shows clinic
 numbers for a location and time period. It contains no patient names, IDs, notes or
 signatures.
 

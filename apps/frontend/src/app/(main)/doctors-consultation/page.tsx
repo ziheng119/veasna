@@ -13,6 +13,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
+import StationDataButton from "@/components/shared/StationDataButton";
 
 // Queue, patient snapshot and triage summary share the top row; the consultation notes take the
 // full page width underneath. The page scrolls as a whole instead of fitting one screen.
@@ -33,7 +34,10 @@ export default function DoctorsConsultation() {
       <div className="flex flex-col gap-5 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
-          <PrintReferrals locationId={location?.id} />
+          <div className="flex items-center gap-3">
+            <PrintReferrals locationId={location?.id} />
+            <StationDataButton station="consultation" />
+          </div>
         </div>
         <div className={TOP_ROW}>
           <QueuePatientPicker

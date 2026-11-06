@@ -80,18 +80,23 @@ see [running on a local network](docs/performance-and-lan.md).
 
 ## Signing in
 
-There are two fixed accounts. New accounts cannot be created.
+There are two fixed accounts, plus one shared account per screening day that an
+admin creates on the **Accounts** page.
 
 | Account | Password | Can do |
 | --- | --- | --- |
-| `admin` | `admin12345` | Everything, including correcting saved records |
-| `user` | `user` | View everything and enter new records |
+| `admin` | `admin12345` | Everything: correcting and deleting saved records, Analytics, bulk referral printing, downloading all patient data, Station data, Accounts |
+| `user` | `user` | View every day's patients and enter new records |
+| e.g. `dec13village` | set by the admin | Like `user`, but only sees patients queued on its screening day (with their earlier visits), and saves only on that day |
 
 See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
 
 ## Feature guides
 
-- [Accounts and permissions](docs/user-roles.md): what Admin and User can do.
+- [Accounts and permissions](docs/user-roles.md): what Admin, User and screening-day
+  accounts can do.
+- [Station data](docs/station-data.md): changing the dropdown and checkbox choices in
+  station forms.
 - [Queue ordering](docs/queue-ordering.md): sorting queues by number or arrival time.
 - [Returning to and skipping stations](docs/station-routing.md): changing a patient's route.
 - [Consultation referrals](docs/consultation-referrals.md): signing, printing and deleting referrals.

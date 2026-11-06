@@ -1,5 +1,5 @@
-// Visual acuity is recorded as a Snellen fraction such as "6/6" or "6/9".
-export const SNELLEN_OPTIONS = ["6/5", "6/6", "6/9", "6/12", "6/18", "6/24", "6/36", "6/60", "3/60", "1/60"];
+// Visual acuity is recorded as a Snellen fraction such as "6/6" or "6/9". The chart lines offered
+// in forms are an editable list (useFormOptions("snellen")).
 
 const SNELLEN_PATTERN = /^\d+(\.\d+)?\/\d+(\.\d+)?$/;
 

@@ -9,13 +9,14 @@ import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
 import EditableRecordSection, { CheckboxTile, FieldOption, FieldSpec } from "./EditableRecordSection";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
-import { REFERRAL_DESTINATIONS, parseReferralDestinations } from "@/constants/referral";
+import { parseReferralDestinations } from "@/constants/referral";
 import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
-import { TB_MIN_RED_FLAGS, TB_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
+import type { FormOption } from "@/lib/types/formOptions";
 import { updateVisitDetails, updateVisitTb, updateVisitVitals } from "@/lib/api/visit/adminEdits";
 import { saveMedicalHistory, savePresentingComplaint, saveVisualAcuity } from "@/lib/api/triage/triageService";
 import { postSeva } from "@/lib/api/visit/seva/postSeva";
@@ -57,9 +58,8 @@ const TB_STATUS_OPTIONS: FieldOption[] = (["suspected", "tb_likely", "cleared"] 
   value: status,
   label: TB_STATUS_LABELS[status],
 }));
-const TB_FLAG_OPTIONS: FieldOption[] = TB_RED_FLAGS.map((flag) => ({ value: flag.id, label: flag.label }));
 const SEVA_REFERRAL_OPTIONS: FieldOption[] = SEVA_REFERRALS.map((r) => ({ value: r.id, label: r.label }));
-const DESTINATION_OPTIONS: FieldOption[] = REFERRAL_DESTINATIONS.map((d) => ({ value: d, label: d }));
+const toFieldOptions = (items: FormOption[]): FieldOption[] => items.map((item) => ({ value: item.id, label: item.label }));
 
 const VITALS_FIELDS: FieldSpec<VitalsDraft>[] = [
   { key: "height", label: "Height (cm)", kind: "number" },
@@ -137,7 +137,8 @@ const PHYSIO_FIELDS: FieldSpec<PhysioDraft>[] = [
     },
   },
 ];
-const CONSULT_FIELDS: FieldSpec<ConsultDraft>[] = [
+// Fields with choices from the Station data page are built from the current lists.
+const consultFields = (conditions: FormOption[]): FieldSpec<ConsultDraft>[] => [
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
   { key: "prescription", label: "Prescription", kind: "textarea", wide: true },
   {
@@ -150,12 +151,12 @@ const CONSULT_FIELDS: FieldSpec<ConsultDraft>[] = [
       if (!editing) {
         if (selected === null) return <p>Not recorded</p>;
         if (!selected.length) return <p>None of the listed conditions</p>;
-        return <p>{selected.map((id) => CONSULTATION_CONDITIONS.find((c) => c.id === id)?.label ?? id).join(", ")}</p>;
+        return <p>{selected.map((id) => conditions.find((c) => c.id === id)?.label ?? id).join(", ")}</p>;
       }
       // Same tri-state as the consultation form: null = not recorded, [] = none of the listed.
       return (
         <div className="grid gap-2 sm:grid-cols-2">
-          {CONSULTATION_CONDITIONS.map((condition) => (
+          {conditions.map((condition) => (
             <CheckboxTile
               key={condition.id}
               label={condition.label}
@@ -177,22 +178,22 @@ const CONSULT_FIELDS: FieldSpec<ConsultDraft>[] = [
     },
   },
 ];
-const REFERRAL_FIELDS: FieldSpec<ReferralDraft>[] = [
+const referralFields = (destinations: FormOption[]): FieldSpec<ReferralDraft>[] => [
   { key: "referral_date", label: "Referral Date", kind: "date" },
-  { key: "destinations", label: "Referral Destinations", kind: "checkboxes", options: DESTINATION_OPTIONS, wide: true },
+  { key: "destinations", label: "Referral Destinations", kind: "checkboxes", options: toFieldOptions(destinations), wide: true },
   { key: "illness", label: "Condition / Illness", kind: "text" },
   { key: "duration", label: "Duration", kind: "text" },
   { key: "reason", label: "Reason for Referral", kind: "textarea", wide: true },
 ];
-const TB_NOTE_FIELDS: FieldSpec<TbDraft>[] = [
-  { key: "red_flags", label: "Red Flags", kind: "checkboxes", options: TB_FLAG_OPTIONS, wide: true },
+const tbNoteFields = (redFlags: FormOption[]): FieldSpec<TbDraft>[] => [
+  { key: "red_flags", label: "Red Flags", kind: "checkboxes", options: toFieldOptions(redFlags), wide: true },
   { key: "flag_notes", label: "Registration Notes", kind: "textarea", wide: true },
   { key: "doctor_notes", label: "Doctor's TB Notes", kind: "textarea", wide: true },
 ];
 // Suspected TB is a flag on the visit, so its status can be corrected at any time.
-const TB_FIELDS: FieldSpec<TbDraft>[] = [
+const tbFields = (redFlags: FormOption[]): FieldSpec<TbDraft>[] => [
   { key: "status", label: "TB Flag", kind: "select", options: TB_STATUS_OPTIONS, wide: true },
-  ...TB_NOTE_FIELDS,
+  ...tbNoteFields(redFlags),
 ];
 
 // BMI follows height and weight, rounded like the registration form.
@@ -236,6 +237,13 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   // A visit flagged for suspected TB opens on its TB record.
   const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
+  const optionLists = useFormOptionsStore((state) => state.lists);
+  const conditionItems = optionLists.consultation_conditions.items;
+  const destinationItems = optionLists.referral_destinations.items;
+  const redFlagItems = optionLists.tb_red_flags.items;
+  const consultSpec = useMemo(() => consultFields(conditionItems), [conditionItems]);
+  const referralSpec = useMemo(() => referralFields(destinationItems), [destinationItems]);
+  const tbSpec = useMemo(() => tbFields(redFlagItems), [redFlagItems]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
   const drafts = useMemo(() => {
@@ -326,7 +334,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           <EditableRecordSection
             title="Suspected TB"
             record={drafts.tb}
-            fields={TB_FIELDS}
+            fields={tbSpec}
             canEdit={canEdit}
             readOnlyItems={[
               { label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
@@ -471,7 +479,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
         <EditableRecordSection
           title="Consultation"
           record={drafts.consult}
-          fields={CONSULT_FIELDS}
+          fields={consultSpec}
           canEdit={canEdit}
           emptyDraft={{ notes: "", prescription: "", condition_categories: null }}
           onSave={saved((d: ConsultDraft) => postConsultation({
@@ -485,7 +493,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
         <EditableRecordSection
           title="Referral"
           record={drafts.referral}
-          fields={REFERRAL_FIELDS}
+          fields={referralSpec}
           canEdit={canEdit}
           emptyMessage="No referral for this visit."
           readOnlyItems={visit.referrals[0]?.signer_name

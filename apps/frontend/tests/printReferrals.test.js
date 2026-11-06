@@ -20,6 +20,7 @@ const { getReferrals } = require('../src/lib/api/visit/getReferrals');
 const PrintReferralsDialog = require('../src/components/shared/PrintReferralsDialog').default;
 const { todayIso, rangeText } = require('../src/components/shared/PrintReferralsDialog');
 const PrintReferrals = require('../src/components/doctors-consultation/PrintReferrals').default;
+const { useUserStore } = require('../src/stores/useUserStore');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const text = node => node.children.flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
@@ -42,7 +43,14 @@ const printButton = () => footerButtons()[1];
 const choose = label => act(async () => renderer.root.findAll(n => n.props.role === 'radio' && n.type === 'button').find(n => text(n) === label).props.onClick());
 const dateInputs = () => renderer.root.findAllByType('input');
 
+test('Consult\'s "Print referrals" is shown only to admins', async () => {
+  useUserStore.setState({ user: { id: 2, username: 'user', role: 'user', token: 't' } });
+  await act(async () => { renderer = create(React.createElement(PrintReferrals, { locationId: 4 })); });
+  expect(renderer.root.findAllByType('button')).toHaveLength(0);
+});
+
 test('Consult\'s "Print referrals" opens a pop-up offering today (the default) or another date', async () => {
+  useUserStore.setState({ user: { id: 1, username: 'admin', role: 'admin', token: 't' } });
   await act(async () => { renderer = create(React.createElement(PrintReferrals, { locationId: 4 })); });
   const open = renderer.root.findAllByType('button').find(b => text(b).includes('Print referrals'));
   await act(async () => open.props.onClick());

@@ -65,6 +65,9 @@ handwritten mark on screen, not a cryptographic digital signature.
 
 ## Printing saved referrals
 
+Printing many referrals at once is for the **admin** account only. Anyone can still
+print the one referral they have open (see above).
+
 **Print referrals**, at the right of the search row on the Consult page, opens a small
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
 prints every saved referral for that day at the selected location. You don't need to
@@ -93,14 +96,14 @@ There is no undo.
 
 ## Who can do what
 
-Both Admin and User can create a referral, and view and print saved ones. Only an
-admin can change or delete a saved referral or signature. See
+Every account can create a referral, and view and print a saved one. Only an admin
+can print many at once, or change or delete a saved referral or signature. See
 [accounts and permissions](user-roles.md).
 
 ## Technical details
 
-- `GET /api/visits/referrals` returns referrals for batch printing, oldest first, and
-  is never cached. `location_id` is an id or `all`; then one of `date=YYYY-MM-DD`,
+- `GET /api/visits/referrals` (admin only) returns referrals for batch printing, oldest
+  first, and is never cached. `location_id` is an id or `all`; then one of `date=YYYY-MM-DD`,
   `from=...&to=...` or `all=true` (`utils/referralFilter.js`).
 - `DELETE /api/visits/referral/:visit_id` removes the referral and signature and clears
   the consultation's referral flag in one statement. It records who deleted it and

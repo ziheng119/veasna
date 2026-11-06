@@ -1,6 +1,6 @@
 "use client";
 
-import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useId, useState } from "react";
@@ -24,6 +24,7 @@ interface Props {
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
+  const conditions = useFormOptions("consultation_conditions");
   const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
@@ -161,7 +162,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
               <legend className="px-1 font-semibold">Conditions addressed</legend>
               <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {CONSULTATION_CONDITIONS.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
+                {conditions.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
                     onChange={event => setConditionCategories(previous => event.target.checked
                       ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />

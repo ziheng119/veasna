@@ -50,3 +50,17 @@ export function updateVisitTb(
 ) {
   return adminPut(`${visitId}/tb`, update);
 }
+
+// Removes the whole visit and every record of it. The patient and their other visits stay.
+export async function deleteVisit(visitId: number): Promise<void> {
+  const token = useUserStore.getState().user?.token;
+  if (!token) throw new Error("User not authenticated");
+  const res = await fetch(`${backend_url}/api/visits/${visitId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || error.message || `Request failed (${res.status})`);
+  }
+}

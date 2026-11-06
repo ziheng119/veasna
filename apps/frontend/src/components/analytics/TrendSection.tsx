@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { TrendingUp } from "lucide-react";
 import { AnalyticsLocation, AnalyticsTrend, getAnalyticsTrend, TrendBucket, TrendRange } from "@/lib/api/analytics";
-import { CONDITION_COLORS, CONSULTATION_CONDITIONS, PRIMARY_SERIES_COLOR, SECONDARY_SERIES_COLOR } from "@/constants/consultationConditions";
+import { PRIMARY_SERIES_COLOR, SECONDARY_SERIES_COLOR, conditionColor } from "@/constants/consultationConditions";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
+import type { FormOption } from "@/lib/types/formOptions";
 import { ChartSeries, LineChart } from "./charts";
 import { fieldClass, Segmented, SectionCard } from "./ui";
 
@@ -23,18 +25,19 @@ function bucketLabels(bucket: TrendBucket, range: TrendRange) {
   return { axis: dayMonth(bucket.startDate), full: shortDate(bucket.startDate, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) };
 }
 
-function seriesFor(metric: string, buckets: TrendBucket[]): ChartSeries[] {
+function seriesFor(metric: string, buckets: TrendBucket[], listed: FormOption[]): ChartSeries[] {
   if (metric === "patients") return [
     { id: "people", label: "Patients reached", color: PRIMARY_SERIES_COLOR, values: buckets.map(b => b.people) },
     { id: "consulted", label: "Patients consulted", color: SECONDARY_SERIES_COLOR, values: buckets.map(b => b.consultedPeople) },
   ];
-  const conditions = metric === "conditions" ? CONSULTATION_CONDITIONS : CONSULTATION_CONDITIONS.filter(c => c.id === metric);
-  return conditions.map(c => ({ id: c.id, label: c.label, color: CONDITION_COLORS[c.id], values: buckets.map(b => b.conditions[c.id] ?? 0) }));
+  const conditions = metric === "conditions" ? listed : listed.filter(c => c.id === metric);
+  return conditions.map(c => ({ id: c.id, label: c.label, color: conditionColor(c.id, listed), values: buckets.map(b => b.conditions[c.id] ?? 0) }));
 }
 
 export default function TrendSection({ id, locationId, date, token, refresh, onLoaded, delay }: {
   id?: string; locationId: AnalyticsLocation; date: string; token: string; refresh: number; onLoaded?: (trend: AnalyticsTrend | null) => void; delay?: number;
 }) {
+  const conditions = useFormOptions("consultation_conditions");
   const [range, setRange] = useState<TrendRange>("30d");
   const [metric, setMetric] = useState("patients");
   const [data, setData] = useState<AnalyticsTrend | null>(null);
@@ -55,7 +58,7 @@ export default function TrendSection({ id, locationId, date, token, refresh, onL
   const unit = RANGES.find(r => r.id === range)!.unit;
   const caption = metric === "patients" ? `Patients reached and consulted per ${unit}`
     : metric === "conditions" ? `Patients consulted per condition per ${unit}`
-    : `Patients consulted with ${CONSULTATION_CONDITIONS.find(c => c.id === metric)?.label.toLowerCase()} per ${unit}`;
+    : `Patients consulted with ${conditions.find(c => c.id === metric)?.label.toLowerCase()} per ${unit}`;
   const labels = data?.buckets.map(b => bucketLabels(b, data.range)) ?? [];
 
   return <SectionCard id={id} icon={TrendingUp} tone="bg-blue-100 text-blue-700" title="Trends over time" label="Trends over time" delay={delay}
@@ -66,7 +69,7 @@ export default function TrendSection({ id, locationId, date, token, refresh, onL
         <select aria-label="Trend metric" value={metric} onChange={event => setMetric(event.target.value)} className={`${fieldClass} text-foreground`}>
           <option value="patients">Patients reached &amp; consulted</option>
           <option value="conditions">Compare all conditions</option>
-          <optgroup label="Single condition">{CONSULTATION_CONDITIONS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</optgroup>
+          <optgroup label="Single condition">{conditions.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</optgroup>
         </select>
       </label>
       <div className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">Range
@@ -76,7 +79,7 @@ export default function TrendSection({ id, locationId, date, token, refresh, onL
     {error && <p role="alert" className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
     {!error && !data && <div role="status" aria-label="Loading trends" className="h-[280px] animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />}
     {!error && data && <div className={current ? "transition-opacity duration-300" : "opacity-50 transition-opacity duration-300"} aria-busy={!current}>
-      <LineChart caption={caption} labels={labels.map(l => l.axis)} tooltipLabels={labels.map(l => l.full)} series={seriesFor(metric, data.buckets)} />
+      <LineChart caption={caption} labels={labels.map(l => l.axis)} tooltipLabels={labels.map(l => l.full)} series={seriesFor(metric, data.buckets, conditions)} />
     </div>}
   </SectionCard>;
 }

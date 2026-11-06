@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import TbBadge from "@/components/shared/TbBadge";
-import { TB_RED_FLAGS, meetsTbThreshold, tbRedFlagLabel, tbThresholdHint } from "@/constants/tb";
+import { meetsTbThreshold, tbRedFlagLabel, tbThresholdHint } from "@/constants/tb";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { getTbScreening, setTbFlag, TbScreening } from "@/lib/api/tb/tb";
 import { useUserStore } from "@/stores/useUserStore";
 import { StationId, stationLabel } from "@/constants/stations";
@@ -21,6 +22,7 @@ interface Props {
 
 /** Flag suspected TB at triage; the patient then goes to Consult only. The flag is cleared at Consult. */
 export default function TbFlagPanel({ visitId, onFlagged }: Props) {
+  const tbRedFlags = useFormOptions("tb_red_flags");
   const token = useUserStore((state) => state.user?.token);
   const [screening, setScreening] = useState<TbScreening | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -70,7 +72,7 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
             <TbBadge /> Suspected TB
           </p>
           {screening.red_flags.length > 0 && (
-            <p className="text-foreground">{screening.red_flags.map(tbRedFlagLabel).join(" · ")}</p>
+            <p className="text-foreground">{screening.red_flags.map((id) => tbRedFlagLabel(id, tbRedFlags)).join(" · ")}</p>
           )}
           {screening.flag_notes && <p className="whitespace-pre-wrap text-muted-foreground">{screening.flag_notes}</p>}
           <p className="text-xs text-muted-foreground">The doctor clears the flag at Consult.</p>
@@ -97,7 +99,7 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
     <div className="mb-4 space-y-3 rounded-lg border-2 border-red-500/60 bg-red-50/60 p-3 dark:bg-red-500/10">
       <p className="text-sm font-semibold text-red-700 dark:text-red-300">Flag suspected TB</p>
       <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-        {TB_RED_FLAGS.map((flag) => (
+        {tbRedFlags.map((flag) => (
           <div key={flag.id} className="flex items-center space-x-2">
             <Checkbox
               id={`triage-tb-${flag.id}`}
@@ -105,7 +107,7 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
               onCheckedChange={(checked) =>
                 setRedFlags((prev) =>
                   checked === true
-                    ? TB_RED_FLAGS.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
+                    ? tbRedFlags.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
                     : prev.filter((id) => id !== flag.id)
                 )
               }

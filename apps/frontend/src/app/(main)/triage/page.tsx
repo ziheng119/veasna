@@ -15,6 +15,7 @@ import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { StationId } from "@/constants/stations";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
+import StationDataButton from "@/components/shared/StationDataButton";
 
 export default function Traige() {
   const location = useLocationStore((state) => state.currentLocation);
@@ -51,7 +52,10 @@ export default function Traige() {
     return (
       <StationFlowProvider station="triage" onSelectPatient={setSelectedPatient}>
         <div className={PAGE_SHELL}>
-          <SearchBar station="triage" onSelectPatient={setSelectedPatient} />
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1"><SearchBar station="triage" onSelectPatient={setSelectedPatient} /></div>
+            <StationDataButton station="triage" />
+          </div>
           <div className={PANEL_GRID}>
             <QueuePatientPicker
               station="triage"
