@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
+import { useConfirm } from "@/hooks/useConfirm";
+
 import { X } from "lucide-react";
 import { stationLabel, stationPageHref } from "@/constants/stations";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,7 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
+  const { confirm, dialog } = useConfirm();
   const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");  
@@ -129,10 +132,12 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"
                     title="Discharge patient"
-                    onClick={() => {
-                      if (!window.confirm(`Discharge ${patient.english_name || 'this patient'}?`)) {
-                        return;
-                      }
+                    onClick={async () => {
+                      if (!await confirm({
+                        title: `Discharge ${patient.english_name || "this patient"}?`,
+                        description: "They leave today's queue at every station. Their saved records stay.",
+                        confirmLabel: "Discharge",
+                      })) return;
                       onRemovePatient(patient.visit_id);
                     }}
                   >
@@ -144,6 +149,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
             );
           })
         )}
+      {dialog}
     </PageCard>
   );
 }

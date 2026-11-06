@@ -146,13 +146,42 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
 
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);
 
-    // "Save & next" from any section: saves it (if it can still be changed), then moves the patient
-    // on only when every section is saved, naming any that are missing.
+    // A section is complete when every reading or field is filled in (notes are optional), and is
+    // ready when it is complete or already saved. "Save & next" turns green once all three are ready.
+    const filled = (values: string[]) => values.every((value) => value.trim() !== "");
+    const sectionComplete: Record<SectionId, boolean> = {
+        acuity: filled([visualAcuity.left_with_pinhole, visualAcuity.left_without_pinhole, visualAcuity.right_with_pinhole, visualAcuity.right_without_pinhole]),
+        complaint: filled(Object.values(presentingComplaint)),
+        history: filled(Object.values(medicalHistory)),
+    };
+    const sectionReady = (id: SectionId) => Boolean(savedSections[id]) || sectionComplete[id];
+    const triageReady = loadedVisit === visit_id && SECTIONS.every((section) => sectionReady(section.id));
+    const notReady = SECTIONS.filter((section) => !sectionReady(section.id)).map((section) => section.label);
+    const readyHint = notReady.length ? `Fill in ${notReady.join(" and ")} to finish` : undefined;
+    // Unsaved sections with something typed in, so "Save & next" can save them too.
+    const hasContent: Record<SectionId, boolean> = {
+        acuity: Object.values(visualAcuity).some((value) => value.trim() !== ""),
+        complaint: Object.values(presentingComplaint).some((value) => value.trim() !== ""),
+        history: Object.values(medicalHistory).some((value) => value.trim() !== ""),
+    };
+
+    // "Save & next" from any section: saves it (if it can still be changed) and any other section
+    // filled in but not saved yet, then moves the patient on only when every section is saved,
+    // naming any that are missing.
     const saveAndNext = (section: SectionId, save: () => Promise<boolean>) => async (): Promise<boolean> => {
         if (!savedSections[section] || !locked(section)) {
             if (!(await save())) return false;
         }
-        const missing = SECTIONS.filter((other) => other.id !== section && !savedSections[other.id]);
+        const saves: Record<SectionId, () => Promise<boolean>> = {
+            acuity: handleSaveVisualAcuity, complaint: handleSavePresentingComplaint, history: handleSaveMedicalHistory,
+        };
+        const nowSaved = new Set<SectionId>([section]);
+        for (const other of SECTIONS) {
+            if (other.id === section) continue;
+            if (savedSections[other.id]) nowSaved.add(other.id);
+            else if (hasContent[other.id] && await saves[other.id]()) nowSaved.add(other.id);
+        }
+        const missing = SECTIONS.filter((other) => !nowSaved.has(other.id));
         if (missing.length) {
             toast.error(`Save ${missing.map((other) => other.label).join(" and ")} too before sending the patient on.`);
             return false;
@@ -226,7 +255,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSaveVisualAcuity} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
-                            <SaveAndNextButton patient={patient} onSave={saveAndNext("acuity", handleSaveVisualAcuity)} disabled={isLoading || loadedVisit !== visit_id} />
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("acuity", handleSaveVisualAcuity)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
@@ -255,7 +284,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSavePresentingComplaint} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
-                            <SaveAndNextButton patient={patient} onSave={saveAndNext("complaint", handleSavePresentingComplaint)} disabled={isLoading || loadedVisit !== visit_id} />
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("complaint", handleSavePresentingComplaint)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
@@ -288,7 +317,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSaveMedicalHistory} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save History"}</Button>
-                            <SaveAndNextButton patient={patient} onSave={saveAndNext("history", handleSaveMedicalHistory)} disabled={isLoading || loadedVisit !== visit_id} />
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("history", handleSaveMedicalHistory)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>

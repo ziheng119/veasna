@@ -12,7 +12,8 @@ search), or from the user menu (**Station data**).
 | Conditions addressed | Consult notes, and the condition charts on Analytics |
 | Referral destinations | Consult referrals (printed on the letter) |
 
-For each list you can rename a choice, move it up or down, remove it or add one, then
+For each list you can rename a choice, drag it by its grip (⋮⋮) to a new place (or focus
+the grip and use the arrow keys), remove it (after confirming) or add one, then
 press **Save**. Every device uses the new list from the next page it opens (or after
 **Refresh**). **Restore built-in choices** goes back to the list Veasna came with.
 

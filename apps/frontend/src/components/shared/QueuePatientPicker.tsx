@@ -26,6 +26,7 @@ import { Check, CircleCheck, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 
 import QueueSortControl from "./QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -46,6 +47,7 @@ export default function QueuePatientPicker({
   selectedVisitId,
   refreshKey,
 }: QueuePatientPickerProps) {
+  const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
@@ -111,9 +113,11 @@ export default function QueuePatientPicker({
 
   const handleRemovePatient = async (patient: QueuedPatient) => {
     if (!token) return;
-    if (!window.confirm(`Discharge ${patient.english_name || "this patient"}?`)) {
-      return;
-    }
+    if (!await confirm({
+      title: `Discharge ${patient.english_name || "this patient"}?`,
+      description: "They leave today's queue at every station. Their saved records stay.",
+      confirmLabel: "Discharge",
+    })) return;
 
     try {
       await completeQueueVisit(patient.visit_id, token);
@@ -298,6 +302,7 @@ export default function QueuePatientPicker({
         onClose={() => setEditingPatient(null)}
         onSaved={loadQueue}
       />
+      {dialog}
     </PageCard>
   );
 }

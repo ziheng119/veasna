@@ -123,7 +123,13 @@ test('clicking a Home queue card opens the patient at their station; Discharge d
     push.mockClear();
     const discharge = renderer.root.findAllByType('button').find(node => node.props.title === 'Discharge patient');
     card.props.onClick({ target: { closest: () => discharge } });
-    discharge.props.onClick();
+    // Discharging asks first, in the custom pop-up.
+    let pending;
+    await act(async () => { pending = discharge.props.onClick(); });
+    expect(onRemovePatient).not.toHaveBeenCalled();
+    const dialog = renderer.root.find(node => node.props.role === 'dialog');
+    expect(label(dialog)).toContain("leave today's queue");
+    await act(async () => { button(dialog, 'Discharge').props.onClick(); await pending; });
     expect(push).not.toHaveBeenCalled();
     expect(onRemovePatient).toHaveBeenCalledWith(5);
   } finally {

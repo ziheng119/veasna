@@ -16,7 +16,7 @@ export default function PrintReferrals({ locationId }: { locationId?: number }) 
   const admin = useUserStore((state) => isAdmin(state.user?.role));
   if (!admin) return null;
   return <>
-    <GlassButton type="button" className="h-10 shrink-0" disabled={!locationId}
+    <GlassButton type="button" className="h-10 shrink-0 px-4" disabled={!locationId}
       onClick={() => setOpen(true)} title="Print saved referrals for a day at the selected location">
       <Printer className="size-4" aria-hidden="true" />
       Print referrals

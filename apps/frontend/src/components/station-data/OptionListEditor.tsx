@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowDown, ArrowUp, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SortableList, { moveItem } from "@/components/shared/SortableList";
+import { useConfirm } from "@/hooks/useConfirm";
 import { resetFormOptions, saveFormOptions } from "@/lib/api/formOptions/formOptions";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import type { FormOption, FormOptionKey } from "@/lib/types/formOptions";
@@ -44,7 +46,7 @@ export function draftError(listKey: FormOptionKey, items: FormOption[]): string 
   return null;
 }
 
-/** Edits one list of form choices: rename, reorder, add, remove, then save for every device. */
+/** Edits one list of form choices: rename, drag to reorder, add, remove, then save for every device. */
 export default function OptionListEditor({ listKey, title, description, kind, placeholder, anchor }: Props) {
   const list = useFormOptionsStore(state => state.lists[listKey]);
   const setList = useFormOptionsStore(state => state.setList);
@@ -52,25 +54,42 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
   const [newLabel, setNewLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const { confirm, dialog } = useConfirm();
+  // Draft rows need keys that survive renaming and reordering.
+  const [rowKeys, setRowKeys] = useState<string[]>(() => list.items.map((_, i) => `row-${i}`));
+  const nextKey = useRef(list.items.length);
 
   // Show the saved list whenever it changes (loaded, or saved here or on another device).
-  useEffect(() => setDraft(list.items), [list.items]);
+  const resetDraft = (items: FormOption[]) => {
+    setDraft(items);
+    setRowKeys(items.map(() => `row-${nextKey.current++}`));
+  };
+  useEffect(() => resetDraft(list.items), [list.items]);
 
   const changed = JSON.stringify(draft) !== JSON.stringify(list.items);
   const error = draftError(listKey, draft);
 
   const update = (index: number, label: string) =>
     setDraft(items => items.map((item, i) => i !== index ? item : kind === "value" ? { id: label, label } : { ...item, label }));
-  const move = (index: number, by: number) => setDraft(items => {
-    const next = [...items];
-    const [item] = next.splice(index, 1);
-    next.splice(index + by, 0, item);
-    return next;
-  });
+  const reorder = (from: number, to: number) => {
+    setDraft(items => moveItem(items, from, to));
+    setRowKeys(keys => moveItem(keys, from, to));
+  };
+  const remove = async (index: number) => {
+    const label = draft[index]?.label || "this choice";
+    if (!await confirm({
+      title: `Remove "${label}"?`,
+      description: "It will no longer be offered in the form once you save. Records saved with it keep it.",
+      confirmLabel: "Remove choice",
+    })) return;
+    setDraft(items => items.filter((_, i) => i !== index));
+    setRowKeys(keys => keys.filter((_, i) => i !== index));
+  };
   const add = () => {
     const label = newLabel.trim();
     if (!label) return;
     setDraft(items => [...items, { id: kind === "value" ? label : newOptionId(label, items.map(item => item.id)), label }]);
+    setRowKeys(keys => [...keys, `row-${nextKey.current++}`]);
     setNewLabel("");
   };
 
@@ -112,22 +131,28 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <ol className="space-y-2">
-          {draft.map((item, index) => (
-            <li key={`${item.id}-${index}`} className="flex items-center gap-2">
-              <span className="w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+        <SortableList
+          aria-label={title}
+          items={draft.map((item, index) => ({ item, key: rowKeys[index] ?? `row-x${index}` }))}
+          getKey={(row) => row.key}
+          getLabel={(row) => row.item.label || "choice"}
+          onReorder={reorder}
+          disabled={busy}
+          itemClassName="flex items-center gap-2 rounded-lg bg-card"
+          renderItem={({ item }, index, handle) => (
+            <>
+              {handle}
+              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
               <Input aria-label={`Choice ${index + 1}`} value={item.label} maxLength={100}
                 onChange={event => update(index, event.target.value)} />
-              <Button type="button" variant="ghost" size="icon" aria-label={`Move ${item.label} up`} disabled={index === 0}
-                onClick={() => move(index, -1)}><ArrowUp className="size-4" /></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label={`Move ${item.label} down`} disabled={index === draft.length - 1}
-                onClick={() => move(index, 1)}><ArrowDown className="size-4" /></Button>
               <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${item.label}`}
-                onClick={() => setDraft(items => items.filter((_, i) => i !== index))}><Trash2 className="size-4 text-destructive" /></Button>
-            </li>
-          ))}
-        </ol>
-        <form className="flex items-center gap-2 pl-8" onSubmit={event => { event.preventDefault(); add(); }}>
+                className="hover:bg-destructive/10" onClick={() => remove(index)}>
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </>
+          )}
+        />
+        <form className="flex items-center gap-2 pl-[3.75rem]" onSubmit={event => { event.preventDefault(); add(); }}>
           <Input aria-label={`New choice for ${title}`} placeholder={placeholder} value={newLabel} maxLength={100}
             onChange={event => setNewLabel(event.target.value)} />
           <Button type="submit" variant="outline" disabled={!newLabel.trim()}><Plus className="size-4" /> Add</Button>
@@ -140,13 +165,15 @@ export default function OptionListEditor({ listKey, title, description, kind, pl
               <RotateCcw className="size-4" /> Restore built-in choices
             </Button>
           )}
-          <Button type="button" variant="outline" disabled={!changed || busy} onClick={() => setDraft(list.items)}>Discard changes</Button>
+          <Button type="button" variant="outline" disabled={!changed || busy} onClick={() => resetDraft(list.items)}>Discard changes</Button>
           <Button type="button" disabled={!changed || !!error || busy} onClick={save}>{busy ? "Saving..." : "Save"}</Button>
         </div>
       </CardContent>
       <ConfirmDialog open={confirmReset} busy={busy} title={`Restore ${title.toLowerCase()}?`}
         description="The list goes back to the choices Veasna came with. Records saved earlier are not changed."
         confirmLabel="Restore" onConfirm={reset} onCancel={() => setConfirmReset(false)} />
+      {dialog}
     </Card>
   );
 }
+

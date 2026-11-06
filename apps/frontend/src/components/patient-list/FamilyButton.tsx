@@ -20,6 +20,7 @@ import { ENTER_FAST, POP } from "@/lib/motion";
 import { PatientInfo } from "@/lib/types/patient";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/stores/useUserStore";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const MAX_RESULTS = 8;
 
@@ -53,6 +54,7 @@ export default function FamilyButton({ patient, patients, onOpenChange, onChange
   const [selected, setSelected] = useState<Target | null>(null);
   const [busy, setBusy] = useState(false);
   const name = nameOf(patient);
+  const { confirm: confirmAction, dialog } = useConfirm();
 
   const setOpenState = (next: boolean) => {
     setOpen(next);
@@ -106,7 +108,15 @@ export default function FamilyButton({ patient, patients, onOpenChange, onChange
     return `${name} is now in family ${result.family} with ${selected.members.map(nameOf).join(", ")}.`;
   });
 
-  const leave = () => run(async () => {
+  const leave = async () => {
+    if (!await confirmAction({
+      title: `Remove ${name} from family ${patient.family}?`,
+      description: "They keep their queue number but will no longer move between stations with the family.",
+      confirmLabel: "Remove from family",
+    })) return;
+    await leaveNow();
+  };
+  const leaveNow = () => run(async () => {
     await leaveFamily(patient.id, token!);
     return `${name} is no longer in a family.`;
   });
@@ -209,6 +219,7 @@ export default function FamilyButton({ patient, patients, onOpenChange, onChange
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {dialog}
     </>
   );
 }

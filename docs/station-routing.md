@@ -39,12 +39,27 @@ A patient is **done** at a station once everything needed there is saved:
 - **Save & next**, beside each form's Save, does it in one go: it saves the form, sends
   the patient to their next station (or finishes their visit after the last one), and
   opens the next patient waiting in this queue, in the order shown.
-- At Triage, **Save & next** on any section saves that section, then names any other
-  section still to be saved instead of moving the patient on.
+- **Save & next** turns green with a tick once everything needed at the station is filled
+  in (or already saved), so you can see the patient is ready to move on. Until then,
+  hovering over it says what is still missing:
+
+  | Station | Green when |
+  | --- | --- |
+  | Triage | All four eye readings, and every field of Presenting Complaints and Medical History, are filled in or saved |
+  | Consult | Notes are written and the conditions addressed are ticked (or **None of the listed conditions**) |
+  | Physiotherapy | Notes are written or the body chart is marked |
+  | Dental | What was done is written |
+  | Partner NGO | All four eye readings are taken and a diagnosis is written |
+
+  It still saves a part-filled form if you press it while grey.
+- At Triage, **Save & next** on any section saves that section and any other section
+  with something typed in, then names any section still empty instead of moving the
+  patient on.
 - At Consult, prescribe and tick **Send to Physiotherapy** before **Save & next**, so the
   patient goes to the right place.
-- A form that is already saved can't be saved again by a user, so use **Send to next
-  station** (or **Next** on the card) for it.
+- A form that is already saved can't be saved again by a user. Its button then reads
+  **Next station** (green) and only sends the patient on; **Send to next station** and
+  **Next** on the card do the same.
 
 ### Families move together
 
@@ -75,8 +90,11 @@ Press **Send to** on a patient in a station queue:
 
 - **Return to [station]** reopens a station the patient has finished and makes it next.
 - **Skip for now** moves a station to the end of the route. It isn't marked as done.
-- **Up / Down** reorders the remaining stations.
-- **Add [station]** adds a station; **Remove** takes it off the remaining route.
+- Drag a station by its grip (⋮⋮) to reorder the remaining stations. The others slide
+  aside to show where it will land. With a keyboard, focus the grip and press the up or
+  down arrow.
+- **Add [station]** adds a station; **Remove** takes it off the remaining route, after
+  you confirm in a pop-up.
 - **Save** applies the new route and sends the patient to its first station.
   **Cancel** changes nothing.
 

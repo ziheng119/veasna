@@ -128,6 +128,8 @@ A few things worth knowing:
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
 - Queues and patient lists update on every device automatically when someone saves.
+- Deleting, removing or discharging anything asks first in a pop-up that says what will
+  happen.
 - Always check that a save succeeded before leaving a page. Unsaved work is not
   kept if the connection to the host drops.
 

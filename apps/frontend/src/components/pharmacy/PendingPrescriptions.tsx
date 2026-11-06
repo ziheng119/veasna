@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 import { cancelPrescription, dispensePrescription, getLocationPrescriptions } from "@/lib/api/pharmacy/prescriptions";
 import { Prescription } from "@/lib/types/prescription";
 import { useUserStore } from "@/stores/useUserStore";
@@ -24,6 +25,7 @@ interface Props {
 
 /** Prescriptions waiting at the pharmacy. Dispensing finalises the stock deduction. */
 export default function PendingPrescriptions({ locationId, onStockChanged, patient }: Props) {
+  const { confirm, dialog } = useConfirm();
   const token = useUserStore((state) => state.user?.token);
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const load = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
@@ -36,7 +38,11 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
 
   const act = async (prescription: Prescription, action: "dispense" | "cancel") => {
     const label = `${prescription.quantity} × ${prescription.drug_name} for ${prescription.english_name || "this patient"}`;
-    if (action === "cancel" && !window.confirm(`Cancel ${label}? The reserved stock is released.`)) return;
+    if (action === "cancel" && !await confirm({
+      title: `Cancel ${label}?`,
+      description: "The prescription is cancelled and its reserved stock goes back to the pharmacy.",
+      confirmLabel: "Cancel prescription",
+    })) return;
     setBusy(prescription.id);
     try {
       if (action === "dispense") {
@@ -124,6 +130,7 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
           ))}
         </tbody>
       </table>
+      {dialog}
     </div>
   );
 }

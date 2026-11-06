@@ -155,7 +155,7 @@ export default function AccountsPage() {
                 onClick={() => change(account, { is_active: !account.is_active }, `${account.username} ${account.is_active ? "can no longer sign in" : "can sign in again"}.`)}>
                 {account.is_active ? "Disable" : "Enable"}
               </Button>
-              <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${account.username}`} disabled={busyId === account.id}
+              <Button type="button" variant="ghost" size="icon" className="size-8 hover:bg-destructive/10" aria-label={`Remove ${account.username}`} disabled={busyId === account.id}
                 onClick={() => setRemoving(account)}>
                 <Trash2 className="size-4 text-destructive" />
               </Button>

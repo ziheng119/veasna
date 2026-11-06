@@ -5,8 +5,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { useUserStore } from "@/stores/useUserStore";
 import { isAdmin } from "@/lib/permissions";
 import { StationId, stationLabel } from "@/constants/stations";
-import { GLASS_SURFACE, PRESS } from "@/lib/motion";
-import { cn } from "@/lib/utils";
+import GlassButton from "./GlassButton";
 
 /**
  * Admin-only "Edit station data" link, at the top right of a station page beside the queue search.
@@ -16,10 +15,12 @@ export default function StationDataButton({ station }: { station: StationId }) {
   const admin = useUserStore((state) => isAdmin(state.user?.role));
   if (!admin) return null;
   return (
-    <Link href={`/station-data#${station}`} title={`Edit the choices offered in ${stationLabel(station)} forms`}
-      className={cn("ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium text-foreground transition duration-200 hover:bg-muted/50 hover:shadow-md motion-reduce:transition-none", GLASS_SURFACE, PRESS)}>
-      <SlidersHorizontal className="size-4" aria-hidden="true" />
-      Edit station data
-    </Link>
+    // Same pill as "Print referrals" and "Referral list" beside it.
+    <GlassButton asChild className="group ml-auto h-10 shrink-0 px-4">
+      <Link href={`/station-data#${station}`} title={`Edit the choices offered in ${stationLabel(station)} forms`}>
+        <SlidersHorizontal className="size-4 transition-transform duration-300 group-hover:rotate-90 motion-reduce:transform-none" aria-hidden="true" />
+        Edit station data
+      </Link>
+    </GlassButton>
   );
 }

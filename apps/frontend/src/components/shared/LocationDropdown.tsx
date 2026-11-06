@@ -4,9 +4,15 @@ import { useLocationStore } from '@/stores/useLocationStore';
 import { LocationIcon, PlusIcon, TrashIcon } from '@/assets/icons';
 import { Location } from '@/lib/types/location';
 import { useUserStore } from '@/stores/useUserStore';
+import { ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/hooks/useConfirm';
+import { MENU_CHEVRON, MENU_PANEL, MENU_TRIGGER } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 
 export default function LocationDropdown() {
   const isAdmin = useUserStore(state => state.user?.role === "admin");
+  const { confirm, dialog } = useConfirm();
   const { 
     locations, 
     currentLocation, 
@@ -55,6 +61,12 @@ export default function LocationDropdown() {
 
   const handleDeleteLocation = async (locationId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    const name = locations.find(location => location.id === locationId)?.name ?? 'this location';
+    if (!await confirm({
+      title: `Remove ${name}?`,
+      description: 'It is no longer offered in the location menu. Patients and visits recorded there are kept.',
+      confirmLabel: 'Remove location',
+    })) return;
     try {
       await removeLocation(locationId);
     } catch (error) {
@@ -96,31 +108,23 @@ export default function LocationDropdown() {
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Dropdown Trigger */}
-      <button
+      <Button
+        type="button"
+        variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 rounded-md border border-border bg-background px-3 py-2 text-foreground hover:bg-accent transition-colors duration-200"
+        className={MENU_TRIGGER}
+        data-state={isOpen ? 'open' : 'closed'}
         aria-haspopup="true"
         aria-expanded={isOpen}
       >
-        <LocationIcon className="w-5 h-5" color={"currentColor"} />
-        <span className="font-medium">
-          {currentLocation?.name || 'Select Location'}
-        </span>
-        <svg
-          className={`w-4 h-4 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+        <LocationIcon className="size-4" color={"currentColor"} />
+        <span>{currentLocation?.name || 'Select Location'}</span>
+        <ChevronDown className={MENU_CHEVRON} aria-hidden="true" />
+      </Button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-lg shadow-md border border-border py-1 z-50">
+        <div className={cn("absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-lg border border-border bg-card py-1 shadow-md", MENU_PANEL)}>
           {/* Error Display */}
           {error && (
             <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
@@ -169,7 +173,7 @@ export default function LocationDropdown() {
                 <button
                   onClick={(e) => handleDeleteLocation(location.id, e)}
                   disabled={isLoading}
-                  className="p-1 text-destructive hover:text-destructive hover:bg-destructive/10 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-1 text-destructive hover:text-destructive hover:bg-destructive/10 rounded transition-[color,background-color,transform] duration-150 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Delete location"
                 >
                   <TrashIcon className="w-4 h-4"/>
@@ -233,6 +237,7 @@ export default function LocationDropdown() {
           )}
         </div>
       )}
+      {dialog}
     </div>
   );
 }

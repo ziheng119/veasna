@@ -21,7 +21,8 @@ test('referral button follows saved record and deletion without losing notes', a
   postConsultation.mockClear();
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   let renderer;
-  const button = label => renderer.root.findAllByType('button').find(n => n.children.join('') === label);
+  const text = node => node.children.flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
+  const button = label => renderer.root.findAllByType('button').find(n => text(n) === label);
   try {
     await act(async () => { renderer = create(React.createElement(DoctorsNotesContainer, { patient: { visit_id: 1, patient_id: 1 } })); });
     expect(button('Create referral')).toBeDefined();
@@ -56,7 +57,8 @@ test('loads and saves condition selections, including an explicit none choice', 
     expect(boxes()).toHaveLength(8);
     expect(boxes()[0].props.checked).toBe(true);
     await act(async()=>boxes()[1].props.onChange({target:{checked:true}}));
-    const save=()=>renderer.root.findAllByType('button').find(node=>node.children.join('')==='Save consultation notes').props.onClick();
+    const text=node=>node.children.flatMap(child=>(typeof child==='string'?[child]:text(child))).join('');
+    const save=()=>renderer.root.findAllByType('button').find(node=>text(node)==='Save consultation notes').props.onClick();
     await act(async()=>save());
     expect(postConsultation).toHaveBeenLastCalledWith(expect.objectContaining({conditionCategories:['diabetes','hypertension']}),2);
     await act(async()=>boxes()[7].props.onChange({target:{checked:true}}));

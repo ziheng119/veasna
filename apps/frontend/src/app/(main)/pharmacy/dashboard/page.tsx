@@ -13,8 +13,10 @@ import toast from "react-hot-toast"
 import { SET_LOCATION_MESSAGE } from "@/messages/info"
 import { Button } from "@/components/ui/button"
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import { useConfirm } from "@/hooks/useConfirm";
 
 export default function PharmacyDashboard() {
+  const { confirm, dialog } = useConfirm();
     const [isLoading, setIsLoading] = useState<boolean>(true)
 
     const [drugs, setDrugs] = useState<Drug[]>([])
@@ -85,7 +87,12 @@ export default function PharmacyDashboard() {
     }
 
     const handleDeleteDrug = async (drugId: number) => {
-        if (window.confirm('Are you sure you want to delete this drug?')) {
+        const name = drugs.find(drug => drug.id === drugId)?.drug_name ?? "this medicine";
+        if (await confirm({
+          title: `Delete ${name}?`,
+          description: "It is removed from this location's stock. Earlier prescriptions keep its name.",
+          confirmLabel: "Delete medicine",
+        })) {
           try {
             await deleteDrug(drugId);
             setDrugs(prevDrugs => prevDrugs.filter(drug => drug.id !== drugId));
@@ -150,6 +157,7 @@ export default function PharmacyDashboard() {
               </div>
             )}
         </div>
+        {dialog}
       </div>
     )
 }

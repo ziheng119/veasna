@@ -105,7 +105,11 @@ test('a patient in a family sees who with, can be taken out, and their own famil
   expect(dialogText()).toMatch(/With Mother Tan/);
   await search('tan');
   expect(options()).toHaveLength(0);
-  await act(async () => button('Remove from family').props.onClick());
+  let pending;
+  await act(async () => { pending = button('Remove from family').props.onClick(); });
+  expect(leaveFamily).not.toHaveBeenCalled(); // asks first
+  const confirmButton = buttons().filter(node => text(node) === 'Remove from family').pop();
+  await act(async () => { confirmButton.props.onClick(); await pending; });
   expect(leaveFamily).toHaveBeenCalledWith(2, 't');
   expect(toast.success.mock.calls[0][0]).toBe('Father Tan is no longer in a family.');
   expect(onChanged).toHaveBeenCalled();

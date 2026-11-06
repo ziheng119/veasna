@@ -79,8 +79,9 @@ export default function DentalNotesContainer({ patient }: Props) {
         </div>
         <p className="text-xs text-muted-foreground">The doctor sees these notes at Consult and refers the patient to a hospital if needed.</p>
         <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} disabled={!editable} />
+          <SaveButton onClick={handleSave} disabled={!editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== ""} locked={saved && !editable}
+            disabled={!editable && !saved} hint="Write what was done to finish" />
         </div>
       </SavedRecordFields>
     </PageCard>

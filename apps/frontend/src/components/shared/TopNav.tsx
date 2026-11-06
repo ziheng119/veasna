@@ -19,6 +19,7 @@ import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { NAVIGATION, canAccessPage, isAdmin } from "@/lib/permissions";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import { formatDayLabel } from "@/helper/format_date";
+import { MENU_CHEVRON, MENU_TRIGGER } from "@/lib/motion";
 
 export default function TopNav() {
 
@@ -68,7 +69,7 @@ export default function TopNav() {
     return pathname === path;
   };
 
-  const linkBaseClass = "rounded-md px-3 py-2 text-sm font-semibold transition-colors duration-200";
+  const linkBaseClass = "rounded-md px-3 py-2 text-sm font-semibold transition-[color,background-color,transform] duration-200 hover:-translate-y-px active:translate-y-0 active:scale-95 motion-reduce:transform-none";
   const activeLinkClass = "bg-primary/10 text-primary";
   const inactiveLinkClass = "text-muted-foreground hover:bg-accent hover:text-foreground";
 
@@ -92,23 +93,20 @@ export default function TopNav() {
             disabled={isRefreshing}
             variant="ghost"
             size="icon"
-            className="text-foreground hover:bg-accent transition-colors"
+            className="group text-foreground hover:bg-accent"
             title="Refresh data"
           >
             <RefreshCw
-            className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`}
+            className={`size-4 transition-transform duration-500 group-hover:rotate-90 motion-reduce:transition-none ${isRefreshing ? 'animate-spin' : ''}`}
             />
           </Button>
           <LocationDropdown />
           {user?.token ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="border-border bg-background text-foreground hover:bg-accent hover:text-foreground font-semibold"
-                >
+                <Button variant="outline" className={MENU_TRIGGER}>
                   {user.username}
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className={MENU_CHEVRON} aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-44">
@@ -129,11 +127,7 @@ export default function TopNav() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button
-              onClick={handleLoginClick}
-              variant="outline"
-              className="border-border bg-background text-foreground hover:bg-accent hover:text-foreground font-semibold"
-            >
+            <Button onClick={handleLoginClick} variant="outline" className={MENU_TRIGGER}>
               Login
             </Button>
           )}

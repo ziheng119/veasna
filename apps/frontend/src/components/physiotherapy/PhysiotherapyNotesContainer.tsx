@@ -100,8 +100,9 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} disabled={!editable} />
+          <SaveButton onClick={handleSave} disabled={!editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== "" || painpoints.length > 0}
+            locked={saved && !editable} disabled={!editable && !saved} hint="Write notes or mark the body chart to finish" />
         </div>
       </SavedRecordFields>
     </PageCard>

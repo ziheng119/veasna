@@ -1,11 +1,12 @@
 "use client";
 
 import { ComponentType, ReactNode } from "react";
-import { ArrowDown, ArrowUp, Check, ChevronsDown, Plus, RotateCcw, X } from "lucide-react";
+import { Check, ChevronsDown, Plus, RotateCcw, X } from "lucide-react";
 import { STATIONS, StationId, stationLabel } from "@/constants/stations";
 import { Button } from "@/components/ui/button";
 import { PRESS } from "@/lib/motion";
-import { useFlipAnimation } from "@/lib/useFlipAnimation";
+import SortableList, { moveItem } from "./SortableList";
+import { useConfirm } from "@/hooks/useConfirm";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -20,15 +21,20 @@ interface Props {
 // - a newly added station joins the end of the route.
 // Suspected TB is a flag on the visit, not a stop, so it is not edited here.
 
-/** Orders a single patient's remaining stops (not the patients within a station queue). */
+/**
+ * Orders a single patient's remaining stops (not the patients within a station queue): drag a stop
+ * by its grip, or focus the grip and use the arrow keys.
+ */
 export default function StationRouteEditor({ route, completed, onChange, disabled = false }: Props) {
-  const listRef = useFlipAnimation<HTMLOListElement>(route);
-
-  const move = (index: number, target: number) => {
-    const next = [...route];
-    const [station] = next.splice(index, 1);
-    next.splice(target, 0, station);
-    onChange(next);
+  const { confirm, dialog } = useConfirm();
+  const move = (index: number, target: number) => onChange(moveItem(route, index, target));
+  const remove = async (station: StationId) => {
+    if (!await confirm({
+      title: `Remove ${stationLabel(station)}?`,
+      description: "The patient will no longer queue there on this visit. You can add it back before saving.",
+      confirmLabel: "Remove stop",
+    })) return;
+    onChange(route.filter((s) => s !== station));
   };
   const add = (station: StationId) => {
     if (completed.includes(station)) onChange([station, ...route]);
@@ -59,19 +65,23 @@ export default function StationRouteEditor({ route, completed, onChange, disable
             No stops left. Add one below, or discharge the patient instead.
           </p>
         ) : (
-          <ol ref={listRef} aria-label="Remaining station route" className="space-y-2">
-            {route.map((station, index) => {
+          <SortableList
+            aria-label="Remaining station route"
+            items={route}
+            getKey={(station) => station}
+            getLabel={stationLabel}
+            onReorder={move}
+            disabled={disabled}
+            itemClassName={(_station, index) => cn(
+              "group flex items-center gap-2 rounded-xl border border-border bg-card p-2 transition-[border-color,box-shadow,background-color] duration-200 hover:border-foreground/20 hover:shadow-sm",
+              index === 0 && "border-primary/30 bg-primary/[0.03]",
+            )}
+            renderItem={(station, index, handle) => {
               const label = stationLabel(station);
               const isLast = index === route.length - 1;
               return (
-                <li
-                  key={station}
-                  data-flip-key={station}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-xl border border-border bg-card p-2 pl-3 transition-[border-color,box-shadow] duration-200 hover:border-foreground/20 hover:shadow-sm",
-                    index === 0 && "border-primary/30 bg-primary/[0.03]",
-                  )}
-                >
+                <>
+                  {handle}
                   <span
                     aria-hidden="true"
                     className={cn(
@@ -89,18 +99,6 @@ export default function StationRouteEditor({ route, completed, onChange, disable
 
                   <div className="flex shrink-0 items-center gap-0.5">
                     <RowAction
-                      label={`Move ${label} up`}
-                      icon={ArrowUp}
-                      disabled={disabled || index === 0}
-                      onClick={() => move(index, index - 1)}
-                    />
-                    <RowAction
-                      label={`Move ${label} down`}
-                      icon={ArrowDown}
-                      disabled={disabled || isLast}
-                      onClick={() => move(index, index + 1)}
-                    />
-                    <RowAction
                       label={`Move ${label} to the end`}
                       icon={ChevronsDown}
                       text="Later"
@@ -112,13 +110,13 @@ export default function StationRouteEditor({ route, completed, onChange, disable
                       icon={X}
                       tone="danger"
                       disabled={disabled}
-                      onClick={() => onChange(route.filter((s) => s !== station))}
+                      onClick={() => remove(station)}
                     />
                   </div>
-                </li>
+                </>
               );
-            })}
-          </ol>
+            }}
+          />
         )}
       </section>
 
@@ -159,6 +157,7 @@ export default function StationRouteEditor({ route, completed, onChange, disable
           </div>
         </section>
       )}
+      {dialog}
     </div>
   );
 }

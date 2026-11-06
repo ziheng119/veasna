@@ -4,7 +4,6 @@ import { useFormOptions } from "@/stores/useFormOptionsStore";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useId, useState } from "react";
-import GlassButton from "../shared/GlassButton";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -18,6 +17,7 @@ import PrescriptionPanel from "./PrescriptionPanel";
 import DentalSummary from "./DentalSummary";
 import SendToPhysiotherapy from "./SendToPhysiotherapy";
 import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import SaveButton from "../shared/SaveButton";
 
 interface Props {
   patient: QueuedPatient;
@@ -187,16 +187,14 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <GlassButton
-          type="button"
-          className="h-10"
-          disabled={saving || !loaded || !editable}
-          onClick={handleSave}
-        >
-          {saving ? "Saving..." : "Save consultation notes"}
-        </GlassButton>
+        <div className="flex items-center gap-2">
+          <SaveButton label="Save consultation notes" busy={saving} disabled={!loaded || !editable} onClick={handleSave} />
         {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
-        <SaveAndNextButton patient={patient} onSave={handleSave} disabled={saving || !loaded || !editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave}
+            ready={saved || (notes.trim() !== "" && conditionCategories !== null)} locked={saved && !editable}
+            disabled={saving || !loaded || (!editable && !saved)}
+            hint="Write notes and tick the conditions addressed (or None) to finish" />
+        </div>
         <div className="ml-auto">
           {loadFailed ? (
             <p role="alert" className="text-sm text-destructive">

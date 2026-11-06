@@ -2,13 +2,14 @@
 
 import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowRight, CircleCheck, Hourglass } from "lucide-react";
+import { ArrowRight, Check, CircleCheck, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StationId, stationLabel } from "@/constants/stations";
 import { completeStation } from "@/lib/api/queue/stations";
 import { stationMoveMessage } from "@/lib/family";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
+import { cn } from "@/lib/utils";
 
 // Moving patients on from a station page: "Save & next" on the forms and the "done" prompt both
 // finish the patient's station, send them to their next one, and open the next patient waiting.
@@ -67,11 +68,17 @@ interface SaveAndNextProps {
   patient: QueuedPatient;
   // Saves the form; resolves to false when it was not saved (the form shows why).
   onSave: () => Promise<boolean>;
+  // Everything needed here is filled in or saved: the button turns green.
+  ready?: boolean;
+  // The form is saved and can't be changed by this account: sends the patient on without saving.
+  locked?: boolean;
+  // Shown on hover while not ready, e.g. what is still missing.
+  hint?: string;
   disabled?: boolean;
 }
 
 /** Beside a form's Save: saves, sends the patient to their next station, and opens the next patient. */
-export function SaveAndNextButton({ patient, onSave, disabled = false }: SaveAndNextProps) {
+export function SaveAndNextButton({ patient, onSave, ready = false, locked = false, hint, disabled = false }: SaveAndNextProps) {
   const flow = useStationFlow();
   const [busy, setBusy] = useState(false);
   if (!flow) return null;
@@ -79,7 +86,7 @@ export function SaveAndNextButton({ patient, onSave, disabled = false }: SaveAnd
   const saveAndNext = async () => {
     setBusy(true);
     try {
-      if (await onSave()) await flow.advance(patient);
+      if (locked || await onSave()) await flow.advance(patient);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Saved, but could not send the patient on. Use Next in the queue.");
     } finally {
@@ -88,9 +95,14 @@ export function SaveAndNextButton({ patient, onSave, disabled = false }: SaveAnd
   };
 
   return (
-    <Button type="button" variant="outline" disabled={disabled || busy} onClick={saveAndNext} className="gap-1.5">
-      {busy ? "Saving..." : "Save & next"}
-      <ArrowRight className="size-4" aria-hidden="true" />
+    <Button type="button" variant={ready ? "success" : "outline"} disabled={disabled || busy} onClick={saveAndNext}
+      // Re-mounting the class replays the pop each time the form becomes complete.
+      key={ready ? "ready" : "not-ready"} className={cn("group/next", ready && "ready-pop")}
+      title={ready ? `Ready: ${locked ? "send" : "save and send"} the patient to their next station` : hint}>
+      {ready && <Check aria-hidden="true" className="animate-in zoom-in-50 duration-300 motion-reduce:animate-none" />}
+      {busy ? (locked ? "Sending..." : "Saving...") : locked ? "Next station" : "Save & next"}
+      <ArrowRight aria-hidden="true" className="transition-transform duration-200 group-hover/next:translate-x-0.5" />
+      {ready && <span className="sr-only">(form complete)</span>}
     </Button>
   );
 }

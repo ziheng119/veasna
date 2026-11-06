@@ -112,3 +112,25 @@ test('outside a station page neither shows', async () => {
   });
   expect(renderer.root.findAllByType('button')).toHaveLength(0);
 });
+
+test('Save & next turns green once the form is complete, and explains what is missing until then', async () => {
+  const onSave = jest.fn(async () => true);
+  await render(React.createElement(SaveAndNextButton, { patient: dara, onSave, ready: false, hint: 'Write notes to finish' }));
+  expect(button().props.variant).toBe('outline');
+  expect(button().props.title).toBe('Write notes to finish');
+  await act(async () => renderer.update(React.createElement(StationFlowProvider, { station: 'consultation', onSelectPatient },
+    React.createElement(Queue, { patients: [sok, dara, chan] }), React.createElement(SaveAndNextButton, { patient: dara, onSave, ready: true }))));
+  expect(button().props.variant).toBe('success');
+  expect(button().props.className).toContain('ready-pop');
+  expect(text(button())).toMatch(/form complete/);
+});
+
+test('a saved, locked form still sends the patient on, without saving again', async () => {
+  const onSave = jest.fn(async () => false);
+  await render(React.createElement(SaveAndNextButton, { patient: dara, onSave, ready: true, locked: true }));
+  expect(button().props.disabled).toBe(false);
+  expect(text(button())).toMatch(/Next station/);
+  await act(async () => button().props.onClick());
+  expect(onSave).not.toHaveBeenCalled();
+  expect(completeStation).toHaveBeenCalledWith(5, 'consultation', 't');
+});

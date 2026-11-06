@@ -6,6 +6,7 @@ import { Pill, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 import { getDrugsByLocation } from "@/lib/api/pharmacy/pharmacy";
 import { cancelPrescription, createPrescription, getVisitPrescriptions } from "@/lib/api/pharmacy/prescriptions";
 import { Drug } from "@/lib/types/drug";
@@ -35,6 +36,7 @@ interface Props {
  * longer available to anyone else; the pharmacy dispenses it, or it can be cancelled to release it.
  */
 export default function PrescriptionPanel({ visitId, legacyPrescription }: Props) {
+  const { confirm, dialog } = useConfirm();
   const locationId = useLocationStore((state) => state.currentLocation?.id);
   const token = useUserStore((state) => state.user?.token);
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
@@ -94,7 +96,11 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
   };
 
   const cancel = async (prescription: Prescription) => {
-    if (!window.confirm(`Cancel ${prescription.quantity} × ${prescription.drug_name}? The reserved stock is released.`)) return;
+    if (!await confirm({
+      title: `Cancel ${prescription.quantity} × ${prescription.drug_name}?`,
+      description: "The prescription is cancelled and its reserved stock goes back to the pharmacy.",
+      confirmLabel: "Cancel prescription",
+    })) return;
     try {
       await cancelPrescription(prescription.id);
       toast.success("Prescription cancelled.");
@@ -220,6 +226,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
           <p className="mt-1 whitespace-pre-wrap text-foreground">{legacyPrescription}</p>
         </div>
       )}
+      {dialog}
     </section>
   );
 }

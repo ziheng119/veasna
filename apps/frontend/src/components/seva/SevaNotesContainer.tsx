@@ -126,6 +126,8 @@ export default function SevaNotesContainer({ patient }: Props) {
   // Saved readings are shown open so they are not missed.
   const eyeReadingsRecorded = [leftWithPinholeNew, leftWithoutPinholeNew, rightWithPinholeNew, rightWithoutPinholeNew]
     .some((value) => Boolean(value));
+  const eyeReadingsComplete = [leftWithPinholeNew, leftWithoutPinholeNew, rightWithPinholeNew, rightWithoutPinholeNew]
+    .every((value) => Boolean(value));
 
   return (
     <PageCard
@@ -221,8 +223,9 @@ export default function SevaNotesContainer({ patient }: Props) {
         </details>
 
         <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} disabled={!editable} />
+          <SaveButton onClick={handleSave} disabled={!editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
+            locked={saved && !editable} disabled={!editable && !saved} hint="Take all four eye readings and write a diagnosis to finish" />
         </div>
       </SavedRecordFields>
     </PageCard>
