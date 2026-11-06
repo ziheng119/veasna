@@ -15,6 +15,7 @@ const { ensurePrescriptions } = require('../utils/ensureSchema');
 const { lockDrug } = require('../utils/pharmacyStock');
 const { textOrEmpty } = require('../utils/partialFields');
 const { setStationNeeded } = require('../utils/stationRoute');
+const { patientOnDaySql } = require('../utils/dayScope');
 
 const STATUSES = ['pending', 'dispensed', 'cancelled'];
 const MAX_INSTRUCTIONS = 500;
@@ -93,8 +94,9 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
              WHERE ($1::int IS NULL OR pr.visit_id = $1)
                AND ($2::int IS NULL OR v.location_id = $2)
                AND ($3::text IS NULL OR pr.status = $3)
+               AND ${patientOnDaySql('v.patient_id', '$4')}
              ORDER BY pr.prescribed_at ASC, pr.id ASC`,
-            [visitId, locationId, status]
+            [visitId, locationId, status, req.user.screening_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {
@@ -122,9 +124,10 @@ router.get('/patients', authenticateToken, requireRole(['any']), async (req, res
              JOIN visits v ON v.id = pr.visit_id
              JOIN patients pa ON pa.id = v.patient_id
              WHERE v.location_id = $1
+               AND ${patientOnDaySql('pa.id', '$2')}
              GROUP BY pa.id
              ORDER BY MAX(pr.prescribed_at) DESC`,
-            [locationId]
+            [locationId, req.user.screening_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {

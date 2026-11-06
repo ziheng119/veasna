@@ -7,6 +7,7 @@
 //   PUT /api/visits/:visitId         visit details: queue number, visit date, location
 //   PUT /api/visits/:visitId/vitals  vitals and HEF captured at registration
 //   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, flag status)
+//   DELETE /api/visits/:visitId      the whole visit and every record of it (e.g. entered in error)
 // Every write records the admin in last_updated_by and bumps last_updated_at for sync/audit.
 const express = require('express');
 const router = express.Router();
@@ -19,6 +20,7 @@ const { lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJump
 const { textOrEmpty } = require('../utils/partialFields');
 const { normalizeVitals } = require('../utils/vitals');
 const { TB_STATUSES, TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags } = require('../utils/tb');
+const { lockFamilies, releaseFamily } = require('../utils/familyMoves');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -237,6 +239,28 @@ router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
       ]
     );
     return { status: 200, body: rows[0] };
+  });
+});
+
+// DELETE /api/visits/:visitId - Removes the visit with its station records, referral, TB record
+// and prescriptions (ON DELETE CASCADE). Pending prescriptions release their reserved stock, since
+// reserved stock is the sum of pending prescriptions. Family members who were waiting at a station
+// for this visit move on. The patient stays, with their other visits.
+router.delete('/:visitId', ...adminOnly, async (req, res) => {
+  const visitId = parsePositiveInt(req.params.visitId);
+  await inTransaction(res, 'visit', async (client) => {
+    const { rows: found } = await client.query('SELECT location_id FROM visits WHERE id = $1', [visitId]);
+    if (!found.length) return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
+    if (found[0].location_id) await lockFamilies(client, found[0].location_id);
+    const { rows } = await client.query(
+      `DELETE FROM visits v USING patients p WHERE v.id = $1 AND p.id = v.patient_id
+       RETURNING v.id AS visit_id, v.patient_id, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family`,
+      [visitId]
+    );
+    if (!rows.length) return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
+    const deleted = rows[0];
+    if (deleted.family && deleted.location_id) await releaseFamily(client, deleted, deleted.family, req.user.id);
+    return { status: 200, body: { visit_id: deleted.visit_id, patient_id: deleted.patient_id } };
   });
 });
 

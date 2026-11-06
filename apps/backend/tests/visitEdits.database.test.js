@@ -43,7 +43,7 @@ const USER_ID = 2;
       });
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
-        CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN);
+        CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
         INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);`);
       // Real table definitions, so constraints match production.
       const setup = fs

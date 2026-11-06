@@ -17,8 +17,9 @@ const { lockFamilies, visitLocation, advanceVisit, releaseFamily } = require('..
 // waiting at that station, in the order they arrived there.
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const location_id = toPositiveInt(req.query.location_id);
-    // Defaults to the host's clinic day, the same date registration assigns to new visits.
-    const date = req.query.date || currentVisitDate();
+    // Defaults to the host's clinic day, the same date registration assigns to new visits. A
+    // screening-day account always sees its own day's queue (utils/dayScope.js).
+    const date = req.user.screening_date || req.query.date || currentVisitDate();
     const station = req.query.station || null;
 
     if (!location_id) {

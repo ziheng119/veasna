@@ -16,6 +16,7 @@ const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
+const { patientOnDaySql } = require('../utils/dayScope');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
@@ -512,9 +513,10 @@ router.get('/seva-referrals', authenticateToken, async (req, res) => {
       JOIN visits v ON v.id = s.visit_id
       JOIN patients p ON p.id = v.patient_id
       WHERE v.location_id = $1 AND s.referral IS NOT NULL
+        AND ${patientOnDaySql('p.id', '$2')}
       ORDER BY v.visit_date DESC, s.last_updated_at DESC
       `,
-      [locationId]
+      [locationId, req.user.screening_date ?? null]
     );
     res.status(200).json(rows);
   } catch (err) {
@@ -857,7 +859,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     prescription,
   } = req.body;
 
-  if (!validConditions(req.body.condition_categories)) return res.status(400).json({ error: 'Select valid condition categories without duplicates.' });
+  if (!await validConditions(req.body.condition_categories)) return res.status(400).json({ error: 'Select valid condition categories without duplicates.' });
   const conditionsProvided = Object.prototype.hasOwnProperty.call(req.body, 'condition_categories');
   const last_updated_by = req.user.id;
 

@@ -186,7 +186,19 @@ function ensureFamilies() {
   return familiesPromise;
 }
 
+// Screening-day accounts and editable form options. Needs users.role (ensureUserRole).
+let dayAccountsPromise;
+function ensureDayAccountsAndFormOptions() {
+  if (!dayAccountsPromise) {
+    dayAccountsPromise = ensureUserRole()
+      .then(() => runMigration('020_day_accounts_form_options.sql'))
+      .catch(err => { dayAccountsPromise = null; throw err; });
+  }
+  return dayAccountsPromise;
+}
+
 module.exports = {
+  ensureDayAccountsAndFormOptions,
   ensureTbFlag,
   ensureDentalPharmacyStations,
   ensureFamilies,

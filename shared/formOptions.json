@@ -1,0 +1,32 @@
+{
+  "snellen": [
+    { "id": "6/5", "label": "6/5" },
+    { "id": "6/6", "label": "6/6" },
+    { "id": "6/9", "label": "6/9" },
+    { "id": "6/12", "label": "6/12" },
+    { "id": "6/18", "label": "6/18" },
+    { "id": "6/24", "label": "6/24" },
+    { "id": "6/36", "label": "6/36" },
+    { "id": "6/60", "label": "6/60" },
+    { "id": "3/60", "label": "3/60" },
+    { "id": "1/60", "label": "1/60" }
+  ],
+  "tb_red_flags": [
+    { "id": "cough_2_weeks", "label": "Cough for 2 weeks or more" },
+    { "id": "coughing_blood", "label": "Coughing up blood" },
+    { "id": "fever", "label": "Fever" },
+    { "id": "night_sweats", "label": "Night sweats" },
+    { "id": "weight_loss", "label": "Unexplained weight loss" },
+    { "id": "tb_contact", "label": "Close contact with a TB patient" },
+    { "id": "past_tb", "label": "Previous TB or unfinished TB treatment" },
+    { "id": "other", "label": "Other concern (describe in notes)" }
+  ],
+  "referral_destinations": [
+    { "id": "MongKol Borey Hospital", "label": "MongKol Borey Hospital" },
+    { "id": "Poipett Referral Hospital", "label": "Poipett Referral Hospital" },
+    { "id": "Partner NGO", "label": "Partner NGO" },
+    { "id": "Optometrist", "label": "Optometrist" },
+    { "id": "Dentist", "label": "Dentist" },
+    { "id": "Bong Bondol", "label": "Bong Bondol" }
+  ]
+}

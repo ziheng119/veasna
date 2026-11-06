@@ -202,7 +202,24 @@ The consultation record's free-text `prescription` field is kept for notes saved
 
 **GET** `analytics?location_id={id}|all&date=YYYY-MM-DD&period=day|week|month|all` and
 **GET** `analytics/trend?location_id={id}|all&date=YYYY-MM-DD&range=7d|30d|12w|12m`.
-Totals only, with no patient names or notes. See [analytics](../../docs/analytics.md).
+Totals only, with no patient names or notes. Admin only. See [analytics](../../docs/analytics.md).
+
+---
+
+### Accounts, station data and export
+
+Screening-day accounts only see patients queued on their date (and those patients'
+earlier visits), and save only on that date. See [accounts](../../docs/user-roles.md).
+
+- **GET** `accounts`, **POST** `accounts` `{ username, password, screening_date }`,
+  **PUT** `accounts/{id}` `{ password?, screening_date?, is_active? }`,
+  **DELETE** `accounts/{id}`: admin only; only screening-day accounts can be changed.
+- **GET** `patients/lookup?location_id={id}&q={name}`: returning patients by name
+  (3+ letters), identifying fields only.
+- **GET** `form-options`; **PUT** / **DELETE** `form-options/{snellen|tb_red_flags|referral_destinations|consultation_conditions}`
+  (admin). See [station data](../../docs/station-data.md).
+- **GET** `export/patients`: every patient and visit, one row per visit. Admin only.
+- **DELETE** `visits/{id}`: removes a visit and all its records. Admin only.
 
 ---
 

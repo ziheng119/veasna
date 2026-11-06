@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS visits CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS pharmacy CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
+DROP TABLE IF EXISTS form_options CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TYPE IF EXISTS sex_type CASCADE;
 
@@ -35,6 +36,10 @@ CREATE TABLE users (
     password_hash TEXT,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     is_active BOOLEAN DEFAULT TRUE,
+    -- Set for a screening-day account: it sees only patients queued that day (utils/dayScope.js).
+    screening_date DATE NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -381,3 +386,12 @@ CREATE TABLE IF NOT EXISTS visit_station_route_history (
 );
 CREATE INDEX IF NOT EXISTS visit_station_route_history_visit_idx
     ON visit_station_route_history (visit_id, created_at);
+
+-- Station form choices an admin can change; a missing list uses shared/formOptions.json.
+CREATE TABLE IF NOT EXISTS form_options (
+    list_key VARCHAR(40) PRIMARY KEY,
+    items JSONB NOT NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);

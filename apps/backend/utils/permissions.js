@@ -20,13 +20,19 @@ function isQueueMovement(method, path) {
     (method === "PUT" && /^\/queue\/\d+\/stations(\/[a-z]+)?$/.test(path))
   );
 }
+// Reads only an admin may make: Analytics, the download of all patient data, every saved referral
+// at once (bulk printing) and the account list.
+function isAdminOnlyRead(path) {
+  return /^\/(analytics|accounts|export)(\/|$)/.test(path) || path === "/visits/referrals";
+}
 function canAccessApi(rawRole, method, rawPath) {
   const role = normalizeRole(rawRole);
   if (!ROLES.includes(role)) return false;
   const path = rawPath.replace(/\/+$/, "") || "/";
+  // Accounts are created on the Accounts page (POST /accounts), never through these older addresses.
   if (method === "POST" && ["/auth/register", "/users"].includes(path)) return false;
   if (role === "admin") return true;
-  if (method === "GET" || method === "HEAD") return true;
+  if (method === "GET" || method === "HEAD") return !isAdminOnlyRead(path);
   if (isQueueMovement(method, path)) return true;
   if (method !== "POST") return false;
   // Only creation-capable endpoints. Each clinical upsert atomically refuses an
