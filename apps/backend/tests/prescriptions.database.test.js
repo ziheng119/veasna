@@ -33,12 +33,15 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
       CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT);
       CREATE TEMP TABLE locations (id INT PRIMARY KEY);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, face_id TEXT);
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, queue_no TEXT, visit_date DATE DEFAULT CURRENT_DATE);`);
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, queue_no TEXT,
+        visit_date DATE DEFAULT CURRENT_DATE, completed_at TIMESTAMP);`);
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8').replace(/\r\n/g, '\n');
-    for (const table of ['pharmacy', 'prescriptions']) {
+    for (const table of ['pharmacy', 'prescriptions', 'visit_stations']) {
       const start = setup.indexOf(`CREATE TABLE ${table} (`);
       await client.query(setup.slice(start, setup.indexOf('\n);', start) + 3).replace('CREATE TABLE', 'CREATE TEMP TABLE'));
     }
+    const history = fs.readFileSync(path.join(__dirname, '../migrations/010_station_route_history.sql'), 'utf8');
+    await client.query(history.replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMP TABLE IF NOT EXISTS'));
     db.query.mockImplementation((...args) => client.query(...args));
     db.pool.connect.mockResolvedValue({ query: (...args) => client.query(...args), release() {} });
     app = express();
@@ -48,11 +51,14 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
   });
 
   beforeEach(() => client.query(`
-    TRUNCATE prescriptions, pharmacy, visits, patients, locations, users RESTART IDENTITY CASCADE;
+    TRUNCATE visit_station_route_history, visit_stations, prescriptions, pharmacy, visits, patients, locations, users RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (1, 'doctor');
     INSERT INTO locations VALUES (1), (2);
     INSERT INTO patients VALUES (1, 'Sok', 'សុខ', 'SOK');
     INSERT INTO visits (id, patient_id, location_id, queue_no) VALUES (1, 1, 1, 'A12');
+    -- Waiting at Consultation, with Dental to come.
+    INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES
+      (1, 'consultation', 1, NOW(), 1), (1, 'dental', 2, NULL, 1);
     INSERT INTO pharmacy (id, location_id, drug_name, stock_count, last_updated_by) VALUES
       (1, 1, 'Paracetamol', 10, 1), (2, 2, 'Ibuprofen', 10, 1);`));
 
@@ -60,6 +66,23 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     if (client) await client.end();
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
+  });
+
+  const pending = async () => (await client.query(
+    'SELECT station FROM visit_stations WHERE visit_id = 1 AND completed_at IS NULL ORDER BY position')).rows.map(r => r.station);
+
+  test("prescribing adds Pharmacy once, after the patient's other stations", async () => {
+    await prescribe({ quantity: 1 });
+    await prescribe({ quantity: 1 });
+    expect(await pending()).toEqual(['consultation', 'dental', 'pharmacy']);
+    expect((await client.query('SELECT requested_stations FROM visit_station_route_history')).rows)
+      .toEqual([{ requested_stations: ['consultation', 'dental', 'pharmacy'] }]);
+  });
+
+  test('a finished visit can still be prescribed for; its route is left alone', async () => {
+    await client.query('UPDATE visits SET completed_at = NOW()');
+    expect((await prescribe({ quantity: 1 })).status).toBe(201);
+    expect(await pending()).toEqual(['consultation', 'dental']);
   });
 
   test('prescribing reserves stock at once; more than is available is refused', async () => {

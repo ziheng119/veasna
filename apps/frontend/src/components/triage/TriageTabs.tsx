@@ -13,18 +13,29 @@ import { Save } from "lucide-react";
 import toast from "react-hot-toast";
 import { saveVisualAcuity,savePresentingComplaint, saveMedicalHistory} from "@/lib/api/triage/triageService";   
 import { VisualAcuity } from "@/lib/types/visualAcuity";
-import SnellenInput from "@/components/shared/SnellenInput";
+import EyeReadingsGrid, { EMPTY_EYE_READINGS, EYE_READING_FIELDS, EyeReadings, REQUIRED_EYE_READING_FIELDS } from "@/components/shared/EyeReadingsGrid";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
-import { updateVisitStations } from "@/lib/api/queue/stations";
+import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
+import { SaveAndNextButton, StationDonePrompt } from "@/components/shared/StationFlow";
+
+// Triage is done when every section is saved.
+const SECTIONS = [
+    { id: "acuity", label: "Visual Acuity" },
+    { id: "complaint", label: "Presenting Complaints" },
+    { id: "history", label: "Medical History" },
+] as const;
+type SectionId = (typeof SECTIONS)[number]["id"];
 
 interface TriageTabsProps {
+    // The selected patient, for "Save & next".
+    patient: QueuedPatient;
     visit_id: number;
     patient_id: number;
     // Stations indicated for the visit; lets triage send the patient to Seva.
@@ -33,7 +44,7 @@ interface TriageTabsProps {
     onStationsChanged?: (remaining: StationId[]) => void;
 }
 
-export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
+export function TriageTabs({ patient, visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
     const isAdmin = useUserStore(state => state.user?.role === "admin");
     const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
     const [loadedVisit, setLoadedVisit] = useState<number | null>(null);
@@ -51,8 +62,8 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
       ]).then(([acuity, complaint, history]) => {
         if (cancelled) return;
         setVisualAcuity({
-          left_with_pinhole: acuity?.left_with_pinhole ?? "", left_without_pinhole: acuity?.left_without_pinhole ?? "",
-          right_with_pinhole: acuity?.right_with_pinhole ?? "", right_without_pinhole: acuity?.right_without_pinhole ?? "", notes: acuity?.notes ?? "",
+          ...Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, acuity?.[field] ?? ""])) as EyeReadings,
+          notes: acuity?.notes ?? "",
         });
         setPresentingComplaint({ history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "" });
         setMedicalHistory({ past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "" });
@@ -70,13 +81,7 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
 
     const [isLoading, setIsLoading] = useState(false);
 
-    const [visualAcuity, setVisualAcuity] = useState<VisualAcuity> ({
-        left_with_pinhole: "",
-        left_without_pinhole: "",
-        right_with_pinhole: "",
-        right_without_pinhole: "",
-        notes: ""
-    });
+    const [visualAcuity, setVisualAcuity] = useState<VisualAcuity>({ ...EMPTY_EYE_READINGS, notes: "" });
 
     const [presentingComplaint, setPresentingComplaint] = useState<PresentingComplaint>({
         history: "",
@@ -93,57 +98,95 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
         systems_review: ""
     });
 
-    const handleSaveVisualAcuity = async () => {
-        if (locked("acuity")) return;
+    // Each section's save resolves to whether it was saved.
+    const handleSaveVisualAcuity = async (): Promise<boolean> => {
+        if (locked("acuity")) return false;
         const { notes, ...readings } = visualAcuity;
         const fractions = normalizeSnellenFields(readings);
         if (!fractions) {
             toast.error(SNELLEN_ERROR);
-            return;
+            return false;
         }
         setVisualAcuity({ ...fractions, notes });
         setIsLoading(true);
         const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
             saved("acuity");
             if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
-            // Add Seva after triage without discarding a previously customized route.
-            const remaining: StationId[] = remainingStations.filter(id => id !== "seva");
-            if (sendToSeva) remaining.splice(Math.max(0, remaining.indexOf("triage") + 1), 0, "seva");
-            await updateVisitStations(visit_id, remaining, token, stations);
-            onStationsChanged?.(remaining);
+            // The server places the partner NGO in clinic order, keeping any custom route.
+            onStationsChanged?.(await setStationNeeded(visit_id, "seva", sendToSeva, token));
         });
+        return settle(promise, 'Saving Visual Acuity data...');
+    };
+
+    const handleSavePresentingComplaint = async (): Promise<boolean> => {
+        if (locked("complaint")) return false;
+        setIsLoading(true);
+        return settle(savePresentingComplaint({ ...presentingComplaint, visit_id: visit_id }).then(() => saved("complaint")), 'Saving Presenting Complaints...');
+    };
+
+    const handleSaveMedicalHistory = async (): Promise<boolean> => {
+        if (locked("history")) return false;
+        setIsLoading(true);
+        return settle(saveMedicalHistory({ ...medicalHistory, visit_id: visit_id }).then(() => saved("history")), 'Saving Medical History...');
+    };
+
+    // Shows the save's progress and result; resolves to whether it succeeded.
+    const settle = (promise: Promise<unknown>, loading: string): Promise<boolean> =>
         toast.promise(promise, {
-            loading: 'Saving Visual Acuity data...',
+            loading,
             success: 'Data saved successfully!',
             error: (error) => error.message || 'Failed to save data.',
-        }).finally(() => setIsLoading(false));
+        }).then(() => true, () => false).finally(() => setIsLoading(false));
+
+    const triageDone = SECTIONS.every((section) => savedSections[section.id]);
+
+    // A section is complete when every reading or field is filled in (notes are optional), and is
+    // ready when it is complete or already saved. "Save & next" turns green once all three are ready.
+    const filled = (values: string[]) => values.every((value) => value.trim() !== "");
+    const sectionComplete: Record<SectionId, boolean> = {
+        acuity: filled(REQUIRED_EYE_READING_FIELDS.map((field) => visualAcuity[field])),
+        complaint: filled(Object.values(presentingComplaint)),
+        history: filled(Object.values(medicalHistory)),
+    };
+    const sectionReady = (id: SectionId) => Boolean(savedSections[id]) || sectionComplete[id];
+    const triageReady = loadedVisit === visit_id && SECTIONS.every((section) => sectionReady(section.id));
+    const notReady = SECTIONS.filter((section) => !sectionReady(section.id)).map((section) => section.label);
+    const readyHint = notReady.length ? `Fill in ${notReady.join(" and ")} to finish` : undefined;
+    // Unsaved sections with something typed in, so "Save & next" can save them too.
+    const hasContent: Record<SectionId, boolean> = {
+        acuity: Object.values(visualAcuity).some((value) => value.trim() !== ""),
+        complaint: Object.values(presentingComplaint).some((value) => value.trim() !== ""),
+        history: Object.values(medicalHistory).some((value) => value.trim() !== ""),
     };
 
-    const handleSavePresentingComplaint = async () => {
-        if (locked("complaint")) return;
-        setIsLoading(true);
-        const promise = savePresentingComplaint({ ...presentingComplaint, visit_id: visit_id }).then(() => saved("complaint"));
-        toast.promise(promise, {
-            loading: 'Saving Presenting Complaints...',
-            success: 'Data saved successfully!',
-            error: (err) => err.message,
-        }).finally(() => setIsLoading(false));
-    };
-
-    const handleSaveMedicalHistory = async () => {
-        if (locked("history")) return;
-        setIsLoading(true);
-        const promise = saveMedicalHistory({ ...medicalHistory, visit_id: visit_id }).then(() => saved("history"));
-        toast.promise(promise, {
-            loading: 'Saving Medical History...',
-            success: 'Data saved successfully!',
-            error: (err) => err.message,
-        }).finally(() => setIsLoading(false));
+    // "Save & next" from any section: saves it (if it can still be changed) and any other section
+    // filled in but not saved yet, then moves the patient on only when every section is saved,
+    // naming any that are missing.
+    const saveAndNext = (section: SectionId, save: () => Promise<boolean>) => async (): Promise<boolean> => {
+        if (!savedSections[section] || !locked(section)) {
+            if (!(await save())) return false;
+        }
+        const saves: Record<SectionId, () => Promise<boolean>> = {
+            acuity: handleSaveVisualAcuity, complaint: handleSavePresentingComplaint, history: handleSaveMedicalHistory,
+        };
+        const nowSaved = new Set<SectionId>([section]);
+        for (const other of SECTIONS) {
+            if (other.id === section) continue;
+            if (savedSections[other.id]) nowSaved.add(other.id);
+            else if (hasContent[other.id] && await saves[other.id]()) nowSaved.add(other.id);
+        }
+        const missing = SECTIONS.filter((other) => !nowSaved.has(other.id));
+        if (missing.length) {
+            toast.error(`Save ${missing.map((other) => other.label).join(" and ")} too before sending the patient on.`);
+            return false;
+        }
+        return true;
     };
 
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
             {loadError && <p role="alert">Unable to load saved data. <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
+            <div className="mb-3"><StationDonePrompt patient={patient} done={loadedVisit === visit_id && triageDone} /></div>
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
                 <TabsTrigger value="visual-acuity" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Visual Acuity</TabsTrigger>
                 <TabsTrigger value="presenting-complaint" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Presenting Complaints</TabsTrigger>
@@ -156,30 +199,7 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                     <Card className="bg-card border-border">
                         <CardHeader><CardTitle className="text-foreground">Snellen's Test (Visual Acuity)</CardTitle></CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <h4 className="text-foreground">Left Eye</h4>
-                                    <div>
-                                        <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.left_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_with_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.left_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, left_without_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-foreground">Right Eye</h4>
-                                    <div>
-                                        <Label className="text-muted-foreground">With Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.right_with_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_with_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground">Without Pinhole</Label>
-                                        <SnellenInput value={visualAcuity.right_without_pinhole} onChange={(value) => setVisualAcuity(p => ({...p, right_without_pinhole: value}))} className="mt-2" />
-                                    </div>
-                                </div>
-                            </div>
+                            <EyeReadingsGrid values={visualAcuity} onChange={(field, value) => setVisualAcuity(p => ({ ...p, [field]: value }))} />
                             {stations && (
                                 <div className="flex items-start space-x-2 rounded-md border border-border p-3">
                                     <Checkbox
@@ -204,8 +224,9 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                                 <Textarea value={visualAcuity.notes} onChange={(e) => setVisualAcuity(p => ({...p, notes: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-card pt-4">
+                        <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSaveVisualAcuity} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("acuity", handleSaveVisualAcuity)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
@@ -232,8 +253,9 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                                 <Textarea value={presentingComplaint.drug_allergies} onChange={(e) => setPresentingComplaint(p => ({...p, drug_allergies: e.target.value}))} rows={3} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-card pt-4">
+                        <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSavePresentingComplaint} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("complaint", handleSavePresentingComplaint)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
@@ -264,8 +286,9 @@ export function TriageTabs({ visit_id, patient_id, stations, onStationsChanged }
                                 <Textarea value={medicalHistory.systems_review} onChange={(e) => setMedicalHistory(p => ({...p, systems_review: e.target.value}))} rows={4} className="mt-2" />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex justify-end bg-card pt-4">
+                        <CardFooter className="flex justify-end gap-2 bg-card pt-4">
                             <Button onClick={handleSaveMedicalHistory} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save History"}</Button>
+                            <SaveAndNextButton patient={patient} onSave={saveAndNext("history", handleSaveMedicalHistory)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>

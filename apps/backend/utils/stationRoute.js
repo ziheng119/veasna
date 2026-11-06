@@ -34,4 +34,55 @@ function planStationRoute(existing, body) {
   return { wanted, previousCurrent: pending[0] || null, reopened: wanted.filter(s => completed.includes(s)) };
 }
 
-module.exports = { planStationRoute };
+// Where a newly needed station goes in the remaining route: before the first later pending station
+// that comes after it in clinic order (STATIONS), so a custom order around it is kept. Never before
+// pending[0], the station the patient is waiting at. Pharmacy, last in clinic order, goes at the end.
+function insertInClinicOrder(pending, station) {
+  if (pending.includes(station)) return [...pending];
+  const rank = STATIONS.indexOf(station);
+  const index = pending.findIndex((other, i) => i > 0 && STATIONS.indexOf(other) > rank);
+  return index === -1 ? [...pending, station] : [...pending.slice(0, index), station, ...pending.slice(index)];
+}
+
+// Adds or removes one station from an open visit's remaining route, e.g. the partner NGO at Triage,
+// Physiotherapy at Consultation, or Pharmacy when the doctor prescribes. The caller must hold the
+// visit's row lock. Returns { stations } (the remaining route), or { error, status }:
+//   409 when the visit is finished, a needed station is already finished, or the station to remove
+//   is the one the patient is waiting at (use Next, Finish or Send to for those).
+// Each change is recorded in visit_station_route_history, like any route edit.
+async function setStationNeeded(client, visitId, station, needed, userId) {
+  const fail = (status, error) => ({ status, error });
+  const visit = await client.query('SELECT completed_at FROM visits WHERE id = $1', [visitId]);
+  if (!visit.rows.length) return fail(404, 'Visit not found');
+  if (visit.rows[0].completed_at) return fail(409, 'This visit is already finished.');
+  const { rows: route } = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
+  const pending = route.filter((row) => !row.completed_at).map((row) => row.station);
+  const done = route.some((row) => row.station === station && row.completed_at);
+
+  if (needed && done) return fail(409, 'This station is already finished. Use Send to to send the patient back.');
+  if (!needed && pending[0] === station) return fail(409, 'The patient is waiting at this station now. Use Next, Finish or Send to instead.');
+  const wanted = needed ? insertInClinicOrder(pending, station) : pending.filter((other) => other !== station);
+  if (wanted.join() === pending.join()) return { stations: pending };
+
+  await client.query(
+    'INSERT INTO visit_station_route_history (visit_id, previous_stations, requested_stations, last_updated_by) VALUES ($1, $2::jsonb, $3::jsonb, $4)',
+    [visitId, JSON.stringify(route), JSON.stringify(wanted), userId]
+  );
+  if (!needed) {
+    await client.query('DELETE FROM visit_stations WHERE visit_id = $1 AND station = $2 AND completed_at IS NULL', [visitId, station]);
+  }
+  // Positions are rewritten in route order. A visit with nothing pending (all stations finished but
+  // not yet discharged) starts its new station straight away.
+  for (const [index, name] of wanted.entries()) {
+    await client.query(
+      `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
+       VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)
+       ON CONFLICT (visit_id, station) DO UPDATE SET
+          position = EXCLUDED.position, last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
+      [visitId, name, index + 1, index === 0 && pending.length === 0, userId]
+    );
+  }
+  return { stations: wanted };
+}
+
+module.exports = { planStationRoute, insertInClinicOrder, setStationNeeded };

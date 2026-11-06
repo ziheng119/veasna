@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
@@ -18,18 +18,22 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import StickerColourSelect from "@/components/shared/StickerColourSelect";
+import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPatients";
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
 import { calculateAge } from "@/helper/calculate_age";
 import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { StationCheckboxes } from "../shared/StationCheckboxes";
+import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
-import { DEFAULT_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { TB_RED_FLAGS } from "@/constants/tb";
-import { QUEUE_NO_ERROR, QUEUE_NO_HINT, isValidQueueNo, normalizeQueueNo, queueNoJumpError } from "@/lib/queueNumber";
+import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
 
 interface PatientFormProps {
@@ -39,7 +43,6 @@ interface PatientFormProps {
 }
 
 type FormErrors = {
-    queue_no?: string;
     english_name?: string;
     sex?: string;
     height?: string;
@@ -86,7 +89,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     const previewRequest = useRef<AbortController | null>(null);
 
-    // The backend assigns the queue number on submit; this is only a preview.
+    // The server assigns the queue number on submit; this previews it. It reloads after every change
+    // on any device (live updates), so it moves on when someone else registers a patient first.
     const refreshNextQueueNo = useCallback(async () => {
       previewRequest.current?.abort();
       const controller = new AbortController();
@@ -116,6 +120,30 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // Matches awaiting a choice. onSubmit: the prompt interrupted a submit and can continue it.
     const [matchPrompt, setMatchPrompt] = useState<{ matches: PatientInfo[]; onSubmit: boolean } | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // A screening-day account's patient list holds only that day's patients, so returning patients
+    // are looked up on the host by the name being typed (debounced) and added to the matches.
+    const screeningDay = useUserStore((state) => state.user?.screening_date);
+    const lookupName = (patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim() || "");
+    const [lookedUp, setLookedUp] = useState<PatientInfo[]>([]);
+    useEffect(() => {
+      if (!screeningDay || !locationId || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
+        setLookedUp([]);
+        return;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        lookupPatients(locationId, lookupName, token, controller.signal)
+          .then(setLookedUp)
+          .catch((err) => { if (!controller.signal.aborted) console.error("Patient lookup failed:", err); });
+      }, 250);
+      return () => { clearTimeout(timer); controller.abort(); };
+    }, [screeningDay, locationId, token, lookupName]);
+    const knownPatients = useMemo(() => {
+      if (!lookedUp.length) return existingPatients;
+      const ids = new Set(existingPatients.map((p) => p.id));
+      return [...existingPatients, ...lookedUp.filter((p) => !ids.has(p.id))];
+    }, [existingPatients, lookedUp]);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
     const [vitals, setVitals] = useState<Vitals>({
@@ -138,11 +166,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
+    // Colour of the sticker handed to the patient (sticker_colours on Station data); "" for none.
+    const [stickerColour, setStickerColour] = useState("");
     // TB red flags. Ticking any of them flags the patient for suspected TB: they go through their
     // stations as usual and are marked in red in every queue.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
     const [tbNotes, setTbNotes] = useState("");
-    const tbFlagged = tbRedFlags.length > 0;
+    const tbRedFlagOptions = useFormOptions("tb_red_flags");
+    // Fewer red flags than the threshold are not sent: the patient is not flagged.
+    const tbFlagged = meetsTbThreshold(tbRedFlags);
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -188,13 +220,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const bpDiastolic = Number(vitals.bp_diastolic);
       const temperature = Number(vitals.temperature);
 
-      if (patientInfo.queue_no?.trim()) {
-        // The server checks again against the latest number; this preview may be a moment old.
-        const queueError = isValidQueueNo(patientInfo.queue_no)
-          ? nextQueueNo && queueNoJumpError(patientInfo.queue_no, nextQueueNo)
-          : QUEUE_NO_ERROR;
-        if (queueError) nextErrors.queue_no = queueError;
-      }
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
 
@@ -207,11 +232,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
-      if (stations.length === 0) nextErrors.stations = "Select at least one station.";
+      if (!tbFlagged && stations.length === 0) nextErrors.stations = "Select at least one station.";
 
       setErrors(nextErrors);
 
-      const patientInfoFields: (keyof FormErrors)[] = ["queue_no", "english_name", "sex"];
+      const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
       const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
 
@@ -257,7 +282,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       const name = normalizeName(patientInfo.english_name) || normalizeName(patientInfo.khmer_name);
       if (!name) return;
 
-      const matches = existingPatients.filter((p) =>
+      const matches = knownPatients.filter((p) =>
         normalizeName(p.english_name).includes(name) || normalizeName(p.khmer_name).includes(name)
       );
 
@@ -274,7 +299,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const findSameNamePatients = () => {
       const englishName = normalizeName(patientInfo.english_name);
       const khmerName = normalizeName(patientInfo.khmer_name);
-      return existingPatients.filter((p) =>
+      return knownPatients.filter((p) =>
         (englishName && normalizeName(p.english_name) === englishName) ||
         (khmerName && normalizeName(p.khmer_name) === khmerName)
       );
@@ -303,10 +328,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         setMatchPrompt(null);
         setIsSubmitting(true);
 
-        // A blank queue number is assigned by the server.
+        // The queue number is assigned by the server.
         const completePatientInfo = {
           ...patientInfo,
-          queue_no: normalizeQueueNo(patientInfo.queue_no) || undefined,
           location_id: locationId,
           id: patientId,
         };
@@ -317,7 +341,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               patientInfo: completePatientInfo,
               vitals,
               hef,
-              stations,
+              // The server also queues a TB patient only at Consult.
+              stations: tbFlagged ? TB_STATIONS : stations,
+              sticker_colour: stickerColour,
               tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
             },
             token
@@ -338,6 +364,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           setLinkedPatient(null);
           setPatientInfo(emptyPatientInfo);
           setStations(DEFAULT_STATION_IDS);
+          setStickerColour("");
           setTbRedFlags([]);
           setTbNotes("");
           setVitals({
@@ -373,7 +400,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     // existing patients by English name or by Unique ID (face_id).
     const nameQuery = normalizeName(patientInfo.english_name);
     const suggestions = !linkedPatient && nameQuery
-      ? existingPatients
+      ? knownPatients
           .filter((p) =>
             normalizeName(p.english_name).includes(nameQuery) ||
             normalizeName(p.face_id ?? "").includes(nameQuery)
@@ -437,27 +464,25 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     </Button>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-[1fr_1fr_1fr] gap-4">
                   <div>
                     <Label htmlFor="queueNumber" className="text-muted-foreground">Queue Number</Label>
-                    <Input
+                    <output
                       id="queueNumber"
-                      value={patientInfo.queue_no ?? ""}
-                      onChange={(e) => {
-                        setPatientInfo(prev => ({ ...prev, queue_no: e.target.value.toUpperCase() }));
-                        clearFieldError("queue_no");
-                      }}
-                      maxLength={10}
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      placeholder={nextQueueNo ? `${nextQueueNo} (next)` : "Assigned automatically"}
-                      aria-invalid={!!errors.queue_no}
+                      aria-live="polite"
                       aria-describedby="queueNumberHint"
-                      className="mt-2 font-semibold tracking-wide"
-                      />
-                    <p id="queueNumberHint" className={`mt-1 text-xs ${errors.queue_no ? "text-destructive" : "text-muted-foreground"}`}>
-                      {errors.queue_no ?? QUEUE_NO_HINT}
+                      className="mt-2 flex h-9 items-center rounded-md border border-input bg-muted px-3 text-lg font-bold tabular-nums tracking-wide"
+                    >
+                      {nextQueueNo || "–"}
+                    </output>
+                    <p id="queueNumberHint" className="mt-1 text-xs text-muted-foreground">
+                      Assigned automatically when you submit. To group a family, use Add to family on Patient List.
                     </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="stickerColour" className="text-muted-foreground">Sticker colour</Label>
+                    <StickerColourSelect id="stickerColour" value={stickerColour} onChange={setStickerColour} className="mt-2" />
+                    <p className="mt-1 text-xs text-muted-foreground">Shown on their card in every queue.</p>
                   </div>
                   <div>
                     <Label htmlFor="sex" className="text-muted-foreground">Sex *</Label>
@@ -559,22 +584,23 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="age" className="text-muted-foreground">Age</Label>
-                    <Input
+                    <FilteredInput
                       id="age"
-                      type="number"
-                      value={patientInfo.age || ""}
+                      format="wholeNumber"
+                      value={String(patientInfo.age || "")}
                       readOnly={!!patientInfo.date_of_birth}
-                      onChange={(e) => setPatientInfo(prev => ({ ...prev, age: e.target.value || "" }))}
+                      onValueChange={(age) => setPatientInfo(prev => ({ ...prev, age }))}
                       placeholder="Auto from date of birth"
                       className={`mt-2 ${patientInfo.date_of_birth ? "bg-muted" : ""}`}
                     />
                   </div>
                   <div>
                     <Label htmlFor="phoneNumber" className="text-muted-foreground">Phone Number</Label>
-                    <Input
+                    <FilteredInput
                       id="phoneNumber"
+                      format="phone"
                       value={patientInfo.phone_number || ""}
-                      onChange={(e) => setPatientInfo(prev => ({ ...prev, phone_number: e.target.value }))}
+                      onValueChange={(phone_number) => setPatientInfo(prev => ({ ...prev, phone_number }))}
                       placeholder="Phone number"
                       className="mt-2"
                     />
@@ -609,14 +635,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="height" className="text-muted-foreground">Height (cm)</Label>
-                    <Input
+                    <FilteredInput
                       id="height"
-                      type="number"
-                      step="0.1"
+                      format="measurement"
                       value={vitals.height}
                       aria-invalid={!!errors.height}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, height: e.target.value }));
+                      onValueChange={(height) => {
+                        setVitals(prev => ({ ...prev, height }));
                         clearFieldError("height");
                       }}
                       placeholder="Height in cm"
@@ -626,14 +651,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="weight" className="text-muted-foreground">Weight (kg)</Label>
-                    <Input
+                    <FilteredInput
                       id="weight"
-                      type="number"
-                      step="0.1"
+                      format="measurement"
                       value={vitals.weight}
                       aria-invalid={!!errors.weight}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, weight: e.target.value }));
+                      onValueChange={(weight) => {
+                        setVitals(prev => ({ ...prev, weight }));
                         clearFieldError("weight");
                       }}
                       placeholder="Weight in kg"
@@ -682,13 +706,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="systolic" className="text-muted-foreground">Blood Pressure - Systolic</Label>
-                    <Input
+                    <FilteredInput
                       id="systolic"
-                      type="number"
+                      format="wholeNumber"
                       value={vitals.bp_systolic}
                       aria-invalid={!!errors.bp_systolic}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, bp_systolic: e.target.value }));
+                      onValueChange={(bp_systolic) => {
+                        setVitals(prev => ({ ...prev, bp_systolic }));
                         clearFieldError("bp_systolic");
                       }}
                       placeholder="Systolic"
@@ -698,13 +722,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                   <div>
                     <Label htmlFor="diastolic" className="text-muted-foreground">Blood Pressure - Diastolic</Label>
-                    <Input
+                    <FilteredInput
                       id="diastolic"
-                      type="number"
+                      format="wholeNumber"
                       value={vitals.bp_diastolic}
                       aria-invalid={!!errors.bp_diastolic}
-                      onChange={(e) => {
-                        setVitals(prev => ({ ...prev, bp_diastolic: e.target.value }));
+                      onValueChange={(bp_diastolic) => {
+                        setVitals(prev => ({ ...prev, bp_diastolic }));
                         clearFieldError("bp_diastolic");
                       }}
                       placeholder="Diastolic"
@@ -716,14 +740,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     
                 <div>
                   <Label htmlFor="temperature" className="text-muted-foreground">Temperature (°C)</Label>
-                  <Input
+                  <FilteredInput
                     id="temperature"
-                    type="number"
-                    step="0.1"
+                    format="temperature"
                     value={vitals.temperature}
                     aria-invalid={!!errors.temperature}
-                    onChange={(e) => {
-                      setVitals(prev => ({ ...prev, temperature: e.target.value }));
+                    onValueChange={(temperature) => {
+                      setVitals(prev => ({ ...prev, temperature }));
                       clearFieldError("temperature");
                     }}
                     placeholder="Temperature in Celsius"
@@ -803,10 +826,10 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. A patient with a red flag is flagged for suspected TB and goes straight to the Consult queue, shown in red in every queue, so a doctor sees them first.
+                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
                   <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                    {TB_RED_FLAGS.map((flag) => (
+                    {tbRedFlagOptions.map((flag) => (
                       <div key={flag.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`tb-flag-${flag.id}`}
@@ -814,7 +837,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                           onCheckedChange={(checked) =>
                             setTbRedFlags((prev) =>
                               checked === true
-                                ? TB_RED_FLAGS.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
+                                ? tbRedFlagOptions.map((f) => f.id).filter((id) => id === flag.id || prev.includes(id))
                                 : prev.filter((id) => id !== flag.id)
                             )
                           }
@@ -824,6 +847,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       </div>
                     ))}
                   </div>
+                  {!tbFlagged && tbRedFlags.length > 0 && (
+                    <p className="mt-3 text-xs text-muted-foreground" role="status">{tbThresholdHint(tbRedFlags.length)}</p>
+                  )}
                   {tbFlagged && (
                     <div className="mt-3 space-y-3">
                       <p className="flex items-start gap-2 text-sm font-medium text-destructive">
@@ -843,16 +869,25 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 <div className="border-t border-border pt-4">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Tick the stations this patient needs. They will be queued at each ticked station in order. Seva is added at Triage if a cataract is suspected.
+                    Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Dental, Consult, Physiotherapy, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
                   </p>
-                  <StationCheckboxes
-                    idPrefix="station"
-                    selected={stations}
-                    onChange={(next) => {
-                      setStations(next);
-                      clearFieldError("stations");
-                    }}
-                  />
+                  {tbFlagged ? (
+                    // The ticked stations are kept, in case the red flags are unticked again.
+                    <p className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive" role="status">
+                      <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                      Suspected TB: the patient goes to Consult only, then Pharmacy for their prescriptions. Other stations can&apos;t be chosen.
+                    </p>
+                  ) : (
+                    <StationCheckboxes
+                      idPrefix="station"
+                      options={REGISTRATION_STATION_IDS}
+                      selected={stations}
+                      onChange={(next) => {
+                        setStations(next);
+                        clearFieldError("stations");
+                      }}
+                    />
+                  )}
                   {errors.stations && <p className="mt-2 text-xs text-destructive">{errors.stations}</p>}
                 </div>
               </TabsContent>

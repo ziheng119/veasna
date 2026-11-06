@@ -1,11 +1,12 @@
 "use client"
 
 import { calculateAge } from "@/helper/calculate_age";
-import { REFERRAL_DESTINATIONS } from "@/constants/referral";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { postReferral } from "@/lib/api/visit/postReferral";
 import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
+import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
@@ -36,6 +37,10 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const [referralType, setReferralType] = useState<string[]>(
     retrievedReferral?.referralType ?? []
   );
+  // Destinations from the Station data page, plus any this referral was saved with that are no
+  // longer listed, so they stay ticked.
+  const listedDestinations = useFormOptions("referral_destinations").map(option => option.label);
+  const destinations = [...listedDestinations, ...referralType.filter(item => !listedDestinations.includes(item))];
   const [illness, setIllness] = useState<string>(retrievedReferral? retrievedReferral.illness : "")
   const [duration, setDuration] = useState<string>(retrievedReferral ? retrievedReferral.duration : "")
   const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : "")
@@ -43,7 +48,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const user = useUserStore((state) => state.user)
 
   const readOnly = user?.role !== "admin" && retrievedReferral !== null;
-  const [signature, setSignature] = useState<Signature | null>(retrievedReferral?.signature ?? null);
+  // A signature this user saved earlier in the session fills in on each new referral.
+  const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
+  const saveSignature = useSavedSignatureStore((state) => state.save);
+  const forgetSignature = useSavedSignatureStore((state) => state.forget);
+  const [signature, setSignature] = useState<Signature | null>(
+    () => retrievedReferral ? retrievedReferral.signature ?? null : savedSignature,
+  );
+  const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -139,7 +151,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             <legend className="mb-1 font-semibold">Referral destinations</legend>
             <p className="mb-3 text-xs text-muted-foreground">Select all that apply. Only selected destinations appear on the referral.</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {REFERRAL_DESTINATIONS.map(destination => (
+              {destinations.map(destination => (
                 <label key={destination} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors motion-reduce:transition-none ${referralType.includes(destination) ? "border-foreground/25 bg-muted/60" : "border-border hover:bg-muted/30"}`}>
                   <input type="checkbox" name="referral" value={destination} checked={referralType.includes(destination)}
                     className="size-4 shrink-0 accent-foreground"
@@ -167,8 +179,15 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
           <section className="space-y-3 border-t border-border pt-5">
             <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{user?.username}</span></p>
-            <SignaturePad value={signature} onChange={setSignature} disabled={saving} />
-            <p className="text-xs text-muted-foreground">Your saved signature stays in this box. Draw to add strokes, or clear it to start again. Save referral to keep your changes.</p>
+            <SignaturePad value={signature} onChange={setSignature} disabled={saving}
+              saved={signatureSaved}
+              onSave={value => {
+                if (!user) return;
+                saveSignature(user.id, value);
+                toast.success("Signature saved. It fills in on your next referrals until you sign out.");
+              }}
+              onForget={forgetSignature} />
+            <p className="text-xs text-muted-foreground">The signature stays in this box. Draw to add strokes, or clear it to start again. Save referral to keep your changes.</p>
             {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">

@@ -1,20 +1,29 @@
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
 const { canAccessApi, normalizeRole } = require('../utils/permissions');
+const { checkDayScope } = require('../utils/dayScope');
 
 // Mounted before every /api route. Never trust a role sent in the body or an old JWT.
 function authorizeApi(req, res, next) {
   if (req.method === 'POST' && /^\/auth\/login\/?$/.test(req.path)) return next();
   authenticateToken(req, res, async () => {
     try {
-      const { rows } = await db.query('SELECT id, username, role, is_active FROM users WHERE id=$1', [req.user.id]);
+      const { rows } = await db.query(
+        `SELECT id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date
+         FROM users WHERE id=$1`, [req.user.id]);
       const account = rows[0];
       if (!account?.is_active) return res.status(403).json({ message: 'Account inactive or unavailable' });
-      req.user = { ...req.user, id: account.id, username: account.username, role: normalizeRole(account.role) };
+      req.user = {
+        ...req.user, id: account.id, username: account.username, role: normalizeRole(account.role),
+        // Set for a screening-day account: limits it to that day's patients (utils/dayScope.js).
+        screening_date: account.screening_date,
+      };
       req.databaseAuthenticated = true;
       if (!canAccessApi(account.role, req.method, req.path)) {
         return res.status(403).json({ message: 'Your role does not have permission for this action' });
       }
+      const outOfScope = await checkDayScope(db, req, req.path);
+      if (outOfScope) return res.status(outOfScope.status).json({ message: outOfScope.message, error: outOfScope.message });
       next();
     } catch (error) {
       console.error('Permission lookup failed:', error);

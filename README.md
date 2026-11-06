@@ -1,8 +1,8 @@
 # Veasna
 
 Veasna is the patient screening system for Veasna clinics. It handles registration,
-station queues (Triage, Partner NGO, Physiotherapy, Consultation) with a red TB flag,
-referrals, prescriptions linked to pharmacy stock, and analytics.
+station queues (Triage, Dental, Consult, Physiotherapy, Partner NGO, Pharmacy) with a red TB
+flag, referrals, prescriptions linked to pharmacy stock, and analytics.
 
 It is built to run **without internet**. One laptop (the "host") runs the database
 and the server. Other laptops and tablets on the same router open the app in a
@@ -29,13 +29,16 @@ You need **Node.js 18 or newer** and **PostgreSQL 12 or newer** on the host lapt
 2. Create the database. Follow [database setup](apps/backend/README.md#database-setup-first-time)
    in the backend guide.
 
-3. Copy the example settings files, then fill in your database password and a long
-   random `JWT_SECRET`:
+3. Create the settings files, then fill in your database password and a long random
+   `JWT_SECRET` in `apps/backend/.env`:
 
    ```bash
-   cp apps/backend/.env.example apps/backend/.env
-   cp apps/frontend/.env.example apps/frontend/.env.local
+   npm run setup:env
    ```
+
+   `npm run dev` uses the `.env.development` files (`localhost`), and `npm run build` /
+   `npm start` use the `.env.production` files (clinic network). See
+   [development and clinic settings](docs/performance-and-lan.md#development-and-clinic-settings).
 
 4. Check the database connection and create the sign-in accounts:
 
@@ -77,18 +80,23 @@ see [running on a local network](docs/performance-and-lan.md).
 
 ## Signing in
 
-There are two fixed accounts. New accounts cannot be created.
+There are two fixed accounts, plus one shared account per screening day that an
+admin creates on the **Accounts** page.
 
 | Account | Password | Can do |
 | --- | --- | --- |
-| `admin` | `admin12345` | Everything, including correcting saved records |
-| `user` | `user` | View everything and enter new records |
+| `admin` | `admin12345` | Everything: correcting and deleting saved records, Analytics, bulk referral printing, downloading all patient data, Station data, Accounts |
+| `user` | `user` | View every day's patients and enter new records |
+| e.g. `dec13village` | set by the admin | Like `user`, but only sees patients queued on its screening day (with their earlier visits), and saves only on that day |
 
 See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
 
 ## Feature guides
 
-- [Accounts and permissions](docs/user-roles.md): what Admin and User can do.
+- [Accounts and permissions](docs/user-roles.md): what Admin, User and screening-day
+  accounts can do.
+- [Station data](docs/station-data.md): changing the dropdown and checkbox choices in
+  station forms.
 - [Queue ordering](docs/queue-ordering.md): sorting queues by number or arrival time.
 - [Returning to and skipping stations](docs/station-routing.md): changing a patient's route.
 - [Consultation referrals](docs/consultation-referrals.md): signing, printing and deleting referrals.
@@ -99,13 +107,23 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 A few things worth knowing:
 
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
-  the same form. Leave the queue number blank to get the next one, or type one with
-  letters, such as `12A` for a family member of number 12. A typed number can't jump
-  ahead of the next number (see [typing a queue number](docs/queue-ordering.md#typing-a-queue-number)).
-- **Suspected TB:** tick the TB red flags at registration, or press **Flag suspected TB**
-  at Triage. The patient goes straight to the Consult queue and shows in red, marked
-  **TB**, in every queue. Once a doctor has seen them in the TB tent, anyone can press
-  **Clear TB** on their queue card. See [suspected TB patients](docs/station-routing.md#suspected-tb-patients).
+  the same form. The form shows the queue number the patient will get; it is assigned
+  automatically. To group a family, register each member, then use **Add to family** on
+  Patient List: they share a family letter, keep their numbers, sit together in every
+  queue and move between stations together (see
+  [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
+  Pick the **Sticker colour** of the sticker you give the patient (on **Patient Info**):
+  it shows as a small coloured tag on their queue number in every queue. An admin can
+  change the colours on **Station data**.
+  Number fields (height, weight, blood pressure, temperature, age) only accept digits
+  as you type, with one decimal place where it makes sense.
+- **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag
+  suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient. A
+  flagged patient goes only to the Consult queue, shown in red and marked **TB** in
+  every queue, and their stations can't be changed. The doctor who sees them in the
+  TB tent presses **Clear TB** on their card in the Consult queue (and confirms), then
+  **Finish**; their prescriptions then wait at Pharmacy. See
+  [suspected TB patients](docs/station-routing.md#suspected-tb-patients).
 - **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
   The stock is reserved at once. The pharmacy hands it over from **Pharmacy →
   Prescriptions to dispense**, or cancels it to release the stock. Dispensing needs
@@ -113,6 +131,8 @@ A few things worth knowing:
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
 - Queues and patient lists update on every device automatically when someone saves.
+- Deleting, removing or discharging anything asks first in a pop-up that says what will
+  happen.
 - Always check that a save succeeded before leaving a page. Unsaved work is not
   kept if the connection to the host drops.
 

@@ -32,18 +32,23 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     await client.query('SET search_path TO pg_temp');
     await client.query(`
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
-      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE);
+      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, family TEXT);
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, completed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(),
-        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', created_at TIMESTAMP DEFAULT NOW());
+        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (
         id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
-        entered_at TIMESTAMP, completed_at TIMESTAMP, last_updated_by INT,
+        entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
         last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), UNIQUE(visit_id, station)
       );
       CREATE TEMP TABLE tb_screening (
         visit_id INT PRIMARY KEY, red_flags TEXT[], flag_notes TEXT, status TEXT, flagged_by INT,
         reviewed_by INT, reviewed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW()
       );
+      -- Station forms, for whether the patient is done at their station (only visit_id is read).
+      CREATE TEMP TABLE visual_acuity (visit_id INT); CREATE TEMP TABLE presenting_complaint (visit_id INT);
+      CREATE TEMP TABLE history (visit_id INT); CREATE TEMP TABLE consultation (visit_id INT);
+      CREATE TEMP TABLE physiotherapy (visit_id INT); CREATE TEMP TABLE dental (visit_id INT);
+      CREATE TEMP TABLE seva (visit_id INT); CREATE TEMP TABLE prescriptions (visit_id INT, status TEXT);
     `);
     const migration = fs.readFileSync(path.join(__dirname, '../migrations/010_station_route_history.sql'), 'utf8');
     await client.query(migration.replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMP TABLE IF NOT EXISTS'));
@@ -52,7 +57,8 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     app = express(); app.use(express.json()); app.use('/api/queue', require('../routes/queue'));
   });
   beforeEach(async () => {
-    await client.query(`TRUNCATE pg_temp.visit_station_route_history, pg_temp.visit_stations, pg_temp.visits, pg_temp.users, pg_temp.tb_screening, pg_temp.patients RESTART IDENTITY CASCADE;
+    await client.query(`TRUNCATE pg_temp.visit_station_route_history, pg_temp.visit_stations, pg_temp.visits, pg_temp.users, pg_temp.tb_screening, pg_temp.patients,
+      pg_temp.visual_acuity, pg_temp.presenting_complaint, pg_temp.history, pg_temp.consultation, pg_temp.physiotherapy, pg_temp.dental, pg_temp.seva, pg_temp.prescriptions RESTART IDENTITY CASCADE;
       INSERT INTO patients VALUES (1, 'Test', '', 'F', '2000-01-01');
       INSERT INTO users VALUES (1); INSERT INTO visits (id) VALUES (1);
       INSERT INTO visit_stations (visit_id, station, position, entered_at, completed_at, last_updated_by) VALUES
@@ -135,5 +141,60 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
   test('TB is not a station: routes containing it are rejected unchanged', async () => {
     expect((await save(['tb', 'seva', 'consultation'])).status).toBe(400);
     expect(await pending()).toEqual(['seva', 'consultation']);
+  });
+  const indicate = (station, needed, role = 'user') => request(app).put(`/api/queue/1/stations/${station}`)
+    .set('Authorization', `Bearer ${jwt.sign({ id: 1, role }, secret)}`).send({ needed });
+
+  test('Physiotherapy chosen at Consultation is added in clinic order, and can be taken off again', async () => {
+    await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE station = 'seva'; UPDATE visit_stations SET entered_at = NOW() WHERE station = 'consultation';");
+    await client.query("INSERT INTO visit_stations (visit_id, station, position, last_updated_by) VALUES (1, 'pharmacy', 4, 1)");
+    const res = await indicate('physiotherapy', true);
+    expect(res.body).toEqual({ visit_id: 1, stations: ['consultation', 'physiotherapy', 'pharmacy'] });
+    expect(await pending()).toEqual(['consultation', 'physiotherapy', 'pharmacy']);
+    expect((await indicate('physiotherapy', true)).body.stations).toEqual(['consultation', 'physiotherapy', 'pharmacy']);
+    expect((await indicate('physiotherapy', false)).body.stations).toEqual(['consultation', 'pharmacy']);
+    expect((await client.query('SELECT COUNT(*)::int AS n FROM visit_station_route_history')).rows[0].n).toBe(2);
+  });
+
+  test('the station the patient is waiting at, or a finished one, is refused', async () => {
+    expect((await indicate('seva', false)).status).toBe(409);
+    expect((await indicate('triage', true)).status).toBe(409);
+    expect(await pending()).toEqual(['seva', 'consultation']);
+  });
+
+  test('Pharmacy is added by prescribing, not by hand; TB visits are refused', async () => {
+    expect((await indicate('pharmacy', true)).status).toBe(400);
+    expect((await indicate('physiotherapy', 'yes')).status).toBe(400);
+    await client.query("INSERT INTO tb_screening (visit_id, red_flags, status) VALUES (1, '{a,b,c}', 'suspected')");
+    const res = await indicate('physiotherapy', true);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/only go to Consult/);
+    expect(await pending()).toEqual(['seva', 'consultation']);
+  });
+  test('the queue says when a patient is done at their station: its form is saved, or nothing is left to dispense', async () => {
+    const done = async station => {
+      await client.query('UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 1 AND completed_at IS NULL');
+      await client.query(`INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (1, '${station}', 9, NOW(), 1)
+        ON CONFLICT (visit_id, station) DO UPDATE SET completed_at = NULL, position = 9`);
+      const res = await request(app).get('/api/queue').query({ location_id: 1, station }).set('Authorization', `Bearer ${token}`);
+      return res.body.find(row => row.visit_id === 1).station_done;
+    };
+    expect(await done('seva')).toBe(false);
+    await client.query('INSERT INTO seva VALUES (1)');
+    expect(await done('seva')).toBe(true);
+    // Triage needs every section.
+    await client.query('INSERT INTO visual_acuity VALUES (1); INSERT INTO presenting_complaint VALUES (1);');
+    expect(await done('triage')).toBe(false);
+    await client.query('INSERT INTO history VALUES (1)');
+    expect(await done('triage')).toBe(true);
+    for (const [station, table] of [['consultation', 'consultation'], ['physiotherapy', 'physiotherapy'], ['dental', 'dental']]) {
+      expect(await done(station)).toBe(false);
+      await client.query(`INSERT INTO ${table} VALUES (1)`);
+      expect(await done(station)).toBe(true);
+    }
+    await client.query("INSERT INTO prescriptions VALUES (1, 'pending'), (1, 'dispensed')");
+    expect(await done('pharmacy')).toBe(false);
+    await client.query("UPDATE prescriptions SET status = 'cancelled' WHERE status = 'pending'");
+    expect(await done('pharmacy')).toBe(true);
   });
 });

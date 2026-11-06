@@ -5,6 +5,7 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useState } from "react";
 import SaveButton from "../shared/SaveButton";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import toast from "react-hot-toast";
 import { Seva } from "@/lib/types/seva";
@@ -13,7 +14,7 @@ import { getSeva } from "@/lib/api/visit/seva/getSeva";
 import { postSeva } from "@/lib/api/visit/seva/postSeva";
 import formatDate from "@/helper/format_date";
 import { PageCard } from "../shared/PageCard";
-import SnellenInput from "../shared/SnellenInput";
+import EyeReadingsGrid, { EMPTY_EYE_READINGS, EYE_READING_FIELDS, EyeReadingField, EyeReadings, REQUIRED_EYE_READING_FIELDS } from "../shared/EyeReadingsGrid";
 import {
   Select,
   SelectContent,
@@ -27,18 +28,18 @@ import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 // Radix Select items cannot have an empty value, so "no referral" needs a stand-in.
 const NO_REFERRAL = "none";
 
+// Each eye reading and its field in the partner NGO record (left_with_pinhole -> leftWithPinholeNew).
+type SevaReadingKey = Exclude<keyof Seva, "diagnosis" | "dateOfReferral" | "referral" | "notes">;
+const sevaKey = (field: EyeReadingField) =>
+  `${field.replace(/_(\w)/g, (_, letter: string) => letter.toUpperCase())}New` as SevaReadingKey;
+
 interface Props {
   patient: QueuedPatient;
 }
 
 export default function SevaNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
-  const [leftWithPinholeNew, setLeftWithPinholeNew] = useState<string>("");
-  const [rightWithPinholeNew, setRightWithPinholeNew] = useState<string>("");
-  const [leftWithoutPinholeNew, setLeftWithoutPinholeNew] =
-    useState<string>("");
-  const [rightWithoutPinholeNew, setRightWithoutPinholeNew] =
-    useState<string>("");
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const [readings, setReadings] = useState<EyeReadings>(EMPTY_EYE_READINGS);
   const [diagnosis, setDiagnosis] = useState<string>("");
   const [dateOfReferral, setDateOfReferral] = useState<string>("");
   const [referral, setReferral] = useState<SevaReferral | "">("");
@@ -53,10 +54,7 @@ export default function SevaNotesContainer({ patient }: Props) {
         markSaved(data !== null);
 
         if (!data) {
-          setLeftWithPinholeNew("");
-          setLeftWithoutPinholeNew("");
-          setRightWithPinholeNew("");
-          setRightWithoutPinholeNew("");
+          setReadings(EMPTY_EYE_READINGS);
           setDiagnosis("");
           setDateOfReferral("");
           setReferral("");
@@ -65,10 +63,7 @@ export default function SevaNotesContainer({ patient }: Props) {
           return;
         }
 
-        setLeftWithPinholeNew(data.leftWithPinholeNew);
-        setLeftWithoutPinholeNew(data.leftWithoutPinholeNew);
-        setRightWithPinholeNew(data.rightWithPinholeNew);
-        setRightWithoutPinholeNew(data.rightWithoutPinholeNew);
+        setReadings(Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, data[sevaKey(field)] ?? ""])) as EyeReadings);
         setDiagnosis(data.diagnosis);
         setDateOfReferral(
           data.dateOfReferral ? formatDate(data.dateOfReferral) : "",
@@ -89,19 +84,17 @@ export default function SevaNotesContainer({ patient }: Props) {
     };
   }, [patient.visit_id, markSaved]);
 
-  const handleSave = async () => {
-    if (!editable) return;
-    const fractions = normalizeSnellenFields({
-      leftWithPinholeNew,
-      leftWithoutPinholeNew,
-      rightWithPinholeNew,
-      rightWithoutPinholeNew,
-    });
-    if (!fractions) {
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
+    const normalized = normalizeSnellenFields(readings);
+    if (!normalized) {
       toast.error(SNELLEN_ERROR);
-      return;
+      return false;
     }
 
+    setReadings(normalized);
+    const fractions = Object.fromEntries(EYE_READING_FIELDS.map((field) => [sevaKey(field), normalized[field]])) as Record<SevaReadingKey, string>;
     const data: Seva = {
       ...fractions,
       diagnosis: diagnosis,
@@ -114,14 +107,17 @@ export default function SevaNotesContainer({ patient }: Props) {
       await postSeva(data, patient.visit_id);
       markSaved();
       toast.success("Save Success");
+      return true;
     } catch (error) {
       toast.error("An error has occurred");
+      return false;
     }
   };
 
   // Saved readings are shown open so they are not missed.
-  const eyeReadingsRecorded = [leftWithPinholeNew, leftWithoutPinholeNew, rightWithPinholeNew, rightWithoutPinholeNew]
-    .some((value) => Boolean(value));
+  const eyeReadingsRecorded = EYE_READING_FIELDS.some((field) => Boolean(readings[field]));
+  // With glasses is optional, so only the pinhole readings are needed to finish.
+  const eyeReadingsComplete = REQUIRED_EYE_READING_FIELDS.every((field) => Boolean(readings[field]));
 
   return (
     <PageCard
@@ -129,6 +125,7 @@ export default function SevaNotesContainer({ patient }: Props) {
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
+      <StationDonePrompt patient={patient} done={saved} />
       <SavedRecordFields locked={!editable}>
         {/* Kept deliberately simple: the fields may change with the partner NGO's requests.
             Free-text notes come first; eye readings are optional. */}
@@ -187,36 +184,15 @@ export default function SevaNotesContainer({ patient }: Props) {
           <summary className="cursor-pointer select-none text-sm font-semibold text-muted-foreground">
             Eye readings (optional)
           </summary>
-          {/* One reading per row so the dropdown has room in the narrow panel */}
-          <div className="mt-3 grid grid-cols-[1fr_9rem] gap-x-3 gap-y-2 items-center text-sm">
-            <p className="text-start">Left (OS), with pinhole</p>
-            <SnellenInput
-              value={leftWithPinholeNew}
-              onChange={setLeftWithPinholeNew}
-            />
-
-            <p className="text-start">Right (OD), with pinhole</p>
-            <SnellenInput
-              value={rightWithPinholeNew}
-              onChange={setRightWithPinholeNew}
-            />
-
-            <p className="text-start">Left (OS), without pinhole</p>
-            <SnellenInput
-              value={leftWithoutPinholeNew}
-              onChange={setLeftWithoutPinholeNew}
-            />
-
-            <p className="text-start">Right (OD), without pinhole</p>
-            <SnellenInput
-              value={rightWithoutPinholeNew}
-              onChange={setRightWithoutPinholeNew}
-            />
+          <div className="mt-3">
+            <EyeReadingsGrid values={readings} onChange={(field, value) => setReadings((previous) => ({ ...previous, [field]: value }))} />
           </div>
         </details>
 
-        <div className="flex items-center justify-end">
-          <SaveButton onClick={handleSave} />
+        <div className="flex items-center justify-end gap-2">
+          <SaveButton onClick={handleSave} disabled={!editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
+            locked={saved && !editable} disabled={!editable && !saved} hint="Take the eye readings without and with pinhole, and write a diagnosis, to finish" />
         </div>
       </SavedRecordFields>
     </PageCard>

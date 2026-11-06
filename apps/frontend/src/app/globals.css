@@ -127,3 +127,27 @@
 @media (prefers-reduced-motion: reduce) {
   .chart-draw, .bar-grow { animation: none; }
 }
+
+/* "Save & next" turning green when the form is complete: a short pop with a fading glow. */
+@keyframes ready-pop {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); box-shadow: 0 0 0 10px rgb(16 185 129 / 0); }
+}
+.ready-pop { animation: ready-pop 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+/* Drag-and-drop lists (components/shared/SortableList.tsx): the lifted row and the gap it leaves. */
+@keyframes lift-in { from { transform: scale(1); box-shadow: none; } to { transform: scale(1.02); } }
+.sortable-dragging { animation: lift-in 150ms ease-out both; }
+
+/* Sticker colour tag on queue cards (components/shared/StickerTag.tsx): pressed on like a sticker. */
+@keyframes sticker-in {
+  0% { transform: scale(1.6); opacity: 0; }
+  60% { transform: scale(0.92); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.sticker-tag { animation: sticker-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ready-pop, .sortable-dragging, .sticker-tag { animation: none; }
+}

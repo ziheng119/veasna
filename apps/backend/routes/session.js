@@ -58,7 +58,7 @@ const { authenticateToken } = require('./auth');
 
 router.get('/me', authenticateToken, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.json({ id: req.user.id, username: req.user.username, role: req.user.role });
+  res.json({ id: req.user.id, username: req.user.username, role: req.user.role, screening_date: req.user.screening_date ?? null });
 });
 
 // Fixed deployment accounts: registration is deliberately unavailable, including to admins.
@@ -75,7 +75,8 @@ router.post('/login', async (req, res) => {
   try {
 
     const userQuery = `
-      SELECT id, username, password_hash, role, is_active
+      SELECT id, username, password_hash, role, is_active,
+        TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date
       FROM users
       WHERE LOWER(username) = LOWER($1)
     `;
@@ -103,7 +104,7 @@ router.post('/login', async (req, res) => {
 
     const token = signUserToken(user);
 
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, screening_date: user.screening_date } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error' });

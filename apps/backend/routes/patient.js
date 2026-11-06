@@ -224,6 +224,7 @@ router.get(
           v.queue_no,
           v.visit_date,
           v.location_id,
+          v.sticker_colour,
           v.completed_at,
           v.last_updated_at AS visit_last_updated,
           v.created_at AS visit_created_at,
@@ -252,6 +253,8 @@ router.get(
           va.left_without_pinhole,
           va.right_with_pinhole,
           va.right_without_pinhole,
+          va.left_with_glasses,
+          va.right_with_glasses,
           va.notes AS visual_acuity_notes,
           
           -- Presenting Complaint
@@ -275,6 +278,8 @@ router.get(
           s.left_without_pinhole_new AS seva_left_without_pinhole,
           s.right_with_pinhole_new AS seva_right_with_pinhole,
           s.right_without_pinhole_new AS seva_right_without_pinhole,
+          s.left_with_glasses_new AS seva_left_with_glasses,
+          s.right_with_glasses_new AS seva_right_with_glasses,
           s.diagnosis AS seva_diagnosis,
           s.date_of_referral AS seva_referral_date,
           s.referral AS seva_referral,
@@ -283,6 +288,11 @@ router.get(
           -- Physiotherapy
           pt.id AS physio_id,
           pt.notes AS physio_notes,
+
+          -- Dental
+          d.id AS dental_id,
+          d.notes AS dental_notes,
+          d.referral_needed AS dental_referral_needed,
           
           -- Consultation
           c.id AS consultation_id,
@@ -308,6 +318,7 @@ router.get(
         LEFT JOIN history hist ON v.id = hist.visit_id
         LEFT JOIN seva s ON v.id = s.visit_id
         LEFT JOIN physiotherapy pt ON v.id = pt.visit_id
+        LEFT JOIN dental d ON v.id = d.visit_id
         LEFT JOIN consultation c ON v.id = c.visit_id
         LEFT JOIN tb_screening tb ON v.id = tb.visit_id
         WHERE v.id = $1
@@ -368,6 +379,7 @@ router.get(
         visit_date: visit.visit_date,
         location_id: visit.location_id,
         location_name: visit.location_name,
+        sticker_colour: visit.sticker_colour,
         completed_at: visit.completed_at,
         last_updated_at: visit.visit_last_updated,
         created_at: visit.visit_created_at,
@@ -402,6 +414,8 @@ router.get(
                 left_without_pinhole: visit.left_without_pinhole,
                 right_with_pinhole: visit.right_with_pinhole,
                 right_without_pinhole: visit.right_without_pinhole,
+                left_with_glasses: visit.left_with_glasses,
+                right_with_glasses: visit.right_with_glasses,
                 notes: visit.visual_acuity_notes,
               }
             : null,
@@ -434,6 +448,8 @@ router.get(
                 left_without_pinhole_new: visit.seva_left_without_pinhole,
                 right_with_pinhole_new: visit.seva_right_with_pinhole,
                 right_without_pinhole_new: visit.seva_right_without_pinhole,
+                left_with_glasses_new: visit.seva_left_with_glasses,
+                right_with_glasses_new: visit.seva_right_with_glasses,
                 diagnosis: visit.seva_diagnosis,
                 date_of_referral: visit.seva_referral_date,
                 referral: visit.seva_referral,
@@ -456,6 +472,10 @@ router.get(
               notes: visit.physio_notes,
               painpoints: painpoints,
             }
+          : null,
+
+        dental: visit.dental_id
+          ? { notes: visit.dental_notes, referral_needed: visit.dental_referral_needed }
           : null,
 
         consultation: visit.consultation_id

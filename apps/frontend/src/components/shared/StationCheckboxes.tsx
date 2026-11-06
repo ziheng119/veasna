@@ -10,13 +10,16 @@ interface StationCheckboxesProps {
   onChange: (stations: StationId[]) => void;
   // Stations that can no longer be changed (already completed for the visit).
   locked?: StationId[];
+  // Stations offered, in clinic order. Defaults to every station.
+  options?: StationId[];
 }
 
-export function StationCheckboxes({ idPrefix, selected, onChange, locked = [] }: StationCheckboxesProps) {
+export function StationCheckboxes({ idPrefix, selected, onChange, locked = [], options }: StationCheckboxesProps) {
+  const shown = STATIONS.filter((station) => !options || options.includes(station.id));
   const toggle = (id: StationId, checked: boolean) => {
     // Keep station order regardless of the order boxes are ticked in
     onChange(
-      STATIONS.map((station) => station.id).filter((stationId) =>
+      shown.map((station) => station.id).filter((stationId) =>
         stationId === id ? checked : selected.includes(stationId)
       )
     );
@@ -24,7 +27,7 @@ export function StationCheckboxes({ idPrefix, selected, onChange, locked = [] }:
 
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-3">
-      {STATIONS.map((station) => {
+      {shown.map((station) => {
         const isLocked = locked.includes(station.id);
         return (
           <div key={station.id} className="flex items-center space-x-2">

@@ -22,6 +22,35 @@ everyone sees the same queues.
 The addresses in this guide (`192.168.68.x`) are what Deco routers hand out. Always
 use the address your host laptop actually has (see step 2 below).
 
+## Development and clinic settings
+
+The same laptop can be used for development (everything on `localhost`) and for clinics
+(devices on the Deco network) without editing settings in between. Each app has one
+file per mode, chosen by the command you run:
+
+| Command | Backend reads | Web app reads |
+| --- | --- | --- |
+| `npm run dev` | `apps/backend/.env.development`, then `.env` | `apps/frontend/.env.development` |
+| `npm run build`, `npm start` | `apps/backend/.env.production`, then `.env` | `apps/frontend/.env.production` |
+
+- `apps/backend/.env` holds what both modes share: the database, `JWT_SECRET` and
+  `PORT`. A setting in the mode file wins over `.env`.
+- The clinic network settings in this guide (`ALLOW_LAN_ORIGINS`, `MDNS_NAME`,
+  `NEXT_PUBLIC_BACKEND_URL`) go in the **`.env.production`** files.
+- **Don't put `NEXT_PUBLIC_BACKEND_URL` in `apps/frontend/.env.local`.** Next.js reads
+  `.env.local` in both modes and lets it win, so development would use the clinic
+  address too. `npm run build` and `npm run dev` warn if it's there.
+
+Create any missing files from their templates (existing files are never changed):
+
+```bash
+npm run setup:env
+```
+
+The templates (`*.example`) are in git; your own files are not. The development
+templates are ready to use. The backend's startup log says which files it read, e.g.
+`production settings from .env.production + .env`.
+
 ## One-time setup
 
 ### 1. Set up the Deco routers
@@ -86,7 +115,7 @@ on their own. No modem, internet or Ethernet cable is needed.
 
 5. **Tell the web app where the server is.** If the web app runs on the host and the
    server uses port `3000`, leave `NEXT_PUBLIC_BACKEND_URL` unset in
-   `apps/frontend/.env.local`. Browsers then use the address they opened the app on, so
+   `apps/frontend/.env.production` (the default from `npm run setup:env`). Browsers then use the address they opened the app on, so
    it keeps working if the host's address changes. Otherwise, use the host's address and
    the server's `PORT`:
 
@@ -94,7 +123,8 @@ on their own. No modem, internet or Ethernet cable is needed.
    NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000
    ```
 
-6. **Let devices on the clinic network connect to the server.** In `apps/backend/.env`:
+6. **Let devices on the clinic network connect to the server.** In
+   `apps/backend/.env.production` (these are its defaults):
 
    ```env
    ALLOW_LAN_ORIGINS=true
@@ -134,7 +164,7 @@ Tablets and other laptops only need a browser:
 Nothing needs installing or configuring on them.
 
 **Optional extra frontend laptop.** To run a copy of the web app on another laptop
-with the project installed, set its `apps/frontend/.env.local` to the **host's**
+with the project installed, set its `apps/frontend/.env.production` to the **host's**
 address (`NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000`), open port `3001` in
 its firewall (step 2.4), then `npm run build` and `npm run start:frontend` there. Staff
 can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
@@ -249,7 +279,7 @@ local network itself (mDNS, also called Bonjour). No DNS server or internet is
 needed, and the name keeps working if the host's address changes. Keep the address
 reservation anyway: the IP is the fallback on devices where names don't work.
 
-1. In `apps/backend/.env`, set the name and allow LAN origins:
+1. In `apps/backend/.env.production`, set the name and allow LAN origins (the defaults):
 
    ```env
    MDNS_NAME=veasna
@@ -258,7 +288,7 @@ reservation anyway: the IP is the fallback on devices where names don't work.
 
    Each host on the same network needs its own name (e.g. `veasna-clinic2`).
 
-2. In `apps/frontend/.env.local`, leave `NEXT_PUBLIC_BACKEND_URL` **unset** (delete
+2. In `apps/frontend/.env.production`, leave `NEXT_PUBLIC_BACKEND_URL` **unset** (delete
    it or comment it out), then run `npm run build`. The web app then finds the server
    at whatever address the browser used, name or IP, on port `3000`. This needs the
    backend's `PORT` to be `3000`. If you keep `NEXT_PUBLIC_BACKEND_URL` set to the
@@ -301,7 +331,8 @@ reservation anyway: the IP is the fallback on devices where names don't work.
 | Two devices keep dropping off | They have the same address, usually because one was typed in manually in Windows | Set both back to automatic (DHCP) and use an Address Reservation instead. |
 | `veasna.local` doesn't load, but the IP does | The device doesn't support `.local` names (some Android), UDP 5353 is blocked on the host, or `MDNS_NAME` is empty | Use the IP on that device. On the host, add the mDNS firewall rule and check the startup log shows `Name:`. |
 | `veasna.local` opens another clinic's laptop | Two hosts on one network use the same `MDNS_NAME` | Give each host its own name, e.g. `veasna-clinic2`. |
-| `veasna.local` opens the web app, but sign-in or data fails | `NEXT_PUBLIC_BACKEND_URL` points at an old IP, or `ALLOW_LAN_ORIGINS` is `false` | Unset `NEXT_PUBLIC_BACKEND_URL` and rebuild, and set `ALLOW_LAN_ORIGINS=true`. |
+| `veasna.local` opens the web app, but sign-in or data fails | `NEXT_PUBLIC_BACKEND_URL` points at an old IP, or `ALLOW_LAN_ORIGINS` is `false` | Unset `NEXT_PUBLIC_BACKEND_URL` in `apps/frontend/.env.production` and rebuild, and set `ALLOW_LAN_ORIGINS=true` in `apps/backend/.env.production`. |
+| `npm run dev` talks to the clinic IP, or a clinic build to `localhost` | `NEXT_PUBLIC_BACKEND_URL` is set in `apps/frontend/.env.local`, which wins in both modes | Move it to `.env.development` or `.env.production` ([development and clinic settings](#development-and-clinic-settings)). |
 | The first `veasna.local` visit from Windows takes about 10 seconds | The host has no IPv6 address, and Windows waits for one | Leave IPv6 turned on in the host's Wi-Fi adapter settings, or use the IP. |
 | Startup log says `mDNS name veasna.local unavailable` | Another program holds UDP port 5353 and won't share it | Devices can still use the IP. Close other Bonjour/mDNS software and restart Veasna. |
 | `npm start` fails with `EAFNOSUPPORT` for the web app | IPv6 is turned off on the host | Turn IPv6 back on, or change `-H ::` to `-H 0.0.0.0` in `apps/frontend/package.json`. |

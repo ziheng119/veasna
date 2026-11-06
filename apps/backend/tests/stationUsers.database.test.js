@@ -47,7 +47,7 @@ const { setupAccounts } = require('../scripts/setupAccounts');
   test.each(['admin','user'])('%s cannot add accounts through either API',async username=>{
     const login=await request(app).post('/auth/login').send({username,password:username === 'admin' ? 'admin12345' : 'user'});
     for(const url of ['/auth/register','/users']) expect((await request(app).post(url).set('Authorization','Bearer '+login.body.token).send({username:'extra',password:'extra-password',role:'admin'})).status).toBe(403);
-    expect((await request(app).get('/analytics').set('Authorization','Bearer '+login.body.token)).status).toBe(200);
+    expect((await request(app).get('/analytics').set('Authorization','Bearer '+login.body.token)).status).toBe(username==='admin'?200:403);
     expect((await request(app).put('/patient/1').set('Authorization','Bearer '+login.body.token)).status).toBe(username==='admin'?200:403);
   });
 });

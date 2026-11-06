@@ -12,14 +12,22 @@ import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
 import { StationId, stationLabel } from "@/constants/stations";
-import TbBadge, { TB_CARD_CLASS } from "./TbBadge";
+import TbBadge, { tbCardClass } from "./TbBadge";
+import FamilyBadge from "./FamilyBadge";
+import StickerTag, { findSticker, stickerLabel, useStickerColours } from "./StickerTag";
+import { stationMoveMessage } from "@/lib/family";
+import { ENTER_FAST, LIFT } from "@/lib/motion";
 import ClearTbButton from "./ClearTbButton";
+import DisabledActionHint from "./DisabledActionHint";
+import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, ListChecks, X } from "lucide-react";
+import { Check, CircleCheck, Hourglass, ListChecks, X } from "lucide-react";
+import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 
 import QueueSortControl from "./QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -40,11 +48,13 @@ export default function QueuePatientPicker({
   selectedVisitId,
   refreshKey,
 }: QueuePatientPickerProps) {
+  const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const stickerColours = useStickerColours();
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
   const locationId = location?.id;
@@ -88,15 +98,13 @@ export default function QueuePatientPicker({
     if (!token) return;
 
     try {
-      const next = await completeStation(patient.visit_id, station, token);
-      if (selectedVisitId === patient.visit_id) {
+      const move = await completeStation(patient.visit_id, station, token);
+      const left = [patient.visit_id, ...move.family_moved.map((member) => member.visit_id)];
+      // A patient waiting for family is still here, so stays selected.
+      if (selectedVisitId && !move.held && left.includes(selectedVisitId)) {
         onSelectPatient(null);
       }
-      toast.success(
-        next
-          ? `${patient.english_name || "Patient"} moved to ${stationLabel(next)}.`
-          : `${patient.english_name || "Patient"} has finished all stations.`
-      );
+      toast.success(stationMoveMessage(patient.english_name || "Patient", move));
     } catch (err) {
       console.error("Failed to complete station:", err);
       toast.error(err instanceof Error ? err.message : "Failed to complete station");
@@ -107,9 +115,11 @@ export default function QueuePatientPicker({
 
   const handleRemovePatient = async (patient: QueuedPatient) => {
     if (!token) return;
-    if (!window.confirm(`Discharge ${patient.english_name || "this patient"}?`)) {
-      return;
-    }
+    if (!await confirm({
+      title: `Discharge ${patient.english_name || "this patient"}?`,
+      description: "They leave today's queue at every station. Their saved records stay.",
+      confirmLabel: "Discharge",
+    })) return;
 
     try {
       await completeQueueVisit(patient.visit_id, token);
@@ -147,6 +157,12 @@ export default function QueuePatientPicker({
     return sortQueuePatients(filtered, mode);
   }, [patients, searchQuery, mode]);
 
+  // "Save & next" on this page opens the next patient in the order shown here.
+  const flow = useStationFlow();
+  useEffect(() => {
+    flow?.registerQueue(sortedPatients, loadQueue);
+  }, [flow, sortedPatients, loadQueue]);
+
   return (
     <PageCard
       title={`${stationLabel(station)} Queue`}
@@ -177,6 +193,9 @@ export default function QueuePatientPicker({
           const isSelected = selectedVisitId === patient.visit_id;
           const next = nextStation(patient);
           const tbFlagged = !!patient.tb_flagged;
+          // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
+          const routeLocked = patient.tb_status != null;
+          const sticker = findSticker(stickerColours, patient.sticker_colour);
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -185,9 +204,9 @@ export default function QueuePatientPicker({
                 // The native buttons handle their own actions; all remaining card space selects.
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
-              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
                 tbFlagged
-                  ? `${TB_CARD_CLASS} ${isSelected ? "ring-2 ring-primary" : ""}`
+                  ? tbCardClass(isSelected)
                   : isSelected
                     ? "border-primary bg-primary/10"
                     : "border-border hover:bg-accent/60"
@@ -195,24 +214,28 @@ export default function QueuePatientPicker({
             >
               <button
                 type="button"
-                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${tbFlagged ? ", suspected TB" : ""}`}
+                aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
                 aria-pressed={isSelected}
                 onClick={() => onSelectPatient(patient)}
                 className="flex min-w-0 flex-1 items-start gap-3 text-left"
               >
                 {/* Queue number first and large: it is what staff call out. */}
                 <span className="flex shrink-0 flex-col items-center gap-1">
-                  <span
-                    data-queue-no
-                    className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                      tbFlagged
-                        ? "bg-red-600 text-white"
-                        : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {patient.queue_no}
+                  <span className="relative flex">
+                    <span
+                      data-queue-no
+                      className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                        tbFlagged
+                          ? "bg-red-600 text-white"
+                          : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {patient.queue_no}
+                    </span>
+                    <StickerTag sticker={sticker} pinned />
                   </span>
                   {tbFlagged && <TbBadge />}
+                  {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
                 <span className="min-w-0 flex-1 border-l border-border pl-3">
                   <span className="block break-words font-medium text-foreground">{patient.english_name || "Unknown name"}</span>
@@ -221,10 +244,20 @@ export default function QueuePatientPicker({
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {next ? `Next: ${stationLabel(next)}` : "Last station"}
                   </span>
+                  {patient.family_waiting ? (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+                      <Hourglass className="size-3.5" aria-hidden="true" /> Waiting for family
+                    </span>
+                  ) : patient.station_done && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <CircleCheck className="size-3.5" aria-hidden="true" /> Done here
+                    </span>
+                  )}
                 </span>
               </button>
               <div className="flex shrink-0 items-center">
-                {tbFlagged && (
+                {/* TB is cleared only at Consult, by the doctor who saw the patient. */}
+                {tbFlagged && station === "consultation" && (
                   <ClearTbButton
                     patient={patient}
                     onCleared={(currentStation) => handleTbCleared(patient, currentStation)}
@@ -241,17 +274,20 @@ export default function QueuePatientPicker({
                     <Check className="size-3.5" />
                     {next ? "Next" : "Finish"}
                   </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
-                  title="Send to station…: choose which stations this patient goes to next, and in what order"
-                  aria-label={`Send ${patient.english_name || "patient"} to another station`}
-                  onClick={() => setEditingPatient(patient)}
-                >
-                  <ListChecks className="size-3.5" />
-                  Send to
-                </Button>
+                <DisabledActionHint disabled={routeLocked} message={TB_ROUTE_LOCKED_HINT}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={routeLocked}
+                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
+                    title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
+                    aria-label={`Send ${patient.english_name || "patient"} to another station`}
+                    onClick={() => setEditingPatient(patient)}
+                  >
+                    <ListChecks className="size-3.5" />
+                    Send to
+                  </Button>
+                </DisabledActionHint>
                 <Button
                   type="button"
                   variant="ghost"
@@ -272,6 +308,7 @@ export default function QueuePatientPicker({
         onClose={() => setEditingPatient(null)}
         onSaved={loadQueue}
       />
+      {dialog}
     </PageCard>
   );
 }

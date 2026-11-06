@@ -1,5 +1,5 @@
 import { ComponentType } from "react";
-import { Activity, Eye, HeartPulse, Stethoscope } from "lucide-react";
+import { Activity, Eye, HeartPulse, Pill, Smile, Stethoscope } from "lucide-react";
 import { StationId, stationLabel } from "@/constants/stations";
 import { cn } from "@/lib/utils";
 
@@ -8,9 +8,11 @@ type Icon = ComponentType<{ className?: string }>;
 // One icon and colour per station, so a station reads the same wherever it appears.
 export const STATION_ICONS: Record<StationId, Icon> = {
   triage: HeartPulse,
-  seva: Eye,
-  physiotherapy: Activity,
   consultation: Stethoscope,
+  physiotherapy: Activity,
+  dental: Smile,
+  seva: Eye,
+  pharmacy: Pill,
 };
 
 const STATION_TONES: Record<StationId, string> = {
@@ -18,6 +20,8 @@ const STATION_TONES: Record<StationId, string> = {
   seva: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   physiotherapy: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   consultation: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  dental: "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/15 dark:text-cyan-300",
+  pharmacy: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
 };
 
 /** Pill naming the station a patient is waiting at; "All done" when no station is left. */

@@ -176,3 +176,52 @@ test('user can view and print a saved referral without saving or deleting it', a
     global.window = previousWindow; log.mockRestore();
   }
 });
+
+describe('saving a signature for this session', () => {
+  const { useSavedSignatureStore } = require('../src/stores/useSavedSignatureStore');
+  const signature = [[[0, 0], [1, 1]]];
+  afterEach(() => useSavedSignatureStore.getState().forget());
+  const render = async (retrievedReferral = null) => {
+    let renderer;
+    await act(async () => { renderer = create(React.createElement(ReferralForm, {
+      patient: { visit_id: 1 }, patientInfo: { date_of_birth: '2000-01-01' }, retrievedReferral, onClose: jest.fn(),
+    })); });
+    return renderer;
+  };
+  const pad = renderer => renderer.root.findByType('signature-pad');
+
+  test('a saved signature fills in on this user\'s next new referral, not on a saved one or another user\'s', async () => {
+    const first = await render();
+    expect(pad(first).props.value).toBeNull();
+    await act(async () => pad(first).props.onChange(signature));
+    expect(pad(first).props.saved).toBe(false);
+    await act(async () => pad(first).props.onSave(signature));
+    expect(pad(first).props.saved).toBe(true);
+    expect(useSavedSignatureStore.getState()).toMatchObject({ userId: 1, signature });
+    await act(async () => first.unmount());
+
+    const next = await render();
+    expect(pad(next).props.value).toEqual(signature);
+    // Changing it here doesn't change what is saved.
+    await act(async () => pad(next).props.onChange(null));
+    expect(pad(next).props.saved).toBe(false);
+    await act(async () => next.unmount());
+
+    const existing = await render({ referralDate: '2026-01-01', referralType: [], illness: '', duration: '', reason: '', signature: null });
+    expect(pad(existing).props.value).toBeNull();
+    await act(async () => existing.unmount());
+
+    useSavedSignatureStore.getState().save(2, signature);
+    const otherUser = await render();
+    expect(pad(otherUser).props.value).toBeNull();
+    await act(async () => otherUser.unmount());
+  });
+
+  test('"Stop using it" forgets the saved signature', async () => {
+    useSavedSignatureStore.getState().save(1, signature);
+    const renderer = await render();
+    await act(async () => pad(renderer).props.onForget());
+    expect(useSavedSignatureStore.getState().signature).toBeNull();
+    await act(async () => renderer.unmount());
+  });
+});

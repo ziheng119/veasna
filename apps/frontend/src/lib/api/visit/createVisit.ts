@@ -11,6 +11,8 @@ export async function createVisit(
         vitals: Vitals;
         hef: HEF;
         stations: StationId[];
+        // Id from the sticker_colours list; "" or null for no sticker.
+        sticker_colour?: string | null;
         // Set when TB red flags were ticked: the patient goes straight to Consultation, marked red.
         tb?: { red_flags: string[]; notes: string } | null;
     },
@@ -19,10 +21,10 @@ export async function createVisit(
     
     const payload = {
         patientInfo: data.patientInfo,
-        visit: { queue_no: data.patientInfo.queue_no },
         vitals: data.vitals,
         hef: data.hef,
         stations: data.stations,
+        sticker_colour: data.sticker_colour || null,
         ...(data.tb ? { tb: data.tb } : {}),
     };
 

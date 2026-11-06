@@ -34,6 +34,8 @@ export interface VisitDetails {
     visit_date: string;  // YYYY-MM-DD
     location_id: number | null;
     location_name: string | null;
+    // Registration sticker: an id from the sticker_colours list, or null.
+    sticker_colour?: string | null;
     completed_at: string | null;
     last_updated_at: string;
     created_at: string;
@@ -44,6 +46,7 @@ export interface VisitDetails {
     history: VisitHistory | null;
     seva: VisitSeva | null;
     physiotherapy: VisitPhysiotherapy | null;
+    dental: VisitDental | null;
     consultation: VisitConsultation | null;
     referrals: VisitReferral[];
     tb: VisitTb | null;
@@ -66,12 +69,14 @@ export interface VisitHef {
     notes: string | null;
 }
 
-// Snellen fractions such as "6/9"; null until taken.
+// Snellen fractions such as "20/40"; null until taken.
 export interface VisitVisualAcuity {
     left_with_pinhole: string | null;
     left_without_pinhole: string | null;
     right_with_pinhole: string | null;
     right_without_pinhole: string | null;
+    left_with_glasses?: string | null;
+    right_with_glasses?: string | null;
     notes: string | null;
 }
 
@@ -95,10 +100,17 @@ export interface VisitSeva {
     left_without_pinhole_new: string | null;
     right_with_pinhole_new: string | null;
     right_without_pinhole_new: string | null;
+    left_with_glasses_new?: string | null;
+    right_with_glasses_new?: string | null;
     diagnosis: string;
     date_of_referral: string | null;
     referral: string | null;
     notes: string | null;
+}
+
+export interface VisitDental {
+    notes: string;
+    referral_needed: boolean;
 }
 
 export interface VisitPhysiotherapy {

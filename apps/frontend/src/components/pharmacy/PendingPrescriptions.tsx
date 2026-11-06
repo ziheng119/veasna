@@ -5,10 +5,13 @@ import toast from "react-hot-toast";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 import { cancelPrescription, dispensePrescription, getLocationPrescriptions } from "@/lib/api/pharmacy/prescriptions";
 import { Prescription } from "@/lib/types/prescription";
 import { useUserStore } from "@/stores/useUserStore";
 import { cn } from "@/lib/utils";
+import { QueuedPatient } from "@/lib/types/patient";
+import { StationDonePrompt } from "@/components/shared/StationFlow";
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -16,22 +19,30 @@ interface Props {
   locationId: number;
   // Called after a dispense or cancel, so stock figures elsewhere on the page refresh.
   onStockChanged: () => void;
+  // Only this patient's prescriptions (the patient selected in the Pharmacy queue).
+  patient?: QueuedPatient | null;
 }
 
 /** Prescriptions waiting at the pharmacy. Dispensing finalises the stock deduction. */
-export default function PendingPrescriptions({ locationId, onStockChanged }: Props) {
+export default function PendingPrescriptions({ locationId, onStockChanged, patient }: Props) {
+  const { confirm, dialog } = useConfirm();
   const token = useUserStore((state) => state.user?.token);
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const load = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
     if (!token) return [];
     return getLocationPrescriptions(locationId, "pending", signal);
   }, [locationId, token]);
-  const { data: pending, refresh, loaded } = useLiveList(load);
+  const { data: all, refresh, loaded } = useLiveList(load);
+  const pending = patient ? all.filter((prescription) => prescription.visit_id === patient.visit_id) : all;
   const [busy, setBusy] = useState<number | null>(null);
 
   const act = async (prescription: Prescription, action: "dispense" | "cancel") => {
     const label = `${prescription.quantity} × ${prescription.drug_name} for ${prescription.english_name || "this patient"}`;
-    if (action === "cancel" && !window.confirm(`Cancel ${label}? The reserved stock is released.`)) return;
+    if (action === "cancel" && !await confirm({
+      title: `Cancel ${label}?`,
+      description: "The prescription is cancelled and its reserved stock goes back to the pharmacy.",
+      confirmLabel: "Cancel prescription",
+    })) return;
     setBusy(prescription.id);
     try {
       if (action === "dispense") {
@@ -51,7 +62,10 @@ export default function PendingPrescriptions({ locationId, onStockChanged }: Pro
   };
 
   if (loaded && pending.length === 0) {
-    return <p className="px-6 py-10 text-center text-sm text-muted-foreground">No prescriptions waiting to be dispensed.</p>;
+    // Everything dispensed (or cancelled): the patient is done at Pharmacy.
+    return patient
+      ? <div className="px-6 py-6"><StationDonePrompt patient={patient} done /></div>
+      : <p className="px-6 py-10 text-center text-sm text-muted-foreground">No prescriptions waiting to be dispensed.</p>;
   }
 
   return (
@@ -116,6 +130,7 @@ export default function PendingPrescriptions({ locationId, onStockChanged }: Pro
           ))}
         </tbody>
       </table>
+      {dialog}
     </div>
   );
 }

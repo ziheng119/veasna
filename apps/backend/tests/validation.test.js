@@ -50,7 +50,7 @@ describe('queue numbers', () => {
   test('stored upper-case', () => expect(normalizeQueueNo(' a12 ')).toBe('A12'));
 });
 
-describe('typed queue numbers may not run ahead of the sequence', () => {
+describe('corrected queue numbers may not run ahead of the sequence', () => {
   const { queueNoJumpError } = require('../utils/queueNumber');
   // Next number 14: patients 1-13 have been issued.
   test.each(['14', '1', '9', '13A', '1B', 'A12', 'A999', 'B3C'])('%s is allowed when the next number is 14', value => {
@@ -58,12 +58,12 @@ describe('typed queue numbers may not run ahead of the sequence', () => {
   });
   test('a mistyped suffix ("132" for "13A") is refused with a suggestion', () => {
     expect(queueNoJumpError('132', '14')).toBe(
-      'Queue number 132 is ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A. Leave it blank to use 14.');
+      'Queue number 132 is ahead of the next number, 14. To group with patient 13, add a letter, e.g. 13A.');
   });
   test('the suggestion uses the longest issued leading part', () => {
     expect(queueNoJumpError('1399', '14')).toMatch(/e\.g\. 13A/);
     expect(queueNoJumpError('99', '14')).toMatch(/e\.g\. 9A/);
-    expect(queueNoJumpError('5', '1')).toBe('Queue number 5 is ahead of the next number, 1. Leave it blank to use 1.');
+    expect(queueNoJumpError('5', '1')).toBe('Queue number 5 is ahead of the next number, 1.');
   });
   test.each(['14A', '20A', '1A'])('a suffix of a number not yet issued (%s) is refused', value => {
     const next = value === '1A' ? '1' : '14';

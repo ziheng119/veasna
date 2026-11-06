@@ -33,10 +33,10 @@ password, then create a database `veasna_screening` owned by that role.
 
 ### 3. Enter your settings
 
-From the project folder, copy the example file:
+From the project folder, create the settings files from their templates:
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
+npm run setup:env
 ```
 
 Open `apps/backend/.env` and change at least these lines:
@@ -109,7 +109,12 @@ To check that it is working, open `/health` in a browser:
 
 ## Settings
 
-All settings live in `apps/backend/.env`.
+Settings shared by both modes live in `apps/backend/.env`. Settings for one mode go in
+`apps/backend/.env.development` (`npm run dev`) or `apps/backend/.env.production`
+(`npm start`), and win over `.env` (`config/env.js`). The templates put
+`NEXT_PUBLIC_FRONTEND_URL`, `ALLOW_LAN_ORIGINS` and `MDNS_NAME` in the mode files. Mode
+comes from the command, so `NODE_ENV` lines in the files are ignored. See
+[development and clinic settings](../../docs/performance-and-lan.md#development-and-clinic-settings).
 
 | Setting | What it does |
 | --- | --- |
@@ -145,23 +150,34 @@ These rules are enforced by the server, so they apply on every device:
   saved ones. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
   correctly.
-- **Stations:** each visit goes through only the stations it needs (Triage, Partner NGO,
-  Physiotherapy, Consultation), waiting in one queue at a time.
-- **TB flag:** suspected TB is a flag on the visit, set at registration (TB red flags) or
-  at Triage. The patient goes straight to Consultation, with their other stations queued
-  after it, and is shown in red with a "TB" label in every queue. Anyone can clear the flag;
-  clearing also sends the patient to Consultation if they aren't there (`sendToConsultation`
-  in `utils/tb.js`). Only an admin can change an existing flag's red flags or notes.
-- **Queue numbers** are text: issued 1, 2, 3... automatically, or typed in with letters,
-  e.g. `12A` for a family member or `A12`. Unique per location and day. A typed number
-  that starts with digits can't run ahead of the next number (`queueNoJumpError` in
-  `utils/queueNumber.js`), so a mistyped `132` for `13A` doesn't make the sequence skip.
+- **Stations:** each visit goes through only the stations it needs, in clinic order
+  (`STATIONS` in `utils/stations.js`): Triage, Dental, Consultation, Physiotherapy, Partner
+  NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration offers
+  `REGISTRATION_STATIONS`; Physiotherapy is added by the doctor and Pharmacy by prescribing
+  (`setStationNeeded` in `utils/stationRoute.js`). Migration `018_dental_pharmacy_stations.sql`
+  adds the two stations and the `dental` table.
+- **TB flag:** suspected TB is a flag on the visit, set at registration or at Triage when
+  3 or more red flags are ticked (`TB_MIN_RED_FLAGS` in `utils/tb.js`, mirrored in
+  `apps/frontend/src/constants/tb.ts`). The patient goes only to Consultation (`TB_ROUTE`):
+  their other unfinished stations are removed, and `PUT /api/queue/:visitId/stations` is
+  refused for any visit with a TB record. They are shown in red with a "TB" label in every
+  queue. Anyone can clear the flag, but only while the visit is waiting at Consultation
+  (`409` otherwise); clearing also removes any other stations left on its route
+  (`sendToConsultation`). Finishing Consultation ends their stations, and
+  their prescriptions wait at Pharmacy. Only an admin can change an existing flag's red
+  flags or notes.
+- **Queue numbers** are text, always issued automatically: 1, 2, 3... per location and
+  day, under the location's queue lock. Families have their own letter (`patients.family`),
+  set with `POST /api/family` (`routes/family.js`, `utils/family.js`), and move between
+  stations together (`utils/familyMoves.js`). Queue numbers are unique per location and day,
+  kept so by the app (there is no database constraint). Admin corrections can't run
+  ahead of the next number (`queueNoJumpError` in `utils/queueNumber.js`).
 - **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
   when a cataract is suspected. The station is still `seva` in the database and API; its
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.
 - **Prescriptions** are chosen from the location's pharmacy. Prescribing reserves stock
   at once; the pharmacy dispenses (stock goes down) or cancels (stock is released).
-- **Visual acuity** is recorded as a Snellen fraction such as `6/6` or `6/9`.
+- **Visual acuity** is recorded as a Snellen fraction such as `20/20` or `20/40`.
 - **Unique ID** is made automatically from the first 3 letters of the English and
   Khmer names plus the date of birth (e.g. `SOKសុខ07031990`). It updates when those
   details change and can't be typed in. Two patients can share one Unique ID.

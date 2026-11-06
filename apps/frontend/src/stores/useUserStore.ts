@@ -6,6 +6,7 @@ import { clearPatientsByLocationCache } from "@/lib/api/patients/getPatientsByLo
 import { clearQueueCache } from "@/lib/api/queue/getQueue";
 import { clearPharmacyCache } from "@/lib/api/pharmacy/pharmacy";
 import { clearAllPatientCache } from "@/lib/api/patient/getPatients";
+import { useSavedSignatureStore } from "./useSavedSignatureStore";
 
 interface UserState {
   user: User | null;
@@ -27,6 +28,8 @@ export const useUserStore = create<UserState>()(
         clearQueueCache();
         clearPharmacyCache();
         clearAllPatientCache();
+        // A signature saved for this session belongs to the user signing out.
+        useSavedSignatureStore.getState().forget();
         set({ user: null });
       },
     }),

@@ -22,7 +22,7 @@ const db = require('../config/db');
       user: process.env.DB_USER, password: process.env.DB_PASSWORD, connectionTimeoutMillis: 3000 });
     await client.connect();
     await client.query(`SET search_path TO pg_temp;
-      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN);
+      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE);
       INSERT INTO users VALUES (1,'admin',TRUE),(2,'user',TRUE),(3,'admin',FALSE);
       CREATE TEMP TABLE patients (id INT, date_of_birth DATE);
       INSERT INTO patients VALUES (1,'2000-01-01'),(2,'1950-01-01'),(3,NULL),(4,'2030-01-01');
@@ -51,8 +51,9 @@ const db = require('../config/db');
   });
   test('enforces authentication and current active admin permissions', async () => {
     expect((await get(null)).status).toBe(401);
-    expect((await get(token(2, 'user'))).status).toBe(200);
-    expect((await get(token(2))).status).toBe(200); // Stale admin token.
+    expect((await get(token(2, 'user'))).status).toBe(403); // Analytics is admin-only.
+    expect((await get(token(2))).status).toBe(403); // Stale admin token: the role comes from the database.
+    expect((await get(token(1))).status).toBe(200);
     expect((await get(token(3))).status).toBe(403);
   });
   test('counts distinct people, visits, current queues and multi-destination referrals without join inflation', async () => {

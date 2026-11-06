@@ -1,18 +1,20 @@
+import { Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 interface Props {
-  onClick ?: () => void;
-  mode ?: string
+  onClick?: () => void;
+  mode?: string;
+  label?: string;
+  disabled?: boolean;
+  busy?: boolean;
 }
 
-export default function SaveButton({ onClick, mode }: Props) {
-
-  const label = mode === 'edit' ? 'Update' : 'Save';
-
+/** A form's Save. Same size and font as the buttons beside it (e.g. "Save & next"). */
+export default function SaveButton({ onClick, mode, label, disabled = false, busy = false }: Props) {
   return (
-    <button 
-      className="bg-primary text-primary-foreground rounded-md px-4 py-2 hover:cursor-pointer hover:bg-primary/90"
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  )
+    <Button type="button" onClick={onClick} disabled={disabled || busy}>
+      <Save aria-hidden="true" />
+      {busy ? "Saving..." : label ?? (mode === "edit" ? "Update" : "Save")}
+    </Button>
+  );
 }

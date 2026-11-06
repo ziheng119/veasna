@@ -4,6 +4,7 @@ import TopNav from "@/components/shared/TopNav";
 import AuthWrapper from "../wrappers/AuthWrapper";
 import Footer from "@/components/shared/Footer";
 import RealtimeConnection from "@/components/shared/RealtimeConnection";
+import PageTransition from "@/components/shared/PageTransition";
 
 export default async function MainLayout({
   children,
@@ -20,7 +21,7 @@ export default async function MainLayout({
           <RealtimeConnection />
           <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5">
             <div className="mx-auto w-full max-w-[1600px] xl:h-full">
-              {children}
+              <PageTransition>{children}</PageTransition>
             </div>
           </main>
           <Footer />

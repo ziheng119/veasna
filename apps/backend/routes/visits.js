@@ -1,5 +1,6 @@
 const { validConditions } = require('../utils/consultationConditions');
 const { validateSignature } = require('../utils/referralSignature');
+const { parseReferralFilter } = require('../utils/referralFilter');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
@@ -9,41 +10,42 @@ integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { normalizeSexToEnum } = require('../utils/sex');
-const { currentVisitDate, lockQueue, getNextQueueNo, normalizeQueueNo, isValidQueueNo, queueNoJumpError, isQueueNoTaken, QUEUE_NO_ERROR } = require('../utils/queueNumber');
-const { STATIONS, normalizeStations } = require('../utils/stations');
+const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueNumber');
+const { REGISTRATION_STATIONS, DEFAULT_REGISTRATION_STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { normalizeRedFlags, rejectUnsavableVisit, flagTb, consultationFirst } = require('../utils/tb');
+const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
+const { patientOnDaySql } = require('../utils/dayScope');
+const { normalizeStickerColour } = require('../utils/formOptions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
-// Include completed visits and unsigned drafts, not just patients still queued.
+// Saved referrals to print, for a day, a period or every date, at one location or all
+// (utils/referralFilter.js). Includes completed visits and unsigned drafts, not just patients still
+// queued. Ordered by referral date, then registration.
 router.get('/referrals', authenticateToken, async (req, res) => {
-  const locationId = Number(req.query.location_id);
-  const date = req.query.date;
-  if (!Number.isSafeInteger(locationId) || locationId <= 0 ||
-      typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
-    return res.status(400).json({ error: 'A valid location_id and date (YYYY-MM-DD) are required' });
-  }
+  const filter = parseReferralFilter(req.query);
+  if (filter.error) return res.status(400).json({ error: filter.error });
   try {
     const { rows } = await db.query(`
       SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
         r.signature, r.signer_name, r.signer_id, r.signed_at,
-        p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
+        p.id AS patient_id, v.location_id, p.english_name, p.khmer_name, p.sex, p.address,
         TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
       FROM referral r
       JOIN visits v ON v.id = r.visit_id
       JOIN patients p ON p.id = v.patient_id
-      WHERE v.location_id = $1 AND COALESCE(r.referral_date, v.visit_date) = $2::date
-      ORDER BY v.created_at ASC, v.id ASC
-    `, [locationId, date]);
+      WHERE ($1::int IS NULL OR v.location_id = $1)
+        AND ($2::date IS NULL OR COALESCE(r.referral_date, v.visit_date) >= $2::date)
+        AND ($3::date IS NULL OR COALESCE(r.referral_date, v.visit_date) <= $3::date)
+      ORDER BY COALESCE(r.referral_date, v.visit_date) ASC, v.created_at ASC, v.id ASC
+    `, [filter.locationId, filter.from, filter.to]);
     res.setHeader('Cache-Control', 'no-store');
     res.json(rows);
   } catch (error) {
-    console.error('Daily referral retrieval failed:', error);
+    console.error('Referral retrieval failed:', error);
     res.status(500).json({ error: 'Unable to load referrals' });
   }
 });
@@ -51,20 +53,23 @@ router.get('/referrals', authenticateToken, async (req, res) => {
 // POST /api/visits (Create a new patient visit)
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const last_updated_by = req.user.id;
-    const { patientInfo, visit, vitals, hef } = req.body;
-    // Stations the patient is indicated for. Optional: defaults to every station.
-    const stations = req.body.stations === undefined ? [...STATIONS] : normalizeStations(req.body.stations);
-    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes straight to
-    // Consultation, then its other stations, and is marked in red in every queue.
+    const { patientInfo, vitals, hef } = req.body;
+    // Stations the patient is indicated for, from those offered at registration (Physiotherapy is
+    // chosen at Consultation and Pharmacy is added on prescribing). Optional: defaults to
+    // DEFAULT_REGISTRATION_STATIONS.
+    const stations = req.body.stations === undefined
+        ? [...DEFAULT_REGISTRATION_STATIONS]
+        : normalizeStations(req.body.stations, REGISTRATION_STATIONS);
+    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes only to
+    // Consultation, whatever stations were ticked, and is marked in red in every queue.
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
     const locationId = toPositiveInt(patientInfo?.location_id);
     // Present only when registering a new visit for an existing patient.
     const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
-    // Optional: when omitted, the next sequential number for the location and date is assigned.
-    // A typed number may contain letters, e.g. 12A or A12.
-    let queueNo = normalizeQueueNo(visit?.queue_no);
+    // The queue number is always the next one for the location and date (assigned below). A
+    // visit.queue_no sent by an older client is ignored; families are grouped later (routes/family.js).
 
     if (!locationId) {
         return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
@@ -86,20 +91,19 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         return res.status(400).json({ error: 'patientInfo.date_of_birth must be a valid YYYY-MM-DD date.' });
     }
 
-    if (queueNo && !isValidQueueNo(queueNo)) {
-        return res.status(400).json({ error: QUEUE_NO_ERROR });
-    }
-
     if (!hef || typeof hef !== 'object') {
         return res.status(400).json({ error: 'hef is required.' });
     }
 
     if (!stations || stations.length === 0) {
-        return res.status(400).json({ error: `stations must be a non-empty list of: ${STATIONS.join(', ')}.` });
+        return res.status(400).json({ error: `stations must be a non-empty list of: ${REGISTRATION_STATIONS.join(', ')}. Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing.` });
     }
 
     if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
         return res.status(400).json({ error: 'tb must be an object with red_flags as a list of text.' });
+    }
+    if (tb !== null && tbRedFlags.length < TB_MIN_RED_FLAGS) {
+        return res.status(400).json({ error: `${TB_MIN_RED_FLAGS_ERROR} Leave tb out for fewer.` });
     }
     const tbFlagged = tb !== null;
 
@@ -110,6 +114,18 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const normalizedVitals = normalizeVitals(vitals);
     if (normalizedVitals.error) {
         return res.status(400).json({ error: normalizedVitals.error });
+    }
+
+    // Optional colour of the sticker given at registration (sticker_colours on Station data).
+    let stickerColour;
+    try {
+        stickerColour = await normalizeStickerColour(req.body.sticker_colour);
+    } catch (err) {
+        console.error('Failed to load sticker colours:', err);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (stickerColour.error) {
+        return res.status(400).json({ error: stickerColour.error });
     }
 
     let client;
@@ -169,22 +185,12 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         // Step 2: Insert into visits table
         const visitDate = currentVisitDate();
-        // Held until commit, so two devices cannot issue or claim the same number.
+        // Held until commit, so two devices registering at once cannot be given the same number.
         await lockQueue(client, locationId);
-        const nextQueueNo = await getNextQueueNo(client, locationId, visitDate);
-        const jumpError = queueNo ? queueNoJumpError(queueNo, nextQueueNo) : null;
-        if (!queueNo) {
-            queueNo = nextQueueNo;
-        } else if (jumpError) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: jumpError });
-        } else if (await isQueueNoTaken(client, locationId, visitDate, queueNo)) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: `Queue number ${queueNo} is already used today. Choose another, or leave it blank to assign one.` });
-        }
+        const queueNo = await getNextQueueNo(client, locationId, visitDate);
         const visitQuery = `
-            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by, sticker_colour)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, created_at;
         `;
         const visitValues = [
@@ -192,14 +198,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             locationId,
             queueNo,
             visitDate,
-            last_updated_by
+            last_updated_by,
+            stickerColour.value
         ];
         const visitResult = await client.query(visitQuery, visitValues);
         const visitId = visitResult.rows[0].id;
         const visitTimestamp = visitResult.rows[0].created_at;
 
         // Step 2b: Queue the visit at its first station; later stations are entered as each one completes
-        const route = tbFlagged ? consultationFirst(stations) : stations;
+        const route = tbFlagged ? TB_ROUTE : stations;
         for (const [index, station] of route.entries()) {
             await client.query(
                 `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
@@ -252,6 +259,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             visit_id: visitId,
             patient_id: patientId,
             queue_no: queueNo,
+            sticker_colour: stickerColour.value,
             current_station: route[0],
             tb_status: tbFlagged ? 'suspected' : null,
             english_name: patientInfo.english_name,
@@ -397,6 +405,57 @@ router.get('/presenting-complaint/:id/:visit_id', authenticateToken, requireRole
   }
 });
 
+// === DENTAL === //
+// What the dental students did, and whether the doctor should refer the patient on. The doctor sees
+// both on the Consult page. One record per visit: users create it, only admins change it.
+
+// GET /api/visits/dental/:visit_id - the record, or null before the first save
+router.get('/dental/:visit_id', authenticateToken, async (req, res) => {
+  const visitId = toPositiveInt(req.params.visit_id);
+  if (!visitId) return res.status(400).json({ error: 'Invalid visit_id' });
+  try {
+    const { rows } = await db.query(
+      `SELECT d.visit_id, d.notes, d.referral_needed, d.last_updated_at, u.username AS last_updated_by
+       FROM dental d LEFT JOIN users u ON u.id = d.last_updated_by
+       WHERE d.visit_id = $1`,
+      [visitId]
+    );
+    res.status(200).json(rows[0] || null);
+  } catch (err) {
+    console.error('Error fetching dental notes:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// POST /api/visits/dental/:visit_id - Body: { notes, referral_needed }
+router.post('/dental/:visit_id', authenticateToken, async (req, res) => {
+  if (await rejectUnsavableVisit(db, res, req.params.visit_id)) return;
+  const referralNeeded = req.body.referral_needed ?? false;
+  if (typeof referralNeeded !== 'boolean') {
+    return res.status(400).json({ error: 'referral_needed must be true or false' });
+  }
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO dental (visit_id, notes, referral_needed, last_updated_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (visit_id) DO UPDATE SET
+         notes = EXCLUDED.notes,
+         referral_needed = EXCLUDED.referral_needed,
+         last_updated_by = EXCLUDED.last_updated_by,
+         last_updated_at = NOW()
+       -- Only the verified admin role may update a saved record.
+       WHERE ${req.user.role === 'admin'}
+       RETURNING visit_id, notes, referral_needed, last_updated_at, last_updated_by`,
+      [toPositiveInt(req.params.visit_id), textOrEmpty(req.body.notes), referralNeeded, req.user.id]
+    );
+    if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved dental notes.' });
+    res.status(200).json(rows[0]);
+  } catch (err) {
+    console.error('Error saving dental notes:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // === SEVA === //
 // GET: seva
 router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
@@ -416,6 +475,8 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
       right_with_pinhole_new,
       left_without_pinhole_new,
       right_without_pinhole_new,
+      left_with_glasses_new,
+      right_with_glasses_new,
       diagnosis,
       date_of_referral,
       referral,
@@ -469,9 +530,10 @@ router.get('/seva-referrals', authenticateToken, async (req, res) => {
       JOIN visits v ON v.id = s.visit_id
       JOIN patients p ON p.id = v.patient_id
       WHERE v.location_id = $1 AND s.referral IS NOT NULL
+        AND ${patientOnDaySql('p.id', '$2')}
       ORDER BY v.visit_date DESC, s.last_updated_at DESC
       `,
-      [locationId]
+      [locationId, req.user.screening_date ?? null]
     );
     res.status(200).json(rows);
   } catch (err) {
@@ -507,6 +569,9 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     'right_with_pinhole_new',
     'left_without_pinhole_new',
     'right_without_pinhole_new',
+    // Optional: only for patients who brought their glasses.
+    'left_with_glasses_new',
+    'right_with_glasses_new',
   ]);
   if (acuity.error) {
     return res.status(400).json({ error: acuity.error });
@@ -516,6 +581,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     right_with_pinhole_new,
     left_without_pinhole_new,
     right_without_pinhole_new,
+    left_with_glasses_new,
+    right_with_glasses_new,
   } = acuity.values;
 
   const last_updated_by = req.user.id;
@@ -531,14 +598,18 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       date_of_referral,
       notes,
       last_updated_by,
-      referral
+      referral,
+      left_with_glasses_new,
+      right_with_glasses_new
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (visit_id) DO UPDATE SET
       left_with_pinhole_new = EXCLUDED.left_with_pinhole_new,
       right_with_pinhole_new = EXCLUDED.right_with_pinhole_new,
       left_without_pinhole_new = EXCLUDED.left_without_pinhole_new,
       right_without_pinhole_new = EXCLUDED.right_without_pinhole_new,
+      left_with_glasses_new = EXCLUDED.left_with_glasses_new,
+      right_with_glasses_new = EXCLUDED.right_with_glasses_new,
       diagnosis = EXCLUDED.diagnosis,
       date_of_referral = EXCLUDED.date_of_referral,
       referral = EXCLUDED.referral,
@@ -562,6 +633,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       textOrEmpty(notes),
       last_updated_by,
       referral,
+      left_with_glasses_new,
+      right_with_glasses_new,
     ]);
 
     if (rows.length === 0) {
@@ -814,7 +887,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     prescription,
   } = req.body;
 
-  if (!validConditions(req.body.condition_categories)) return res.status(400).json({ error: 'Select valid condition categories without duplicates.' });
+  if (!await validConditions(req.body.condition_categories)) return res.status(400).json({ error: 'Select valid condition categories without duplicates.' });
   const conditionsProvided = Object.prototype.hasOwnProperty.call(req.body, 'condition_categories');
   const last_updated_by = req.user.id;
 

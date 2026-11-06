@@ -138,6 +138,12 @@ const db = require('../config/db');
     expect(response.body[0]).toMatchObject({ patient_id: 1, date_of_birth: '2000-01-01', referral_date: '2026-10-20' });
     expect(response.body[1].signature).toBeNull();
     expect((await daily({ location_id: 1, date: '2026-10-22' })).body).toEqual([]);
+    // A period (both days included) and every date list earlier days first; "all" covers every location.
+    expect((await daily({ location_id: 1, from: '2026-10-19', to: '2026-10-20' })).body.map(row => row.visit_id)).toEqual([4, 1, 3]);
+    expect((await daily({ location_id: 1, all: 'true' })).body.map(row => row.visit_id)).toEqual([4, 1, 3]);
+    const everywhere = (await daily({ location_id: 'all', date: '2026-10-20' })).body;
+    expect(everywhere.map(row => [row.visit_id, row.location_id])).toEqual([[1, 1], [2, 2], [3, 1]]);
+    expect((await daily({ location_id: 1, from: '2026-10-21', to: '2026-10-20' })).status).toBe(400);
     for (const query of [{}, { location_id: -1, date: '2026-10-20' }, { location_id: 1, date: '2026-02-30' }]) {
       expect((await daily(query)).status).toBe(400);
     }

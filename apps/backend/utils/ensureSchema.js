@@ -164,8 +164,55 @@ function ensurePrescriptions() {
   return prescriptionsPromise;
 }
 
+// Rewrites the station constraint after 016 did, so it runs after ensureTbFlag.
+let dentalPharmacyStationsPromise = null;
+function ensureDentalPharmacyStations() {
+  if (!dentalPharmacyStationsPromise) {
+    dentalPharmacyStationsPromise = ensureTbFlag()
+      .then(() => runMigration('018_dental_pharmacy_stations.sql'))
+      .catch(err => { dentalPharmacyStationsPromise = null; throw err; });
+  }
+  return dentalPharmacyStationsPromise;
+}
+
+let familiesPromise;
+function ensureFamilies() {
+  if (!familiesPromise) {
+    // Needs only visits and visit_stations, so a failing earlier step can't hold it up.
+    familiesPromise = ensureVisitStations()
+      .then(() => runMigration('019_families.sql'))
+      .catch(err => { familiesPromise = null; throw err; });
+  }
+  return familiesPromise;
+}
+
+// Screening-day accounts and editable form options. Needs users.role (ensureUserRole).
+let dayAccountsPromise;
+function ensureDayAccountsAndFormOptions() {
+  if (!dayAccountsPromise) {
+    dayAccountsPromise = ensureUserRole()
+      .then(() => runMigration('020_day_accounts_form_options.sql'))
+      .catch(err => { dayAccountsPromise = null; throw err; });
+  }
+  return dayAccountsPromise;
+}
+
+// "With glasses" eye readings and the registration sticker colour.
+let glassesStickerPromise;
+function ensureGlassesAndStickerColour() {
+  if (!glassesStickerPromise) {
+    glassesStickerPromise = runMigration('021_glasses_sticker_colour.sql')
+      .catch(err => { glassesStickerPromise = null; throw err; });
+  }
+  return glassesStickerPromise;
+}
+
 module.exports = {
+  ensureGlassesAndStickerColour,
+  ensureDayAccountsAndFormOptions,
   ensureTbFlag,
+  ensureDentalPharmacyStations,
+  ensureFamilies,
   ensurePrescriptions,
   ensureConsultationConditions,
   ensureReferralSignature,

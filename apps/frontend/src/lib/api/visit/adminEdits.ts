@@ -28,6 +28,8 @@ export interface VisitDetailsUpdate {
   queue_no: string;
   visit_date: string; // YYYY-MM-DD
   location_id: number;
+  // Id from the sticker_colours list; null for no sticker.
+  sticker_colour?: string | null;
 }
 
 export function updateVisitDetails(visitId: number, details: VisitDetailsUpdate) {
@@ -49,4 +51,18 @@ export function updateVisitTb(
   update: Partial<Pick<VisitTb, "red_flags" | "flag_notes" | "doctor_notes" | "status">>,
 ) {
   return adminPut(`${visitId}/tb`, update);
+}
+
+// Removes the whole visit and every record of it. The patient and their other visits stay.
+export async function deleteVisit(visitId: number): Promise<void> {
+  const token = useUserStore.getState().user?.token;
+  if (!token) throw new Error("User not authenticated");
+  const res = await fetch(`${backend_url}/api/visits/${visitId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || error.message || `Request failed (${res.status})`);
+  }
 }

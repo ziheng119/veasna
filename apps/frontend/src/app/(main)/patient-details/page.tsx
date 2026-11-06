@@ -4,7 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
-import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import { deleteVisit } from "@/lib/api/visit/adminEdits";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +51,8 @@ export default function PatientDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingVisit, setIsLoadingVisit] = useState(false);
   const [dateSearch, setDateSearch] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!patientId) {
@@ -100,6 +105,26 @@ export default function PatientDetailsPage() {
   const handleBackToVisitList = () => {
     setSelectedVisitId(null);
     setVisitDetails(null);
+  };
+
+  // Admin only: removes the selected visit (e.g. registered by mistake) and returns to the list.
+  const handleDeleteVisit = async () => {
+    if (!token || selectedVisitId === null) return;
+    setDeleting(true);
+    try {
+      await deleteVisit(selectedVisitId);
+      clearVisitCache(selectedVisitId);
+      clearPatientCache(patientId);
+      const patient = await getPatient(patientId, token);
+      if (patient) setPatientData(patient);
+      setConfirmDelete(false);
+      handleBackToVisitList();
+      toast.success("Visit deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete the visit.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -216,7 +241,7 @@ export default function PatientDetailsPage() {
           ) : (
             <Card key="visit-details" className={cn("xl:min-h-0 xl:max-h-full", ENTER_FAST)}>
               <CardHeader>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -226,6 +251,12 @@ export default function PatientDetailsPage() {
                     <ArrowLeftIcon className={BACK_ARROW} />
                     Back to Visits
                   </Button>
+                  {canEdit && (
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setConfirmDelete(true)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete visit
+                    </Button>
+                  )}
                 </div>
                 <div className="mt-2">
                   {/* Prefer the loaded visit so admin edits to date, queue or location show at once. */}
@@ -257,6 +288,9 @@ export default function PatientDetailsPage() {
           )}
         </div>
       </div>
+      <ConfirmDialog open={confirmDelete} busy={deleting} title="Delete this visit?"
+        description="The visit and all its records (triage, station notes, referral, TB flag and prescriptions) are removed for good. Pending prescriptions release their stock. The patient and their other visits stay."
+        confirmLabel="Delete visit" onConfirm={handleDeleteVisit} onCancel={() => setConfirmDelete(false)} />
     </div>
   );
 }

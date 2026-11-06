@@ -64,9 +64,10 @@ function PageAccess({ user, children }: Props & { user: User }) {
         return;
       }
       if (!response.ok) throw new Error("Permission check failed");
-      const profile: Pick<User, "id" | "username" | "role"> = await response.json();
+      const profile: Pick<User, "id" | "username" | "role" | "screening_date"> = await response.json();
       if (controller.signal.aborted) return;
-      if (profile.role !== user.role || profile.username !== user.username) {
+      if (profile.role !== user.role || profile.username !== user.username ||
+          (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
         setUser({ ...profile, token: user.token });
       }
       if (!canAccessPage(profile.role, pathname)) {

@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
 const router = express.Router();
-const { CONDITIONS } = require('../utils/consultationConditions');
+const { getOptions } = require('../utils/formOptions');
 
 const FILTER_ERROR = 'Select a valid location and date (YYYY-MM-DD).';
 // Calendar days preceding the selected date that each rolling period also includes.
@@ -47,15 +47,26 @@ function trendBuckets(range, date) {
   });
 }
 
-// Recheck account activity even when this router is mounted independently.
+// Analytics is for admins only. Recheck the account even when this router is mounted independently.
 async function activeAccount(req, res) {
-  const account = await db.query("SELECT id FROM users WHERE id=$1 AND role IN ('admin', 'user') AND is_active=TRUE", [req.user.id]);
-  if (!account.rows.length) res.status(403).json({ error: 'Active account required.' });
+  const account = await db.query("SELECT id FROM users WHERE id=$1 AND role='admin' AND is_active=TRUE", [req.user.id]);
+  if (!account.rows.length) res.status(403).json({ error: 'Only an admin can view analytics.' });
   return account.rows.length > 0;
 }
 
+// Every condition in the Consult form's current list (with zero counts), then any condition that is
+// no longer listed but was ticked on visits in the period, under its saved id.
+async function conditionCounts(counted) {
+  const listed = await getOptions('consultation_conditions');
+  const count = id => counted.find(row => row.id === id)?.count ?? 0;
+  return [
+    ...listed.map(condition => ({ ...condition, count: count(condition.id) })),
+    ...counted.filter(row => !listed.some(condition => condition.id === row.id)).map(row => ({ id: row.id, label: row.id, count: row.count })),
+  ];
+}
+
 // Read-only aggregates for a clinic-day cohort, never patient names or clinical notes.
-router.get('/', authenticateToken, requireRole(['admin', 'user']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   const filters = parseFilters(req.query);
   const period = req.query.period ?? "day";
   if (!filters || !['day', 'week', 'month', 'all'].includes(period)) return res.status(400).json({ error: FILTER_ERROR });
@@ -123,7 +134,7 @@ router.get('/', authenticateToken, requireRole(['admin', 'user']), async (req, r
     `, [locationId, date, startDate]);
     res.setHeader('Cache-Control', 'no-store');
     res.json({ date, period, startDate, endDate: date, locationId: filters.responseLocationId, generatedAt: new Date().toISOString(), ...rows[0],
-      conditions: CONDITIONS.map(condition => ({ ...condition, count: rows[0].conditions.find(row => row.id === condition.id)?.count ?? 0 })),
+      conditions: await conditionCounts(rows[0].conditions),
     });
   } catch (error) {
     console.error('Analytics retrieval failed:', error);
@@ -133,7 +144,7 @@ router.get('/', authenticateToken, requireRole(['admin', 'user']), async (req, r
 
 // Counts per date bucket for trend charts. Patients are deduplicated within each
 // bucket only, so bucket values are not additive across a range.
-router.get('/trend', authenticateToken, requireRole(['admin', 'user']), async (req, res) => {
+router.get('/trend', authenticateToken, requireRole(['admin']), async (req, res) => {
   const filters = parseFilters(req.query);
   const range = req.query.range ?? '30d';
   if (!filters || !TREND_RANGES.includes(range)) return res.status(400).json({ error: FILTER_ERROR });
@@ -163,9 +174,10 @@ router.get('/trend', authenticateToken, requireRole(['admin', 'user']), async (r
         COALESCE((SELECT json_object_agg(c.category, c.count) FROM condition_counts c WHERE c.idx=b.idx), '{}'::json) AS conditions
       FROM buckets b ORDER BY b.idx
     `, [filters.locationId, buckets.map(b => b[0]), buckets.map(b => b[1])]);
+    const conditions = await getOptions('consultation_conditions');
     res.setHeader('Cache-Control', 'no-store');
     res.json({ range, date: filters.date, locationId: filters.responseLocationId, generatedAt: new Date().toISOString(),
-      buckets: rows.map(row => ({ ...row, conditions: Object.fromEntries(CONDITIONS.map(({ id }) => [id, row.conditions[id] ?? 0])) })),
+      buckets: rows.map(row => ({ ...row, conditions: Object.fromEntries(conditions.map(({ id }) => [id, row.conditions[id] ?? 0])) })),
     });
   } catch (error) {
     console.error('Analytics trend retrieval failed:', error);

@@ -20,6 +20,8 @@ export async function postSeva(data: Seva, visitId: number) {
       right_with_pinhole_new: data.rightWithPinholeNew,
       left_without_pinhole_new: data.leftWithoutPinholeNew,
       right_without_pinhole_new: data.rightWithoutPinholeNew,
+      left_with_glasses_new: data.leftWithGlassesNew,
+      right_with_glasses_new: data.rightWithGlassesNew,
       diagnosis: data.diagnosis,
       date_of_referral: data.dateOfReferral,
       referral: data.referral || null,

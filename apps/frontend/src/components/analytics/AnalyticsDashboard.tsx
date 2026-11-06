@@ -1,12 +1,13 @@
 "use client";
 
-import { CONDITION_COLORS, CONSULTATION_CONDITIONS, PRIMARY_SERIES_COLOR } from "@/constants/consultationConditions";
+import { PRIMARY_SERIES_COLOR, conditionColor } from "@/constants/consultationConditions";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import Link from "next/link";
 import { ComponentType, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Activity, ArrowLeft, BarChart3, CalendarDays, CalendarX2, CheckCircle2, ClipboardCheck, FileWarning, HeartPulse, Info,
-  Lightbulb, MapPin, PieChart, RefreshCw, Send, Stethoscope, Users, X,
+  Lightbulb, MapPin, PieChart, Printer, RefreshCw, Send, Stethoscope, Users, X,
 } from "lucide-react";
 import { useUserStore } from "@/stores/useUserStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -16,6 +17,7 @@ import { Location } from "@/lib/types/location";
 import { STATIONS } from "@/constants/stations";
 import { cn } from "@/lib/utils";
 import GlassButton from "@/components/shared/GlassButton";
+import PrintReferralsDialog from "@/components/shared/PrintReferralsDialog";
 import { BarList, DonutChart } from "./charts";
 import TrendSection from "./TrendSection";
 import { buildAnalyticsCsv, downloadFile } from "./exportCsv";
@@ -50,17 +52,26 @@ function dateRangeText(period: AnalyticsPeriod, date: string) {
   return `${readable(localDate(start), false)} – ${readable(date)}`;
 }
 
-function StatCard({ icon: Icon, label, value, detail, info, tone, delay }: {
+function StatCard({ icon: Icon, label, value, detail, info, tone, delay, action }: {
   icon: ComponentType<{ className?: string }>; label: string; value: number; detail: string; info: string; tone: string; delay: number;
+  // Optional: clicking the card does this; its label shows on hover (and always on touch screens).
+  action?: { label: string; icon: ComponentType<{ className?: string }>; onClick: () => void };
 }) {
+  const ActionIcon = action?.icon;
   return <article style={{ animationDelay: `${delay}ms` }}
-    className={cn(panel, enter, "group border-t-[3px] transition duration-300 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none", tone.split(" ").find(name => name.startsWith("border-t-")))}>
+    onClick={action ? event => { if (!(event.target as Element).closest("button, a")) action.onClick(); } : undefined}
+    className={cn(panel, enter, "group relative border-t-[3px] transition duration-300 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none",
+      action && "cursor-pointer", tone.split(" ").find(name => name.startsWith("border-t-")))}>
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-1"><h3 className="text-sm font-medium text-muted-foreground">{label}</h3><InfoTip label={label}>{info}</InfoTip></div>
       <span className={cn("grid size-9 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110 motion-reduce:transform-none", tone)} aria-hidden="true"><Icon className="size-4" /></span>
     </div>
     <p className="my-2 text-4xl font-semibold">{value}</p>
     <p className="text-xs leading-5 text-muted-foreground">{detail}</p>
+    {action && ActionIcon && <button type="button" onClick={action.onClick}
+      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:bg-violet-700 hover:shadow-md active:scale-95 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-within:translate-y-0 sm:group-focus-within:opacity-100 [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100 motion-reduce:transform-none print:hidden">
+      <ActionIcon className="size-3.5" aria-hidden="true" />{action.label}
+    </button>}
   </article>;
 }
 
@@ -70,7 +81,10 @@ export default function AnalyticsDashboard() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationId, setLocationId] = useState<AnalyticsLocation>(currentLocation?.id ?? 0);
   const [date, setDate] = useState(() => localDate());
-  const [condition, setCondition] = useState("diabetes");
+  const conditions = useFormOptions("consultation_conditions");
+  const [chosenCondition, setCondition] = useState("diabetes");
+  // Falls back to the first listed condition if the chosen one was removed on the Station data page.
+  const condition = conditions.some(item => item.id === chosenCondition) ? chosenCondition : conditions[0]?.id ?? "";
   const [period, setPeriod] = useState<AnalyticsPeriod>("day");
   const [data, setData] = useState<Analytics | null>(null);
   const [trend, setTrend] = useState<AnalyticsTrend | null>(null);
@@ -80,6 +94,7 @@ export default function AnalyticsDashboard() {
   const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+  const [printingReferrals, setPrintingReferrals] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -148,7 +163,7 @@ export default function AnalyticsDashboard() {
   const exportCsv = () => {
     if (!visible) return;
     const slug = locationName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    downloadFile(buildAnalyticsCsv(visible, trend, { location: locationName, period: PERIOD_NAMES[period] }), `veasna-analytics-${slug}-${period}-${date}.csv`);
+    downloadFile(buildAnalyticsCsv(visible, trend, { location: locationName, period: PERIOD_NAMES[period] }, conditions), `veasna-analytics-${slug}-${period}-${date}.csv`);
     toast.success("Spreadsheet downloaded");
   };
 
@@ -159,7 +174,8 @@ export default function AnalyticsDashboard() {
       detail: visible.summary.people ? `${Math.round(visible.summary.consultedPeople / visible.summary.people * 100)}% of patients reached` : "No patients yet",
       info: "Different people whose Consult station was marked complete. Saving notes alone does not count." },
     { icon: Send, label: "Visits with referrals", value: visible.summary.referralVisits, tone: "bg-violet-50 text-violet-700 border-t-violet-500",
-      detail: "Saved referrals, including unsigned drafts", info: "Visits with a saved referral form, signed or not. It does not confirm the patient attended." },
+      detail: "Saved referrals, including unsigned drafts", info: "Visits with a saved referral form, signed or not. It does not confirm the patient attended.",
+      action: { label: "Print referrals", icon: Printer, onClick: () => setPrintingReferrals(true) } },
     { icon: CheckCircle2, label: "Visits discharged", value: visible.summary.dischargedVisits, tone: "bg-emerald-50 text-emerald-700 border-t-emerald-500",
       detail: `${visible.summary.visits - visible.summary.dischargedVisits} still in the clinic queue`, info: "Visits marked discharged from the queue. Not every assigned station is necessarily complete." },
   ] : [];
@@ -262,6 +278,8 @@ export default function AnalyticsDashboard() {
           <h2 className="sr-only">Summary</h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {cards.map((card, i) => <StatCard key={card.label} {...card} delay={i * 70} />)}
+            <PrintReferralsDialog open={printingReferrals} onOpenChange={setPrintingReferrals}
+              locationId={locationId || undefined} choices={["today", "date", "period", "all"]} initialDate={date} />
           </div>
         </section>
 
@@ -278,13 +296,13 @@ export default function AnalyticsDashboard() {
               </div>
               <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">Condition
                 <select aria-label="Condition" value={condition} onChange={event => setCondition(event.target.value)} className={cn(fieldClass, "text-foreground")}>
-                  {CONSULTATION_CONDITIONS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  {conditions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
                 </select>
               </label>
               <div key={condition} className="rounded-xl bg-muted/50 p-4 animate-in fade-in slide-in-from-left-1 duration-300 motion-reduce:animate-none">
                 <p className="flex items-center gap-2 text-sm font-medium">
-                  <span className="size-2.5 rounded-full" style={{ background: CONDITION_COLORS[condition] }} aria-hidden="true" />
-                  Patients consulted with {CONSULTATION_CONDITIONS.find(item => item.id === condition)?.label.toLowerCase()}
+                  <span className="size-2.5 rounded-full" style={{ background: conditionColor(condition, conditions) }} aria-hidden="true" />
+                  Patients consulted with {conditions.find(item => item.id === condition)?.label.toLowerCase()}
                 </p>
                 <p className="mt-2 text-4xl font-semibold">{consulted > 0 && reviewed === 0 ? "Not recorded" : (visible.conditions?.find(item => item.id === condition)?.count ?? 0)}</p>
               </div>
@@ -301,7 +319,7 @@ export default function AnalyticsDashboard() {
                 <InfoTip label="Condition mix">Each slice is that condition&apos;s share of all conditions ticked in this period. A patient with two conditions adds to both slices.</InfoTip></div>
               {conditionTotal > 0
                 ? <DonutChart caption="Condition mix for the selected period" centerLabel="conditions ticked" selected={condition} onSelect={setCondition}
-                    items={visible.conditions.map(item => ({ ...item, color: CONDITION_COLORS[item.id] }))} />
+                    items={visible.conditions.map(item => ({ ...item, color: conditionColor(item.id, conditions) }))} />
                 : <p className="grid h-48 place-items-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">No conditions recorded for this period.</p>}
             </div>
           </div>

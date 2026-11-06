@@ -13,3 +13,23 @@ export const GLASS_SURFACE =
 
 // Press feedback for buttons and clickable cards.
 export const PRESS = "active:scale-[0.97] motion-reduce:transform-none";
+
+// Small icon buttons (table actions): pop out on hover with a soft tinted circle.
+export const POP =
+  "rounded-md p-1.5 transition-[transform,background-color,box-shadow,color] duration-150 hover:scale-115 hover:bg-primary/10 hover:shadow-sm active:scale-95 disabled:pointer-events-none disabled:opacity-40 motion-reduce:transform-none";
+
+// Clickable cards (queue cards, pick lists): lift slightly with a shadow on hover.
+export const LIFT =
+  "transition-[transform,box-shadow,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none";
+
+// Menu buttons that sit side by side in the top bar (location picker, account menu): one size,
+// font and hover/press feel. Put `group` on the button and data-state="open" while its menu is open.
+export const MENU_TRIGGER =
+  "group h-9 gap-2 rounded-md border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent";
+
+// The chevron in a MENU_TRIGGER: nudges down on hover and turns over while the menu is open.
+export const MENU_CHEVRON =
+  "size-4 transition-[translate,rotate] duration-300 ease-out group-hover:translate-y-0.5 group-data-[state=open]:rotate-180 group-data-[state=open]:translate-y-0 motion-reduce:transition-none";
+
+// A menu panel opening below its button.
+export const MENU_PANEL = "animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 motion-reduce:animate-none";

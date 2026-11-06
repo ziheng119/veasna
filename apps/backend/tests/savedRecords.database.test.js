@@ -30,7 +30,7 @@ const db = require("../config/db");
       });
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
-   CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN);
+   CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
    INSERT INTO users VALUES (1,'Admin','admin',TRUE),(2,'User','user',TRUE);
    CREATE TEMP TABLE visits (id INT PRIMARY KEY); INSERT INTO visits VALUES (1);
    CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, completed_at TIMESTAMP);`);
@@ -44,6 +44,7 @@ const db = require("../config/db");
         "seva",
         "physiotherapy",
         "painpoints",
+        "dental",
       ]) {
         const start = setup.indexOf("CREATE TABLE " + table + " (");
         const sql = setup.slice(start, setup.indexOf("\n);", start) + 3);
@@ -90,6 +91,7 @@ const db = require("../config/db");
         "physiotherapy",
         { notes: "Initial", painpoints: [{ xCoord: 1, yCoord: 2 }] },
       ],
+      ["/visits/dental/1", "dental", { notes: "Initial", referral_needed: true }],
     ])(
       "%s allows creation and denies subsequent user changes",
       async (url, table, body) => {
@@ -116,5 +118,16 @@ const db = require("../config/db");
         ).toBe(1);
       },
     );
+    test("with glasses readings are optional and saved with the pinhole readings", async () => {
+      const save = (url, body) =>
+        request(app).post(url).set("Authorization", "Bearer " + token("admin")).send(body);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_with_glasses: "glasses" })).status).toBe(400);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_without_pinhole: "20/40", left_with_glasses: "20 / 25" })).status).toBe(200);
+      expect((await client.query("SELECT left_without_pinhole, left_with_glasses, right_with_glasses FROM visual_acuity")).rows[0])
+        .toEqual({ left_without_pinhole: "20/40", left_with_glasses: "20/25", right_with_glasses: null });
+      expect((await save("/visits/seva/1", { diagnosis: "Cataract", right_with_glasses_new: "20/30" })).status).toBe(200);
+      const seva = (await request(app).get("/visits/seva/1").set("Authorization", "Bearer " + token("admin"))).body;
+      expect(seva).toMatchObject({ right_with_glasses_new: "20/30", left_with_glasses_new: null });
+    });
   },
 );

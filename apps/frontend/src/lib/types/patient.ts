@@ -15,12 +15,23 @@ export type PatientInfo = {
     lastUpdated: string;
     // Most recent screening date (YYYY-MM-DD); only returned by the patient list.
     last_visit_date?: string | null;
+    // Family letter shared with the patients they come with (A, B, ...), or null.
+    family?: string | null;
+    // Patient list only: the open visit in today's queue here and the station it waits at, or null.
+    queue_visit_id?: number | null;
+    current_station?: StationId | null;
 }
 
 export type QueuedPatient = {
     visit_id: number;
     patient_id: number;
     queue_no: string;
+    // Colour of the sticker given at registration: an id from the sticker_colours list, or null.
+    sticker_colour?: string | null;
+    // Family letter shared by patients who came together (A, B, ...), or null.
+    family?: string | null;
+    // Done at the current station, waiting for the rest of the family there.
+    family_waiting?: boolean;
     // Station the patient is currently waiting at, and every station indicated for the visit.
     current_station?: StationId | null;
     stations?: { station: StationId; completed: boolean }[];
@@ -28,6 +39,8 @@ export type QueuedPatient = {
     // visit was never flagged.
     tb_status?: TbStatus | null;
     tb_flagged?: boolean;
+    // From the queue: the patient's current station has everything it needs saved.
+    station_done?: boolean;
     english_name?: string;
     khmer_name?: string;
     age?: number;

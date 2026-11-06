@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import GlassButton from "@/components/shared/GlassButton";
 import {
   Dialog,
   DialogContent,
@@ -50,10 +51,11 @@ export default function SevaReferralListDialog() {
 
   return (
     <>
-      <Button type="button" variant="outline" className="shrink-0" onClick={() => setOpen(true)} disabled={!location}>
+      {/* Same pill as the other buttons in a station page's search row. */}
+      <GlassButton type="button" className="h-10 shrink-0 px-4" onClick={() => setOpen(true)} disabled={!location}>
         <ClipboardList className="size-4" />
         Referral list
-      </Button>
+      </GlassButton>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>

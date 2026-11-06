@@ -2,7 +2,8 @@
 
 import { QueuedPatient } from "@/lib/types/patient";
 import VerticalLabelInputPair from "../../VerticalLabelInputPair";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { EYE_READING_ROWS } from "../../EyeReadingsGrid";
 import { getVisualAcuity } from "@/lib/api/visit/getSnellensTest";
 import { VisualAcuity } from "@/lib/types/visualAcuity";
 import Loading from "../../Loading";
@@ -59,13 +60,13 @@ export default function SnellensTestDetails({ patient }: Props) {
           <p className="text-center font-semibold">Left (OS)</p>
           <p className="text-center font-semibold">Right (OD)</p>
 
-          <p className="text-start">With Pinhole</p>
-          <p className="text-center">{visualAcuity.left_with_pinhole ?? "N/A"}</p>
-          <p className="text-center">{visualAcuity.right_with_pinhole ?? "N/A"}</p>
-
-          <p className="text-start">Without Pinhole</p>
-          <p className="text-center">{visualAcuity.left_without_pinhole ?? "N/A"}</p>
-          <p className="text-center">{visualAcuity.right_without_pinhole ?? "N/A"}</p>
+          {EYE_READING_ROWS.map((row) => (
+            <Fragment key={row.key}>
+              <p className="text-start">{row.label}</p>
+              <p className="text-center">{visualAcuity[`left_${row.key}`] || "N/A"}</p>
+              <p className="text-center">{visualAcuity[`right_${row.key}`] || "N/A"}</p>
+            </Fragment>
+          ))}
 
           {/* Additional Notes span all columns */}
           <div className="col-span-3 w-full">

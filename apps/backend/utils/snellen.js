@@ -1,4 +1,4 @@
-// Visual acuity is stored as a Snellen fraction such as "6/6" or "6/9".
+// Visual acuity is stored as a Snellen fraction such as "20/20" or "20/40".
 const SNELLEN_PATTERN = /^\d+(\.\d+)?\/\d+(\.\d+)?$/;
 
 function isBlank(value) {
@@ -23,7 +23,7 @@ function normalizeSnellenFields(source, fields) {
     }
     const normalized = normalizeSnellen(source[field]);
     if (!normalized) {
-      return { error: `${field} must be a Snellen fraction such as 6/6 or 6/9, or left blank` };
+      return { error: `${field} must be a Snellen fraction such as 20/20 or 20/40, or left blank` };
     }
     values[field] = normalized;
   }

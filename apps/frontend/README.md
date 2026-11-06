@@ -9,20 +9,20 @@ Install from the project folder (not this folder):
 
 ```bash
 npm install
-cp apps/frontend/.env.example apps/frontend/.env.local
+npm run setup:env
 ```
 
-`.env.local` has one setting, the backend's address:
+The web app has one setting, the backend's address `NEXT_PUBLIC_BACKEND_URL`, with a
+file per mode:
 
-```env
-NEXT_PUBLIC_BACKEND_URL=http://192.168.68.50:3000
-```
+| File | Used by | Default |
+| --- | --- | --- |
+| `.env.development` | `npm run dev` | `http://localhost:3000` |
+| `.env.production` | `npm run build`, `npm start` | Unset: browsers use the address they opened the app on, port `3000`. Set it to the host's IP (e.g. `http://192.168.68.50:3000`) only if the backend runs on another laptop or port. |
 
-Use the host laptop's IP, not `localhost`, so that other devices can reach it too.
-If you leave it empty, the app assumes the backend is on the same laptop that serves
-the web app, port `3000`.
-
-This setting is built into the app. **After changing it, run `npm run build` again.**
+Don't set it in `.env.local`: Next.js reads that file in both modes and lets it win.
+The production value is built into the app. **After changing it, run `npm run build`
+again.**
 
 ## Running
 
@@ -40,13 +40,14 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Page | Address | Purpose |
 | --- | --- | --- |
 | Home | `/` | Register patients and see the clinic queue |
-| Patient List | `/patient-list` | Search patients; **+** adds a new one |
+| Patient List | `/patient-list` | Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there |
 | Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
+| Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |
+| Physiotherapy | `/physiotherapy` | Physiotherapy assessment (patients sent by the doctor) |
+| Dental | `/dental` | Triage notes, what the dental students did, and "referral needed" |
 | Partner NGO | `/seva` | Partner NGO notes and referrals (name set in `constants/partnerNgo.ts`) |
-| Physiotherapy | `/physiotherapy` | Physiotherapy assessment |
-| Consultation | `/doctors-consultation` | Doctor's notes, prescribing from pharmacy stock, and referrals |
-| Pharmacy | `/pharmacy` | Dispense prescriptions, view stock, and each patient's prescription history |
+| Pharmacy | `/pharmacy` | The Pharmacy queue, dispensing prescriptions, stock, and each patient's prescription history |
 | Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock |
 | Analytics | `/analytics` | Clinic numbers, from the user menu |
 
@@ -61,6 +62,7 @@ after a dropped connection refresh themselves when the connection returns.
 | The logo on printed referral letters | Save it as `public/btb-logo.png`. Without the file, letters print with the name only. |
 | The organisation name on referral letters | `LETTERHEAD` in `src/constants/letterhead.ts` |
 | The TB red flags offered at registration and Triage | `TB_RED_FLAGS` in `src/constants/tb.ts` |
+| What can be typed into registration fields (e.g. digits and one decimal place for height and weight) | `INPUT_FORMATS` in `src/lib/inputFormats.ts` |
 | Places a doctor can refer to | `REFERRAL_DESTINATIONS` in `src/constants/referral.ts` |
 
 Run `npm run build` again afterwards for clinic use.

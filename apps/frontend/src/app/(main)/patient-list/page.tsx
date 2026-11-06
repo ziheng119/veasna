@@ -4,6 +4,7 @@ import { PlusIcon } from "@/assets/icons";
 import { CrossIcon } from "@/assets/icons/CrossIcon";
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
+import DownloadAllPatientsButton from "@/components/patient-list/DownloadAllPatientsButton";
 import { PatientTable } from "@/components/patient-list/PatientTable";
 import { Location } from "@/lib/types/location";
 import { PatientInfo } from "@/lib/types/patient";
@@ -21,10 +22,12 @@ import { Input } from "@/components/ui/input";
 import { PAGE_SHELL } from "@/lib/pageLayout";
 
 import { useLiveList } from "@/hooks/useLiveList";
+import { useConfirm } from "@/hooks/useConfirm";
 
 export default function PatientListPage() {
 
   const router = useRouter();
+  const { confirm, dialog } = useConfirm();
 
   const location: Location | null = useLocationStore((state) => state.currentLocation)
   const token = useUserStore((state) => state.user?.token)
@@ -71,8 +74,13 @@ export default function PatientListPage() {
   }
 
   const handleDeletePatient = async (patientId: number) => {
-    if (!window.confirm('Are you sure you want to delete this patient?')) return;
     if (!token) return;
+    const name = patients.find((patient) => patient.id === patientId)?.english_name || "this patient";
+    if (!await confirm({
+      title: `Delete ${name}?`,
+      description: "Their details and every visit (triage, notes, referrals, prescriptions) are removed for good.",
+      confirmLabel: "Delete patient",
+    })) return;
     try {
       await deletePatient(patientId, token);
       await refreshAllPatients();
@@ -93,6 +101,7 @@ export default function PatientListPage() {
         />
 
         <div className="flex items-center gap-2 shrink-0">
+          <DownloadAllPatientsButton />
           <Input
             type="date"
             value={visitDate}
@@ -126,9 +135,12 @@ export default function PatientListPage() {
 
       <PatientTable
         patients={filteredPatients}
+        allPatients={patients}
         onViewPatient={handleViewPatient}
         onDeletePatient={handleDeletePatient}
-      />  
+        onFamilyChanged={refreshAllPatients}
+      />
+      {dialog}
     </div>
   )
 }

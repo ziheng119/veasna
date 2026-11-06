@@ -5,12 +5,17 @@ import { useState } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
+import { useConfirm } from "@/hooks/useConfirm";
+
 import { X } from "lucide-react";
-import { stationLabel } from "@/constants/stations";
+import { stationLabel, stationPageHref } from "@/constants/stations";
+import { useRouter } from "next/navigation";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PageCard } from "../shared/PageCard";
-import TbBadge, { TB_CARD_CLASS } from "../shared/TbBadge";
-import ClearTbButton from "../shared/ClearTbButton";
+import TbBadge, { tbCardClass } from "../shared/TbBadge";
+import FamilyBadge from "../shared/FamilyBadge";
+import StickerTag, { findSticker, stickerLabel, useStickerColours } from "../shared/StickerTag";
+import { ENTER_FAST, LIFT } from "@/lib/motion";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
@@ -22,8 +27,11 @@ interface Props {
 }
 
 export function PatientQueue({ patients, onRemovePatient }: Props) {
+  const { confirm, dialog } = useConfirm();
+  const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
-  const [searchQuery, setSearchQuery] = useState("");  
+  const [searchQuery, setSearchQuery] = useState("");
+  const stickerColours = useStickerColours();
 
   const filteredPatients = patients.filter((patient) => {
     if (!searchQuery) return true;
@@ -70,43 +78,59 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
             {searchQuery ? "No patients found matching search" : "No patients in queue today"}
           </p>
         ) : (
-          sortedPatients.map((patient) => (
+          sortedPatients.map((patient) => {
+            // Opens the patient at the station they are waiting at, already selected there.
+            const href = patient.current_station ? stationPageHref(patient.current_station, patient.visit_id) : null;
+            const sticker = findSticker(stickerColours, patient.sticker_colour);
+            return (
             <div
               key={patient.visit_id}
-              className={`flex items-center justify-between p-4 rounded-lg transition-colors gap-3 ${
-                patient.tb_flagged ? TB_CARD_CLASS : "border border-border bg-card hover:bg-accent"
+              data-visit-id={patient.visit_id}
+              onClick={(event) => {
+                // The card's own button (Discharge) handles its own clicks.
+                if (href && !(event.target as Element).closest("button")) router.push(href);
+              }}
+              className={`flex items-center justify-between p-4 rounded-lg gap-3 ${ENTER_FAST} ${href ? `cursor-pointer ${LIFT}` : "transition-colors"} ${
+                patient.tb_flagged ? tbCardClass() : "border border-border bg-card hover:bg-accent"
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                disabled={!href}
+                aria-label={`Open ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${
+                  patient.current_station ? `, at ${stationLabel(patient.current_station)}` : ""}${patient.tb_flagged ? ", suspected TB" : ""}`}
+                onClick={() => href && router.push(href)}
+                className="flex items-center gap-3 min-w-0 text-left disabled:cursor-default"
+              >
                 <span className="flex shrink-0 flex-col items-center gap-1">
-                  <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                    patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
-                  }`}>
-                    {patient.queue_no}
+                  <span className="relative flex">
+                    <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                      patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+                    }`}>
+                      {patient.queue_no}
+                    </span>
+                    <StickerTag sticker={sticker} pinned />
                   </span>
                   {patient.tb_flagged && <TbBadge />}
+                  {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
-                <div className="min-w-0 border-l border-border pl-3">
-                  <div className="font-medium text-foreground truncate">{patient.english_name}</div>
-                  <div className="text-sm text-muted-foreground truncate">
+                <span className="block min-w-0 border-l border-border pl-3">
+                  <span className="block font-medium text-foreground truncate">{patient.english_name}</span>
+                  <span className="block text-sm text-muted-foreground truncate">
                     {patient.khmer_name}
-                  </div>
+                  </span>
                   {patient.current_station && (
-                    <div className="text-xs font-medium truncate text-primary">
+                    <span className="block text-xs font-medium truncate text-primary">
                       At {stationLabel(patient.current_station)}
-                    </div>
+                    </span>
                   )}
-                </div>
-              </div>
+                </span>
+              </button>
               <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right text-sm text-muted-foreground">
                   <div>{patient.age}y, {patient.sex}</div>
                   <div>{patient.timestamp}</div>
                 </div>
-                {/* The queue refreshes through live updates once the flag is cleared. */}
-                {patient.tb_flagged && (
-                  <ClearTbButton patient={patient} className="h-auto gap-1 px-2 py-1 text-xs" />
-                )}
                 {onRemovePatient && (
                   <Button
                     type="button"
@@ -114,10 +138,12 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                     size="icon"
                     className="size-6 text-muted-foreground hover:text-destructive"
                     title="Discharge patient"
-                    onClick={() => {
-                      if (!window.confirm(`Discharge ${patient.english_name || 'this patient'}?`)) {
-                        return;
-                      }
+                    onClick={async () => {
+                      if (!await confirm({
+                        title: `Discharge ${patient.english_name || "this patient"}?`,
+                        description: "They leave today's queue at every station. Their saved records stay.",
+                        confirmLabel: "Discharge",
+                      })) return;
                       onRemovePatient(patient.visit_id);
                     }}
                   >
@@ -126,8 +152,10 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
+      {dialog}
     </PageCard>
   );
 }

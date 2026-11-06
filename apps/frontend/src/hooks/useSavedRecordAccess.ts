@@ -11,9 +11,11 @@ export function useSavedRecordAccess(recordKey: number) {
   const loaded = record?.key === recordKey;
   const editable =
     loaded && (role === "admin" || (role === "user" && !record.exists));
+  // The record for this key has been saved (e.g. the station's form is done).
+  const saved = loaded && record.exists;
   const markSaved = useCallback(
     (exists = true) => setRecord({ key: recordKey, exists }),
     [recordKey],
   );
-  return { editable, markSaved };
+  return { editable, saved, markSaved };
 }

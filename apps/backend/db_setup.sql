@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS referral CASCADE;
 DROP TABLE IF EXISTS painpoints CASCADE;
 DROP TABLE IF EXISTS consultation CASCADE;
 DROP TABLE IF EXISTS physiotherapy CASCADE;
+DROP TABLE IF EXISTS dental CASCADE;
 DROP TABLE IF EXISTS seva CASCADE;
 DROP TABLE IF EXISTS history CASCADE;
 DROP TABLE IF EXISTS presenting_complaint CASCADE;
@@ -21,6 +22,7 @@ DROP TABLE IF EXISTS visits CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS pharmacy CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
+DROP TABLE IF EXISTS form_options CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TYPE IF EXISTS sex_type CASCADE;
 
@@ -34,6 +36,10 @@ CREATE TABLE users (
     password_hash TEXT,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     is_active BOOLEAN DEFAULT TRUE,
+    -- Set for a screening-day account: it sees only patients queued that day (utils/dayScope.js).
+    screening_date DATE NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -58,6 +64,9 @@ CREATE TABLE patients (
     sex sex_type,
     address TEXT,
     phone_number VARCHAR(50),
+    -- Family letter shared by patients who come together (A, B, ... AA), per location. A family
+    -- always has at least two members; letters freed up are used again.
+    family TEXT NULL CONSTRAINT patients_family_check CHECK (family ~ '^[A-Z]{1,4}$'),
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,           -- Will not be deleted, set inactive only
     created_at TIMESTAMP DEFAULT NOW()
@@ -98,6 +107,8 @@ CREATE TABLE visits (
         ON DELETE SET NULL ON UPDATE CASCADE,
     queue_no VARCHAR(50) NOT NULL,
     visit_date DATE NOT NULL,
+    -- Registration sticker colour: an id from the sticker_colours form list, NULL if none.
+    sticker_colour VARCHAR(40),
     completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -112,10 +123,11 @@ CREATE TABLE visit_stations (
         ON DELETE CASCADE ON UPDATE CASCADE,
     station VARCHAR(30) NOT NULL
         CONSTRAINT visit_stations_station_check
-        CHECK (station IN ('triage', 'seva', 'physiotherapy', 'consultation')),
+        CHECK (station IN ('triage', 'consultation', 'physiotherapy', 'dental', 'seva', 'pharmacy')),
     position INT NOT NULL,                 -- remaining route order; may change when a station is deferred or revisited
     entered_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
+    family_ready_at TIMESTAMP NULL,        -- done here, waiting for the rest of the family at this station
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -124,6 +136,8 @@ CREATE TABLE visit_stations (
 
 CREATE INDEX visit_stations_pending_idx
     ON visit_stations (visit_id, position) WHERE completed_at IS NULL;
+
+CREATE INDEX patients_family_idx ON patients (location_id, family) WHERE family IS NOT NULL;
 
 -- Suspected-TB flag on a visit. A flagged visit goes through its normal stations and is shown in
 -- red in every queue. status: suspected (flagged), cleared (flag removed), tb_likely (flagged;
@@ -182,10 +196,12 @@ CREATE TABLE visual_acuity (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    left_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    left_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
+    left_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_with_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
+    right_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -226,15 +242,29 @@ CREATE TABLE seva (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    left_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    left_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
-    right_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 6/9; NULL until taken
+    left_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_with_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    right_without_pinhole_new VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
+    left_with_glasses_new VARCHAR(15), -- with the patient's own glasses; NULL if not taken
+    right_with_glasses_new VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     diagnosis TEXT NOT NULL,
     date_of_referral DATE,
     referral VARCHAR(30)                               -- NULL = no referral
         CHECK (referral IN ('cataract_surgery', 'seva_general')),
     notes TEXT DEFAULT '',
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Dental: what the dental students did, and whether the doctor should refer the patient on.
+CREATE TABLE dental (
+    id SERIAL PRIMARY KEY,
+    visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    notes TEXT NOT NULL DEFAULT '',
+    referral_needed BOOLEAN NOT NULL DEFAULT FALSE,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
@@ -362,3 +392,12 @@ CREATE TABLE IF NOT EXISTS visit_station_route_history (
 );
 CREATE INDEX IF NOT EXISTS visit_station_route_history_visit_idx
     ON visit_station_route_history (visit_id, created_at);
+
+-- Station form choices an admin can change; a missing list uses shared/formOptions.json.
+CREATE TABLE IF NOT EXISTS form_options (
+    list_key VARCHAR(40) PRIMARY KEY,
+    items JSONB NOT NULL,
+    last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);

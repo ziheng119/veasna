@@ -8,6 +8,7 @@ import Vitals from './Vitals';
 import HEF from './HEF';
 import { useState, useEffect } from 'react';
 import SaveButton from '@/components/shared/SaveButton';
+import { Button } from '@/components/ui/button';
 import { PatientFormData } from '@/lib/types/patient';
 
 interface Props {
@@ -96,12 +97,9 @@ export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel
             </div>
 
             <div className='flex bg-beige-default justify-end space-x-3 py-6 px-6 pb-4'>
-                <button
-                    onClick={onCancel}
-                    className='px-4 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300'
-                >
+                <Button type="button" variant="outline" onClick={onCancel}>
                     Cancel
-                </button>
+                </Button>
                 
                 {effectiveMode !== 'view' && (
                     <SaveButton

@@ -2,6 +2,7 @@
 
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import SaveButton from "../shared/SaveButton";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
 import DottedImage from "./DottedImage";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export default function PhysiotherapyNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
 
   const [notes, setNotes] = useState<string>("");
   const [painpoints, setPainpoints] = useState<PainPoint[]>([]);
@@ -56,8 +57,9 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
     };
   }, [patient.visit_id, markSaved]);
 
-  const handleSave = async () => {
-    if (!editable) return;
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
     try {
       const data: Physiotherapy = {
         notes: notes,
@@ -67,8 +69,10 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       await postPhysiotherapy(data, patient.visit_id);
       markSaved();
       toast.success("Save Success");
+      return true;
     } catch (error) {
       toast.error("An error has occurred");
+      return false;
     }
   };
 
@@ -78,6 +82,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       className="xl:col-span-4"
       contentClassName="space-y-4"
     >
+      <StationDonePrompt patient={patient} done={saved} />
       <SavedRecordFields locked={!editable}>
         <div className="flex w-full">
           <VerticalLabelInputPair onChangeFunction={setNotes} value={notes} />
@@ -94,8 +99,10 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end">
-          <SaveButton onClick={handleSave} />
+        <div className="flex items-center justify-end gap-2">
+          <SaveButton onClick={handleSave} disabled={!editable} />
+          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== "" || painpoints.length > 0}
+            locked={saved && !editable} disabled={!editable && !saved} hint="Write notes or mark the body chart to finish" />
         </div>
       </SavedRecordFields>
     </PageCard>

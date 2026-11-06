@@ -22,3 +22,8 @@ test('queue numbers with letters sort naturally after plain numbers', () => {
   const input = ['A12', '12', 'b1', 'A2', '2A', 'A1', '3'].map((n, i) => row(i, n));
   expect(sortQueuePatients(input, 'number').map(p => p.queue_no)).toEqual(['2A', '3', '12', 'A1', 'A2', 'A12', 'b1']);
 });
+test('families sit together where their first member is, in either order', () => {
+  const input = [row(1, '1'), { ...row(2, '2'), family: 'A' }, row(3, '3'), { ...row(4, '4'), family: 'B' }, { ...row(5, '5'), family: 'A' }];
+  expect(sortQueuePatients(input, 'arrival').map(p => p.visit_id)).toEqual([1, 2, 5, 3, 4]);
+  expect(sortQueuePatients([...input].reverse(), 'number').map(p => p.visit_id)).toEqual([1, 2, 5, 3, 4]);
+});

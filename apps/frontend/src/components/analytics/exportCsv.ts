@@ -1,11 +1,13 @@
 import { Analytics, AnalyticsTrend } from "@/lib/api/analytics";
-import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 import { STATIONS } from "@/constants/stations";
+import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
 
-type Cell = string | number | null | undefined;
+export type Cell = string | number | boolean | null | undefined;
 
 // Long format (one value per row) so the file filters and pivots cleanly in a spreadsheet.
-export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { location: string; period: string }) {
+// `conditions`: the Consult form's current list, for the trend columns.
+export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { location: string; period: string },
+  conditions: readonly { id: string; label: string }[] = CONSULTATION_CONDITIONS) {
   const rows: Cell[][] = [["Section", "Item", "Measure", "Value"]];
   const add = (section: string, item: string, measure: string, value: Cell) => rows.push([section, item, measure, value]);
 
@@ -40,14 +42,18 @@ export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null,
     const item = bucket.startDate === bucket.endDate ? bucket.startDate : `${bucket.startDate} to ${bucket.endDate}`;
     add("Trend", item, "Patients reached", bucket.people);
     add("Trend", item, "Patients consulted", bucket.consultedPeople);
-    CONSULTATION_CONDITIONS.forEach(c => add("Trend", item, c.label, bucket.conditions[c.id] ?? 0));
+    conditions.forEach(c => add("Trend", item, c.label, bucket.conditions[c.id] ?? 0));
   });
 
+  return toCsv(rows);
+}
+
+/** CSV text for a table. The byte-order mark makes Excel read UTF-8 text such as "18–59" or Khmer names correctly. */
+export function toCsv(rows: Cell[][]): string {
   const escape = (cell: Cell) => {
     const text = String(cell ?? "");
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
-  // The byte-order mark makes Excel read UTF-8 labels such as "18–59" correctly.
   return "﻿" + rows.map(row => row.map(escape).join(",")).join("\r\n");
 }
 

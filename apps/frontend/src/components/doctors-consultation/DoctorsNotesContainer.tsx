@@ -1,10 +1,9 @@
 "use client";
 
-import { CONSULTATION_CONDITIONS } from "@/constants/consultationConditions";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useId, useState } from "react";
-import GlassButton from "../shared/GlassButton";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -15,13 +14,18 @@ import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsult
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
 import { PageCard } from "../shared/PageCard";
 import PrescriptionPanel from "./PrescriptionPanel";
+import DentalSummary from "./DentalSummary";
+import SendToPhysiotherapy from "./SendToPhysiotherapy";
+import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import SaveButton from "../shared/SaveButton";
 
 interface Props {
   patient: QueuedPatient;
 }
 
 export default function DoctorsNotesContainer({ patient }: Props) {
-  const { editable, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const conditions = useFormOptions("consultation_conditions");
+  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [conditionCategories, setConditionCategories] = useState<string[] | null>(null);
@@ -34,9 +38,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null);
 
-  const handleSave = async () => {
-    if (!editable) return;
-    if (saving || !loaded) return;
+  // Resolves to whether the notes were saved.
+  const handleSave = async (): Promise<boolean> => {
+    if (!editable) return false;
+    if (saving || !loaded) return false;
     setSaving(true);
     const data: Consultation = {
       notes: notes,
@@ -50,9 +55,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       await postConsultation(data, patient.visit_id);
       markSaved();
       toast.success("Save Success");
+      return true;
     } catch (error) {
       console.error("Consultation save failed:", error);
       toast.error("An error has occurred");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -134,6 +141,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       headerClassName="text-base"
       contentClassName="space-y-4 text-sm leading-5"
     >
+      <StationDonePrompt patient={patient} done={saved} />
       {/* Full page width: notes and conditions on the left, prescribing on the right. */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="min-w-0 space-y-4">
@@ -154,7 +162,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
               <legend className="px-1 font-semibold">Conditions addressed</legend>
               <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {CONSULTATION_CONDITIONS.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
+                {conditions.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
                     onChange={event => setConditionCategories(previous => event.target.checked
                       ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />
@@ -170,20 +178,23 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             </fieldset>
           </SavedRecordFields>
         </div>
-        {/* Prescriptions are separate records: they can be added after the notes are saved. */}
-        <div className="min-w-0 lg:border-l lg:border-border lg:pl-6">
+        {/* Prescriptions are separate records: they can be added after the notes are saved.
+            Prescribing adds Pharmacy to the patient's route. */}
+        <div className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6">
+          <DentalSummary visitId={patient.visit_id} />
+          <SendToPhysiotherapy patient={patient} />
           <PrescriptionPanel visitId={patient.visit_id} legacyPrescription={prescription} />
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <GlassButton
-          type="button"
-          className="h-10"
-          disabled={saving || !loaded || !editable}
-          onClick={handleSave}
-        >
-          {saving ? "Saving..." : "Save consultation notes"}
-        </GlassButton>
+        <div className="flex items-center gap-2">
+          <SaveButton label="Save consultation notes" busy={saving} disabled={!loaded || !editable} onClick={handleSave} />
+        {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
+          <SaveAndNextButton patient={patient} onSave={handleSave}
+            ready={saved || (notes.trim() !== "" && conditionCategories !== null)} locked={saved && !editable}
+            disabled={saving || !loaded || (!editable && !saved)}
+            hint="Write notes and tick the conditions addressed (or None) to finish" />
+        </div>
         <div className="ml-auto">
           {loadFailed ? (
             <p role="alert" className="text-sm text-destructive">

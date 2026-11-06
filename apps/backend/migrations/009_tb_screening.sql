@@ -16,9 +16,11 @@ BEGIN
     END LOOP;
 END $$;
 
+-- Also allows the stations added later (018: dental, pharmacy), so re-running this at startup
+-- never rejects their rows.
 ALTER TABLE visit_stations
     ADD CONSTRAINT visit_stations_station_check
-        CHECK (station IN ('tb', 'triage', 'seva', 'physiotherapy', 'consultation'));
+        CHECK (station IN ('tb', 'triage', 'seva', 'physiotherapy', 'consultation', 'dental', 'pharmacy'));
 
 -- One TB screening per visit. status: suspected (waiting for the TB doctor), cleared (no TB,
 -- may go to other stations), tb_likely (TB not ruled out; stays isolated until discharged).
