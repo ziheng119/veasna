@@ -219,11 +219,16 @@ export default function PatientDetailsPage() {
                             <div className="text-sm text-muted-foreground ml-7">
                               Queue: <span className="font-medium">{visit.queue_no}</span> • {visit.location_name}
                             </div>
+                            {/* What the visit has records for, in clinic order. */}
                             <div className="flex gap-2 mt-3 ml-7 flex-wrap">
-                              {visit.has_vitals && <Badge variant="active">Triage</Badge>}
-                              {visit.has_seva && <Badge variant="info">{PARTNER_NGO_NAME}</Badge>}
-                              {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
+                              {visit.has_tb_flag && <Badge variant="destructive">Suspected TB</Badge>}
+                              {(visit.has_triage ?? visit.has_presenting_complaint) && <Badge variant="active">Triage</Badge>}
+                              {visit.has_dental && <Badge variant="info">Dental</Badge>}
                               {visit.has_consultation && <Badge variant="secondary">Consultation</Badge>}
+                              {visit.has_referral && <Badge variant="outline">Referral</Badge>}
+                              {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
+                              {visit.has_seva && <Badge variant="info">{PARTNER_NGO_NAME}</Badge>}
+                              {!!visit.prescription_count && <Badge variant="success">{visit.prescription_count} {visit.prescription_count === 1 ? "medicine" : "medicines"}</Badge>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -67,6 +67,22 @@ removed, so the records still show who entered them.
 | Change a TB flag's red flags or notes | Yes | Yes |
 | Add or remove clinic locations | No | Yes |
 
+## What a patient's record shows
+
+**Patient Details** (from **View** on the Patient List) shows the patient's details and family letter, and every visit, newest first.
+Each visit in the list is marked with what it has records for: suspected TB, Triage,
+Dental, Consultation, Referral, Physiotherapy, Partner NGO and the number of medicines.
+Opening a visit shows:
+
+- **Stations:** where the patient went, in order, ticked with the time each was finished,
+  and whether the visit is finished or the patient is still in the clinic.
+- One tab per station with everything saved there: registration (visit details, vitals,
+  HEF), triage, consultation notes and conditions, the referral (destinations, doctor,
+  signer), physiotherapy (notes and body chart), dental, partner NGO and the TB flag.
+- **Pharmacy:** each medicine prescribed, its quantity and instructions, and whether it
+  was dispensed, cancelled or is still waiting, with who did each and when. Prescriptions
+  are read-only here; they are made at Consult and dispensed at Pharmacy.
+
 ## Changing saved records
 
 - Every form can be saved again after its first save: each triage section, consultation

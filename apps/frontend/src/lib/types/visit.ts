@@ -1,4 +1,5 @@
 import { TbStatus } from "@/constants/tb";
+import type { StationId } from "@/constants/stations";
 import { Signature } from "./consultation";
 
 export type Visit = {
@@ -18,11 +19,20 @@ export interface VisitSummary {
     visit_date: string;
     location_name: string;
     last_updated_at: string;
+    // Set when the visit is finished (discharged or done at every station).
+    completed_at?: string | null;
     has_vitals: boolean;
     has_presenting_complaint: boolean;
+    has_triage?: boolean;
+    has_dental?: boolean;
     has_seva: boolean;
     has_physiotherapy: boolean;
     has_consultation: boolean;
+    has_referral?: boolean;
+    // Medicines prescribed and not cancelled.
+    prescription_count?: number;
+    // Flagged for suspected TB (not cleared).
+    has_tb_flag?: boolean;
   }
   
 // Full visit returned by GET /api/patient/visit/:id (snake_case, as stored). A station
@@ -49,7 +59,32 @@ export interface VisitDetails {
     dental: VisitDental | null;
     consultation: VisitConsultation | null;
     referrals: VisitReferral[];
+    // Medicines prescribed at Consult, oldest first.
+    prescriptions?: VisitPrescription[];
+    // The stations the visit was sent to, in route order.
+    stations?: VisitStation[];
     tb: VisitTb | null;
+}
+
+export interface VisitPrescription {
+    id: number;
+    drug_name: string;
+    quantity: number;
+    instructions: string | null;
+    status: "pending" | "dispensed" | "cancelled";
+    prescribed_at: string;
+    prescribed_by: string | null;
+    dispensed_at: string | null;
+    dispensed_by: string | null;
+    cancelled_at: string | null;
+    cancelled_by: string | null;
+}
+
+export interface VisitStation {
+    station: StationId;
+    position: number;
+    entered_at: string | null;
+    completed_at: string | null;
 }
 
 export interface VisitVitals {

@@ -42,6 +42,7 @@ router.get(
         p.sex,
         p.address,
         p.phone_number,
+        p.family,
         p.last_updated_at,
         p.created_at,
         l.name AS location_name
@@ -65,19 +66,22 @@ router.get(
         v.visit_date,
         v.last_updated_at,
         l.name AS location_name,
-        -- Check which sections have data
-        CASE WHEN vt.id IS NOT NULL THEN true ELSE false END AS has_vitals,
-        CASE WHEN pc.id IS NOT NULL THEN true ELSE false END AS has_presenting_complaint,
-        CASE WHEN s.id IS NOT NULL THEN true ELSE false END AS has_seva,
-        CASE WHEN pt.id IS NOT NULL THEN true ELSE false END AS has_physiotherapy,
-        CASE WHEN c.id IS NOT NULL THEN true ELSE false END AS has_consultation
+        v.completed_at,
+        -- Which records the visit has, for the badges on each visit in the list.
+        EXISTS (SELECT 1 FROM vitals x WHERE x.visit_id = v.id) AS has_vitals,
+        EXISTS (SELECT 1 FROM presenting_complaint x WHERE x.visit_id = v.id) AS has_presenting_complaint,
+        (EXISTS (SELECT 1 FROM visual_acuity x WHERE x.visit_id = v.id)
+          OR EXISTS (SELECT 1 FROM presenting_complaint x WHERE x.visit_id = v.id)
+          OR EXISTS (SELECT 1 FROM history x WHERE x.visit_id = v.id)) AS has_triage,
+        EXISTS (SELECT 1 FROM dental x WHERE x.visit_id = v.id) AS has_dental,
+        EXISTS (SELECT 1 FROM seva x WHERE x.visit_id = v.id) AS has_seva,
+        EXISTS (SELECT 1 FROM physiotherapy x WHERE x.visit_id = v.id) AS has_physiotherapy,
+        EXISTS (SELECT 1 FROM consultation x WHERE x.visit_id = v.id) AS has_consultation,
+        EXISTS (SELECT 1 FROM referral x WHERE x.visit_id = v.id) AS has_referral,
+        (SELECT COUNT(*)::int FROM prescriptions x WHERE x.visit_id = v.id AND x.status <> 'cancelled') AS prescription_count,
+        COALESCE((SELECT x.status IN ('suspected', 'tb_likely') FROM tb_screening x WHERE x.visit_id = v.id), FALSE) AS has_tb_flag
       FROM visits v
       LEFT JOIN locations l ON v.location_id = l.id
-      LEFT JOIN vitals vt ON v.id = vt.visit_id
-      LEFT JOIN presenting_complaint pc ON v.id = pc.visit_id
-      LEFT JOIN seva s ON v.id = s.visit_id
-      LEFT JOIN physiotherapy pt ON v.id = pt.visit_id
-      LEFT JOIN consultation c ON v.id = c.visit_id
       WHERE v.patient_id = $1
       ORDER BY v.visit_date DESC, v.created_at DESC
     `;
@@ -372,6 +376,27 @@ router.get(
       const referralResult = await db.query(referralQuery, [id]);
       referrals = referralResult.rows;
 
+      // Medicines prescribed at Consult (linked to the pharmacy), with who prescribed, dispensed or
+      // cancelled each one and when.
+      const { rows: prescriptions } = await db.query(`
+        SELECT pr.id, pr.drug_name, pr.quantity, pr.instructions, pr.status,
+               pr.prescribed_at, pu.username AS prescribed_by,
+               pr.dispensed_at, du.username AS dispensed_by,
+               pr.cancelled_at, cu.username AS cancelled_by
+        FROM prescriptions pr
+        LEFT JOIN users pu ON pu.id = pr.prescribed_by
+        LEFT JOIN users du ON du.id = pr.dispensed_by
+        LEFT JOIN users cu ON cu.id = pr.cancelled_by
+        WHERE pr.visit_id = $1
+        ORDER BY pr.prescribed_at, pr.id
+      `, [id]);
+
+      // The stations the visit was sent to, in route order, and when each was finished.
+      const { rows: stations } = await db.query(`
+        SELECT station, position, entered_at, completed_at
+        FROM visit_stations WHERE visit_id = $1 ORDER BY position, id
+      `, [id]);
+
       // Structure the response
       const response = {
         visit_id: visit.visit_id,
@@ -490,6 +515,8 @@ router.get(
 
         // Referrals are now at visit level, not nested in consultation
         referrals: referrals,
+        prescriptions,
+        stations,
       };
 
       res.status(200).json(response);

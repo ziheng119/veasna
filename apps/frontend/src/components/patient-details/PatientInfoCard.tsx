@@ -107,6 +107,7 @@ export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
           readOnlyItems={[
             { label: "Unique ID", value: patient.face_id || "N/A" },
             { label: "Age", value: age === null ? "N/A" : `${age} years` },
+            { label: "Family", value: patient.family ? `Family ${patient.family}` : "None" },
             { label: "Last Updated", value: lastUpdated ? new Date(lastUpdated).toLocaleString() : "N/A" },
           ]}
           validate={(d) => {

@@ -7,6 +7,8 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import DottedImage from "@/components/physiotherapy/DottedImage";
 import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
 import EditableRecordSection, { CheckboxTile, FieldOption, FieldSpec } from "./EditableRecordSection";
+import VisitPrescriptions from "./VisitPrescriptions";
+import VisitStations from "./VisitStations";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { parseReferralDestinations } from "@/constants/referral";
@@ -148,7 +150,8 @@ const PHYSIO_FIELDS: FieldSpec<PhysioDraft>[] = [
 // Fields with choices from the Station data page are built from the current lists.
 const consultFields = (conditions: FormOption[]): FieldSpec<ConsultDraft>[] => [
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
-  { key: "prescription", label: "Prescription", kind: "textarea", wide: true },
+  // Free text from before prescribing used the pharmacy list; medicines are on the Pharmacy tab.
+  { key: "prescription", label: "Written prescription", kind: "textarea", wide: true },
   {
     key: "condition_categories",
     label: "Conditions Addressed",
@@ -332,6 +335,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     await onSaved();
   };
 
+  const prescriptions = visit.prescriptions ?? [];
   const hasRegistration = Boolean(visit.vitals || visit.hef);
   const hasTriage = Boolean(visit.visual_acuity || visit.presenting_complaint || visit.history);
   const hasConsultation = Boolean(visit.consultation || visit.referrals.length);
@@ -347,10 +351,13 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
     tab("dental", "Dental", STATION_ICONS.dental, Boolean(visit.dental)),
     tab("seva", PARTNER_NGO_NAME, STATION_ICONS.seva, Boolean(visit.seva)),
+    // Read-only: medicines are prescribed at Consult and dispensed at Pharmacy.
+    { value: "pharmacy", label: "Pharmacy", icon: STATION_ICONS.pharmacy, marked: prescriptions.length > 0, disabled: prescriptions.length === 0 },
   ];
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-4">
+      <VisitStations stations={visit.stations ?? []} completedAt={visit.completed_at} />
       <SegmentedTabs tabs={tabs} value={activeTab} label="Visit stations" markedLabel="has records" />
 
       {visit.tb && drafts.tb && (
@@ -453,6 +460,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           emptyDraft={{ past: "", drug_and_treatment: "", family: "", social: "", systems_review: "" }}
           onSave={saved((d: HistoryDraft) => saveMedicalHistory({ visit_id: visitId, ...d }))}
         />
+      </StationPanel>
+
+      <StationPanel value="pharmacy">
+        <VisitPrescriptions prescriptions={prescriptions} />
       </StationPanel>
 
       <StationPanel value="seva">
