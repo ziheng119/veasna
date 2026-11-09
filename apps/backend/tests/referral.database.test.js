@@ -61,6 +61,33 @@ const db = require('../config/db');
     expect(updated.status).toBe(200);
     expect(updated.body).toMatchObject({ reason: 'Updated', signature: null, signer_name: null, signer_id: null, signed_at: null });
   });
+  test("the doctor's name is saved, returned for printing and cleared when left blank", async () => {
+    const saved = await save({ ...draft, doctorName: '  Dr Nadia Wong ' });
+    expect(saved.status).toBe(200);
+    expect(saved.body.doctor_name).toBe('Dr Nadia Wong');
+    expect((await get()).body.doctor_name).toBe('Dr Nadia Wong');
+    // Older clients that don't send it, or a blank choice, leave no doctor named.
+    expect((await save(draft)).body.doctor_name).toBeNull();
+    expect((await save({ ...draft, doctorName: '' })).body.doctor_name).toBeNull();
+    for (const doctorName of [42, 'x'.repeat(101), ['Dr']]) {
+      expect((await save({ ...draft, doctorName })).status).toBe(400);
+    }
+  });
+  test('migration 023 adds the doctor column and resets the destination list only once', async () => {
+    await client.query(`CREATE TEMP TABLE form_options (list_key TEXT PRIMARY KEY, items JSONB, last_updated_by INT);
+      INSERT INTO form_options VALUES ('referral_destinations', '[{"id":"Bong Bondol","label":"Bong Bondol"}]', 1),
+        ('snellen', '[{"id":"20/20","label":"20/20"}]', 1);`);
+    const migration = fs.readFileSync(path.join(__dirname, '../migrations/023_referral_doctor_destinations.sql'), 'utf8');
+    await client.query(migration);
+    expect((await client.query('SELECT list_key FROM form_options ORDER BY list_key')).rows).toEqual([{ list_key: 'snellen' }]);
+    // A list saved afterwards on the Station data page survives later start-ups.
+    await client.query(`INSERT INTO form_options VALUES ('referral_destinations', '[{"id":"Optician","label":"Optician"}]', 1)`);
+    await client.query(migration);
+    expect((await client.query("SELECT items FROM form_options WHERE list_key = 'referral_destinations'")).rows[0].items)
+      .toEqual([{ id: 'Optician', label: 'Optician' }]);
+    expect((await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'referral' AND column_name = 'doctor_name'")).rows).toHaveLength(1);
+    await client.query('DROP TABLE form_options; DROP TABLE applied_data_changes');
+  });
   test('rejects invalid signatures and unauthenticated requests', async () => {
     expect((await save({ ...draft, signature: '<svg/>' })).status).toBe(400);
     expect((await request(app).post('/referral/1').send(draft)).status).toBe(401);
@@ -141,6 +168,7 @@ const db = require('../config/db');
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body.map(row => row.visit_id)).toEqual([1, 3]);
+    expect(response.body[0]).toHaveProperty('doctor_name', null);
     expect(response.body[0]).toMatchObject({ patient_id: 1, date_of_birth: '2000-01-01', referral_date: '2026-10-20' });
     expect(response.body[1].signature).toBeNull();
     expect((await daily({ location_id: 1, date: '2026-10-22' })).body).toEqual([]);

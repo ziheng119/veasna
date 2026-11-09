@@ -7,7 +7,7 @@ import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad from "./SignaturePad";
@@ -17,6 +17,7 @@ import { LETTERHEAD, letterheadLogoUrl } from "@/constants/letterhead";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { canEditSavedData, isAdmin } from "@/lib/permissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 interface Props {
   patient: QueuedPatient;
@@ -45,6 +46,12 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const [illness, setIllness] = useState<string>(retrievedReferral? retrievedReferral.illness : "")
   const [duration, setDuration] = useState<string>(retrievedReferral ? retrievedReferral.duration : "")
   const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : "")
+  // The doctor printed under the signature. Choices come from the Station data page; a name this
+  // referral was saved with stays selectable if it has since been taken off the list.
+  const [doctorName, setDoctorName] = useState<string>(retrievedReferral?.doctorName ?? "");
+  const listedDoctors = useFormOptions("referral_doctors").map(option => option.label);
+  const doctors = doctorName && !listedDoctors.includes(doctorName) ? [...listedDoctors, doctorName] : listedDoctors;
+  const doctorId = useId();
 
   const user = useUserStore((state) => state.user)
 
@@ -84,6 +91,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
     if (saving || readOnly || (print && !admin)) return;
+    if (print && !doctorName) { toast.error("Choose the doctor's name before printing."); return; }
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
     const printWindow = print ? window.open("", "_blank") : null;
     if (print && !printWindow) { toast.error("Allow pop-ups to print this referral."); return; }
@@ -95,6 +103,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       duration: duration,
       reason: reason,
       signature,
+      doctorName: doctorName || null,
     }
 
     try {
@@ -181,6 +190,18 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
           </section>
 
           <section className="space-y-3 border-t border-border pt-5">
+            <div>
+              <label htmlFor={doctorId} className="font-medium">Doctor&apos;s name</label>
+              <Select value={doctorName} onValueChange={setDoctorName} disabled={saving || readOnly}>
+                <SelectTrigger id={doctorId} className="mt-2 h-10 w-full rounded-lg sm:w-80">
+                  <SelectValue placeholder="Choose a doctor" />
+                </SelectTrigger>
+                <SelectContent side="bottom" className="max-h-72 border-border bg-popover">
+                  {doctors.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-xs text-muted-foreground">Printed under the signature on the referral letter.</p>
+            </div>
             <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{user?.username}</span></p>
             <SignaturePad value={signature} onChange={setSignature} disabled={saving}
               saved={signatureSaved}

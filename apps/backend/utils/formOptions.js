@@ -13,6 +13,8 @@ const LISTS = {
   snellen: { kind: 'value', defaults: DEFAULTS_FILE.snellen },
   tb_red_flags: { kind: 'id', defaults: DEFAULTS_FILE.tb_red_flags },
   referral_destinations: { kind: 'value', defaults: DEFAULTS_FILE.referral_destinations },
+  // Doctors who can be named on a referral letter (referral.doctor_name keeps the name itself).
+  referral_doctors: { kind: 'value', defaults: DEFAULTS_FILE.referral_doctors },
   consultation_conditions: { kind: 'id', defaults: CONDITIONS },
   // Sticker given at registration; shown as a coloured tag on the patient in every queue.
   sticker_colours: { kind: 'id', defaults: DEFAULTS_FILE.sticker_colours },

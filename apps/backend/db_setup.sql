@@ -321,6 +321,8 @@ CREATE TABLE referral (
     signer_id INTEGER REFERENCES users(id),
     signer_name TEXT,
     signed_at TIMESTAMPTZ,
+    -- Doctor named on the printed letter, from the referral_doctors list (migration 023).
+    doctor_name TEXT,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),

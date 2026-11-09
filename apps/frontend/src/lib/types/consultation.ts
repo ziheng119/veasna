@@ -12,6 +12,8 @@ export interface Referral {
     signerName?: string | null;
     signerId?: number | null;
     signedAt?: string | null;
+    // Doctor named under the signature on the printed letter (referral_doctors list); null if none.
+    doctorName?: string | null;
     referralDate: string; // Should be in "YYYY-MM-DD" format
     referralType: string[];
     illness: string;

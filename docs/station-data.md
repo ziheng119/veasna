@@ -11,7 +11,8 @@ search), or from the user menu (**Station data**).
 | Visual acuity (Snellen) readings | Triage and Partner NGO: readings without pinhole, with pinhole and with glasses, both eyes |
 | TB red flags | Registration and Triage (3 or more flag suspected TB) |
 | Conditions addressed | Consult notes, and the condition charts on Analytics |
-| Referral destinations | Consult referrals (printed on the letter) |
+| Referral destinations | Consult referrals (printed on the letter): places patients go outside the screening on referral days |
+| Doctors on referral letters | Consult referrals: **Doctor's name**, printed under the signature |
 
 For each list you can rename a choice, drag it by its grip (⋮⋮) to a new place (or focus
 the grip and use the arrow keys), remove it (after confirming) or add one, then

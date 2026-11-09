@@ -1,14 +1,16 @@
 const { referralDocumentHtml } = require('../src/components/doctors-consultation/ReferralDocument');
 const { referralBatchDocumentHtml } = require('../src/components/doctors-consultation/ReferralDocument');
-const referral = { referralDate: '2026-10-20', referralType: ['Dentist'], illness: '', duration: '', reason: '<script>alert(1)</script>', signature: [[[0, 0], [1, 1]]], signerName: 'Doctor <One>', signedAt: '2026-10-20T10:00:00Z' };
-test('print includes only selected and completed fields, signer, and signature', () => {
+const referral = { referralDate: '2026-10-20', referralType: ['Dentist'], illness: '', duration: '', reason: '<script>alert(1)</script>', signature: [[[0, 0], [1, 1]]], signerName: 'day_account', doctorName: 'Doctor <One>', signedAt: '2026-10-20T10:00:00Z' };
+test('print includes only selected and completed fields, the chosen doctor, and signature', () => {
   const html = referralDocumentHtml(referral, { english_name: 'Test Patient' }, 12);
   expect(html).toContain('Project Battambang');
   expect(html).toContain('Dentist');
   expect(html).not.toContain('Optometrist');
   expect(html).not.toContain('checkbox');
   expect(html).not.toContain('>Duration<');
+  // The name under the signature is the doctor chosen in the pop-up, not the signing account.
   expect(html).toContain('Doctor &lt;One&gt;');
+  expect(html).not.toContain('day_account');
   expect(html).toContain('<polyline');
   expect(html).toContain('&lt;script&gt;');
   expect(html).not.toContain('<script>');
@@ -39,6 +41,9 @@ test('letterhead logo and a handwritten signature block are print-ready', () => 
   expect(withLogo).toContain('Doctor&#x27;s signature');
   expect(withLogo).toContain('2026-10-20');
   expect(referralDocumentHtml(referral, {}, 12)).not.toContain('<img');
-  const unsigned = referralDocumentHtml({ ...referral, signature: null, signerName: null, signedAt: null }, {}, 12);
+  const unsigned = referralDocumentHtml({ ...referral, signature: null, signerName: null, doctorName: null, signedAt: null }, {}, 12);
   expect(unsigned).toContain('sign above by hand');
+  // No doctor chosen (older referrals): the name line is left blank for writing by hand.
+  expect(unsigned).not.toContain('Doctor &lt;One&gt;');
+  expect(unsigned).toMatch(/<strong>Name<\/strong><span>\s*<\/span>/);
 });

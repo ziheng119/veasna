@@ -19,6 +19,16 @@ jest.mock('../src/components/ui/dialog', () => {
     DialogDescription: ({ children }) => React.createElement('p', null, children),
   };
 });
+// Radix Select needs a browser DOM; a native select stands in for it.
+jest.mock('../src/components/ui/select', () => {
+  const React = require('react');
+  return {
+    Select: ({ value, onValueChange, disabled, children }) => React.createElement('select', { 'aria-label': "Doctor's name", value, disabled, onChange: e => onValueChange(e.target.value) }, children),
+    SelectTrigger: () => null, SelectValue: () => null,
+    SelectContent: ({ children }) => React.createElement(React.Fragment, null, children),
+    SelectItem: ({ value, children }) => React.createElement('option', { value }, children),
+  };
+});
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { id: 1, username: 'Clinician', role: currentRole } }) }));
 jest.mock('../src/lib/api/visit/deleteReferral', () => ({ deleteReferral: jest.fn() }));
 jest.mock('../src/lib/api/visit/postReferral', () => ({ postReferral: jest.fn() }));
@@ -26,6 +36,7 @@ jest.mock('../src/components/doctors-consultation/SignaturePad', () => ({ __esMo
 jest.mock('../src/components/doctors-consultation/ReferralDocument', () => ({ referralDocumentHtml: () => '<html>Referral</html>' }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 const { postReferral } = require('../src/lib/api/visit/postReferral');
+const toast = require('react-hot-toast').default;
 const ReferralForm = require('../src/components/doctors-consultation/Referral').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -64,8 +75,15 @@ test('editing retains signature; print saves first, uses saved record, and save 
       patient: { visit_id: 1 }, patientInfo: { english_name: 'Patient', date_of_birth: '2000-01-01' },
       retrievedReferral: null, onSaved, onClose,
     })); });
+    const doctor = () => renderer.root.findByProps({ 'aria-label': "Doctor's name" });
+    expect(doctor().findAllByType('option').map(o => o.props.value)).toEqual(['Dr Lim Huai Yang', 'Dr Nadia Wong', 'Dr Ellie Choi', 'Dr Rayal Dy']);
     await act(async () => print());
-    expect(window.open).not.toHaveBeenCalled(); // Unsigned printing is blocked.
+    expect(window.open).not.toHaveBeenCalled(); // No doctor chosen and unsigned: printing is blocked.
+    expect(toast.error).toHaveBeenLastCalledWith("Choose the doctor's name before printing.");
+    await act(async () => doctor().props.onChange({ target: { value: 'Dr Ellie Choi' } }));
+    await act(async () => print());
+    expect(window.open).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenLastCalledWith('Please sign this referral before printing.');
     await act(async () => sign());
     await act(async () => renderer.root.findByType('textarea').props.onChange({ target: { value: 'Updated reason' } }));
     expect(renderer.root.findByType('signature-pad').props.value).toEqual(signature);
@@ -77,8 +95,8 @@ test('editing retains signature; print saves first, uses saved record, and save 
     expect(onClose).not.toHaveBeenCalled();
     postReferral.mockResolvedValueOnce({ signature, signer_name: 'Clinician', signer_id: 1, signed_at: '2026-10-20' });
     await act(async () => print());
-    expect(postReferral).toHaveBeenLastCalledWith(expect.objectContaining({ signature }), 1);
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ signerName: 'Clinician', signature }));
+    expect(postReferral).toHaveBeenLastCalledWith(expect.objectContaining({ signature, doctorName: 'Dr Ellie Choi' }), 1);
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ signerName: 'Clinician', doctorName: 'Dr Ellie Choi', signature }));
     expect(popup.print).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   } finally {

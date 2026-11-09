@@ -28,6 +28,7 @@ interface ReferralRow {
   signer_name: string | null;
   signer_id: number | null;
   signed_at: string | null;
+  doctor_name?: string | null;
 }
 
 // Saved referrals at a location (or "all" locations) in the range, oldest first, ready to print.
@@ -55,6 +56,7 @@ export async function getReferrals(locationId: number | "all", range: ReferralRa
       referralType: (row.referral_type ?? "").split("\n").map(value => value.trim()).filter(Boolean),
       illness: row.illness ?? "", duration: row.duration ?? "", reason: row.reason ?? "",
       signature: row.signature, signerName: row.signer_name, signerId: row.signer_id, signedAt: row.signed_at,
+      doctorName: row.doctor_name ?? null,
     },
   }));
 }

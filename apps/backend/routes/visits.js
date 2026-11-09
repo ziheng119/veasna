@@ -21,6 +21,7 @@ const { normalizeStickerColour } = require('../utils/formOptions');
 const { canEditSavedRecords } = require('../utils/permissions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
+const MAX_DOCTOR_NAME = 100;
 
 // Saved referrals to print, for a day, a period or every date, at one location or all
 // (utils/referralFilter.js). Includes completed visits and unsigned drafts, not just patients still
@@ -32,7 +33,7 @@ router.get('/referrals', authenticateToken, async (req, res) => {
     const { rows } = await db.query(`
       SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
-        r.signature, r.signer_name, r.signer_id, r.signed_at,
+        r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
         p.id AS patient_id, v.location_id, p.english_name, p.khmer_name, p.sex, p.address,
         TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
       FROM referral r
@@ -844,7 +845,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       r.duration,
       r.reason,
       r.referral_date,
-      r.signature, r.signer_name, r.signer_id, r.signed_at,
+      r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
       r.last_updated_at AS referral_updated_at
     FROM consultation c
     FULL JOIN referral r ON r.visit_id = c.visit_id
@@ -945,6 +946,11 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
 
   const { referralDate, referralType, illness, duration, reason, signature } = req.body;
   if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
+  // The doctor named on the letter ("Doctor's name" in the pop-up). Blank or missing: none chosen.
+  const doctorName = req.body.doctorName == null ? '' : req.body.doctorName;
+  if (typeof doctorName !== 'string' || doctorName.trim().length > MAX_DOCTOR_NAME) {
+    return res.status(400).json({ error: `Doctor's name must be text of at most ${MAX_DOCTOR_NAME} characters.` });
+  }
   const last_updated_by = req.user.id;
 
   const query = `
@@ -955,13 +961,15 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       illness,
       duration,
       reason,
-      last_updated_by, signature, signer_id, signer_name, signed_at
+      last_updated_by, signature, signer_id, signer_name, signed_at, doctor_name
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
       CASE WHEN $8::jsonb IS NULL THEN NULL ELSE $7::integer END,
       CASE WHEN $8::jsonb IS NULL THEN NULL ELSE (SELECT username FROM users WHERE id = $7::integer) END,
-      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END)
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END,
+      NULLIF($9, ''))
     ON CONFLICT (visit_id) DO UPDATE SET
+      doctor_name = EXCLUDED.doctor_name,
       referral_date = EXCLUDED.referral_date,
       referral_type = EXCLUDED.referral_type,
       illness = EXCLUDED.illness,
@@ -991,6 +999,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       textOrEmpty(reason),
       last_updated_by,
       signature == null ? null : JSON.stringify(signature),
+      doctorName.trim(),
     ]);
 
     if (rows.length === 0) {

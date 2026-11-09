@@ -54,7 +54,7 @@ type SevaDraft = {
 type PhysioDraft = { notes: string; painpoints: PainPoint[] };
 type DentalDraft = { notes: string; referral_needed: boolean };
 type ConsultDraft = { notes: string; prescription: string; condition_categories: string[] | null };
-type ReferralDraft = { referral_date: string; destinations: string[]; illness: string; duration: string; reason: string };
+type ReferralDraft = { referral_date: string; destinations: string[]; doctor_name: string; illness: string; duration: string; reason: string };
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
 
@@ -186,9 +186,12 @@ const consultFields = (conditions: FormOption[]): FieldSpec<ConsultDraft>[] => [
     },
   },
 ];
-const referralFields = (destinations: FormOption[]): FieldSpec<ReferralDraft>[] => [
+// A doctor name saved earlier stays a choice even if it has since been taken off the list.
+const referralFields = (destinations: FormOption[], doctors: FormOption[], savedDoctor: string): FieldSpec<ReferralDraft>[] => [
   { key: "referral_date", label: "Referral Date", kind: "date" },
   { key: "destinations", label: "Referral Destinations", kind: "checkboxes", options: toFieldOptions(destinations), wide: true },
+  { key: "doctor_name", label: "Doctor's Name", kind: "select", allowBlank: "Not chosen",
+    options: toFieldOptions(savedDoctor && !doctors.some((d) => d.label === savedDoctor) ? [...doctors, { id: savedDoctor, label: savedDoctor }] : doctors) },
   { key: "illness", label: "Condition / Illness", kind: "text" },
   { key: "duration", label: "Duration", kind: "text" },
   { key: "reason", label: "Reason for Referral", kind: "textarea", wide: true },
@@ -250,7 +253,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const destinationItems = optionLists.referral_destinations.items;
   const redFlagItems = optionLists.tb_red_flags.items;
   const consultSpec = useMemo(() => consultFields(conditionItems), [conditionItems]);
-  const referralSpec = useMemo(() => referralFields(destinationItems), [destinationItems]);
+  const doctorItems = optionLists.referral_doctors.items;
+  const savedDoctor = visit.referrals[0]?.doctor_name ?? "";
+  const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
   const tbSpec = useMemo(() => tbFields(redFlagItems), [redFlagItems]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
@@ -292,6 +297,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
       } as ConsultDraft),
       referral: referral && ({
         referral_date: text(referral.referral_date), destinations: parseReferralDestinations(referral.referral_type),
+        doctor_name: text(referral.doctor_name),
         illness: text(referral.illness), duration: text(referral.duration), reason: text(referral.reason),
       } as ReferralDraft),
     };
@@ -528,6 +534,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             illness: d.illness,
             duration: d.duration,
             reason: d.reason,
+            doctorName: d.doctor_name || null,
             // Resending the saved strokes keeps the original signer and signing time.
             signature: visit.referrals[0]?.signature ?? null,
           }, visitId))}

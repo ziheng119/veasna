@@ -218,7 +218,20 @@ function ensureSharedUserRetired() {
   return retireSharedUserPromise;
 }
 
+// referral.doctor_name and the one-off reset of the referral destinations list (needs form_options
+// from 020).
+let referralDoctorPromise;
+function ensureReferralDoctor() {
+  if (!referralDoctorPromise) {
+    referralDoctorPromise = ensureDayAccountsAndFormOptions()
+      .then(() => runMigration('023_referral_doctor_destinations.sql'))
+      .catch(err => { referralDoctorPromise = null; throw err; });
+  }
+  return referralDoctorPromise;
+}
+
 module.exports = {
+  ensureReferralDoctor,
   ensureSharedUserRetired,
   ensureGlassesAndStickerColour,
   ensureDayAccountsAndFormOptions,

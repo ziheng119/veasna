@@ -2,7 +2,8 @@
 export const LETTERHEAD = {
   organisation: "Project Battambang",
   subtitle: "Community health screening",
-  // Put the BTB logo at apps/frontend/public/btb-logo.png (any size; it prints about 22 mm tall).
+  // The Project Battambang butterfly, apps/frontend/public/btb-logo.png (cropped to the artwork on
+  // white; it prints about 22 mm tall). Served by the host, so it prints offline.
   // Letters still print, with the name only, if the file is missing.
   logoPath: "/btb-logo.png",
 } as const;

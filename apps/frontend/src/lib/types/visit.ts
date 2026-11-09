@@ -136,6 +136,7 @@ export interface VisitReferral {
     signature: Signature | null;
     signer_name: string | null;
     signed_at: string | null;
+    doctor_name?: string | null;
 }
 
 // TB screening of a visit flagged for suspected TB.

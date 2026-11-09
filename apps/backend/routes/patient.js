@@ -363,6 +363,7 @@ router.get(
           signature,
           signer_name,
           signed_at,
+          doctor_name,
           last_updated_at
         FROM referral
         WHERE visit_id = $1
