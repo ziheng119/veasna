@@ -77,7 +77,14 @@ const db = require('../config/db');
     await client.query(`CREATE TEMP TABLE form_options (list_key TEXT PRIMARY KEY, items JSONB, last_updated_by INT);
       INSERT INTO form_options VALUES ('referral_destinations', '[{"id":"Bong Bondol","label":"Bong Bondol"}]', 1),
         ('snellen', '[{"id":"20/20","label":"20/20"}]', 1);`);
-    const migration = fs.readFileSync(path.join(__dirname, '../migrations/023_referral_doctor_destinations.sql'), 'utf8');
+    // Every table it touches is pointed at the temporary schema, so the test can never change the
+    // clinic database's own tables.
+    const migration = fs.readFileSync(path.join(__dirname, '../migrations/023_referral_doctor_destinations.sql'), 'utf8')
+      .replace('ALTER TABLE referral', 'ALTER TABLE pg_temp.referral')
+      .replace('CREATE TABLE IF NOT EXISTS applied_data_changes', 'CREATE TEMP TABLE IF NOT EXISTS applied_data_changes')
+      .replace('INSERT INTO applied_data_changes', 'INSERT INTO pg_temp.applied_data_changes')
+      .replace('DELETE FROM form_options', 'DELETE FROM pg_temp.form_options');
+    expect(migration.match(/pg_temp\.|TEMP TABLE/g)).toHaveLength(4);
     await client.query(migration);
     expect((await client.query('SELECT list_key FROM form_options ORDER BY list_key')).rows).toEqual([{ list_key: 'snellen' }]);
     // A list saved afterwards on the Station data page survives later start-ups.
@@ -85,8 +92,8 @@ const db = require('../config/db');
     await client.query(migration);
     expect((await client.query("SELECT items FROM form_options WHERE list_key = 'referral_destinations'")).rows[0].items)
       .toEqual([{ id: 'Optician', label: 'Optician' }]);
-    expect((await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'referral' AND column_name = 'doctor_name'")).rows).toHaveLength(1);
-    await client.query('DROP TABLE form_options; DROP TABLE applied_data_changes');
+    expect((await client.query("SELECT 1 FROM information_schema.columns WHERE table_schema LIKE 'pg_temp%' AND table_name = 'referral' AND column_name = 'doctor_name'")).rows).toHaveLength(1);
+    await client.query('DROP TABLE pg_temp.form_options; DROP TABLE pg_temp.applied_data_changes');
   });
   test('rejects invalid signatures and unauthenticated requests', async () => {
     expect((await save({ ...draft, signature: '<svg/>' })).status).toBe(400);
