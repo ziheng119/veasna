@@ -56,3 +56,42 @@ export function getAnalytics(locationId: AnalyticsLocation, date: string, token:
 export function getAnalyticsTrend(locationId: AnalyticsLocation, date: string, range: TrendRange, token: string, signal: AbortSignal): Promise<AnalyticsTrend> {
   return request("/trend", { location_id: String(locationId), date, range }, token, signal, "Unable to load trends. Please try again.");
 }
+
+/** A patient on a referral list: one referred visit. Ages are at the visit date (null if unknown). */
+export interface ReferredPatient {
+  visitId: number;
+  patientId: number;
+  queueNo: string;
+  visitDate: string;
+  locationName: string | null;
+  englishName: string | null;
+  khmerName: string | null;
+  sex: string | null;
+  dateOfBirth: string | null;
+  age: number | null;
+  phone: string | null;
+  address: string | null;
+  referralDate: string | null;
+  condition: string | null;
+  reason: string | null;
+  signed: boolean;
+}
+
+/** Patients referred to one destination. `listed` is false for a name no longer on the Station data list. */
+export interface ReferralList {
+  label: string;
+  listed: boolean;
+  patients: ReferredPatient[];
+}
+
+export interface AnalyticsReferralLists {
+  period: AnalyticsPeriod;
+  date: string;
+  locationId: AnalyticsLocation;
+  generatedAt: string;
+  destinations: ReferralList[];
+}
+
+export function getAnalyticsReferrals(locationId: AnalyticsLocation, date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsReferralLists> {
+  return request("/referrals", { location_id: String(locationId), date, period }, token, signal, "Unable to load referral lists. Please try again.");
+}

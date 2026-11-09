@@ -142,6 +142,75 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   }
 });
 
+// Groups referral rows (one per visit and destination) into one list per destination. A stored
+// name that matches a current Referral destinations choice apart from case or spacing is shown
+// under that choice, so "OPTICIAN" and "Optician" are one list. Every current choice is listed,
+// even with no patients, in the order of the Station data list; other saved names follow, largest
+// first. Exported for tests.
+function groupReferralLists(rows, listed) {
+  const key = label => String(label).trim().replace(/\s+/g, ' ').toLowerCase();
+  const groups = new Map(listed.map(option => [key(option.label), { label: option.label, listed: true, patients: [] }]));
+  for (const row of rows) {
+    const id = key(row.destination);
+    if (!groups.has(id)) groups.set(id, { label: row.destination.trim(), listed: false, patients: [] });
+    const { destination: _destination, ...patient } = row;
+    groups.get(id).patients.push(patient);
+  }
+  const all = [...groups.values()];
+  return [
+    ...all.filter(group => group.listed),
+    ...all.filter(group => !group.listed).sort((a, b) => b.patients.length - a.patients.length || a.label.localeCompare(b.label)),
+  ];
+}
+
+// GET /api/analytics/referrals?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all
+// Patients referred to each destination, for the visits in the period (by visit date, like the
+// rest of Analytics). Unlike the summary, this contains patient details, for taking the lists on
+// referral days; like all of Analytics it is admin only (utils/permissions.js).
+router.get('/referrals', authenticateToken, requireRole(['admin']), async (req, res) => {
+  const filters = parseFilters(req.query);
+  const period = req.query.period ?? 'day';
+  if (!filters || !['day', 'week', 'month', 'all'].includes(period)) return res.status(400).json({ error: FILTER_ERROR });
+  const { locationId, date } = filters;
+  const startDate = period === 'all' ? null : shiftDays(date, -PERIOD_DAYS[period]);
+  try {
+    if (!await activeAccount(req, res)) return;
+    const { rows } = await db.query(`
+      WITH destinations AS (
+        -- A destination written twice on one referral counts once.
+        SELECT DISTINCT ON (r.visit_id, lower(btrim(destination))) r.visit_id, btrim(destination) AS destination
+        FROM referral r
+        JOIN visits v ON v.id = r.visit_id
+        CROSS JOIN LATERAL unnest(string_to_array(r.referral_type, E'\\n')) AS destination
+        WHERE btrim(destination) <> ''
+          AND ($1::int IS NULL OR v.location_id = $1) AND v.visit_date <= $2::date AND ($3::date IS NULL OR v.visit_date >= $3::date)
+      )
+      SELECT d.destination, v.id AS "visitId", p.id AS "patientId", v.queue_no AS "queueNo",
+        TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate", l.name AS "locationName",
+        p.english_name AS "englishName", p.khmer_name AS "khmerName", p.sex::text AS sex,
+        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS "dateOfBirth",
+        CASE WHEN p.date_of_birth IS NULL OR p.date_of_birth > v.visit_date THEN NULL
+          ELSE EXTRACT(YEAR FROM age(v.visit_date, p.date_of_birth))::int END AS age,
+        p.phone_number AS phone, p.address,
+        TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS "referralDate", r.illness AS condition, r.reason,
+        (r.signature IS NOT NULL) AS signed
+      FROM destinations d
+      JOIN referral r ON r.visit_id = d.visit_id
+      JOIN visits v ON v.id = d.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      LEFT JOIN locations l ON l.id = v.location_id
+      ORDER BY v.visit_date, v.created_at, v.id
+    `, [locationId, date, startDate]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ date, period, startDate, endDate: date, locationId: filters.responseLocationId, generatedAt: new Date().toISOString(),
+      destinations: groupReferralLists(rows, await getOptions('referral_destinations')),
+    });
+  } catch (error) {
+    console.error('Referral list retrieval failed:', error);
+    res.status(500).json({ error: 'Unable to load referral lists. Please try again.' });
+  }
+});
+
 // Counts per date bucket for trend charts. Patients are deduplicated within each
 // bucket only, so bucket values are not additive across a range.
 router.get('/trend', authenticateToken, requireRole(['admin']), async (req, res) => {
@@ -186,3 +255,4 @@ router.get('/trend', authenticateToken, requireRole(['admin']), async (req, res)
 });
 
 module.exports = router;
+module.exports.groupReferralLists = groupReferralLists;
