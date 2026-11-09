@@ -1,7 +1,10 @@
-// Screening-day accounts (users.screening_date set, e.g. dec13village for 2026-12-13) are shared by
-// every volunteer on that day. They see only patients queued on that date, and those patients'
-// earlier visits (their history). They save only on that date, and only to that date's visits.
-// Accounts without a screening date (admin, user) are not limited here.
+// Every account except the admin sees only the patients queued on one day, and those patients'
+// earlier visits (their history, opened from their queue card). Patient data is therefore limited
+// to the villagers who come that day; only the admin browses every patient.
+//   Screening-day accounts (users.screening_date set, e.g. dec13village for 2026-12-13), shared by
+//   every volunteer on that day: that date. They save only on that date.
+//   Other non-admin accounts (e.g. the retired shared "user"): the host's clinic day.
+// Saves are allowed only to that day's visits.
 //
 // Lists filter themselves with patientOnDaySql; single records are checked by checkDayScope, which
 // authorizeApi runs before every request. A request it does not know is refused (fail closed).
@@ -43,9 +46,16 @@ const WRITE_RULES = [
 
 const ids = values => [...new Set((values ?? []).map(toPositiveInt).filter(Boolean))];
 
+// The day an account is limited to (YYYY-MM-DD), or null for the admin. Lists filter with it
+// (req.user.scope_date, set by middleware/authorizeApi.js).
+function scopeDate(user) {
+  if (!user || user.role === 'admin') return null;
+  return user.screening_date || currentVisitDate();
+}
+
 // Resolves to null when the request may go ahead, otherwise { status, message }.
 async function checkDayScope(db, req, rawPath) {
-  const day = req.user?.screening_date;
+  const day = req.user?.scope_date === undefined ? scopeDate(req.user) : req.user.scope_date;
   if (!day) return null;
   const path = rawPath.replace(/\/+$/, '') || '/';
   const reading = req.method === 'GET' || req.method === 'HEAD';
@@ -72,4 +82,4 @@ async function checkDayScope(db, req, rawPath) {
     : { status: 403, message: 'This account can only change visits from its screening day.' };
 }
 
-module.exports = { patientOnDaySql, checkDayScope };
+module.exports = { patientOnDaySql, checkDayScope, scopeDate };

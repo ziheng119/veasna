@@ -1,5 +1,6 @@
 // Next on a station queue card saves what was typed into the open patient's form first
-// (useSaveBeforeNext in components/shared/StationFlow.tsx).
+// (useSaveBeforeNext in components/shared/StationFlow.tsx), and Past visits on a returning patient's
+// card opens their earlier visits (components/shared/QueuePatientPicker.tsx).
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 const push = jest.fn();
@@ -47,7 +48,7 @@ const mount = async (formVisit = 1) => {
 };
 beforeEach(() => {
   global.window = Object.assign(new EventTarget(), { confirm: jest.fn(() => true) });
-  queue = [patient(1), patient(2)]; save.mockReset(); save.mockResolvedValue(true);
+  queue = [patient(1), patient(2, { previous_visits: 2 })]; save.mockReset(); save.mockResolvedValue(true);
 });
 afterEach(async () => { if (renderer) await act(async () => renderer.unmount()); renderer = null; delete global.window; jest.clearAllMocks(); });
 const nextOn = visitId => renderer.root.findAll(node => node.props['data-visit-id'] === visitId)[0]
@@ -86,3 +87,12 @@ test('a failed save keeps the patient here; another patient\'s Next never saves 
   expect(completeStation).toHaveBeenCalledWith(2, 'dental', 't');
 });
 
+test('Past visits shows only for a returning patient and opens their record, coming back to this queue', async () => {
+  await mount(2);
+  expect(renderer.root.findAll(node => node.props['data-visit-id'] === 1)[0].findAllByType('button').some(node => label(node).includes('Past visits'))).toBe(false);
+  expect(label(button('Past visits'))).toContain('Past visits (2)');
+  await act(async () => setNotes('Typed before leaving'));
+  await act(async () => button('Past visits').props.onClick());
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(push).toHaveBeenCalledWith(`/patient-details?id=102&from=${encodeURIComponent('/dental?visit=2')}`);
+});

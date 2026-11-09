@@ -535,7 +535,7 @@ router.get('/seva-referrals', authenticateToken, async (req, res) => {
         AND ${patientOnDaySql('p.id', '$2')}
       ORDER BY v.visit_date DESC, s.last_updated_at DESC
       `,
-      [locationId, req.user.screening_date ?? null]
+      [locationId, req.user.scope_date ?? null]
     );
     res.status(200).json(rows);
   } catch (err) {

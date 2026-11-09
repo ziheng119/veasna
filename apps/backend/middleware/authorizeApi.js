@@ -1,7 +1,7 @@
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
 const { canAccessApi, normalizeRole } = require('../utils/permissions');
-const { checkDayScope } = require('../utils/dayScope');
+const { checkDayScope, scopeDate } = require('../utils/dayScope');
 
 // Mounted before every /api route. Never trust a role sent in the body or an old JWT.
 function authorizeApi(req, res, next) {
@@ -15,9 +15,12 @@ function authorizeApi(req, res, next) {
       if (!account?.is_active) return res.status(403).json({ message: 'Account inactive or unavailable' });
       req.user = {
         ...req.user, id: account.id, username: account.username, role: normalizeRole(account.role),
-        // Set for a screening-day account: limits it to that day's patients (utils/dayScope.js).
+        // Set for a screening-day account (utils/dayScope.js).
         screening_date: account.screening_date,
       };
+      // The day whose patients this account may see: null for admins (every patient), otherwise the
+      // screening date, or the host's clinic day for an account without one.
+      req.user.scope_date = scopeDate(req.user);
       req.databaseAuthenticated = true;
       if (!canAccessApi(account.role, req.method, req.path)) {
         return res.status(403).json({ message: 'Your role does not have permission for this action' });

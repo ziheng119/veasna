@@ -32,7 +32,9 @@ const db = require("../config/db");
       await client.query(`SET search_path TO pg_temp;
    CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
    INSERT INTO users VALUES (1,'Admin','admin',TRUE),(2,'User','user',TRUE);
-   CREATE TEMP TABLE visits (id INT PRIMARY KEY); INSERT INTO visits VALUES (1);
+   CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1);
+   CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, visit_date DATE);
+   INSERT INTO visits VALUES (1, 1, '${require("../utils/queueNumber").currentVisitDate()}');
    CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, completed_at TIMESTAMP);`);
       const setup = fs
         .readFileSync(path.join(__dirname, "../db_setup.sql"), "utf8")

@@ -6,7 +6,7 @@ creates for everyone else:
 | Account | Password | Sees |
 | --- | --- | --- |
 | `admin` | `admin12345` | Everything |
-| Screening-day account, e.g. `dec13village` | chosen by the admin, e.g. `ilovebtb` | Only patients queued on its screening day, and their earlier visits |
+| Screening-day account, e.g. `dec13village` | chosen by the admin, e.g. `ilovebtb` | Only patients queued on its screening day, and their earlier visits (from **Past visits** on their queue card) |
 
 The old shared `user` / `user` sign-in has been retired: it is disabled when the server
 starts. It is kept, not deleted, so the records it entered still show who entered them.
@@ -24,9 +24,12 @@ shares it.
 The account then:
 
 - **Sees only that day's patients.** Patient List, every queue and the pharmacy show
-  only patients queued on its screening date. A patient who came on an earlier trip
-  appears once they are queued that day, and their profile shows all their earlier
-  visits. Other patients, from other trips or days, can't be opened.
+  only patients queued on its screening date, so patient data stays limited to the
+  villagers who come that day. A patient who came on an earlier trip shows
+  **Past visits (n)** under their card in each station queue; it opens their record with
+  every earlier visit, and **Back to queue** returns to them. Patients from other trips or
+  days who aren't queued that day can't be opened. **View** on the Patient List is for
+  the admin only.
 - **Can find returning patients to queue them.** On Home, typing 3 or more letters of a
   name lists matching earlier patients (name, date of birth, sex, phone, address, ID
   only, no clinical records), so their new visit joins their existing record.
@@ -45,7 +48,8 @@ removed, so the records still show who entered them.
 
 | Action | Screening day | Admin |
 | --- | --- | --- |
-| View and search pages, queues and patient records (screening-day accounts: that day's patients only) | Yes | Yes |
+| View and search pages, queues and the records of the day's patients, with their earlier visits (**Past visits** on the queue card) | Yes | Yes |
+| Open any patient's record from the Patient List (**View**), including patients not queued that day | No | Yes |
 | Open **Analytics** | No | Yes |
 | Print a referral (**Save & print referral**), or referrals for a day, a period or every date at once | No | Yes |
 | **Download all patient data** (Patient List) | No | Yes |
@@ -69,7 +73,8 @@ removed, so the records still show who entered them.
 
 ## What a patient's record shows
 
-**Patient Details** (from **View** on the Patient List) shows the patient's details and family letter, and every visit, newest first.
+**Patient Details** (from **View** on the Patient List for the admin, or **Past visits** on a
+queue card) shows the patient's details and family letter, and every visit, newest first.
 Each visit in the list is marked with what it has records for: suspected TB, Triage,
 Dental, Consultation, Referral, Physiotherapy, Partner NGO and the number of medicines.
 Opening a visit shows:
@@ -119,6 +124,10 @@ first-time setup. It never runs on its own when the server starts.
 
 - The server checks the account, role and screening date on every request, so a
   disabled account or a changed date takes effect immediately, even with an old sign-in.
+- Every account except the admin is limited to one day's patients: a screening-day
+  account to its screening date, any other non-admin account to the host's clinic day
+  (`scopeDate` in `utils/dayScope.js`, set as `req.user.scope_date` by
+  `middleware/authorizeApi.js`).
 - A screening-day account has the `user` role and `users.screening_date` set
   (migration `020_day_accounts_form_options.sql`). `utils/dayScope.js` limits it: lists
   filter by that date in their queries, and a request for one patient or visit is

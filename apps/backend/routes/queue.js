@@ -19,7 +19,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const location_id = toPositiveInt(req.query.location_id);
     // Defaults to the host's clinic day, the same date registration assigns to new visits. A
     // screening-day account always sees its own day's queue (utils/dayScope.js).
-    const date = req.user.screening_date || req.query.date || currentVisitDate();
+    const date = req.user.scope_date || req.query.date || currentVisitDate();
     const station = req.query.station || null;
 
     if (!location_id) {
@@ -53,6 +53,11 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 -- Done here and waiting for the rest of the family at this station.
                 cur.family_ready_at IS NOT NULL AS family_waiting,
                 tb.status AS tb_status,
+                -- Visits before this one (other trips or days): the card then offers Past visits.
+                (SELECT COUNT(*)::int FROM visits pv
+                  WHERE pv.patient_id = p.id AND pv.id <> v.id
+                    AND (pv.visit_date < v.visit_date OR (pv.visit_date = v.visit_date AND pv.created_at < v.created_at))
+                ) AS previous_visits,
                 -- Suspected TB: shown in red in every queue so doctors can attend to the patient.
                 COALESCE(tb.status IN ('suspected', 'tb_likely'), FALSE) AS tb_flagged,
                 -- Done at the current station: its form is saved (every Triage section), or at

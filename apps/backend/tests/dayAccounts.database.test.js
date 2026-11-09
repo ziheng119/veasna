@@ -64,10 +64,12 @@ const { localDate } = require('../utils/validation');
     if (previousSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousSecret;
   });
 
-  test('a day account lists only patients queued on its day; the user account sees everyone', async () => {
+  test("a day account lists only patients queued on its day; other non-admins see today's; the admin sees everyone", async () => {
     expect((await as('today_village', 'get', '/auth/me')).body.screening_date).toBe(today);
     expect((await as('today_village', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
-    expect((await as('user', 'get', '/patients?location_id=1')).body.map(p => p.id).sort()).toEqual([1, 2]);
+    // An account without a screening date is limited to the host's clinic day.
+    expect((await as('user', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
+    expect((await as('admin', 'get', '/patients?location_id=1')).body.map(p => p.id).sort()).toEqual([1, 2]);
     expect((await as('today_village', 'get', '/patients/search?q=e')).body.map(p => p.id)).toEqual([1]);
   });
 
@@ -78,7 +80,9 @@ const { localDate } = require('../utils/validation');
     expect((await as('today_village', 'get', '/patient/visit/20')).status).toBe(404);
     expect((await as('today_village', 'get', '/visits/vitals/2/20')).status).toBe(404);
     expect((await as('today_village', 'get', '/patients/2/history')).status).toBe(403); // unknown to the scope: refused
-    expect((await as('user', 'get', '/patient/2')).status).toBe(200);
+    expect((await as('user', 'get', '/patient/2')).status).toBe(404);
+    expect((await as('user', 'get', '/patient/visit/10')).status).toBe(200);
+    expect((await as('admin', 'get', '/patient/2')).status).toBe(200);
   });
 
   test('a returning patient can be found by name to be queued, with identifying details only', async () => {

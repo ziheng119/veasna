@@ -96,7 +96,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                AND ($3::text IS NULL OR pr.status = $3)
                AND ${patientOnDaySql('v.patient_id', '$4')}
              ORDER BY pr.prescribed_at ASC, pr.id ASC`,
-            [visitId, locationId, status, req.user.screening_date ?? null]
+            [visitId, locationId, status, req.user.scope_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {
@@ -127,7 +127,7 @@ router.get('/patients', authenticateToken, requireRole(['any']), async (req, res
                AND ${patientOnDaySql('pa.id', '$2')}
              GROUP BY pa.id
              ORDER BY MAX(pr.prescribed_at) DESC`,
-            [locationId, req.user.screening_date ?? null]
+            [locationId, req.user.scope_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {

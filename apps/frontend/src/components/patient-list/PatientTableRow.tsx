@@ -1,3 +1,4 @@
+import DisabledActionHint from "@/components/shared/DisabledActionHint";
 import { useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,8 @@ const calculateAge = (birthDate: string): number => {
     const monthDiff = today.getMonth() - dob.getMonth();
     return monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age;
 };
+
+const VIEW_ADMIN_ONLY = "Only the admin can open patient records here. Open a returning patient's past visits from their card in the queue.";
 
 export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient, onDeletePatient, onFamilyChanged }: PatientTableRowProps) {
     const router = useRouter();
@@ -101,15 +104,19 @@ export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient
                 <td className="py-3 pl-4 pr-6 text-sm text-foreground">
                     <div className="flex items-center gap-0.5">
 
-                        {/* View Patient */}
-                        <button
-                        onClick={() => patient.id && onViewPatient?.(patient.id)}
-                        className={cn(POP, "text-primary")}
-                        title="View patient"
-                        aria-label={`View ${patient.english_name || "patient"}`}
-                        >
-                            <EyeIcon className="h-4 w-4"/>
-                        </button>
+                        {/* View every record of the patient: admin only. Other accounts open a returning
+                            patient's past visits from their card in the station queue. */}
+                        <DisabledActionHint disabled={!isAdmin} message={VIEW_ADMIN_ONLY}>
+                            <button
+                            disabled={!isAdmin}
+                            onClick={() => patient.id && onViewPatient?.(patient.id)}
+                            className={cn(POP, "text-primary")}
+                            title={isAdmin ? "View patient" : undefined}
+                            aria-label={`View ${patient.english_name || "patient"}`}
+                            >
+                                <EyeIcon className="h-4 w-4"/>
+                            </button>
+                        </DisabledActionHint>
 
                         {/* Group with the patients they came with */}
                         {patient.id && (

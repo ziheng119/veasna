@@ -82,7 +82,7 @@ router.put('/:visitId', ...editors, async (req, res) => {
   }
   // A screening-day account may only change its own day's visits (utils/dayScope.js), so it can't
   // move one to another date either.
-  const day = req.user.screening_date;
+  const day = req.user.scope_date;
   if (day && visit_date !== undefined && visit_date !== day) {
     return res.status(403).json({ error: `This account can only keep visits on its screening day, ${day}.` });
   }

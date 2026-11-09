@@ -1,5 +1,5 @@
 // Patient Details: prescriptions and stations of a visit (components/patient-details/VisitPrescriptions.tsx,
-// VisitStations.tsx).
+// VisitStations.tsx), and the Patient List's View button, which only the admin can use.
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 let role = 'admin';
@@ -11,6 +11,7 @@ const VisitPrescriptions = require('../src/components/patient-details/VisitPresc
 const { prescriptionTrail } = require('../src/components/patient-details/VisitPrescriptions');
 const VisitStations = require('../src/components/patient-details/VisitStations').default;
 const { visitStatusText } = require('../src/components/patient-details/VisitStations');
+const { PatientTableRow } = require('../src/components/patient-list/PatientTableRow');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const text = node => (node.children ?? []).flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
@@ -53,3 +54,19 @@ test('stations show the route in order, what was finished, and where the patient
   expect(await render(React.createElement(VisitStations, { stations: [], completedAt: null }))).toBe('');
 });
 
+test.each([['admin', false], ['user', true]])('Patient List View button for %s: disabled %s', async (who, disabled) => {
+  role = who;
+  const onViewPatient = jest.fn();
+  const patient = { id: 7, english_name: 'Sok', khmer_name: '', date_of_birth: '1990-01-01', sex: 'M' };
+  await render(React.createElement('table', null, React.createElement('tbody', null,
+    React.createElement(PatientTableRow, { patient, allPatients: [patient], onViewPatient }))));
+  const view = renderer.root.findByProps({ 'aria-label': 'View Sok' });
+  expect(Boolean(view.props.disabled)).toBe(disabled);
+  // Hovering the disabled button explains where other accounts find past visits.
+  const hint = renderer.root.findAll(node => typeof node.props['aria-label'] === 'string' && node.props['aria-label'].startsWith('Only the admin'));
+  expect(hint.length > 0).toBe(disabled);
+  if (!disabled) {
+    await act(async () => view.props.onClick());
+    expect(onViewPatient).toHaveBeenCalledWith(7);
+  }
+});

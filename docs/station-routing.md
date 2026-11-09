@@ -73,7 +73,8 @@ A patient is **done** at a station once everything needed there is saved:
   is saved, then the patient is sent on. At Triage each section with changes is saved.
   A form nobody has typed into is not saved, so no empty record is made. If the save
   fails (for example an eye reading that isn't a Snellen value), the patient stays and
-  the message says why.
+  the message says why. **Past visits** on the card saves the same way before opening
+  the patient's earlier visits.
 
 ### Families move together
 

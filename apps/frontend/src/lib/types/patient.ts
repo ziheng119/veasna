@@ -32,6 +32,8 @@ export type QueuedPatient = {
     family?: string | null;
     // Done at the current station, waiting for the rest of the family there.
     family_waiting?: boolean;
+    // Visits before this one (earlier trips or days): the queue card then offers Past visits.
+    previous_visits?: number;
     // Station the patient is currently waiting at, and every station indicated for the visit.
     current_station?: StationId | null;
     stations?: { station: StationId; completed: boolean }[];

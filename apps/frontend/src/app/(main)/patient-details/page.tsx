@@ -42,6 +42,10 @@ export default function PatientDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = Number(searchParams.get('id'));
+  // Opened from a patient's card in a station queue (Past visits): Back returns there. Only paths in
+  // this app are followed.
+  const from = searchParams.get('from');
+  const backTo = from && from.startsWith('/') && !from.startsWith('//') ? from : null;
   const token = useUserStore((state) => state.user?.token);
   const canEdit = useUserStore((state) => canEditSavedData(state.user?.role));
   // Deleting a visit can't be undone, so it stays with the admin account.
@@ -146,11 +150,11 @@ export default function PatientDetailsPage() {
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          onClick={() => router.push('/patient-list')}
+          onClick={() => router.push(backTo ?? '/patient-list')}
           className={BACK_BUTTON}
         >
           <ArrowLeftIcon className={BACK_ARROW} />
-          Back to Patient List
+          {backTo ? 'Back to queue' : 'Back to Patient List'}
         </Button>
         {!canEdit && (
           <p className="text-sm text-muted-foreground">Read-only. This account can&apos;t change saved data.</p>

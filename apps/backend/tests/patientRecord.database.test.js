@@ -1,4 +1,5 @@
-// Patient Details: a patient's visit list and one visit's complete record (routes/patient.js). Uses only connection-local temporary tables
+// Patient Details: a patient's visit list and one visit's complete record (routes/patient.js), and
+// which accounts may open them (utils/dayScope.js). Uses only connection-local temporary tables
 // (RUN_DB_TESTS=1 and a configured apps/backend/.env); clinic data is never modified.
 const express = require('express');
 const request = require('supertest');
@@ -94,4 +95,13 @@ const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 't
     expect(body.visits.find(v => v.visit_id === 11)).toMatchObject({ has_triage: false, prescription_count: 0, completed_at: null });
   });
 
+  test("non-admin accounts open only today's patients, with their earlier visits", async () => {
+    for (const [id, role] of [[2, 'user'], [3, 'user']]) {
+      expect((await as(id, role, '/patient/1')).status).toBe(200);
+      expect((await as(id, role, '/patient/visit/10')).status).toBe(200); // the returning patient's history
+      expect((await as(id, role, '/patient/2')).status).toBe(404); // not queued today
+      expect((await as(id, role, '/patient/visit/20')).status).toBe(404);
+    }
+    expect((await as(1, 'admin', '/patient/2')).status).toBe(200);
+  });
 });

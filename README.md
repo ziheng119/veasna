@@ -86,7 +86,7 @@ the admin creates on the **Accounts** page for everyone else.
 | Account | Password | Can do |
 | --- | --- | --- |
 | `admin` | `admin12345` | Everything, including deleting records, Analytics, printing referrals, downloading all patient data, Station data, Accounts |
-| e.g. `dec13village` | set by the admin | Sees patients queued on its screening day (with their earlier visits), enters and corrects their records, and saves only on that day |
+| e.g. `dec13village` | set by the admin | Sees patients queued on its screening day (with their earlier visits, from **Past visits** on the queue card), enters and corrects their records, and saves only on that day |
 
 See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
 

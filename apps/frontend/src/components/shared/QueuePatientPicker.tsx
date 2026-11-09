@@ -11,7 +11,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
-import { StationId, stationLabel } from "@/constants/stations";
+import { StationId, stationLabel, stationPageHref } from "@/constants/stations";
 import TbBadge, { tbCardClass } from "./TbBadge";
 import FamilyBadge from "./FamilyBadge";
 import StickerTag, { findSticker, stickerLabel, useStickerColours } from "./StickerTag";
@@ -23,7 +23,7 @@ import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, CircleCheck, Hourglass, ListChecks, X } from "lucide-react";
+import { Check, ChevronRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -137,6 +137,14 @@ export default function QueuePatientPicker({
     }
   };
 
+  // A returning patient's earlier visits, on Patient Details. Anything typed into their open form is
+  // saved first, as with Next; Back there returns to this queue with the patient selected again.
+  const openPastVisits = async (patient: QueuedPatient) => {
+    if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
+    const from = stationPageHref(station, patient.visit_id);
+    router.push(`/patient-details?id=${patient.patient_id}&from=${encodeURIComponent(from)}`);
+  };
+
   // A cleared patient who is still waiting here stays selected, without the red marker.
   const handleTbCleared = async (patient: QueuedPatient, currentStation: StationId | null) => {
     if (selectedVisitId === patient.visit_id) {
@@ -207,7 +215,7 @@ export default function QueuePatientPicker({
                 // The native buttons handle their own actions; all remaining card space selects.
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
-              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
+              className={`cursor-pointer rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
                 tbFlagged
                   ? tbCardClass(isSelected)
                   : isSelected
@@ -215,6 +223,7 @@ export default function QueuePatientPicker({
                     : "border-border hover:bg-accent/60"
               }`}
             >
+              <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
@@ -302,6 +311,24 @@ export default function QueuePatientPicker({
                   Discharge
                 </Button>
               </div>
+              </div>
+              {/* Only for a patient who has been before: their earlier trips and days. */}
+              {!!patient.previous_visits && (
+                <div className="mt-2 border-t border-border/70 pt-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="group/past h-7 gap-1.5 rounded-full px-2 text-xs font-medium text-muted-foreground hover:text-primary"
+                    aria-label={`Past visits of ${patient.english_name || "patient"}: ${patient.previous_visits}`}
+                    onClick={() => void openPastVisits(patient)}
+                  >
+                    <History className="size-3.5" aria-hidden="true" />
+                    Past visits ({patient.previous_visits})
+                    <ChevronRight className="size-3.5 transition-transform duration-200 group-hover/past:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })

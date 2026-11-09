@@ -44,7 +44,8 @@ const USER_ID = 2;
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
         CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
-        INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);`);
+        INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);
+        CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1), (2);`);
       // Real table definitions, so constraints match production.
       const setup = fs
         .readFileSync(path.join(__dirname, "../db_setup.sql"), "utf8")
@@ -84,7 +85,10 @@ const USER_ID = 2;
       ["/visits/1", { sticker_colour: "gold" }],
       ["/visits/1/vitals", { vitals }],
       ["/visits/1/tb", { flag_notes: "x" }],
-    ])("users can correct %s, attributed to them", async (url, body) => {
+    ])("users can correct %s on today's visit, attributed to them", async (url, body) => {
+      // Accounts other than the admin only change the visits of the day (utils/dayScope.js).
+      await client.query(`UPDATE visits SET visit_date = '${require("../utils/queueNumber").currentVisitDate()}' WHERE id = 1`);
+      expect((await put(url.replace("/visits/1", "/visits/2"), body, "user")).status).toBe(403); // another day's visit
       if (url.endsWith("/tb")) {
         await client.query(`INSERT INTO tb_screening (visit_id, red_flags, status, flagged_by, last_updated_by)
           VALUES (1, '{fever}', 'suspected', ${ADMIN_ID}, ${ADMIN_ID})`);
