@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { ArrowRight, Check, CircleCheck, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,19 @@ import { cn } from "@/lib/utils";
 // finish the patient's station, send them to their next one, and open the next patient waiting.
 // A family member who is done waits here for the rest of the family; the next patient opened is
 // then usually the next family member, since families sit together in the queue.
+//
+// Next on a queue card (and "Send to next station") first saves whatever has been typed into the
+// open patient's form, so nothing written is lost. Each form registers itself with
+// useSaveBeforeNext; a form left as it was loaded or last saved is not saved again.
+
+// One form (or one Triage section) of the open patient.
+interface Draft {
+  visitId: number;
+  // Something was typed or changed since the form was loaded or last saved.
+  unsaved: () => boolean;
+  // Saves it; resolves to false when it was not saved (the form shows why).
+  save: () => Promise<boolean>;
+}
 
 interface StationFlow {
   station: StationId;
@@ -22,6 +35,10 @@ interface StationFlow {
   advance: (patient: QueuedPatient) => Promise<void>;
   // Called by the queue with the patients as shown, so "next" follows the order on screen.
   registerQueue: (patients: QueuedPatient[], refresh: () => Promise<unknown>) => void;
+  // Adds an open form; returns a function that removes it again.
+  registerDraft: (draft: Draft) => () => void;
+  // Saves the visit's forms that have unsaved changes; resolves to false if any save failed.
+  saveDrafts: (visitId: number) => Promise<boolean>;
 }
 
 const StationFlowContext = createContext<StationFlow | null>(null);
@@ -44,6 +61,18 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
     queue.current = { patients, refresh };
   }, []);
 
+  const drafts = useRef(new Set<Draft>());
+  const registerDraft = useCallback((draft: Draft) => {
+    drafts.current.add(draft);
+    return () => { drafts.current.delete(draft); };
+  }, []);
+  const saveDrafts = useCallback(async (visitId: number) => {
+    for (const draft of Array.from(drafts.current)) {
+      if (draft.visitId === visitId && draft.unsaved() && !(await draft.save())) return false;
+    }
+    return true;
+  }, []);
+
   const advance = useCallback(async (patient: QueuedPatient) => {
     if (!token) throw new Error("Sign in again to continue.");
     const move = await completeStation(patient.visit_id, station, token);
@@ -60,8 +89,32 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
     await queue.current.refresh?.();
   }, [onSelectPatient, station, token]);
 
-  const value = useMemo(() => ({ station, advance, registerQueue }), [station, advance, registerQueue]);
+  const value = useMemo(() => ({ station, advance, registerQueue, registerDraft, saveDrafts }),
+    [station, advance, registerQueue, registerDraft, saveDrafts]);
   return <StationFlowContext.Provider value={value}>{children}</StationFlowContext.Provider>;
+}
+
+/**
+ * Lets Next on the patient's queue card save this form first. `values` is what the form saves;
+ * `savedVersion` changes whenever the form is loaded or saved (null until it has loaded), and the
+ * values at that moment count as saved. Nothing is saved while the form is unchanged.
+ */
+export function useSaveBeforeNext(visitId: number, savedVersion: string | null, values: unknown, save: () => Promise<boolean>) {
+  const flow = useStationFlow();
+  const current = JSON.stringify(values);
+  const latest = useRef({ current, save });
+  latest.current = { current, save };
+  const baseline = useRef<{ version: string; values: string } | null>(null);
+  // The values shown right after a load or save are the saved ones.
+  useEffect(() => {
+    baseline.current = savedVersion === null ? null : { version: savedVersion, values: latest.current.current };
+  }, [savedVersion]);
+  const registerDraft = flow?.registerDraft;
+  useEffect(() => registerDraft?.({
+    visitId,
+    unsaved: () => baseline.current !== null && baseline.current.values !== latest.current.current,
+    save: () => latest.current.save(),
+  }), [registerDraft, visitId]);
 }
 
 interface SaveAndNextProps {
@@ -119,6 +172,7 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
   const sendOn = async () => {
     setBusy(true);
     try {
+      if (!(await flow.saveDrafts(patient.visit_id))) return;
       await flow.advance(patient);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not send the patient on.");

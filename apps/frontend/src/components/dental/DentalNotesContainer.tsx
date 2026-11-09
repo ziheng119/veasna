@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import toast from "react-hot-toast";
 import SaveButton from "../shared/SaveButton";
-import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { PageCard } from "../shared/PageCard";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +19,7 @@ interface Props {
 
 /** What the dental students did, and whether the doctor should refer the patient on. */
 export default function DentalNotesContainer({ patient }: Props) {
-  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const referralId = useId();
   const [notes, setNotes] = useState("");
@@ -54,6 +54,8 @@ export default function DentalNotesContainer({ patient }: Props) {
       return false;
     }
   };
+  // Next on the queue card saves these notes first.
+  useSaveBeforeNext(patient.visit_id, savedVersion, { notes, referralNeeded }, handleSave);
 
   return (
     <PageCard title="Dental Notes" className="xl:col-span-4" contentClassName="space-y-4">

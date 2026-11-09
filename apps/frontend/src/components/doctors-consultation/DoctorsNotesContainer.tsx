@@ -16,7 +16,7 @@ import { PageCard } from "../shared/PageCard";
 import PrescriptionPanel from "./PrescriptionPanel";
 import DentalSummary from "./DentalSummary";
 import SendToPhysiotherapy from "./SendToPhysiotherapy";
-import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import SaveButton from "../shared/SaveButton";
 
 interface Props {
@@ -25,7 +25,7 @@ interface Props {
 
 export default function DoctorsNotesContainer({ patient }: Props) {
   const conditions = useFormOptions("consultation_conditions");
-  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
   const notesId = useId();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [conditionCategories, setConditionCategories] = useState<string[] | null>(null);
@@ -64,6 +64,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       setSaving(false);
     }
   };
+
+  // Next on the queue card saves the notes and conditions first. Prescriptions, the referral and
+  // the physiotherapy referral are saved as soon as they are made.
+  useSaveBeforeNext(patient.visit_id, savedVersion, { notes, conditionCategories }, handleSave);
 
   useEffect(() => {
     if (!patient?.patient_id) {

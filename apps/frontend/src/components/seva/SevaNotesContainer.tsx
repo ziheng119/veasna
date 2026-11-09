@@ -5,7 +5,7 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useEffect, useState } from "react";
 import SaveButton from "../shared/SaveButton";
-import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import toast from "react-hot-toast";
 import { Seva } from "@/lib/types/seva";
@@ -38,7 +38,7 @@ interface Props {
 }
 
 export default function SevaNotesContainer({ patient }: Props) {
-  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
   const [readings, setReadings] = useState<EyeReadings>(EMPTY_EYE_READINGS);
   const [diagnosis, setDiagnosis] = useState<string>("");
   const [dateOfReferral, setDateOfReferral] = useState<string>("");
@@ -113,6 +113,8 @@ export default function SevaNotesContainer({ patient }: Props) {
       return false;
     }
   };
+  // Next on the queue card saves this form first.
+  useSaveBeforeNext(patient.visit_id, savedVersion, { readings, diagnosis, dateOfReferral, referral, additionalNotes }, handleSave);
 
   // Saved readings are shown open so they are not missed.
   const eyeReadingsRecorded = EYE_READING_FIELDS.some((field) => Boolean(readings[field]));

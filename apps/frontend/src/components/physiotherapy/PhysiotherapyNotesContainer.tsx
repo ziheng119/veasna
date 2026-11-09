@@ -2,7 +2,7 @@
 
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import SaveButton from "../shared/SaveButton";
-import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import DottedImage from "./DottedImage";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function PhysiotherapyNotesContainer({ patient }: Props) {
-  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
 
   const [notes, setNotes] = useState<string>("");
   const [painpoints, setPainpoints] = useState<PainPoint[]>([]);
@@ -75,6 +75,8 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       return false;
     }
   };
+  // Next on the queue card saves these notes and the body chart first.
+  useSaveBeforeNext(patient.visit_id, savedVersion, { notes, painpoints }, handleSave);
 
   return (
     <PageCard

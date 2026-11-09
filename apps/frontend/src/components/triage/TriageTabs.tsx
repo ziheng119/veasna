@@ -24,7 +24,7 @@ import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 import { canEditSavedData } from "@/lib/permissions";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
-import { SaveAndNextButton, StationDonePrompt } from "@/components/shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "@/components/shared/StationFlow";
 
 // Triage is done when every section is saved.
 const SECTIONS = [
@@ -52,7 +52,13 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     const [loadError, setLoadError] = useState(false);
     const [retry, setRetry] = useState(0);
     const locked = (section: string) => loadedVisit !== visit_id || (!canEdit && savedSections[section]);
-    const saved = (section: string) => setSavedSections(previous => ({ ...previous, [section]: true }));
+    const saved = (section: string) => {
+        setSavedSections(previous => ({ ...previous, [section]: true }));
+        setSaveCounts(previous => ({ ...previous, [section]: (previous[section] ?? 0) + 1 }));
+    };
+    // Counts loads and each section's saves, so Next on the queue card knows what is unsaved.
+    const [loadCount, setLoadCount] = useState(0);
+    const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
     useEffect(() => {
       let cancelled = false;
       setLoadedVisit(null); setLoadError(false);
@@ -70,6 +76,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         setMedicalHistory({ past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "" });
         setSavedSections({ acuity: acuity !== null, complaint: complaint !== null, history: history !== null });
         setLoadedVisit(visit_id);
+        setLoadCount(count => count + 1);
       }).catch(() => { if (!cancelled) setLoadError(true); });
       return () => { cancelled = true; };
     }, [patient_id, visit_id, retry]);
@@ -138,6 +145,13 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             success: 'Data saved successfully!',
             error: (error) => error.message || 'Failed to save data.',
         }).then(() => true, () => false).finally(() => setIsLoading(false));
+
+    // Next on the queue card saves every section with unsaved changes first, one by one.
+    const sectionVersion = (section: SectionId) =>
+        loadedVisit === visit_id ? `${visit_id}:${loadCount}:${saveCounts[section] ?? 0}` : null;
+    useSaveBeforeNext(visit_id, sectionVersion("acuity"), { visualAcuity, sendToSeva }, handleSaveVisualAcuity);
+    useSaveBeforeNext(visit_id, sectionVersion("complaint"), presentingComplaint, handleSavePresentingComplaint);
+    useSaveBeforeNext(visit_id, sectionVersion("history"), medicalHistory, handleSaveMedicalHistory);
 
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);
 

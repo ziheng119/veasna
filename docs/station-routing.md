@@ -67,8 +67,13 @@ A patient is **done** at a station once everything needed there is saved:
 - At Consult, prescribe and tick **Refer to physiotherapy station** before **Save & next**,
   so the patient goes to the right place.
 - A form that is already saved can be saved again by anyone, for example when the doctor
-  finds more later. **Save & next** then saves the changes and sends the patient on;
-  **Send to next station** and **Next** on the card send them on without saving.
+  finds more later. **Save & next** then saves the changes and sends the patient on.
+- **Next** on the patient's queue card (and **Send to next station**) also saves first:
+  whatever has been typed into the open patient's form since it was opened or last saved
+  is saved, then the patient is sent on. At Triage each section with changes is saved.
+  A form nobody has typed into is not saved, so no empty record is made. If the save
+  fails (for example an eye reading that isn't a Snellen value), the patient stays and
+  the message says why.
 
 ### Families move together
 

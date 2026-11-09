@@ -52,6 +52,8 @@ export default function QueuePatientPicker({
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
+  // Present on station pages (not Home): Next saves the open form first, and the order is shared.
+  const flow = useStationFlow();
 
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
@@ -98,6 +100,8 @@ export default function QueuePatientPicker({
     if (!token) return;
 
     try {
+      // Saves anything typed into this patient's open form first; a failed save keeps them here.
+      if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
       const move = await completeStation(patient.visit_id, station, token);
       const left = [patient.visit_id, ...move.family_moved.map((member) => member.visit_id)];
       // A patient waiting for family is still here, so stays selected.
@@ -158,7 +162,6 @@ export default function QueuePatientPicker({
   }, [patients, searchQuery, mode]);
 
   // "Save & next" on this page opens the next patient in the order shown here.
-  const flow = useStationFlow();
   useEffect(() => {
     flow?.registerQueue(sortedPatients, loadQueue);
   }, [flow, sortedPatients, loadQueue]);
