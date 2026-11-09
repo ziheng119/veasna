@@ -98,20 +98,26 @@ const db = require('../config/db');
     expect((await save(draft)).status).toBe(200);
     expect((await get()).body.require_referral).toBe(true);
   });
-  test('user first save is allowed, concurrent overwrite is denied without changing referral metadata', async () => {
+  test('users create and change referrals and notes; simultaneous first saves keep one referral', async () => {
     await client.query('INSERT INTO visits (id) VALUES (50)');
     const userToken = jwt.sign({ id: 1, role: 'user' }, secret);
     const submit = reason => request(app).post('/referral/50').set('Authorization', `Bearer ${userToken}`).send({ ...draft, reason });
     const results = await Promise.all([submit('First'), submit('Other')]);
-    expect(results.map(result => result.status).sort()).toEqual([200, 403]);
-    const before = (await client.query('SELECT * FROM referral WHERE visit_id=50')).rows[0];
-    expect((await submit('Overwrite')).status).toBe(403);
-    expect((await client.query('SELECT * FROM referral WHERE visit_id=50')).rows[0]).toEqual(before);
+    expect(results.map(result => result.status)).toEqual([200, 200]);
+    expect((await client.query('SELECT reason FROM referral WHERE visit_id=50')).rows).toHaveLength(1);
+    // Doctors can add to a saved referral (utils/permissions.js canEditSavedRecords).
+    expect((await submit('Changed by user')).status).toBe(200);
+    expect((await client.query('SELECT reason, last_updated_by FROM referral WHERE visit_id=50')).rows[0])
+      .toEqual({ reason: 'Changed by user', last_updated_by: 1 });
     const notes = data => request(app).post('/consultation/50').set('Authorization', `Bearer ${userToken}`).send(data);
     expect((await notes({ notes: 'Initial notes' })).status).toBe(200);
-    expect((await notes({ notes: 'Changed notes' })).status).toBe(403);
-    expect((await client.query('SELECT notes FROM consultation WHERE visit_id=50')).rows[0].notes).toBe('Initial notes');
+    expect((await notes({ notes: 'Changed notes' })).status).toBe(200);
+    expect((await client.query('SELECT notes FROM consultation WHERE visit_id=50')).rows[0].notes).toBe('Changed notes');
     expect((await request(app).post('/referral/50').set('Authorization', `Bearer ${token}`).send({ ...draft, reason: 'Admin edit' })).status).toBe(200);
+    // Saving with an unknown role is refused and changes nothing.
+    const unknown = jwt.sign({ id: 1, role: 'visitor' }, secret);
+    expect((await request(app).post('/referral/50').set('Authorization', `Bearer ${unknown}`).send({ ...draft, reason: 'No' })).status).toBe(403);
+    expect((await client.query('SELECT reason FROM referral WHERE visit_id=50')).rows[0].reason).toBe('Admin edit');
     await client.query('DELETE FROM referral WHERE visit_id=50');
     await client.query('DELETE FROM consultation WHERE visit_id=50');
     await client.query('DELETE FROM visits WHERE id=50');
@@ -149,7 +155,7 @@ const db = require('../config/db');
     }
     expect((await request(app).get('/referrals').query({ location_id: 1, date: '2026-10-20' })).status).toBe(401);
   });
-  test('condition selections persist, reject invalid input, obey saved-record permissions and preserve labels for older clients', async () => {
+  test('condition selections persist, reject invalid input, can be changed by users and preserve labels for older clients', async () => {
     const migration = fs.readFileSync(path.join(__dirname, '../migrations/015_consultation_conditions.sql'), 'utf8');
     await client.query(migration); await client.query(migration);
     await client.query('INSERT INTO visits (id) VALUES (51)');
@@ -157,8 +163,8 @@ const db = require('../config/db');
     const saveNotes = (auth,body) => request(app).post('/consultation/51').set('Authorization','Bearer '+auth).send(body);
     expect((await saveNotes(userToken,{notes:'Initial',condition_categories:['diabetes','hypertension']})).status).toBe(200);
     expect((await request(app).get('/consultation/51').set('Authorization','Bearer '+token)).body.condition_categories).toEqual(['diabetes','hypertension']);
-    expect((await saveNotes(userToken,{condition_categories:['skin']})).status).toBe(403);
-    expect((await saveNotes(token,{notes:'Older client'})).body.condition_categories).toEqual(['diabetes','hypertension']);
+    expect((await saveNotes(userToken,{notes:'Initial',condition_categories:['skin']})).body.condition_categories).toEqual(['skin']);
+    expect((await saveNotes(token,{notes:'Older client'})).body.condition_categories).toEqual(['skin']);
     for (const value of ['diabetes',['unknown'],['diabetes','diabetes'],[null],{}]) {
       expect((await saveNotes(token,{condition_categories:value})).status).toBe(400);
     }

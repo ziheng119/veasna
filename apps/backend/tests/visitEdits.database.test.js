@@ -81,11 +81,23 @@ const USER_ID = 2;
     });
 
     test.each([
-      ["/visits/1", { queue_no: "5" }],
+      ["/visits/1", { sticker_colour: "gold" }],
       ["/visits/1/vitals", { vitals }],
       ["/visits/1/tb", { flag_notes: "x" }],
-    ])("users cannot use %s", async (url, body) => {
-      expect((await put(url, body, "user")).status).toBe(403);
+    ])("users can correct %s, attributed to them", async (url, body) => {
+      if (url.endsWith("/tb")) {
+        await client.query(`INSERT INTO tb_screening (visit_id, red_flags, status, flagged_by, last_updated_by)
+          VALUES (1, '{fever}', 'suspected', ${ADMIN_ID}, ${ADMIN_ID})`);
+      }
+      const res = await put(url, body, "user");
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).toContain(`"last_updated_by":${USER_ID}`);
+    });
+
+    test("only an admin can delete a visit", async () => {
+      const remove = (role) => request(app).delete("/visits/2").set("Authorization", "Bearer " + token(role));
+      expect((await remove("user")).status).toBe(403);
+      expect((await client.query("SELECT id FROM visits WHERE id = 2")).rows).toHaveLength(1);
     });
 
     test("visit details are corrected and attributed to the admin", async () => {

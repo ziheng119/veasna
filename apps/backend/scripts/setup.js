@@ -69,7 +69,7 @@ async function runSetup() {
   console.log('\nNext steps:');
   console.log('1. Start the server: npm run dev');
   console.log('2. Test the API: curl http://localhost:3000/health');
-  console.log('3. Sign in as admin (password: admin12345) or user (password: user).');
+  console.log('3. Sign in as admin (password: admin12345), then create screening-day accounts on the Accounts page.');
 }
 
 runSetup()

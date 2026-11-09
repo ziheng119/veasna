@@ -28,6 +28,10 @@ const READ_RULES = [
 ];
 const WRITE_RULES = [
   [/^\/queue\/(\d+)\/.+$/, m => ({ visits: [m[1]] })],
+  // Correcting a patient's details (any patient queued that day) or that day's visit details,
+  // vitals and HEF, or TB record, on Patient Details.
+  [/^\/patient\/(\d+)$/, m => ({ patients: [m[1]] })],
+  [/^\/visits\/(\d+)(?:\/(?:vitals|tb))?$/, m => ({ visits: [m[1]] })],
   [/^\/visits\/(?:dental|seva|physiotherapy|consultation|referral)\/(\d+)$/, m => ({ visits: [m[1]] })],
   [/^\/tb\/(\d+)\/flag$/, m => ({ visits: [m[1]] })],
   [/^\/(triage\/[a-z-]+|prescriptions)$/, (_m, req) => ({ visits: [req.body?.visit_id] })],

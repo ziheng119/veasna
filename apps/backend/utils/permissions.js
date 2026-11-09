@@ -12,6 +12,19 @@ const LEGACY_ROLES = [
 function normalizeRole(role) {
   return LEGACY_ROLES.includes(role) ? "user" : role;
 }
+// Changing saved patient records (patient details, a visit's details, vitals and HEF, the TB record,
+// every station form and the referral) is open to every account, so doctors can correct and add
+// what they find as the patient moves through the stations. Deleting records, pharmacy stock,
+// printing many referrals, downloads, Analytics and settings stay admin-only.
+// Saved-record upserts use this in their ON CONFLICT ... WHERE, so an unknown role still fails closed.
+function canEditSavedRecords(rawRole) {
+  return ROLES.includes(normalizeRole(rawRole));
+}
+// Correcting saved records on Patient Details: PUT patient/{id}, PUT visits/{id},
+// PUT visits/{id}/vitals and PUT visits/{id}/tb (routes/patient.js, routes/visitEdits.js).
+function isRecordEdit(method, path) {
+  return method === "PUT" && (/^\/patient\/\d+$/.test(path) || /^\/visits\/\d+(\/(vitals|tb))?$/.test(path));
+}
 // Moving a patient through the clinic: finish a station, change the remaining route or one station
 // on it, or discharge. This is patient flow, not an edit of saved records, so users may do it.
 function isQueueMovement(method, path) {
@@ -33,10 +46,10 @@ function canAccessApi(rawRole, method, rawPath) {
   if (method === "POST" && ["/auth/register", "/users"].includes(path)) return false;
   if (role === "admin") return true;
   if (method === "GET" || method === "HEAD") return !isAdminOnlyRead(path);
-  if (isQueueMovement(method, path)) return true;
+  if (isQueueMovement(method, path) || isRecordEdit(method, path)) return true;
   if (method !== "POST") return false;
-  // Only creation-capable endpoints. Each clinical upsert atomically refuses an
-  // existing row for users; POST alone is not proof that a request creates data.
+  // Only endpoints that create or save patient records. POST alone is not proof that a request
+  // only touches patient records (e.g. dispensing changes stock), so each is listed.
   return (
     [
       "/registration",
@@ -58,4 +71,4 @@ function canAccessApi(rawRole, method, rawPath) {
     path === "/prescriptions"
   );
 }
-module.exports = { ROLES, normalizeRole, canAccessApi };
+module.exports = { ROLES, normalizeRole, canAccessApi, canEditSavedRecords };

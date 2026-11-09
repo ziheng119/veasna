@@ -207,7 +207,19 @@ function ensureGlassesAndStickerColour() {
   return glassesStickerPromise;
 }
 
+// Disables the shared "user" sign-in; needs users.screening_date from 020.
+let retireSharedUserPromise;
+function ensureSharedUserRetired() {
+  if (!retireSharedUserPromise) {
+    retireSharedUserPromise = ensureDayAccountsAndFormOptions()
+      .then(() => runMigration('022_retire_shared_user_account.sql'))
+      .catch(err => { retireSharedUserPromise = null; throw err; });
+  }
+  return retireSharedUserPromise;
+}
+
 module.exports = {
+  ensureSharedUserRetired,
   ensureGlassesAndStickerColour,
   ensureDayAccountsAndFormOptions,
   ensureTbFlag,

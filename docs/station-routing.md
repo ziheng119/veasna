@@ -58,9 +58,9 @@ A patient is **done** at a station once everything needed there is saved:
   patient on.
 - At Consult, prescribe and tick **Send to Physiotherapy** before **Save & next**, so the
   patient goes to the right place.
-- A form that is already saved can't be saved again by a user. Its button then reads
-  **Next station** (green) and only sends the patient on; **Send to next station** and
-  **Next** on the card do the same.
+- A form that is already saved can be saved again by anyone, for example when the doctor
+  finds more later. **Save & next** then saves the changes and sends the patient on;
+  **Send to next station** and **Next** on the card send them on without saving.
 
 ### Families move together
 
@@ -140,13 +140,13 @@ A TB patient's stations can't be changed, before or after the flag is cleared, s
 Good to know:
 
 - The flag can only be cleared while the patient is waiting at Consult; the server
-  refuses it anywhere else, for admins too. An admin can correct the flag of a finished
-  or discharged visit on **Patient Details**. Clearing also removes any other stations
+  refuses it anywhere else, for admins too. The flag of a finished or discharged visit
+  can be corrected on **Patient Details**. Clearing also removes any other stations
   left on an older visit's route.
 - Flagging a patient whose Consultation is already finished doesn't reopen it.
 - If two people clear the same patient, the second press changes nothing.
-- Only an admin can change the red flags or notes of an existing flag (on **Patient
-  Details**). That never moves the patient.
+- Anyone can change the red flags or notes of an existing flag (on **Patient Details**).
+  That never moves the patient.
 - A patient flagged by mistake still goes to Consult only. The doctor can **Finish**
   them; register a new visit if they need other stations.
 

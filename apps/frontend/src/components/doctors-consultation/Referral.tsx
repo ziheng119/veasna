@@ -16,6 +16,7 @@ import { writeAndPrint } from "@/lib/printDocument";
 import { LETTERHEAD, letterheadLogoUrl } from "@/constants/letterhead";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { canEditSavedData, isAdmin } from "@/lib/permissions";
 
 interface Props {
   patient: QueuedPatient;
@@ -47,7 +48,9 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
   const user = useUserStore((state) => state.user)
 
-  const readOnly = user?.role !== "admin" && retrievedReferral !== null;
+  // Every account can change a saved referral; printing it and deleting it are admin-only.
+  const readOnly = !canEditSavedData(user?.role) && retrievedReferral !== null;
+  const admin = isAdmin(user?.role);
   // A signature this user saved earlier in the session fills in on each new referral.
   const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
   const saveSignature = useSavedSignatureStore((state) => state.save);
@@ -61,7 +64,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const [deleteError, setDeleteError] = useState("");
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const handleDelete = async () => {
-    if (user?.role !== "admin" || saving || !retrievedReferral || !confirmDelete) return;
+    if (!admin || saving || !retrievedReferral || !confirmDelete) return;
     setDeleteError("");
     setSaving(true);
     try {
@@ -80,7 +83,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   };
   // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
-    if (saving || readOnly) return;
+    if (saving || readOnly || (print && !admin)) return;
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
     const printWindow = print ? window.open("", "_blank") : null;
     if (print && !printWindow) { toast.error("Allow pop-ups to print this referral."); return; }
@@ -121,13 +124,13 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
-      {readOnly && <div className="px-6 py-3">
-        <p>Read-only. Only an admin can change a saved referral.</p>
-        <GlassButton type="button" onClick={() => {
+      {readOnly && <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-8">
+        <p className="text-muted-foreground">Read-only. This account can&apos;t change a saved referral.</p>
+        {admin && <GlassButton type="button" onClick={() => {
           const popup = window.open("", "_blank");
           if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
           writeAndPrint(popup, referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
-        }}>Print saved referral</GlassButton>
+        }}>Print saved referral</GlassButton>}
       </div>}
       <form onSubmit={event => event.preventDefault()}>
         <fieldset disabled={saving || readOnly} className="space-y-6 px-6 py-6 sm:px-8">
@@ -191,7 +194,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
-            {retrievedReferral && user?.role === "admin" && <Dialog open={confirmDelete} onOpenChange={open => {
+            {retrievedReferral && admin && <Dialog open={confirmDelete} onOpenChange={open => {
               if (saving) return;
               setDeleteError("");
               setConfirmDelete(open);
@@ -225,7 +228,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
               </DialogContent>
             </Dialog>}
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving..." : "Save referral"}</GlassButton>
-            <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>
+            {/* Printing referrals is for the admin account only. */}
+            {admin && <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>}
           </div>
         </fieldset>
       </form>

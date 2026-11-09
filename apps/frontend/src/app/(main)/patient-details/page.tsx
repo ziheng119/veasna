@@ -16,7 +16,7 @@ import PatientInfoCard, { PatientRecord } from "@/components/patient-details/Pat
 import VisitRecordTabs from "@/components/patient-details/VisitRecordTabs";
 import { clearPatientCache, getPatient } from "@/lib/api/patient/getPatients";
 import { clearVisitCache, getVisit } from "@/lib/api/visit/getVisit";
-import { canEditSavedData } from "@/lib/permissions";
+import { canEditSavedData, isAdmin } from "@/lib/permissions";
 import formatDate from "@/helper/format_date";
 import { VisitDetails, VisitSummary } from "@/lib/types/visit";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER, STABLE_SCROLLBAR } from "@/lib/pageLayout";
@@ -35,8 +35,8 @@ interface PatientData {
 }
 
 /**
- * A patient's demographics and full visit history. Everyone can read it; admins can correct
- * the patient details and every record of a visit, one section at a time.
+ * A patient's demographics and full visit history. Every account can read it and correct the
+ * patient details and every record of a visit, one section at a time; only an admin deletes a visit.
  */
 export default function PatientDetailsPage() {
   const searchParams = useSearchParams();
@@ -44,6 +44,8 @@ export default function PatientDetailsPage() {
   const patientId = Number(searchParams.get('id'));
   const token = useUserStore((state) => state.user?.token);
   const canEdit = useUserStore((state) => canEditSavedData(state.user?.role));
+  // Deleting a visit can't be undone, so it stays with the admin account.
+  const canDelete = useUserStore((state) => isAdmin(state.user?.role));
 
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
@@ -89,7 +91,7 @@ export default function PatientDetailsPage() {
     }
   };
 
-  // After an admin edit, reload the visit and the visit list (queue number, date and badges).
+  // After an edit, reload the visit and the visit list (queue number, date and badges).
   const reloadSelectedVisit = useCallback(async () => {
     if (!token || selectedVisitId === null) return;
     clearVisitCache(selectedVisitId);
@@ -151,7 +153,7 @@ export default function PatientDetailsPage() {
           Back to Patient List
         </Button>
         {!canEdit && (
-          <p className="text-sm text-muted-foreground">Read-only. Only an admin can change saved data.</p>
+          <p className="text-sm text-muted-foreground">Read-only. This account can&apos;t change saved data.</p>
         )}
       </div>
 
@@ -251,7 +253,7 @@ export default function PatientDetailsPage() {
                     <ArrowLeftIcon className={BACK_ARROW} />
                     Back to Visits
                   </Button>
-                  {canEdit && (
+                  {canDelete && (
                     <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setConfirmDelete(true)}>
                       <Trash2 className="size-4" aria-hidden="true" />
                       Delete visit
@@ -259,7 +261,7 @@ export default function PatientDetailsPage() {
                   )}
                 </div>
                 <div className="mt-2">
-                  {/* Prefer the loaded visit so admin edits to date, queue or location show at once. */}
+                  {/* Prefer the loaded visit so edits to date, queue or location show at once. */}
                   <CardTitle className="text-2xl">
                     {formatDate(visitDetails?.visit_date ?? selectedSummary?.visit_date ?? null)}
                   </CardTitle>

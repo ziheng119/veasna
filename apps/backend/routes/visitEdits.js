@@ -1,14 +1,15 @@
 // routes/visitEdits.js
-// Admin-only corrections to a saved visit, used by the Patient Details page.
+// Corrections to a saved visit, used by the Patient Details page. Any account may correct a visit
+// (utils/permissions.js canEditSavedRecords); deleting a visit stays admin-only.
 //
 // Station notes (triage, SEVA, physiotherapy, consultation, referral) are edited through their
-// existing upsert endpoints, which already let admins overwrite a saved row. This router covers
+// existing upsert endpoints, which also overwrite a saved row. This router covers
 // the parts of a visit that have no such endpoint:
 //   PUT /api/visits/:visitId         visit details: queue number, visit date, location, sticker
 //   PUT /api/visits/:visitId/vitals  vitals and HEF captured at registration
 //   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, flag status)
 //   DELETE /api/visits/:visitId      the whole visit and every record of it (e.g. entered in error)
-// Every write records the admin in last_updated_by and bumps last_updated_at for sync/audit.
+// Every write records the account in last_updated_by and bumps last_updated_at for sync/audit.
 const express = require('express');
 const router = express.Router();
 const { integerParams } = require('../utils/validation');
@@ -27,6 +28,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Applied per route: a router-level guard would also block GET /api/visits/* for users,
 // because this router shares the /visits mount point with routes/visits.js.
+const editors = [authenticateToken, requireRole(['admin', 'user'])];
 const adminOnly = [authenticateToken, requireRole(['admin'])];
 
 function parsePositiveInt(value) {
@@ -66,7 +68,7 @@ async function inTransaction(res, label, work) {
 // PUT /api/visits/:visitId
 // Body: { queue_no?, visit_date? (YYYY-MM-DD), location_id?, sticker_colour? (blank = none) }.
 // Omitted fields keep their value.
-router.put('/:visitId', ...adminOnly, async (req, res) => {
+router.put('/:visitId', ...editors, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
 
@@ -77,6 +79,12 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
   }
   if (visit_date !== undefined && !isValidDate(visit_date)) {
     return res.status(400).json({ error: 'visit_date must be a valid date (YYYY-MM-DD)' });
+  }
+  // A screening-day account may only change its own day's visits (utils/dayScope.js), so it can't
+  // move one to another date either.
+  const day = req.user.screening_date;
+  if (day && visit_date !== undefined && visit_date !== day) {
+    return res.status(403).json({ error: `This account can only keep visits on its screening day, ${day}.` });
   }
   const locationId = location_id === undefined ? undefined : parsePositiveInt(location_id);
   if (locationId === null) return res.status(400).json({ error: 'location_id must be a positive integer' });
@@ -144,8 +152,8 @@ router.put('/:visitId', ...adminOnly, async (req, res) => {
 // PUT /api/visits/:visitId/vitals
 // Body: { vitals?: { height, weight, bmi, below_3rd_percentile, bp_systolic, bp_diastolic,
 //         temperature, notes }, hef?: { know_of_hef, has_hef, notes } }
-// Either section may be sent alone. A missing row is created, so admins can backfill a visit.
-router.put('/:visitId/vitals', ...adminOnly, async (req, res) => {
+// Either section may be sent alone. A missing row is created, so a visit can be backfilled.
+router.put('/:visitId/vitals', ...editors, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
 
@@ -201,7 +209,7 @@ router.put('/:visitId/vitals', ...adminOnly, async (req, res) => {
 // Body: { red_flags?: string[], flag_notes?, doctor_notes?, status?: 'suspected' | 'cleared' | 'tb_likely' }.
 // TB is a flag on the visit ('suspected' or 'tb_likely' = flagged, 'cleared' = not flagged), so it
 // can be corrected at any time without touching the station route.
-router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
+router.put('/:visitId/tb', ...editors, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
 
@@ -235,7 +243,7 @@ router.put('/:visitId/tb', ...adminOnly, async (req, res) => {
          flag_notes = COALESCE($3, flag_notes),
          doctor_notes = COALESCE($4, doctor_notes),
          status = COALESCE($5, status),
-         -- A first result recorded here is attributed to the admin who recorded it.
+         -- A first result recorded here is attributed to the account that recorded it.
          reviewed_by = CASE WHEN $6 AND reviewed_at IS NULL THEN $7 ELSE reviewed_by END,
          reviewed_at = CASE WHEN $6 AND reviewed_at IS NULL THEN NOW() ELSE reviewed_at END,
          last_updated_by = $7, last_updated_at = NOW()

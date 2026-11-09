@@ -22,6 +22,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
 import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { SaveAndNextButton, StationDonePrompt } from "@/components/shared/StationFlow";
 
@@ -45,12 +46,12 @@ interface TriageTabsProps {
 }
 
 export function TriageTabs({ patient, visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
-    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
     const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
     const [loadedVisit, setLoadedVisit] = useState<number | null>(null);
     const [loadError, setLoadError] = useState(false);
     const [retry, setRetry] = useState(0);
-    const locked = (section: string) => loadedVisit !== visit_id || (!isAdmin && savedSections[section]);
+    const locked = (section: string) => loadedVisit !== visit_id || (!canEdit && savedSections[section]);
     const saved = (section: string) => setSavedSections(previous => ({ ...previous, [section]: true }));
     useEffect(() => {
       let cancelled = false;

@@ -13,7 +13,7 @@ export default function SavedRecordFields({
     <>
       {locked && (
         <p className="mb-3 text-sm text-muted-foreground">
-          Read-only. Only an admin can change saved data.
+          Read-only. This account can&apos;t change saved data.
         </p>
       )}
       <fieldset

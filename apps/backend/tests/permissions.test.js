@@ -1,4 +1,4 @@
-const { canAccessApi, ROLES, normalizeRole } = require('../utils/permissions');
+const { canAccessApi, canEditSavedRecords, ROLES, normalizeRole } = require('../utils/permissions');
 test('only two assignable roles, with legacy account compatibility', () => {
  expect(ROLES).toEqual(['admin','user']); expect(normalizeRole('triage')).toBe('user');
 });
@@ -17,11 +17,22 @@ test('only admins create accounts or change station data', () => {
   expect(canAccessApi('admin',method,path)).toBe(true);
  }
 });
-test.each(['/patients/1','/registration/1','/visits/1','/pharmacy/1','/visits/referral/1'])('only admins can mutate saved data via %s', path => {
- for (const method of ['PUT','PATCH','DELETE']) {
+test.each(['/patients/1','/registration/1','/pharmacy/1','/visits/referral/1','/patient/1'])('only admins can change or delete via %s outside the record edits', path => {
+ for (const method of ['PATCH','DELETE', ...(path === '/patient/1' ? [] : ['PUT'])]) {
   expect(canAccessApi('user',method,path)).toBe(false);
   expect(canAccessApi('admin',method,path)).toBe(true);
  }
+});
+test.each(['/patient/1','/visits/1','/visits/1/vitals','/visits/1/tb','/visits/1/tb/'])('both roles can correct saved records: PUT %s', path => {
+ for (const role of ROLES) expect(canAccessApi(role,'PUT',path)).toBe(true);
+ expect(canAccessApi('invalid','PUT',path)).toBe(false);
+});
+test.each([['DELETE','/visits/1'],['DELETE','/patient/1'],['PUT','/visits/1/stations'],['PUT','/visits/x'],['PUT','/patient/1/extra'],['PATCH','/visits/1/vitals']])('deleting and other changes stay admin-only: %s %s', (method, path) => {
+ expect(canAccessApi('user',method,path)).toBe(false);
+});
+test('every assignable role may change saved records; unknown roles may not', () => {
+ for (const role of [...ROLES, 'triage']) expect(canEditSavedRecords(role)).toBe(true);
+ for (const role of ['invalid', undefined, '']) expect(canEditSavedRecords(role)).toBe(false);
 });
 test.each(['/visits','/registration','/patients','/pharmacy','/triage/history','/visits/consultation/1','/visits/dental/1','/visits/referral/1','/tb/1/flag','/prescriptions','/family','/family/leave'])('users can reach guarded creation endpoint %s', path => expect(canAccessApi('user','POST',path)).toBe(true));
 test.each(['/auth/register','/users','/locations','/patients/1/history','/unknown'])('users cannot bypass via POST %s', path => expect(canAccessApi('user','POST',path)).toBe(false));

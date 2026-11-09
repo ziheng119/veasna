@@ -239,7 +239,7 @@ interface Props {
   onSaved: () => Promise<void>;
 }
 
-/** Every record of one visit, grouped by station. Admins can correct or add each section. */
+/** Every record of one visit, grouped by station. Each section can be corrected or added. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const locations = useLocationStore((state) => state.locations);
   // A visit flagged for suspected TB opens on its TB record.
@@ -329,7 +329,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const hasRegistration = Boolean(visit.vitals || visit.hef);
   const hasTriage = Boolean(visit.visual_acuity || visit.presenting_complaint || visit.history);
   const hasConsultation = Boolean(visit.consultation || visit.referrals.length);
-  // Users only open tabs with data; admins can open every tab to add a missing record.
+  // Accounts that can edit open every tab, to add a missing record; others only tabs with data.
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [

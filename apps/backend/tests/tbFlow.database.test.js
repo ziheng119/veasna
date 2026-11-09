@@ -190,11 +190,13 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     expect(missing.status).toBe(404);
   });
 
-  test('users still cannot edit an existing flag; an admin edit leaves the route alone', async () => {
+  test("users and admins can change an existing flag's red flags; the route is left alone", async () => {
     await setRoute(WAITING_AT_TRIAGE, { flagged: true });
-    const before = (await client.query('SELECT * FROM tb_screening')).rows;
-    expect((await flag({ flagged: true, red_flags: ['night_sweats', 'fever', 'weight_loss'] })).status).toBe(403);
-    expect((await client.query('SELECT * FROM tb_screening')).rows).toEqual(before);
+    const user = await flag({ flagged: true, red_flags: ['night_sweats', 'fever', 'weight_loss'] });
+    expect(user.status).toBe(200);
+    expect(user.body.current_station).toBeUndefined();
+    expect((await client.query('SELECT red_flags FROM tb_screening')).rows[0].red_flags).toEqual(['night_sweats', 'fever', 'weight_loss']);
+    expect(await pending()).toEqual(['triage', 'seva', 'consultation']);
     const res = await flag({ flagged: true, red_flags: ['night_sweats', 'fever', 'weight_loss'] }, 'admin');
     expect(res.status).toBe(200);
     expect(res.body.current_station).toBeUndefined();

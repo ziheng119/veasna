@@ -23,8 +23,9 @@ a draft never carries over to the wrong patient.
    signature** to use a picture of your signature (see below). **Clear signature** lets
    you start again. Editing other fields doesn't remove the signature.
 3. **Save referral** saves it, signed or not, as a draft.
-4. **Save & print referral** needs a signature. It saves first, then opens the print
-   window. If nothing opens, allow pop-ups for the Veasna address in the browser.
+4. **Save & print referral** (admin account only) needs a signature. It saves first,
+   then opens the print window. If nothing opens, allow pop-ups for the Veasna address in
+   the browser.
 
 The printout is a plain black-and-white A4 page with Project Battambang branding, the
 patient's details, the chosen destinations, the filled-in clinical fields, and the
@@ -65,8 +66,7 @@ handwritten mark on screen, not a cryptographic digital signature.
 
 ## Printing saved referrals
 
-Printing many referrals at once is for the **admin** account only. Anyone can still
-print the one referral they have open (see above).
+Printing referrals, one or many at once, is for the **admin** account only.
 
 **Print referrals**, at the right of the search row on the Consult page, opens a small
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
@@ -96,8 +96,8 @@ There is no undo.
 
 ## Who can do what
 
-Every account can create a referral, and view and print a saved one. Only an admin
-can print many at once, or change or delete a saved referral or signature. See
+Every account can create, change and sign a referral. Only the admin can print
+referrals, one or many at once, or delete one. See
 [accounts and permissions](user-roles.md).
 
 ## Technical details

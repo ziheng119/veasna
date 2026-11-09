@@ -99,6 +99,16 @@ const { localDate } = require('../utils/validation');
     expect((await as('jan_village', 'get', '/patients?location_id=1')).body.map(p => p.id).sort()).toEqual([1, 2]);
   });
 
+  test("a day account corrects that day's patients and visits on Patient Details, nobody else's", async () => {
+    expect((await as('today_village', 'put', '/patient/1')).status).toBe(200);
+    expect((await as('today_village', 'put', '/patient/2')).status).toBe(403); // not queued today
+    for (const url of ['/visits/11', '/visits/11/vitals', '/visits/11/tb']) {
+      expect((await as('today_village', 'put', url)).status).toBe(200);
+    }
+    expect((await as('today_village', 'put', '/visits/10/vitals')).status).toBe(403); // Alice's earlier visit
+    expect((await as('today_village', 'delete', '/visits/11')).status).toBe(403); // deleting stays admin-only
+  });
+
   test('analytics, bulk referrals, downloads and accounts are for admins only', async () => {
     for (const name of ['user', 'today_village']) {
       for (const url of ['/analytics', '/visits/referrals', '/export/patients', '/accounts']) {
