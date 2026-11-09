@@ -242,8 +242,16 @@ router.post('/:prescriptionId/dispense', authenticateToken, requireRole(['any'])
 });
 
 // POST /api/prescriptions/:prescriptionId/cancel - release the reserved stock.
+// Pharmacy is only on a patient's route because something was prescribed, so when the last
+// prescription of a visit is cancelled (none pending or dispensed) Pharmacy comes off the route
+// again. If the patient is already waiting at Pharmacy it stays, shown as done, and Finish ends
+// the visit (setStationNeeded refuses to remove the current station).
 router.post('/:prescriptionId/cancel', authenticateToken, requireRole(['any']), async (req, res) => {
     await inTransaction(res, 'cancelling prescription', async (client) => {
+        // The visit is locked before the prescription and drug, in the same order as prescribing,
+        // so the two can't deadlock.
+        const owner = await client.query('SELECT visit_id FROM prescriptions WHERE id = $1', [toPositiveInt(req.params.prescriptionId)]);
+        if (owner.rows.length) await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [owner.rows[0].visit_id]);
         const { prescription, error } = await lockPending(client, req.params.prescriptionId);
         if (error) return error;
         await client.query(
@@ -252,6 +260,9 @@ router.post('/:prescriptionId/cancel', authenticateToken, requireRole(['any']), 
              WHERE id = $1`,
             [prescription.id, req.user.id]
         );
+        const remaining = await client.query(
+            "SELECT 1 FROM prescriptions WHERE visit_id = $1 AND status <> 'cancelled' LIMIT 1", [prescription.visit_id]);
+        if (!remaining.rows.length) await setStationNeeded(client, prescription.visit_id, 'pharmacy', false, req.user.id);
         return { status: 200, body: await fetchPrescription(client, prescription.id) };
     });
 });

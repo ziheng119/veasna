@@ -117,9 +117,17 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
   });
   test('editing later stops preserves the current station arrival', async () => {
     const before = (await client.query("SELECT entered_at FROM visit_stations WHERE station='seva'")).rows[0].entered_at;
-    expect((await save(['seva', 'physiotherapy', 'consultation'])).status).toBe(200);
+    expect((await save(['seva', 'dental', 'consultation'])).status).toBe(200);
     const after = (await client.query("SELECT entered_at FROM visit_stations WHERE station='seva'")).rows[0].entered_at;
     expect(after).toEqual(before);
+  });
+  test('Send to cannot add Physiotherapy or Pharmacy; the route is unchanged', async () => {
+    for (const station of ['physiotherapy', 'pharmacy']) {
+      const res = await save(['seva', 'consultation', station]);
+      expect(res.status).toBe(400);
+    }
+    expect(await pending()).toEqual(['seva', 'consultation']);
+    expect((await client.query('SELECT * FROM visit_station_route_history')).rows).toHaveLength(0);
   });
   test('an audit failure rolls back the entire edit', async () => {
     await client.query('ALTER TABLE pg_temp.visit_station_route_history ADD CONSTRAINT reject_test_write CHECK (false) NOT VALID');

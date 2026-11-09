@@ -1,4 +1,4 @@
-const { STATIONS, normalizeStations } = require('./stations');
+const { STATIONS, DOCTOR_ADDED_STATIONS, normalizeStations } = require('./stations');
 
 // Compare pending order and completion state, ignoring where completed rows are displayed.
 function routeSnapshot(stations) {
@@ -31,6 +31,10 @@ function planStationRoute(existing, body) {
     ...normalizeStations(stations).filter(s => !pending.includes(s) && !completed.includes(s)),
   ];
   if (!wanted.length) return fail(400, 'Every selected station is already completed. Discharge the patient to end the visit.');
+  // Physiotherapy and Pharmacy join a route only from the Consult page (utils/stations.js).
+  const added = wanted.filter(s => DOCTOR_ADDED_STATIONS.includes(s) && !existing.some(row => row.station === s));
+  if (added.includes('physiotherapy')) return fail(400, 'Physiotherapy is added by the doctor at Consult, with "Refer to physiotherapy station".');
+  if (added.includes('pharmacy')) return fail(400, 'Pharmacy is added when the doctor prescribes at Consult.');
   return { wanted, previousCurrent: pending[0] || null, reopened: wanted.filter(s => completed.includes(s)) };
 }
 

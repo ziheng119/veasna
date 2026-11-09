@@ -10,8 +10,10 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 
 /**
- * The doctor decides at Consult whether the patient goes to Physiotherapy; it is not offered at
- * registration. Ticking adds it to the patient's route in clinic order, straight away.
+ * Physiotherapy has limited places, so only the doctor sends patients there: it is not offered at
+ * registration or in Send to (constants/stations.ts DOCTOR_ADDED_STATION_IDS). Ticking adds it to
+ * the patient's route in clinic order straight away, so they join the Physiotherapy queue after
+ * Consult; unticking takes it off again.
  */
 export default function SendToPhysiotherapy({ patient }: { patient: QueuedPatient }) {
   const token = useUserStore((state) => state.user?.token);
@@ -29,7 +31,7 @@ export default function SendToPhysiotherapy({ patient }: { patient: QueuedPatien
     try {
       await setStationNeeded(patient.visit_id, "physiotherapy", needed, token);
       setQueued(needed);
-      toast.success(needed ? "Physiotherapy added to the patient's route." : "Physiotherapy taken off the patient's route.");
+      toast.success(needed ? "Referred to Physiotherapy. The patient joins its queue after Consult." : "Physiotherapy referral removed.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update stations");
     } finally {
@@ -47,9 +49,13 @@ export default function SendToPhysiotherapy({ patient }: { patient: QueuedPatien
         className="mt-0.5"
       />
       <div>
-        <Label htmlFor={id} className="font-semibold">Send to Physiotherapy</Label>
+        <Label htmlFor={id} className="font-semibold">Refer to physiotherapy station</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          {done ? "Already seen at Physiotherapy." : tbPatient ? TB_ROUTE_LOCKED_HINT : "Added after Consult, before the patient's other stations."}
+          {done ? "Already seen at Physiotherapy."
+            : tbPatient ? TB_ROUTE_LOCKED_HINT
+            : saving ? "Updating the patient's stations…"
+            : queued ? "The patient joins the Physiotherapy queue after Consult."
+            : "Only patients referred here join the Physiotherapy queue."}
         </p>
       </div>
     </div>
