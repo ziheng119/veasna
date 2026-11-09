@@ -53,6 +53,16 @@ function scopeDate(user) {
   return user.screening_date || currentVisitDate();
 }
 
+// The visits an account may change, as checkDayScope enforces for saves: every visit for the admin
+// ({ all: true }); otherwise only visits dated its day, and only while it is that day on the host
+// (day is null on any other date, so nothing is editable). Lets Patient Details show earlier visits
+// as read-only instead of failing on save.
+function saveScope(user) {
+  const day = user?.scope_date === undefined ? scopeDate(user) : user.scope_date;
+  if (!day) return { all: true, day: null };
+  return { all: false, day: currentVisitDate() === day ? day : null };
+}
+
 // Resolves to null when the request may go ahead, otherwise { status, message }.
 async function checkDayScope(db, req, rawPath) {
   const day = req.user?.scope_date === undefined ? scopeDate(req.user) : req.user.scope_date;
@@ -82,4 +92,4 @@ async function checkDayScope(db, req, rawPath) {
     : { status: 403, message: 'This account can only change visits from its screening day.' };
 }
 
-module.exports = { patientOnDaySql, checkDayScope, scopeDate };
+module.exports = { patientOnDaySql, checkDayScope, scopeDate, saveScope };

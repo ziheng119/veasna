@@ -34,6 +34,14 @@ export function canEditSavedData(role: string | undefined): boolean {
   return role === "admin" || role === "user";
 }
 /**
+ * Changing one visit's records on Patient Details: the admin any visit; other accounts only the
+ * visits of their day, so a returning patient's earlier visits are read-only for them. `editable`
+ * is the server's answer for this account (VisitSummary.editable); the server refuses other saves.
+ */
+export function canEditVisit(role: string | undefined, visit: { editable?: boolean } | undefined): boolean {
+  return canEditSavedData(role) && (role === "admin" || visit?.editable === true);
+}
+/**
  * Admin only: deleting records, printing referrals (one or many), downloading patient data,
  * Analytics, Station data, Accounts, and pharmacy stock and dispensing.
  */

@@ -7,6 +7,7 @@ integerParams(router, ["id"]);
 const db = require("../config/db");
 const { authenticateToken, requireRole } = require("../routes/auth");
 const { normalizeSexToEnum } = require("../utils/sex");
+const { saveScope } = require("../utils/dayScope");
 
 // Responses rely on Express's content-hash ETag (app.set("etag", ...)), so any change to a
 // patient, visit or station record yields a new ETag and clients never get a stale 304.
@@ -79,13 +80,17 @@ router.get(
         EXISTS (SELECT 1 FROM consultation x WHERE x.visit_id = v.id) AS has_consultation,
         EXISTS (SELECT 1 FROM referral x WHERE x.visit_id = v.id) AS has_referral,
         (SELECT COUNT(*)::int FROM prescriptions x WHERE x.visit_id = v.id AND x.status <> 'cancelled') AS prescription_count,
-        COALESCE((SELECT x.status IN ('suspected', 'tb_likely') FROM tb_screening x WHERE x.visit_id = v.id), FALSE) AS has_tb_flag
+        COALESCE((SELECT x.status IN ('suspected', 'tb_likely') FROM tb_screening x WHERE x.visit_id = v.id), FALSE) AS has_tb_flag,
+        -- Whether this account may change the visit's records (utils/dayScope.js saveScope): the
+        -- admin any visit; everyone else only that day's visits, so earlier visits are read-only.
+        COALESCE($2::boolean OR v.visit_date = $3::date, FALSE) AS editable
       FROM visits v
       LEFT JOIN locations l ON v.location_id = l.id
       WHERE v.patient_id = $1
       ORDER BY v.visit_date DESC, v.created_at DESC
     `;
-      const visitsResult = await db.query(visitsQuery, [id]);
+      const scope = saveScope(req.user);
+      const visitsResult = await db.query(visitsQuery, [id, scope.all, scope.day]);
 
       res.status(200).json({
         patient: patient,

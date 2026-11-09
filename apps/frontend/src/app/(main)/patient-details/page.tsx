@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
-import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon, Trash2 } from "lucide-react";
+import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon, Lock, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { deleteVisit } from "@/lib/api/visit/adminEdits";
@@ -16,7 +16,7 @@ import PatientInfoCard, { PatientRecord } from "@/components/patient-details/Pat
 import VisitRecordTabs from "@/components/patient-details/VisitRecordTabs";
 import { clearPatientCache, getPatient } from "@/lib/api/patient/getPatients";
 import { clearVisitCache, getVisit } from "@/lib/api/visit/getVisit";
-import { canEditSavedData, isAdmin } from "@/lib/permissions";
+import { canEditSavedData, canEditVisit as canEditVisitFor, isAdmin } from "@/lib/permissions";
 import formatDate from "@/helper/format_date";
 import { VisitDetails, VisitSummary } from "@/lib/types/visit";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER, STABLE_SCROLLBAR } from "@/lib/pageLayout";
@@ -36,7 +36,9 @@ interface PatientData {
 
 /**
  * A patient's demographics and full visit history. Every account can read it and correct the
- * patient details and every record of a visit, one section at a time; only an admin deletes a visit.
+ * patient details. A visit's records are changed one section at a time: by the admin on any visit,
+ * by other accounts only on their day's visit (earlier visits are read-only for them, as the server
+ * enforces). Only an admin deletes a visit.
  */
 export default function PatientDetailsPage() {
   const searchParams = useSearchParams();
@@ -47,7 +49,8 @@ export default function PatientDetailsPage() {
   const from = searchParams.get('from');
   const backTo = from && from.startsWith('/') && !from.startsWith('//') ? from : null;
   const token = useUserStore((state) => state.user?.token);
-  const canEdit = useUserStore((state) => canEditSavedData(state.user?.role));
+  const role = useUserStore((state) => state.user?.role);
+  const canEdit = canEditSavedData(role);
   // Deleting a visit can't be undone, so it stays with the admin account.
   const canDelete = useUserStore((state) => isAdmin(state.user?.role));
 
@@ -143,6 +146,8 @@ export default function PatientDetailsPage() {
 
   const { patient, visits } = patientData;
   const selectedSummary = visits.find(visit => visit.visit_id === selectedVisitId);
+  // Earlier visits are read-only except for the admin (the server sends `editable` per visit).
+  const canEditVisit = canEditVisitFor(role, selectedSummary);
 
   return (
     <div className={PAGE_SHELL}>
@@ -277,6 +282,12 @@ export default function PatientDetailsPage() {
                   <CardDescription className="text-base mt-1">
                     Queue {visitDetails?.queue_no ?? selectedSummary?.queue_no} • {visitDetails?.location_name ?? selectedSummary?.location_name}
                   </CardDescription>
+                  {canEdit && !canEditVisit && (
+                    <p className={cn("mt-2 flex items-center gap-1.5 text-sm text-muted-foreground", ENTER_FAST)}>
+                      <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+                      Earlier visit: read-only. Only the admin account can change it.
+                    </p>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className={cn(PANEL_SCROLL, STABLE_SCROLLBAR, "xl:flex-1")}>
@@ -288,7 +299,7 @@ export default function PatientDetailsPage() {
                     ))}
                   </div>
                 ) : visitDetails ? (
-                  <VisitRecordTabs visit={visitDetails} canEdit={canEdit} onSaved={reloadSelectedVisit} />
+                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} />
                 ) : (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Failed to load visit details</p>

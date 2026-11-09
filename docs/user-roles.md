@@ -34,7 +34,9 @@ The account then:
   name lists matching earlier patients (name, date of birth, sex, phone, address, ID
   only, no clinical records), so their new visit joins their existing record.
 - **Saves only on its screening day, and only to that day's visits.** Earlier visits
-  are read-only. On another day it can still sign in and look, but every save is
+  are read-only: Patient Details shows them without **Edit** or **Add**, with a line
+  saying only the admin can change them. The patient's own details (name, phone and so
+  on) can still be corrected. On another day it can still sign in and look, but every save is
   refused with a message naming its date. The host laptop's clock decides what "today"
   is, so check it before the clinic opens.
 - It enters records and corrects saved ones for that day's visits, but can't print
@@ -93,8 +95,11 @@ Opening a visit shows:
 - Every form can be saved again after its first save: each triage section, consultation
   notes, partner NGO notes, physiotherapy, dental notes and the referral. Doctors often
   find more as the patient moves through the stations, so anyone signed in can add it.
-- **Patient Details** lets anyone correct the patient's details and every record of a
-  visit, one section at a time. Only the admin sees **Delete visit**.
+- **Patient Details** lets anyone correct the patient's details and the records of the
+  day's visit, one section at a time. Earlier visits are read-only except for the admin,
+  who can change any visit. Only the admin sees **Delete visit**. The visit list says
+  which visits the account may change (`editable`, from `saveScope` in
+  `utils/dayScope.js`, the same rule the server enforces on save).
 - Each save records the account and time in `last_updated_by` and `last_updated_at`.
   Everyone on a screening day shares one account, so the record shows that account.
 - If two people save the same form at the same moment, both saves succeed and the later

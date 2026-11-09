@@ -33,6 +33,9 @@ export interface VisitSummary {
     prescription_count?: number;
     // Flagged for suspected TB (not cleared).
     has_tb_flag?: boolean;
+    // This account may change the visit's records: the admin any visit, everyone else only the
+    // visits of their day (apps/backend/utils/dayScope.js saveScope).
+    editable?: boolean;
   }
   
 // Full visit returned by GET /api/patient/visit/:id (snake_case, as stored). A station

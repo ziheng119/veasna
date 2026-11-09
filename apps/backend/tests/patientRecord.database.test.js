@@ -104,4 +104,16 @@ const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 't
     }
     expect((await as(1, 'admin', '/patient/2')).status).toBe(200);
   });
+
+  test("only the admin may change earlier visits; other accounts change only today's", async () => {
+    const editable = async (id, role) => Object.fromEntries((await as(id, role, '/patient/1')).body.visits
+      .map(v => [v.visit_id, v.editable]));
+    expect(await editable(1, 'admin')).toEqual({ 10: true, 11: true });
+    expect(await editable(2, 'user')).toEqual({ 10: false, 11: true });
+    expect(await editable(3, 'user')).toEqual({ 10: false, 11: true });
+    // The flag matches what the server enforces on save (checkDayScope).
+    const put = (id, role, url) => request(app).put(url).set('Authorization', `Bearer ${jwt.sign({ id, role }, secret)}`).send({});
+    expect((await put(2, 'user', '/visits/10/vitals')).status).toBe(403);
+    expect((await put(3, 'user', '/visits/10')).status).toBe(403);
+  });
 });
