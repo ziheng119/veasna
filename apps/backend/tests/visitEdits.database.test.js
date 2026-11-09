@@ -44,7 +44,8 @@ const USER_ID = 2;
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
         CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
-        INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);`);
+        INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);
+        CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1), (2);`);
       // Real table definitions, so constraints match production.
       const setup = fs
         .readFileSync(path.join(__dirname, "../db_setup.sql"), "utf8")
@@ -81,11 +82,26 @@ const USER_ID = 2;
     });
 
     test.each([
-      ["/visits/1", { queue_no: "5" }],
+      ["/visits/1", { sticker_colour: "gold" }],
       ["/visits/1/vitals", { vitals }],
       ["/visits/1/tb", { flag_notes: "x" }],
-    ])("users cannot use %s", async (url, body) => {
-      expect((await put(url, body, "user")).status).toBe(403);
+    ])("users can correct %s on today's visit, attributed to them", async (url, body) => {
+      // Accounts other than the admin only change the visits of the day (utils/dayScope.js).
+      await client.query(`UPDATE visits SET visit_date = '${require("../utils/queueNumber").currentVisitDate()}' WHERE id = 1`);
+      expect((await put(url.replace("/visits/1", "/visits/2"), body, "user")).status).toBe(403); // another day's visit
+      if (url.endsWith("/tb")) {
+        await client.query(`INSERT INTO tb_screening (visit_id, red_flags, status, flagged_by, last_updated_by)
+          VALUES (1, '{fever}', 'suspected', ${ADMIN_ID}, ${ADMIN_ID})`);
+      }
+      const res = await put(url, body, "user");
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).toContain(`"last_updated_by":${USER_ID}`);
+    });
+
+    test("only an admin can delete a visit", async () => {
+      const remove = (role) => request(app).delete("/visits/2").set("Authorization", "Bearer " + token(role));
+      expect((await remove("user")).status).toBe(403);
+      expect((await client.query("SELECT id FROM visits WHERE id = 2")).rows).toHaveLength(1);
     });
 
     test("visit details are corrected and attributed to the admin", async () => {

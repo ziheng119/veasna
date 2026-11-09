@@ -114,6 +114,29 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     expect(await drug()).toMatchObject({ stock_count: 10, reserved_count: 0, available_count: 10 });
   });
 
+  test('cancelling the last prescription takes Pharmacy off the route; one left keeps it', async () => {
+    const first = (await prescribe({ quantity: 1 })).body;
+    const second = (await prescribe({ quantity: 1 })).body;
+    await as(request(app).post(`/prescriptions/${first.id}/cancel`));
+    expect(await pending()).toEqual(['consultation', 'dental', 'pharmacy']);
+    await as(request(app).post(`/prescriptions/${second.id}/cancel`));
+    expect(await pending()).toEqual(['consultation', 'dental']);
+    // A dispensed prescription keeps Pharmacy, since the patient still collects it there.
+    const third = (await prescribe({ quantity: 1 })).body;
+    const fourth = (await prescribe({ quantity: 1 })).body;
+    await as(request(app).post(`/prescriptions/${third.id}/dispense`));
+    await as(request(app).post(`/prescriptions/${fourth.id}/cancel`));
+    expect(await pending()).toEqual(['consultation', 'dental', 'pharmacy']);
+  });
+
+  test('a patient already waiting at Pharmacy stays there when the last prescription is cancelled', async () => {
+    const { body } = await prescribe({ quantity: 1 });
+    await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE station IN ('consultation', 'dental')");
+    const cancelled = await as(request(app).post(`/prescriptions/${body.id}/cancel`));
+    expect(cancelled.status).toBe(200);
+    expect(await pending()).toEqual(['pharmacy']);
+  });
+
   test('walk-in dispensing, stock-takes and deletion respect reserved stock', async () => {
     await prescribe({ quantity: 6 });
     expect((await as(request(app).post('/pharmacy/1/dispense')).send({ quantity: 5 })).status).toBe(409);

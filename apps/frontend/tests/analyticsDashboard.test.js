@@ -4,7 +4,8 @@ jest.mock('next/link', () => ({ __esModule: true, default: props => React.create
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 'test' } }) }));
 jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/lib/api/location', () => ({ getLocations: jest.fn().mockResolvedValue([{ id: 1, name: 'Clinic A' }, { id: 2, name: 'Clinic B' }]) }));
-jest.mock('../src/lib/api/analytics', () => ({ getAnalytics: jest.fn(), getAnalyticsTrend: jest.fn() }));
+jest.mock('../src/lib/api/analytics', () => ({ getAnalytics: jest.fn(), getAnalyticsTrend: jest.fn(),
+  getAnalyticsReferrals: jest.fn((locationId, date, period) => Promise.resolve({ locationId, date, period, generatedAt: '2026-10-21T01:00:00Z', destinations: [] })) }));
 const { getAnalytics, getAnalyticsTrend } = require('../src/lib/api/analytics');
 const conditionCounts = ids => Object.fromEntries(['diabetes','hypertension','musculoskeletal','gastrointestinal','respiratory','vision','skin'].map(id => [id, ids.includes(id) ? 2 : 0]));
 const trend = (locationId, date, range) => ({ range, date, locationId, generatedAt: '2026-10-21T01:00:00Z', buckets: [

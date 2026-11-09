@@ -18,8 +18,10 @@ const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsav
 const { normalizeVitals } = require('../utils/vitals');
 const { patientOnDaySql } = require('../utils/dayScope');
 const { normalizeStickerColour } = require('../utils/formOptions');
+const { canEditSavedRecords } = require('../utils/permissions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
+const MAX_DOCTOR_NAME = 100;
 
 // Saved referrals to print, for a day, a period or every date, at one location or all
 // (utils/referralFilter.js). Includes completed visits and unsigned drafts, not just patients still
@@ -31,7 +33,7 @@ router.get('/referrals', authenticateToken, async (req, res) => {
     const { rows } = await db.query(`
       SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
-        r.signature, r.signer_name, r.signer_id, r.signed_at,
+        r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
         p.id AS patient_id, v.location_id, p.english_name, p.khmer_name, p.sex, p.address,
         TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
       FROM referral r
@@ -159,7 +161,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             ];
             const patientResult = await client.query(patientQuery, patientValues);
             patientId = patientResult.rows[0].id;
-        } else if (req.user.role === 'admin') {
+        } else if (canEditSavedRecords(req.user.role)) {
             await client.query(
                 `UPDATE patients SET
                     english_name = COALESCE($1, english_name),
@@ -407,7 +409,7 @@ router.get('/presenting-complaint/:id/:visit_id', authenticateToken, requireRole
 
 // === DENTAL === //
 // What the dental students did, and whether the doctor should refer the patient on. The doctor sees
-// both on the Consult page. One record per visit: users create it, only admins change it.
+// both on the Consult page. One record per visit; any account may create or change it.
 
 // GET /api/visits/dental/:visit_id - the record, or null before the first save
 router.get('/dental/:visit_id', authenticateToken, async (req, res) => {
@@ -443,12 +445,12 @@ router.post('/dental/:visit_id', authenticateToken, async (req, res) => {
          referral_needed = EXCLUDED.referral_needed,
          last_updated_by = EXCLUDED.last_updated_by,
          last_updated_at = NOW()
-       -- Only the verified admin role may update a saved record.
-       WHERE ${req.user.role === 'admin'}
+       -- Any verified role may update a saved record (utils/permissions.js canEditSavedRecords).
+       WHERE ${canEditSavedRecords(req.user.role)}
        RETURNING visit_id, notes, referral_needed, last_updated_at, last_updated_by`,
       [toPositiveInt(req.params.visit_id), textOrEmpty(req.body.notes), referralNeeded, req.user.id]
     );
-    if (!rows.length) return res.status(403).json({ error: 'Only admins can edit saved dental notes.' });
+    if (!rows.length) return res.status(403).json({ error: 'This account cannot edit saved records.' });
     res.status(200).json(rows[0]);
   } catch (err) {
     console.error('Error saving dental notes:', err);
@@ -533,7 +535,7 @@ router.get('/seva-referrals', authenticateToken, async (req, res) => {
         AND ${patientOnDaySql('p.id', '$2')}
       ORDER BY v.visit_date DESC, s.last_updated_at DESC
       `,
-      [locationId, req.user.screening_date ?? null]
+      [locationId, req.user.scope_date ?? null]
     );
     res.status(200).json(rows);
   } catch (err) {
@@ -616,8 +618,8 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
       notes = EXCLUDED.notes,
       last_updated_by = EXCLUDED.last_updated_by,
       last_updated_at = NOW()
-    -- Only the verified admin role may update a conflicting saved row.
-    WHERE ${req.user.role === 'admin'}
+    -- Any verified role may update a saved row (utils/permissions.js canEditSavedRecords).
+    WHERE ${canEditSavedRecords(req.user.role)}
     RETURNING *;
   `;
 
@@ -638,7 +640,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(403).json({ error: "Only admins can edit saved partner NGO notes." });
+      return res.status(403).json({ error: 'This account cannot edit saved records.' });
     }
 
     res.status(200).json(rows[0]);
@@ -756,13 +758,13 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
         notes = EXCLUDED.notes,
         last_updated_by = EXCLUDED.last_updated_by,
         last_updated_at = NOW()
-      WHERE ${req.user.role === 'admin'}
+      WHERE ${canEditSavedRecords(req.user.role)}
     RETURNING id, visit_id, notes, last_updated_by, last_updated_at, created_at;
     `;
     const { rows } = await client.query(physioQuery, [visit_id, notes, last_updated_by]);
     if (!rows.length) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'Only admins can edit saved records.' });
+      return res.status(403).json({ error: 'This account cannot edit saved records.' });
     }
     const physio = rows[0];
 
@@ -843,7 +845,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       r.duration,
       r.reason,
       r.referral_date,
-      r.signature, r.signer_name, r.signer_id, r.signed_at,
+      r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
       r.last_updated_at AS referral_updated_at
     FROM consultation c
     FULL JOIN referral r ON r.visit_id = c.visit_id
@@ -908,7 +910,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
       require_referral = EXCLUDED.require_referral,
       last_updated_by = EXCLUDED.last_updated_by,
       last_updated_at = NOW()
-    WHERE ${req.user.role === 'admin'}
+    WHERE ${canEditSavedRecords(req.user.role)}
     RETURNING *;
   `;
 
@@ -923,7 +925,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     ]);
 
     if (rows.length === 0) {
-      return res.status(403).json({ error: "Only admins can edit saved consultation notes." });
+      return res.status(403).json({ error: 'This account cannot edit saved records.' });
     }
 
     res.status(200).json(rows[0]);
@@ -944,6 +946,11 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
 
   const { referralDate, referralType, illness, duration, reason, signature } = req.body;
   if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
+  // The doctor named on the letter ("Doctor's name" in the pop-up). Blank or missing: none chosen.
+  const doctorName = req.body.doctorName == null ? '' : req.body.doctorName;
+  if (typeof doctorName !== 'string' || doctorName.trim().length > MAX_DOCTOR_NAME) {
+    return res.status(400).json({ error: `Doctor's name must be text of at most ${MAX_DOCTOR_NAME} characters.` });
+  }
   const last_updated_by = req.user.id;
 
   const query = `
@@ -954,13 +961,15 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       illness,
       duration,
       reason,
-      last_updated_by, signature, signer_id, signer_name, signed_at
+      last_updated_by, signature, signer_id, signer_name, signed_at, doctor_name
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
       CASE WHEN $8::jsonb IS NULL THEN NULL ELSE $7::integer END,
       CASE WHEN $8::jsonb IS NULL THEN NULL ELSE (SELECT username FROM users WHERE id = $7::integer) END,
-      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END)
+      CASE WHEN $8::jsonb IS NULL THEN NULL ELSE NOW() END,
+      NULLIF($9, ''))
     ON CONFLICT (visit_id) DO UPDATE SET
+      doctor_name = EXCLUDED.doctor_name,
       referral_date = EXCLUDED.referral_date,
       referral_type = EXCLUDED.referral_type,
       illness = EXCLUDED.illness,
@@ -973,7 +982,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       signer_name = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signer_name ELSE EXCLUDED.signer_name END,
       signed_at = CASE WHEN referral.signature = EXCLUDED.signature THEN referral.signed_at ELSE EXCLUDED.signed_at END,
       last_updated_at = NOW()
-    WHERE ${req.user.role === 'admin'}
+    WHERE ${canEditSavedRecords(req.user.role)}
     RETURNING *), updated AS (
       UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()
       WHERE visit_id = $1 AND EXISTS (SELECT 1 FROM saved) RETURNING visit_id
@@ -990,10 +999,11 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
       textOrEmpty(reason),
       last_updated_by,
       signature == null ? null : JSON.stringify(signature),
+      doctorName.trim(),
     ]);
 
     if (rows.length === 0) {
-      return res.status(403).json({ error: "Only admins can edit saved referrals." });
+      return res.status(403).json({ error: 'This account cannot edit saved records.' });
     }
 
     res.status(200).json(rows[0]);

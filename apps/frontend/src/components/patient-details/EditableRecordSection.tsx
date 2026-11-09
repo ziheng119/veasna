@@ -64,7 +64,7 @@ interface Props<D extends Record<string, unknown>> {
 const SELECT_CLASS =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
-/** View/edit card for one record of a visit or patient. Admins edit and save it on its own. */
+/** View/edit card for one record of a visit or patient, edited and saved on its own. */
 export default function EditableRecordSection<D extends Record<string, unknown>>({
   title,
   record,

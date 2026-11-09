@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/useUserStore';
+import { canEditSavedData } from '@/lib/permissions';
 import React from 'react';
 import { PatientFormData } from '@/lib/types/patient';
 
@@ -10,8 +11,8 @@ interface Props {
 
 export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requestedViewMode}: Props) {
 
-    const isAdmin = useUserStore(state => state.user?.role === "admin");
-    const isViewMode = requestedViewMode || (Boolean(patient.id) && !isAdmin);
+    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
+    const isViewMode = requestedViewMode || (Boolean(patient.id) && !canEdit);
     const inputProps = {
         disabled: isViewMode,
         readOnly: isViewMode,

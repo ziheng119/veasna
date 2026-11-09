@@ -32,6 +32,20 @@ describe('Station route controls', () => {
     const dialog = renderer.root.find(node => node.props.role === 'dialog');
     await act(async () => { dialog.findAllByType('button').find(b => b.children.join('') === 'Remove stop').props.onClick(); await pending; });
   }
+  test('Physiotherapy and Pharmacy are not offered to add; a finished one can be returned to', async () => {
+    const text = node => node.children.flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
+    await mount({ initial: ['seva', 'consultation'], completed: ['triage'] });
+    const adds = () => renderer.root.findAllByType('button').map(b => b.props['aria-label']).filter(label => /^(Add|Return to) /.test(label ?? ''));
+    expect(adds()).toEqual(['Return to Triage', 'Add Dental']);
+    expect(text(renderer.root)).toContain('Physiotherapy and Pharmacy are added from the Consult page.');
+    await act(async () => renderer.unmount());
+    await mount({ initial: ['seva', 'physiotherapy'], completed: ['pharmacy'] });
+    expect(adds()).toEqual(['Add Triage', 'Add Dental', 'Add Consult', 'Return to Pharmacy']);
+    expect(text(renderer.root)).not.toContain('added from the Consult page');
+    // An existing Physiotherapy stop can still be removed.
+    await removeStop('Physiotherapy');
+    expect(route).toEqual(['seva']);
+  });
   test('return sends a completed station to the front; skip keeps it for later', async () => {
     await mount({ initial: ['seva', 'consultation'], completed: ['triage'] });
     await act(async () => control('Return to Triage').props.onClick());

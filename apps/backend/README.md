@@ -70,7 +70,8 @@ npm run setup:backend
 ```
 
 This checks that the server can reach the database and sets up the two sign-in
-accounts (`admin` / `admin12345` and `user` / `user`). It is safe to run again.
+account (`admin` / `admin12345`) and disables the old shared `user` sign-in; everyone
+else signs in with a screening-day account made on the Accounts page. It is safe to run again.
 
 ### 6. Load practice data (optional)
 

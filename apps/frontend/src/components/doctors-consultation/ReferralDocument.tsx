@@ -67,7 +67,8 @@ function ReferralPage({ referral, patient, visitId, logoUrl }: PrintableReferral
     <div className="signature">
       <div className="sign-space">{referral.signature && <SignatureImage value={referral.signature} />}</div>
       <div className="sign-line">Doctor&apos;s signature</div>
-      <div className="sign-row"><strong>Name</strong><span>{referral.signerName || BLANK}</span></div>
+      {/* The doctor chosen in the pop-up, not the account that signed: day accounts are shared. */}
+      <div className="sign-row"><strong>Name</strong><span>{referral.doctorName || BLANK}</span></div>
       <div className="sign-row"><strong>Date</strong><span>{signedDate || BLANK}</span></div>
       <div className="sign-row"><strong>Organisation</strong><span>{LETTERHEAD.organisation}</span></div>
       {!referral.signature && <p className="unsigned">Unsigned draft: sign above by hand.</p>}

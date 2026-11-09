@@ -26,7 +26,7 @@ const { currentVisitDate } = require('../utils/queueNumber');
     await client.query(`SET search_path TO pg_temp;
       CREATE TEMP TABLE locations (id INT PRIMARY KEY, name TEXT);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, family TEXT);
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);`);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express();
@@ -53,6 +53,11 @@ const { currentVisitDate } = require('../utils/queueNumber');
     expect(res.body.map(({ english_name, queue_visit_id, current_station }) => [english_name, queue_visit_id, current_station])).toEqual([
       ['Ann', 10, 'dental'], ['Bo', null, null], ['Chan', null, null], ['Dara', null, null],
     ]);
+    // Last Seen: the latest day, and when that visit was registered (orders patients seen the same day).
+    const ann = res.body.find(p => p.english_name === 'Ann');
+    expect(ann.last_visit_date).toBe(today);
+    expect(Number.isNaN(Date.parse(ann.last_visit_at))).toBe(false);
+    expect(res.body.find(p => p.english_name === 'Dara').last_visit_at).toBeNull();
     // The date filter still works alongside it.
     const filtered = await request(app).get('/api/patients').query({ location_id: 1, visit_date: '2026-01-01' })
       .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`);

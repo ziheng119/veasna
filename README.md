@@ -80,20 +80,19 @@ see [running on a local network](docs/performance-and-lan.md).
 
 ## Signing in
 
-There are two fixed accounts, plus one shared account per screening day that an
-admin creates on the **Accounts** page.
+There is one fixed account, the admin, plus one shared account per screening day that
+the admin creates on the **Accounts** page for everyone else.
 
 | Account | Password | Can do |
 | --- | --- | --- |
-| `admin` | `admin12345` | Everything: correcting and deleting saved records, Analytics, bulk referral printing, downloading all patient data, Station data, Accounts |
-| `user` | `user` | View every day's patients and enter new records |
-| e.g. `dec13village` | set by the admin | Like `user`, but only sees patients queued on its screening day (with their earlier visits), and saves only on that day |
+| `admin` | `admin12345` | Everything, including deleting records, Analytics, printing referrals, downloading all patient data, Station data, Accounts |
+| e.g. `dec13village` | set by the admin | Sees patients queued on its screening day (with their earlier visits, from **Past visits** on the queue card), enters and corrects their records, and saves only on that day |
 
 See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
 
 ## Feature guides
 
-- [Accounts and permissions](docs/user-roles.md): what Admin, User and screening-day
+- [Accounts and permissions](docs/user-roles.md): what the admin and screening-day
   accounts can do.
 - [Station data](docs/station-data.md): changing the dropdown and checkbox choices in
   station forms.
@@ -130,7 +129,13 @@ A few things worth knowing:
   the admin account.
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
-- Queues and patient lists update on every device automatically when someone saves.
+- Queues, patient lists and open forms update on every device automatically when
+  someone saves. A patient sent on from another device closes on yours, with a note
+  saying where they went.
+- **Patient List** opens sorted by **Last Seen**, most recent first: today's patients
+  on top, the most recently registered first. Click any column header to sort by it
+  (the sorted header is raised and bold, with a coloured arrow); click again to
+  reverse.
 - Deleting, removing or discharging anything asks first in a pop-up that says what will
   happen.
 - Always check that a save succeeded before leaving a page. Unsaved work is not

@@ -3,7 +3,7 @@ const { createServer } = require('http');
 const { io: connect } = require('socket.io-client');
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
-const { attachRealtime, notifyListChanges } = require('../realtime');
+const { attachRealtime, notifyListChanges, changedVisitId } = require('../realtime');
 
 jest.mock('../config/db', () => ({ query: jest.fn(), pool: { connect: jest.fn() } }));
 const db = require('../config/db');
@@ -53,7 +53,7 @@ describe('Live list notifications', () => {
   }
   async function ready(socket) { const connected = event(socket, 'connect'); socket.connect(); await connected; }
 
-  test('committed station movement notifies two users, without patient data', async () => {
+  test('committed station movement notifies two users with the visit id, without patient data', async () => {
     let committed = false;
     const transaction = { release: jest.fn(), query: jest.fn(async sql => {
       if (sql === 'COMMIT') committed = true;
@@ -69,7 +69,7 @@ describe('Live list notifications', () => {
       .set('Authorization', `Bearer ${token()}`).send({});
     expect(response.status).toBe(200);
     expect(response.body.next_station).toBe('seva');
-    expect(await notifications).toEqual([[], []]);
+    expect(await notifications).toEqual([[{ visitId: 1 }], [{ visitId: 1 }]]);
     expect(committed).toBe(true);
     expect(transaction.release).toHaveBeenCalled();
   });
@@ -240,4 +240,23 @@ describe('Live updates with ALLOW_LAN_ORIGINS', () => {
     expect(io.sockets.sockets.size).toBe(0);
     warn.mockRestore();
   });
+});
+
+// Open forms reload only for the visit a save names; anything else may concern any visit.
+test.each([
+  ['POST', '/queue/7/stations/triage/complete', {}, 7],
+  ['PUT', '/queue/7/stations', {}, 7],
+  ['POST', '/tb/7/flag', {}, 7],
+  ['POST', '/visits/consultation/7', {}, 7],
+  ['DELETE', '/visits/referral/7', {}, 7],
+  ['PUT', '/visits/7/vitals', {}, 7],
+  ['PUT', '/visits/7', {}, 7],
+  ['POST', '/triage/visual-acuity', { visit_id: 7 }, 7],
+  ['POST', '/prescriptions', { visit_id: '7' }, 7],
+  ['POST', '/prescriptions', { visit_id: 'x' }, null],
+  ['POST', '/prescriptions/3/dispense', {}, null],
+  ['PUT', '/patient/5', {}, null],
+  ['POST', '/visits', { patient_id: 5 }, null],
+])('%s %s changes visit %p', (method, path, body, expected) => {
+  expect(changedVisitId({ method, path, body })).toBe(expected);
 });

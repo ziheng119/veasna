@@ -3,6 +3,7 @@
 import { PatientListTab, PATIENTINFO_TAB, VITALS_TAB, HEF_TAB } from '@/models/patient-list/patientlist_tab';
 import Tab from '@/components/shared/Tab';
 import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
 import PatientInfo from './PatientInfo';
 import Vitals from './Vitals';
 import HEF from './HEF';
@@ -22,8 +23,8 @@ interface Props {
 
 export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel, isSaving, mode }: Props) {
 
-    const isAdmin = useUserStore(state => state.user?.role === "admin");
-    const effectiveMode = !isAdmin && mode === "edit" ? "view" : mode;
+    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
+    const effectiveMode = !canEdit && mode === "edit" ? "view" : mode;
     const [activeTab, setActiveTab] = useState<PatientListTab>(PATIENTINFO_TAB);
 
     const applyTab = (activeTab: PatientListTab) => {

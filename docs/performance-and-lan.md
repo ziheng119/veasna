@@ -343,6 +343,9 @@ reservation anyway: the IP is the fallback on devices where names don't work.
 - The server and live updates share port `3000` and use the same allowed-address
   rule. Live updates use WebSockets, and fall back to ordinary HTTP if a network
   blocks WebSockets.
+- A live notice carries only the id of the visit that was saved (or nothing when a
+  save names no visit), never patient data. Devices then reload the lists, and any
+  open form for that visit, through the usual signed-in requests.
 - PostgreSQL stays on `DB_HOST=localhost` and is never exposed to the network.
 - The server and web app listen on IPv4 and IPv6. The `.local` name hands out both
   the host's IPv4 and IPv6 address, because Windows waits about 10 seconds when a name

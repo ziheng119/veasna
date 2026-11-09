@@ -10,6 +10,10 @@ const STATIONS = ['triage', 'dental', 'consultation', 'physiotherapy', 'seva', '
 // Stations that can be ticked at registration. Physiotherapy is chosen by the doctor at
 // Consultation, and Pharmacy is added when the doctor prescribes (see utils/stationRoute.js).
 const REGISTRATION_STATIONS = ['triage', 'dental', 'consultation', 'seva'];
+// Stations only the Consult page adds: Physiotherapy when the doctor ticks "Refer to physiotherapy
+// station" (it has limited places), and Pharmacy when the doctor prescribes. "Send to" can reorder,
+// remove or revisit them, but never add them to a route that doesn't have them.
+const DOCTOR_ADDED_STATIONS = ['physiotherapy', 'pharmacy'];
 // Used when registration does not say. The partner NGO is added at Triage for suspected cataracts.
 const DEFAULT_REGISTRATION_STATIONS = ['triage', 'dental', 'consultation'];
 
@@ -25,5 +29,6 @@ module.exports = {
   STATIONS,
   REGISTRATION_STATIONS,
   DEFAULT_REGISTRATION_STATIONS,
+  DOCTOR_ADDED_STATIONS,
   normalizeStations,
 };

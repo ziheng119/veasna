@@ -1,6 +1,7 @@
 "use client";
 
 import { QueuedPatient } from "@/lib/types/patient";
+import { useVisitChanges } from "@/hooks/useVisitChanges";
 import LabelDescriptionPair from "../../LabelDescPair";
 import { useEffect, useState } from "react";
 import { getVitals } from "@/lib/api/visit/getVitals";
@@ -16,10 +17,12 @@ interface Props {
 export default function VitalsDetails({ patient }: Props) {
   const [vitalsDetails, setVitalsDetails] = useState<Vitals | null>(null);
   const [loading, setLoading] = useState(false);
+  // Saves elsewhere (e.g. Triage on another device) reload this quietly, without the spinner.
+  const changes = useVisitChanges(patient.visit_id);
 
   useEffect(() => {  
     const fetchVitals = async () => {
-      setLoading(true);
+      if (changes === 0) setLoading(true);
       try {
         const data = await getVitals(patient.patient_id, patient.visit_id);
         setVitalsDetails(data);
@@ -32,7 +35,7 @@ export default function VitalsDetails({ patient }: Props) {
     };
 
     fetchVitals();
-  }, [patient]);
+  }, [patient, changes]);
 
   if (loading) {
     return (

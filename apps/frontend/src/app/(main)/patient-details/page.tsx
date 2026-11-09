@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useUserStore } from "@/stores/useUserStore";
-import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon, Trash2 } from "lucide-react";
+import { ArrowLeftIcon, SearchIcon, CalendarIcon, ChevronRightIcon, Lock, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { deleteVisit } from "@/lib/api/visit/adminEdits";
@@ -16,7 +16,7 @@ import PatientInfoCard, { PatientRecord } from "@/components/patient-details/Pat
 import VisitRecordTabs from "@/components/patient-details/VisitRecordTabs";
 import { clearPatientCache, getPatient } from "@/lib/api/patient/getPatients";
 import { clearVisitCache, getVisit } from "@/lib/api/visit/getVisit";
-import { canEditSavedData } from "@/lib/permissions";
+import { canEditSavedData, canEditVisit as canEditVisitFor, isAdmin } from "@/lib/permissions";
 import formatDate from "@/helper/format_date";
 import { VisitDetails, VisitSummary } from "@/lib/types/visit";
 import { PAGE_SHELL, PANEL_SCROLL, PANEL_WRAPPER, STABLE_SCROLLBAR } from "@/lib/pageLayout";
@@ -35,15 +35,24 @@ interface PatientData {
 }
 
 /**
- * A patient's demographics and full visit history. Everyone can read it; admins can correct
- * the patient details and every record of a visit, one section at a time.
+ * A patient's demographics and full visit history. Every account can read it and correct the
+ * patient details. A visit's records are changed one section at a time: by the admin on any visit,
+ * by other accounts only on their day's visit (earlier visits are read-only for them, as the server
+ * enforces). Only an admin deletes a visit.
  */
 export default function PatientDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = Number(searchParams.get('id'));
+  // Opened from a patient's card in a station queue (Past visits): Back returns there. Only paths in
+  // this app are followed.
+  const from = searchParams.get('from');
+  const backTo = from && from.startsWith('/') && !from.startsWith('//') ? from : null;
   const token = useUserStore((state) => state.user?.token);
-  const canEdit = useUserStore((state) => canEditSavedData(state.user?.role));
+  const role = useUserStore((state) => state.user?.role);
+  const canEdit = canEditSavedData(role);
+  // Deleting a visit can't be undone, so it stays with the admin account.
+  const canDelete = useUserStore((state) => isAdmin(state.user?.role));
 
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [selectedVisitId, setSelectedVisitId] = useState<number | null>(null);
@@ -89,7 +98,7 @@ export default function PatientDetailsPage() {
     }
   };
 
-  // After an admin edit, reload the visit and the visit list (queue number, date and badges).
+  // After an edit, reload the visit and the visit list (queue number, date and badges).
   const reloadSelectedVisit = useCallback(async () => {
     if (!token || selectedVisitId === null) return;
     clearVisitCache(selectedVisitId);
@@ -137,6 +146,8 @@ export default function PatientDetailsPage() {
 
   const { patient, visits } = patientData;
   const selectedSummary = visits.find(visit => visit.visit_id === selectedVisitId);
+  // Earlier visits are read-only except for the admin (the server sends `editable` per visit).
+  const canEditVisit = canEditVisitFor(role, selectedSummary);
 
   return (
     <div className={PAGE_SHELL}>
@@ -144,14 +155,14 @@ export default function PatientDetailsPage() {
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          onClick={() => router.push('/patient-list')}
+          onClick={() => router.push(backTo ?? '/patient-list')}
           className={BACK_BUTTON}
         >
           <ArrowLeftIcon className={BACK_ARROW} />
-          Back to Patient List
+          {backTo ? 'Back to queue' : 'Back to Patient List'}
         </Button>
         {!canEdit && (
-          <p className="text-sm text-muted-foreground">Read-only. Only an admin can change saved data.</p>
+          <p className="text-sm text-muted-foreground">Read-only. This account can&apos;t change saved data.</p>
         )}
       </div>
 
@@ -217,11 +228,16 @@ export default function PatientDetailsPage() {
                             <div className="text-sm text-muted-foreground ml-7">
                               Queue: <span className="font-medium">{visit.queue_no}</span> • {visit.location_name}
                             </div>
+                            {/* What the visit has records for, in clinic order. */}
                             <div className="flex gap-2 mt-3 ml-7 flex-wrap">
-                              {visit.has_vitals && <Badge variant="active">Triage</Badge>}
-                              {visit.has_seva && <Badge variant="info">{PARTNER_NGO_NAME}</Badge>}
-                              {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
+                              {visit.has_tb_flag && <Badge variant="destructive">Suspected TB</Badge>}
+                              {(visit.has_triage ?? visit.has_presenting_complaint) && <Badge variant="active">Triage</Badge>}
+                              {visit.has_dental && <Badge variant="info">Dental</Badge>}
                               {visit.has_consultation && <Badge variant="secondary">Consultation</Badge>}
+                              {visit.has_referral && <Badge variant="outline">Referral</Badge>}
+                              {visit.has_physiotherapy && <Badge variant="warning">Physiotherapy</Badge>}
+                              {visit.has_seva && <Badge variant="info">{PARTNER_NGO_NAME}</Badge>}
+                              {!!visit.prescription_count && <Badge variant="success">{visit.prescription_count} {visit.prescription_count === 1 ? "medicine" : "medicines"}</Badge>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -251,7 +267,7 @@ export default function PatientDetailsPage() {
                     <ArrowLeftIcon className={BACK_ARROW} />
                     Back to Visits
                   </Button>
-                  {canEdit && (
+                  {canDelete && (
                     <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setConfirmDelete(true)}>
                       <Trash2 className="size-4" aria-hidden="true" />
                       Delete visit
@@ -259,13 +275,19 @@ export default function PatientDetailsPage() {
                   )}
                 </div>
                 <div className="mt-2">
-                  {/* Prefer the loaded visit so admin edits to date, queue or location show at once. */}
+                  {/* Prefer the loaded visit so edits to date, queue or location show at once. */}
                   <CardTitle className="text-2xl">
                     {formatDate(visitDetails?.visit_date ?? selectedSummary?.visit_date ?? null)}
                   </CardTitle>
                   <CardDescription className="text-base mt-1">
                     Queue {visitDetails?.queue_no ?? selectedSummary?.queue_no} • {visitDetails?.location_name ?? selectedSummary?.location_name}
                   </CardDescription>
+                  {canEdit && !canEditVisit && (
+                    <p className={cn("mt-2 flex items-center gap-1.5 text-sm text-muted-foreground", ENTER_FAST)}>
+                      <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+                      Earlier visit: read-only. Only the admin account can change it.
+                    </p>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className={cn(PANEL_SCROLL, STABLE_SCROLLBAR, "xl:flex-1")}>
@@ -277,7 +299,7 @@ export default function PatientDetailsPage() {
                     ))}
                   </div>
                 ) : visitDetails ? (
-                  <VisitRecordTabs visit={visitDetails} canEdit={canEdit} onSaved={reloadSelectedVisit} />
+                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} />
                 ) : (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Failed to load visit details</p>

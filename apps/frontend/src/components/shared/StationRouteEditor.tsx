@@ -2,7 +2,7 @@
 
 import { ComponentType, ReactNode } from "react";
 import { Check, ChevronsDown, Plus, RotateCcw, X } from "lucide-react";
-import { STATIONS, StationId, stationLabel } from "@/constants/stations";
+import { DOCTOR_ADDED_STATION_IDS, STATIONS, StationId, stationLabel } from "@/constants/stations";
 import { Button } from "@/components/ui/button";
 import { PRESS } from "@/lib/motion";
 import SortableList, { moveItem } from "./SortableList";
@@ -18,7 +18,9 @@ interface Props {
 
 // Route rules, mirrored from apps/backend/utils/stationRoute.js:
 // - returning to a completed station makes it the next stop;
-// - a newly added station joins the end of the route.
+// - a newly added station joins the end of the route;
+// - Physiotherapy and Pharmacy are added only from the Consult page (DOCTOR_ADDED_STATION_IDS), so
+//   they are offered here only to return to once finished.
 // Suspected TB is a flag on the visit, not a stop, so it is not edited here.
 
 /**
@@ -42,7 +44,10 @@ export default function StationRouteEditor({ route, completed, onChange, disable
   };
 
   const done = completed.filter((station) => !route.includes(station));
-  const available = STATIONS.filter((station) => !route.includes(station.id));
+  const available = STATIONS.filter((station) => !route.includes(station.id)
+    && (!DOCTOR_ADDED_STATION_IDS.includes(station.id) || completed.includes(station.id)));
+  // Named when they could otherwise have been added, so it's clear where they come from.
+  const fromConsult = DOCTOR_ADDED_STATION_IDS.filter((station) => !route.includes(station) && !completed.includes(station));
 
   return (
     <div className="space-y-5">
@@ -120,10 +125,10 @@ export default function StationRouteEditor({ route, completed, onChange, disable
         )}
       </section>
 
-      {available.length > 0 && (
+      {(available.length > 0 || fromConsult.length > 0) && (
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Add a stop</h3>
-          <div className="flex flex-wrap gap-2" aria-label="Add or revisit stations">
+          {available.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Add or revisit stations">
             {available.map((station) => {
               const revisit = completed.includes(station.id);
               const Icon = revisit ? RotateCcw : Plus;
@@ -154,7 +159,12 @@ export default function StationRouteEditor({ route, completed, onChange, disable
                 </Button>
               );
             })}
-          </div>
+          </div>}
+          {fromConsult.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {fromConsult.map(stationLabel).join(" and ")} {fromConsult.length > 1 ? "are" : "is"} added from the Consult page.
+            </p>
+          )}
         </section>
       )}
       {dialog}

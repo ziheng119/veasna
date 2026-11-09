@@ -1,6 +1,7 @@
 "use client";
 
 import { QueuedPatient } from "@/lib/types/patient";
+import { useVisitChanges } from "@/hooks/useVisitChanges";
 import VerticalLabelInputPair from "../../VerticalLabelInputPair";
 import { useEffect, useState } from "react";
 import { getPresentingComplaint } from "@/lib/api/visit/getPresentingComplaints";
@@ -16,10 +17,12 @@ interface Props {
 export default function PresentingComplaintsDetails({ patient }: Props) {
   const [complaint, setComplaint] = useState<PresentingComplaint | null>(null);
   const [loading, setLoading] = useState(false);
+  // Saves elsewhere (e.g. Triage on another device) reload this quietly, without the spinner.
+  const changes = useVisitChanges(patient.visit_id);
 
   useEffect(() => {
     const fetchComplaint = async () => {
-      setLoading(true);
+      if (changes === 0) setLoading(true);
       try {
         const data = await getPresentingComplaint(patient.patient_id, patient.visit_id);
         setComplaint(data);
@@ -32,7 +35,7 @@ export default function PresentingComplaintsDetails({ patient }: Props) {
     };
 
     fetchComplaint();
-  }, [patient]);
+  }, [patient, changes]);
 
   if (loading) {
     return (

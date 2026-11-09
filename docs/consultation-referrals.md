@@ -19,16 +19,27 @@ a draft never carries over to the wrong patient.
 
 1. Press **Create referral** (or **Edit referral**). Choose the destinations and fill
    in the details. New referrals are dated today; you can change the date.
-2. Sign in the signature box with a mouse, finger or stylus, or press **Upload
+   The destinations are the places patients are sent outside the screening on referral
+   days: **Preah Ang Duong Hospital**, **Samdech Ov Referral Hospital** and **Optician**
+   (changed on the [Station data](station-data.md) page). Physiotherapy isn't a
+   destination: it is part of the screening, so the doctor ticks **Refer to physiotherapy
+   station** on the Consult page instead. Dental and the partner NGO are indicated at
+   Triage.
+2. Under **Doctor's name**, choose the doctor writing the referral: Dr Lim Huai Yang,
+   Dr Nadia Wong, Dr Ellie Choi or Dr Rayal Dy (also changed on the Station data page,
+   under **Doctors on referral letters**). This name is printed under the signature.
+3. Sign in the signature box with a mouse, finger or stylus, or press **Upload
    signature** to use a picture of your signature (see below). **Clear signature** lets
    you start again. Editing other fields doesn't remove the signature.
-3. **Save referral** saves it, signed or not, as a draft.
-4. **Save & print referral** needs a signature. It saves first, then opens the print
-   window. If nothing opens, allow pop-ups for the Veasna address in the browser.
+4. **Save referral** saves it, signed or not, as a draft.
+5. **Save & print referral** (admin account only) needs the doctor's name and a
+   signature. It saves first, then opens the print window. If nothing opens, allow pop-ups for the Veasna address in
+   the browser.
 
-The printout is a plain black-and-white A4 page with Project Battambang branding, the
-patient's details, the chosen destinations, the filled-in clinical fields, and the
-signer's username and signature. Empty fields are left out. To remove the web
+The printout is an A4 page with the Project Battambang butterfly logo and name, the
+patient's details, the chosen destinations, the filled-in clinical fields, the signature
+and the chosen doctor's name under it. A referral saved before doctors could be chosen
+leaves the name line blank, to write by hand. Empty fields are left out. To remove the web
 address and date that browsers add to the page edges, turn off "Headers and footers"
 in the print dialog.
 
@@ -59,14 +70,14 @@ saved with.
 
 **Who signed it:** if someone edits the text but leaves the signature alone, the
 original signer and signing time stay. Drawing a new signature records the person
-saving it. Clearing the signature and saving removes it. The signer's account
-username is shown, because accounts have no separate clinician name. This is a
-handwritten mark on screen, not a cryptographic digital signature.
+saving it. Clearing the signature and saving removes it. The pop-up shows the account
+that is signing; the letter shows the doctor chosen under **Doctor's name**, since a
+screening-day account is shared by everyone. This is a handwritten mark on screen, not a
+cryptographic digital signature.
 
 ## Printing saved referrals
 
-Printing many referrals at once is for the **admin** account only. Anyone can still
-print the one referral they have open (see above).
+Printing referrals, one or many at once, is for the **admin** account only.
 
 **Print referrals**, at the right of the search row on the Consult page, opens a small
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
@@ -96,8 +107,8 @@ There is no undo.
 
 ## Who can do what
 
-Every account can create a referral, and view and print a saved one. Only an admin
-can print many at once, or change or delete a saved referral or signature. See
+Every account can create, change and sign a referral. Only the admin can print
+referrals, one or many at once, or delete one. See
 [accounts and permissions](user-roles.md).
 
 ## Technical details
@@ -118,6 +129,14 @@ can print many at once, or change or delete a saved referral or signature. See
   fonts and styles. No online service is used.
 - The signature columns are added automatically at server start-up
   (`011_referral_signature.sql`). Older referrals stay unsigned.
+- `referral.doctor_name` holds the chosen doctor's name as text (`doctorName` in
+  `POST /api/visits/referral/:visit_id`, at most 100 characters; blank saves none). It is
+  added at start-up by `023_referral_doctor_destinations.sql`, which also replaces a
+  saved Referral destinations list with the new built-in one, once (recorded in
+  `applied_data_changes`), so later edits on the Station data page are kept. Saved
+  referrals keep the destinations they were saved with.
+- The logo is `apps/frontend/public/btb-logo.png`, served by the host, so it prints
+  without internet. If it fails to load, the letter prints with the name only.
 - Saving or deleting a referral refreshes the consultation data on screen. If
   consultation data fails to load, the buttons are disabled rather than showing an
   empty record that could be overwritten.

@@ -173,7 +173,7 @@ export default function AccountsPage() {
         </CardHeader>
         <CardContent className="space-y-1 text-sm">
           {fixedAccounts.map(account => (
-            <p key={account.id}><span className="font-medium">{account.username}</span> · {account.role === "admin" ? "Admin: everything" : "User: view all days, enter new records"}</p>
+            <p key={account.id}><span className="font-medium">{account.username}</span> · {account.role === "admin" ? "Admin: everything" : "User: view all days, enter and correct records"}</p>
           ))}
         </CardContent>
       </Card>

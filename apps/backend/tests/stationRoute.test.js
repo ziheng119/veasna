@@ -14,8 +14,20 @@ test('defers a pending station without completing it', () => {
   expect(plan(['consultation', 'seva'])).toMatchObject({ wanted: ['consultation', 'seva'], reopened: [] });
 });
 test('legacy edits preserve pending custom order and never reopen completed stations', () => {
-  expect(planStationRoute([rows[2], rows[1], rows[0]], { stations: ['triage', 'seva', 'consultation', 'physiotherapy'] }).wanted)
-    .toEqual(['consultation', 'seva', 'physiotherapy']);
+  expect(planStationRoute([rows[2], rows[1], rows[0]], { stations: ['triage', 'seva', 'consultation', 'dental'] }).wanted)
+    .toEqual(['consultation', 'seva', 'dental']);
+});
+test('Physiotherapy and Pharmacy are added only from Consult; once there they can be moved or removed', () => {
+  expect(plan(['seva', 'consultation', 'physiotherapy'])).toMatchObject({ status: 400, error: expect.stringContaining('Refer to physiotherapy station') });
+  expect(plan(['pharmacy', 'seva', 'consultation'])).toMatchObject({ status: 400, error: expect.stringContaining('prescribes') });
+  expect(planStationRoute(rows, { stations: ['physiotherapy'] }).status).toBe(400);
+  const withPhysio = [...rows, { station: 'physiotherapy', completed_at: null }, { station: 'pharmacy', completed_at: '2026-10-20T02:00:00Z' }];
+  const expected = withPhysio.map(s => ({ station: s.station, completed: !!s.completed_at }));
+  const edit = stations => planStationRoute(withPhysio, { stations, ordered: true, expected_stations: expected });
+  expect(edit(['physiotherapy', 'seva', 'consultation']).wanted).toEqual(['physiotherapy', 'seva', 'consultation']);
+  expect(edit(['seva', 'consultation']).wanted).toEqual(['seva', 'consultation']);
+  // Returning to a finished Pharmacy is allowed: it was on the route already.
+  expect(edit(['pharmacy', 'seva', 'consultation', 'physiotherapy']).reopened).toEqual(['pharmacy']);
 });
 test.each([[], ['bad'], ['seva', 'seva'], null])('rejects invalid routes %j', stations => {
   expect(plan(stations).status).toBe(400);

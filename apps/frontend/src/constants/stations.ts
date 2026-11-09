@@ -21,6 +21,11 @@ export const ALL_STATION_IDS: StationId[] = STATIONS.map((station) => station.id
 // when the doctor prescribes. Must match REGISTRATION_STATIONS in apps/backend/utils/stations.js.
 export const REGISTRATION_STATION_IDS: StationId[] = ["triage", "dental", "consultation", "seva"];
 
+// Stations only the Consult page adds: Physiotherapy ("Refer to physiotherapy station", it has
+// limited places) and Pharmacy (when the doctor prescribes). Send to can reorder, remove or revisit
+// them but not add them. Must match DOCTOR_ADDED_STATIONS in apps/backend/utils/stations.js.
+export const DOCTOR_ADDED_STATION_IDS: StationId[] = ["physiotherapy", "pharmacy"];
+
 // Ticked by default at registration. The partner NGO is added at Triage when a cataract is suspected.
 export const DEFAULT_STATION_IDS: StationId[] = ["triage", "dental", "consultation"];
 

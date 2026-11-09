@@ -10,6 +10,7 @@ export const DEFAULT_FORM_OPTIONS: Record<FormOptionKey, FormOption[]> = {
   snellen: defaults.snellen,
   tb_red_flags: defaults.tb_red_flags,
   referral_destinations: defaults.referral_destinations,
+  referral_doctors: defaults.referral_doctors,
   consultation_conditions: conditions,
   sticker_colours: defaults.sticker_colours,
 };
@@ -29,6 +30,7 @@ export const useFormOptionsStore = create<FormOptionsState>()((set) => ({
     snellen: builtIn(DEFAULT_FORM_OPTIONS.snellen),
     tb_red_flags: builtIn(DEFAULT_FORM_OPTIONS.tb_red_flags),
     referral_destinations: builtIn(DEFAULT_FORM_OPTIONS.referral_destinations),
+    referral_doctors: builtIn(DEFAULT_FORM_OPTIONS.referral_doctors),
     consultation_conditions: builtIn(DEFAULT_FORM_OPTIONS.consultation_conditions),
     sticker_colours: builtIn(DEFAULT_FORM_OPTIONS.sticker_colours),
   },

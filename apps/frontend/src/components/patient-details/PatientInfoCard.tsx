@@ -37,7 +37,7 @@ interface Props {
   onSaved: (patient: PatientRecord) => void;
 }
 
-/** Demographics of the patient. Admins can correct them; the Unique ID is regenerated on save. */
+/** Demographics of the patient. Any account can correct them; the Unique ID is regenerated on save. */
 export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const locations = useLocationStore((state) => state.locations);
@@ -107,6 +107,7 @@ export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
           readOnlyItems={[
             { label: "Unique ID", value: patient.face_id || "N/A" },
             { label: "Age", value: age === null ? "N/A" : `${age} years` },
+            { label: "Family", value: patient.family ? `Family ${patient.family}` : "None" },
             { label: "Last Updated", value: lastUpdated ? new Date(lastUpdated).toLocaleString() : "N/A" },
           ]}
           validate={(d) => {

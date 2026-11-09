@@ -76,6 +76,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
         signerName: json.signer_name,
         signerId: json.signer_id,
         signedAt: json.signed_at,
+        doctorName: json.doctor_name ?? null,
         reason: json.reason
       }
     }

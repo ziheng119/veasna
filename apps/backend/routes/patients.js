@@ -26,7 +26,7 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
   try {
     // $2: today's clinic date, for where the patient is waiting now. $3: a screening-day account's
     // date (only patients queued that day), else NULL.
-    const values = [location_id, currentVisitDate(), req.user.screening_date ?? null];
+    const values = [location_id, currentVisitDate(), req.user.scope_date ?? null];
     let visitFilter = '';
 
     if (visit_date) {
@@ -50,6 +50,14 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           FROM visits lv
           WHERE lv.patient_id = p.id
         ) AS last_visit_date,
+        -- When the latest visit was registered: orders patients seen on the same day, newest first.
+        (
+          SELECT lv.created_at
+          FROM visits lv
+          WHERE lv.patient_id = p.id
+          ORDER BY lv.visit_date DESC, lv.created_at DESC
+          LIMIT 1
+        ) AS last_visit_at,
         -- In today's queue here: the open visit and the station it waits at (null when not queued).
         q.visit_id AS queue_visit_id, q.station AS current_station
       FROM patients p
@@ -94,7 +102,7 @@ router.get('/search', authenticateToken, requireRole(['any']), async (req, res) 
         AND ${patientOnDaySql('p.id', '$2')}
       LIMIT 10
     `;
-    const result = await db.query(queryText, [searchTerm, req.user.screening_date ?? null]);
+    const result = await db.query(queryText, [searchTerm, req.user.scope_date ?? null]);
     res.status(200).json(result.rows);
   } catch (err) {
     console.error('Error searching patients:', err);

@@ -10,6 +10,7 @@ const db = require('../config/db');
 const { authenticateToken, requireRole } = require('../routes/auth');
 const { TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
 const { textOrEmpty } = require('../utils/partialFields');
+const { canEditSavedRecords } = require('../utils/permissions');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
 router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -43,14 +44,15 @@ router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res
 // Anyone may flag a patient (e.g. at triage). The flag is cleared at Consult, by the doctor who saw
 // the patient: clearing is refused (409) unless the visit is waiting at Consultation. Admins
 // correct other visits' flags on Patient Details (PUT /api/visits/:visitId/tb). Flagging or
-// clearing makes Consultation the patient's only remaining station. Changing an existing flag's red flags or notes is
-// an edit of saved data and needs an admin. Clearing a visit that is not flagged changes nothing.
+// clearing makes Consultation the patient's only remaining station. Sending flagged=true again changes an
+// existing flag's red flags or notes, like any saved-record edit (utils/permissions.js
+// canEditSavedRecords). Clearing a visit that is not flagged changes nothing.
 // Responds with the screening, `flagged`, and the visit's `current_station` afterwards.
 router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = toPositiveInt(req.params.visitId);
     const { flagged } = req.body;
     const redFlags = normalizeRedFlags(req.body.red_flags);
-    const isAdmin = req.user.role === 'admin';
+    const canEdit = canEditSavedRecords(req.user.role);
 
     if (!visitId) {
         return res.status(400).json({ error: 'Visit ID must be a positive integer' });
@@ -82,9 +84,9 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
         const existing = await client.query('SELECT status FROM tb_screening WHERE visit_id = $1', [visitId]);
         const wasFlagged = TB_FLAGGED_STATUSES.includes(existing.rows[0]?.status);
 
-        if (!isAdmin && flagged && wasFlagged) {
+        if (!canEdit && flagged && wasFlagged) {
             await client.query('ROLLBACK');
-            return res.status(403).json({ error: 'This patient is already flagged for TB. Ask an admin to change the red flags or notes.' });
+            return res.status(403).json({ error: 'This account cannot change the red flags or notes of a TB flag.' });
         }
         // Already cleared, e.g. by another doctor a moment ago: keep their attribution.
         if (!flagged && !wasFlagged) {

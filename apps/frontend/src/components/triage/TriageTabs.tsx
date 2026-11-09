@@ -22,8 +22,10 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
 import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
-import { SaveAndNextButton, StationDonePrompt } from "@/components/shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "@/components/shared/StationFlow";
+import { LiveRecordNotice, useLiveRecord } from "@/components/shared/LiveRecord";
 
 // Triage is done when every section is saved.
 const SECTIONS = [
@@ -32,6 +34,18 @@ const SECTIONS = [
     { id: "history", label: "Medical History" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
+
+// Each section's form values for its saved record (empty when there is none).
+const acuityValues = (acuity: VisualAcuity | null): VisualAcuity => ({
+    ...Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, acuity?.[field] ?? ""])) as EyeReadings,
+    notes: acuity?.notes ?? "",
+});
+const complaintValues = (complaint: PresentingComplaint | null): PresentingComplaint => ({
+    history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "",
+});
+const historyValues = (history: MedicalHistory | null): MedicalHistory => ({
+    past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "",
+});
 
 interface TriageTabsProps {
     // The selected patient, for "Save & next".
@@ -45,13 +59,19 @@ interface TriageTabsProps {
 }
 
 export function TriageTabs({ patient, visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
-    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
     const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
     const [loadedVisit, setLoadedVisit] = useState<number | null>(null);
     const [loadError, setLoadError] = useState(false);
     const [retry, setRetry] = useState(0);
-    const locked = (section: string) => loadedVisit !== visit_id || (!isAdmin && savedSections[section]);
-    const saved = (section: string) => setSavedSections(previous => ({ ...previous, [section]: true }));
+    const locked = (section: string) => loadedVisit !== visit_id || (!canEdit && savedSections[section]);
+    const saved = (section: string) => {
+        setSavedSections(previous => ({ ...previous, [section]: true }));
+        setSaveCounts(previous => ({ ...previous, [section]: (previous[section] ?? 0) + 1 }));
+    };
+    // Counts loads and each section's saves, so Next on the queue card knows what is unsaved.
+    const [loadCount, setLoadCount] = useState(0);
+    const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
     useEffect(() => {
       let cancelled = false;
       setLoadedVisit(null); setLoadError(false);
@@ -61,14 +81,12 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         getTriageRecord<MedicalHistory>("history", patient_id, visit_id),
       ]).then(([acuity, complaint, history]) => {
         if (cancelled) return;
-        setVisualAcuity({
-          ...Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, acuity?.[field] ?? ""])) as EyeReadings,
-          notes: acuity?.notes ?? "",
-        });
-        setPresentingComplaint({ history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "" });
-        setMedicalHistory({ past: history?.past ?? "", drug_and_treatment: history?.drug_and_treatment ?? "", family: history?.family ?? "", social: history?.social ?? "", systems_review: history?.systems_review ?? "" });
+        setVisualAcuity(acuityValues(acuity));
+        setPresentingComplaint(complaintValues(complaint));
+        setMedicalHistory(historyValues(history));
         setSavedSections({ acuity: acuity !== null, complaint: complaint !== null, history: history !== null });
         setLoadedVisit(visit_id);
+        setLoadCount(count => count + 1);
       }).catch(() => { if (!cancelled) setLoadError(true); });
       return () => { cancelled = true; };
     }, [patient_id, visit_id, retry]);
@@ -138,6 +156,34 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             error: (error) => error.message || 'Failed to save data.',
         }).then(() => true, () => false).finally(() => setIsLoading(false));
 
+    // Next on the queue card saves every section with unsaved changes first, one by one.
+    const sectionVersion = (section: SectionId) =>
+        loadedVisit === visit_id ? `${visit_id}:${loadCount}:${saveCounts[section] ?? 0}` : null;
+    useSaveBeforeNext(visit_id, sectionVersion("acuity"), { visualAcuity, sendToSeva }, handleSaveVisualAcuity);
+    useSaveBeforeNext(visit_id, sectionVersion("complaint"), presentingComplaint, handleSavePresentingComplaint);
+    useSaveBeforeNext(visit_id, sectionVersion("history"), medicalHistory, handleSaveMedicalHistory);
+
+    // Saves made for this visit on another device show here too, one section at a time.
+    const showSaved = (section: SectionId, exists: boolean) => {
+        setSavedSections(previous => ({ ...previous, [section]: exists }));
+        setSaveCounts(previous => ({ ...previous, [section]: (previous[section] ?? 0) + 1 }));
+    };
+    const liveAcuity = useLiveRecord({
+        visitId: visit_id, savedVersion: sectionVersion("acuity"), values: visualAcuity, valuesOf: acuityValues,
+        load: () => getTriageRecord<VisualAcuity>("visual-acuity", patient_id, visit_id),
+        apply: (data) => { setVisualAcuity(acuityValues(data)); showSaved("acuity", data !== null); },
+    });
+    const liveComplaint = useLiveRecord({
+        visitId: visit_id, savedVersion: sectionVersion("complaint"), values: presentingComplaint, valuesOf: complaintValues,
+        load: () => getTriageRecord<PresentingComplaint>("presenting-complaint", patient_id, visit_id),
+        apply: (data) => { setPresentingComplaint(complaintValues(data)); showSaved("complaint", data !== null); },
+    });
+    const liveHistory = useLiveRecord({
+        visitId: visit_id, savedVersion: sectionVersion("history"), values: medicalHistory, valuesOf: historyValues,
+        load: () => getTriageRecord<MedicalHistory>("history", patient_id, visit_id),
+        apply: (data) => { setMedicalHistory(historyValues(data)); showSaved("history", data !== null); },
+    });
+
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);
 
     // A section is complete when every reading or field is filled in (notes are optional), and is
@@ -186,7 +232,12 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
             {loadError && <p role="alert">Unable to load saved data. <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
-            <div className="mb-3"><StationDonePrompt patient={patient} done={loadedVisit === visit_id && triageDone} /></div>
+            <div className="mb-3 space-y-2">
+                <StationDonePrompt patient={patient} done={loadedVisit === visit_id && triageDone} />
+                <LiveRecordNotice live={liveAcuity} label="Visual Acuity" />
+                <LiveRecordNotice live={liveComplaint} label="Presenting Complaints" />
+                <LiveRecordNotice live={liveHistory} label="Medical History" />
+            </div>
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
                 <TabsTrigger value="visual-acuity" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Visual Acuity</TabsTrigger>
                 <TabsTrigger value="presenting-complaint" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Presenting Complaints</TabsTrigger>

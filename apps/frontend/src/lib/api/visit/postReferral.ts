@@ -28,6 +28,7 @@ export async function postReferral(data: Referral, visitId: number) {
       duration: data.duration,
       reason: data.reason,
       signature: data.signature ?? null,
+      doctorName: data.doctorName ?? "",
     }),
   });
 

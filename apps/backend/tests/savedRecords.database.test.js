@@ -10,7 +10,7 @@ jest.mock("../config/db", () => ({
 }));
 const db = require("../config/db");
 (process.env.RUN_DB_TESTS === "1" ? describe : describe.skip)(
-  "Create-only clinical records",
+  "Saved clinical records",
   () => {
     let client, app, previousSecret;
     const secret = "saved-record-test";
@@ -32,7 +32,9 @@ const db = require("../config/db");
       await client.query(`SET search_path TO pg_temp;
    CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
    INSERT INTO users VALUES (1,'Admin','admin',TRUE),(2,'User','user',TRUE);
-   CREATE TEMP TABLE visits (id INT PRIMARY KEY); INSERT INTO visits VALUES (1);
+   CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1);
+   CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, visit_date DATE);
+   INSERT INTO visits VALUES (1, 1, '${require("../utils/queueNumber").currentVisitDate()}');
    CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, completed_at TIMESTAMP);`);
       const setup = fs
         .readFileSync(path.join(__dirname, "../db_setup.sql"), "utf8")
@@ -93,29 +95,26 @@ const db = require("../config/db");
       ],
       ["/visits/dental/1", "dental", { notes: "Initial", referral_needed: true }],
     ])(
-      "%s allows creation and denies subsequent user changes",
+      "%s: users create the record and can change it afterwards, like admins",
       async (url, table, body) => {
         const save = (role, payload) =>
           request(app)
             .post(url)
             .set("Authorization", "Bearer " + token(role))
             .send(payload);
+        // The free-text field each form saves (notes, history, past, diagnosis).
+        const field = "notes" in body ? "notes" : Object.keys(body).find((key) => key !== "visit_id");
+        const saved = async () => (await client.query("SELECT * FROM " + table)).rows;
         expect((await save("user", body)).status).toBe(200);
-        const before = (await client.query("SELECT * FROM " + table)).rows;
-        expect(
-          (await save("user", { ...body, notes: "Changed", role: "admin" }))
-            .status,
-        ).toBe(403);
-        expect((await client.query("SELECT * FROM " + table)).rows).toEqual(
-          before,
-        );
-        expect(
-          (await save("admin", { ...body, notes: "Admin change" })).status,
-        ).toBe(200);
-        expect(
-          (await client.query("SELECT last_updated_by FROM " + table)).rows[0]
-            .last_updated_by,
-        ).toBe(1);
+        expect(await saved()).toHaveLength(1);
+        // Doctors add what they find later at other stations (utils/permissions.js canEditSavedRecords).
+        expect((await save("user", { ...body, [field]: "User change" })).status).toBe(200);
+        expect((await saved())[0]).toMatchObject({ [field]: "User change", last_updated_by: 2 });
+        expect((await save("admin", { ...body, [field]: "Admin change" })).status).toBe(200);
+        const [row] = await saved();
+        expect(row).toMatchObject({ [field]: "Admin change", last_updated_by: 1 });
+        // Still one record per visit.
+        expect(await saved()).toHaveLength(1);
       },
     );
     test("with glasses readings are optional and saved with the pinhole readings", async () => {

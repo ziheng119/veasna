@@ -1,6 +1,7 @@
 "use client";
 
 import { QueuedPatient } from "@/lib/types/patient";
+import { useVisitChanges } from "@/hooks/useVisitChanges";
 import VerticalLabelInputPair from "../../VerticalLabelInputPair";
 import { Fragment, useEffect, useState } from "react";
 import { EYE_READING_ROWS } from "../../EyeReadingsGrid";
@@ -16,10 +17,12 @@ interface Props {
 export default function SnellensTestDetails({ patient }: Props) {
   const [visualAcuity, setVisualAcuity] = useState<VisualAcuity | null>(null);
   const [loading, setLoading] = useState(false);
+  // Saves elsewhere (e.g. Triage on another device) reload this quietly, without the spinner.
+  const changes = useVisitChanges(patient.visit_id);
 
   useEffect(() => {
     const fetchVisualAcuity = async () => {
-      setLoading(true);
+      if (changes === 0) setLoading(true);
       try {
         const data = await getVisualAcuity(patient.patient_id, patient.visit_id);
         setVisualAcuity(data);
@@ -32,7 +35,7 @@ export default function SnellensTestDetails({ patient }: Props) {
     };
 
     fetchVisualAcuity();
-  }, [patient]);
+  }, [patient, changes]);
 
   if (loading) {
     return (

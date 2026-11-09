@@ -9,18 +9,26 @@ Patients go through the stations they need in this order:
 | Triage | Ticked at registration |
 | Dental | Ticked at registration |
 | Consult | Ticked at registration |
-| Physiotherapy | The doctor, with **Send to Physiotherapy** on the Consult page |
+| Physiotherapy | Only the doctor, with **Refer to physiotherapy station** on the Consult page |
 | Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected |
-| Pharmacy | Added automatically when the doctor prescribes something |
+| Pharmacy | Only when the doctor prescribes something at Consult |
 
 - **Dental** comes before Consult so the doctor already has the dental notes and can
   refer the patient on. It shows the patient's triage notes, where tooth problems found at Triage are
   written. The students note what they did and tick **Referral needed** if the patient
-  should go to hospital. The doctor sees both on the Consult page, under **Dental notes**,
-  and makes the referral from there.
-- **Pharmacy** has its own queue on the Pharmacy page. Picking a patient shows only their
-  prescriptions; once they are dispensed, press **Finish** to complete the visit. A
-  patient with no prescription finishes at their last station.
+  should go to hospital. The doctor sees both on the Consult page, under **Dental notes**:
+  a ticked **Referral required from Dental** box (it can only be changed at Dental) and the
+  students' notes. The doctor makes the referral from there with **Create referral**.
+- **Physiotherapy** has limited places, so a patient only joins its queue after the doctor
+  ticks **Refer to physiotherapy station**. It isn't offered at registration or in
+  **Send to**. Unticking it takes the patient off the Physiotherapy queue again.
+- **Pharmacy** has its own queue on the Pharmacy page. Nobody is on it until a doctor
+  prescribes: the first prescription adds Pharmacy to the patient's stations, after the
+  others, and the patient appears in the Pharmacy queue when they get there. Picking a
+  patient shows only their prescriptions; once they are dispensed, press **Finish** to
+  complete the visit. A patient with no prescription finishes at their last station. If
+  every prescription is cancelled before the patient reaches Pharmacy, Pharmacy comes off
+  their stations again.
 - A station added later (Physiotherapy, Partner NGO, Pharmacy) goes in its place in this
   order, never ahead of the station the patient is waiting at, and keeps any custom order
   made with **Send to**.
@@ -56,11 +64,25 @@ A patient is **done** at a station once everything needed there is saved:
 - At Triage, **Save & next** on any section saves that section and any other section
   with something typed in, then names any section still empty instead of moving the
   patient on.
-- At Consult, prescribe and tick **Send to Physiotherapy** before **Save & next**, so the
-  patient goes to the right place.
-- A form that is already saved can't be saved again by a user. Its button then reads
-  **Next station** (green) and only sends the patient on; **Send to next station** and
-  **Next** on the card do the same.
+- At Consult, prescribe and tick **Refer to physiotherapy station** before **Save & next**,
+  so the patient goes to the right place.
+- A form that is already saved can be saved again by anyone, for example when the doctor
+  finds more later. **Save & next** then saves the changes and sends the patient on.
+- **Next** on the patient's queue card (and **Send to next station**) also saves first:
+  whatever has been typed into the open patient's form since it was opened or last saved
+  is saved, then the patient is sent on. At Triage each section with changes is saved.
+  A form nobody has typed into is not saved, so no empty record is made. If the save
+  fails (for example an eye reading that isn't a Snellen value), the patient stays and
+  the message says why. **Past visits** on the card saves the same way before opening
+  the patient's earlier visits.
+- **Moved on from another device.** If the patient open on one device is sent on,
+  finished or discharged on another, the first device notices when its queue updates.
+  Anything typed for them there is saved, their forms close, and the empty panel says
+  where they went, e.g. "Queue 12, Sok Dara, was sent to Pharmacy from another device".
+  If that save fails, the forms stay open with the reason and a **Close patient**
+  button, so nothing typed is lost. Moves made on the device itself (Next, Send to,
+  Discharge, a TB flag) never show this. (`patientLeft` in
+  `components/shared/StationFlow.tsx`, detected by `QueuePatientPicker.tsx`.)
 
 ### Families move together
 
@@ -95,7 +117,8 @@ Press **Send to** on a patient in a station queue:
   aside to show where it will land. With a keyboard, focus the grip and press the up or
   down arrow.
 - **Add [station]** adds a station; **Remove** takes it off the remaining route, after
-  you confirm in a pop-up.
+  you confirm in a pop-up. Physiotherapy and Pharmacy can't be added here (only from the
+  Consult page, see above), but they can be moved, removed, or returned to once finished.
 - **Save** applies the new route and sends the patient to its first station.
   **Cancel** changes nothing.
 
@@ -140,13 +163,13 @@ A TB patient's stations can't be changed, before or after the flag is cleared, s
 Good to know:
 
 - The flag can only be cleared while the patient is waiting at Consult; the server
-  refuses it anywhere else, for admins too. An admin can correct the flag of a finished
-  or discharged visit on **Patient Details**. Clearing also removes any other stations
+  refuses it anywhere else, for admins too. The flag of a finished or discharged visit
+  can be corrected on **Patient Details**. Clearing also removes any other stations
   left on an older visit's route.
 - Flagging a patient whose Consultation is already finished doesn't reopen it.
 - If two people clear the same patient, the second press changes nothing.
-- Only an admin can change the red flags or notes of an existing flag (on **Patient
-  Details**). That never moves the patient.
+- Anyone can change the red flags or notes of an existing flag (on **Patient Details**).
+  That never moves the patient.
 - A patient flagged by mistake still goes to Consult only. The doctor can **Finish**
   them; register a new visit if they need other stations.
 
@@ -178,6 +201,12 @@ started from:
   `expected_stations`, the server returns HTTP 409.
 - Requests without `ordered` (older clients) keep finished stations and the existing
   order, and add new stations at the end, with TB still first.
+- Adding Physiotherapy or Pharmacy to a route that doesn't have them returns HTTP 400
+  (`DOCTOR_ADDED_STATIONS` in `apps/backend/utils/stations.js`). They are added with
+  `PUT /api/queue/:visitId/stations/physiotherapy` (the Consult checkbox) and by
+  `POST /api/prescriptions`; cancelling a visit's last prescription
+  (`POST /api/prescriptions/:id/cancel`) removes Pharmacy unless the patient is already
+  waiting there.
 - Before each change, `visit_station_route_history` records the old route, the new
   route, who changed it and when. If that record can't be saved, the change is undone.
 - The current station keeps its arrival time if it stays current. A station gets a new
@@ -197,7 +226,7 @@ Database checks, using temporary tables only (PowerShell):
 
 ```powershell
 $env:RUN_DB_TESTS='1'
-npm test --workspace apps/backend -- --runInBand tests/stationRoute.database.test.js tests/tbFlow.database.test.js
+npm test --workspace apps/backend -- --runInBand tests/stationRoute.database.test.js tests/tbFlow.database.test.js tests/prescriptions.database.test.js
 Remove-Item Env:RUN_DB_TESTS
 ```
 

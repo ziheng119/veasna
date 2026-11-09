@@ -40,8 +40,11 @@ export default function StationDataPage() {
         description="Ticked by the doctor in the consultation notes, and counted on the Analytics page."
         placeholder="e.g. Kidney disease" />
       <OptionListEditor listKey="referral_destinations" kind="value" title="Referral destinations"
-        description="Where a doctor can refer a patient. Printed on the referral letter."
+        description="Places patients are referred to outside the screening, on referral days. Printed on the referral letter. Physiotherapy is referred from the Consult page instead."
         placeholder="e.g. Battambang Provincial Hospital" />
+      <OptionListEditor listKey="referral_doctors" kind="value" title="Doctors on referral letters"
+        description="Chosen as the doctor's name in the referral pop-up, and printed under the signature."
+        placeholder="e.g. Dr Sok Dara" />
 
       <h2 id="seva" className={SECTION_TITLE}>{PARTNER_NGO_NAME}</h2>
       <p className="text-sm text-muted-foreground">

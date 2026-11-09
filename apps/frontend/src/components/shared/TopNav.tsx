@@ -135,9 +135,9 @@ export default function TopNav() {
       </div>
       {user?.role === "user" && (user.screening_date
         ? <p className="px-6 pb-2 text-xs text-muted-foreground">
-            Screening day {formatDayLabel(user.screening_date)}: you see the patients queued that day and their earlier visits. Enter new records; ask an admin to change saved data.
+            Screening day {formatDayLabel(user.screening_date)}: you see the patients queued that day and their earlier visits. Enter and correct their records; printing and downloads need the admin account.
           </p>
-        : <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages and create new records. Ask an admin to change saved data.</p>)}
+        : <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages, enter and correct records. Printing and downloads need the admin account.</p>)}
     </nav>
   );
 }

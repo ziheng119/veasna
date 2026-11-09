@@ -20,6 +20,7 @@ import GlassButton from "@/components/shared/GlassButton";
 import PrintReferralsDialog from "@/components/shared/PrintReferralsDialog";
 import { BarList, DonutChart } from "./charts";
 import TrendSection from "./TrendSection";
+import ReferralListsSection from "./ReferralListsSection";
 import { buildAnalyticsCsv, downloadFile } from "./exportCsv";
 import { enter, ExportMenu, fieldClass, InfoTip, panel, Segmented, SectionCard } from "./ui";
 
@@ -39,6 +40,7 @@ const TONES = {
   rose: { dot: "bg-rose-500", active: "bg-rose-600 text-white", badge: "bg-rose-100 text-rose-700" },
   violet: { dot: "bg-violet-500", active: "bg-violet-600 text-white", badge: "bg-violet-100 text-violet-700" },
   teal: { dot: "bg-teal-500", active: "bg-teal-600 text-white", badge: "bg-teal-100 text-teal-700" },
+  indigo: { dot: "bg-indigo-500", active: "bg-indigo-600 text-white", badge: "bg-indigo-100 text-indigo-700" },
 };
 
 const localDate = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -137,6 +139,7 @@ export default function AnalyticsDashboard() {
     { id: "overview", label: "Summary", ...TONES.slate },
     { id: "trends", label: "Trends", ...TONES.blue },
     { id: "conditions", label: "Conditions", ...TONES.rose },
+    { id: "referrals", label: "Referrals", ...TONES.indigo },
     ...(locationId === "all" ? [{ id: "locations", label: "Locations", ...TONES.violet }] : []),
     { id: "operations", label: "Clinic operations", ...TONES.teal },
   ];
@@ -325,6 +328,9 @@ export default function AnalyticsDashboard() {
           </div>
         </SectionCard>
 
+        {token && <ReferralListsSection id="referrals" icon={Send} tone={TONES.indigo.badge} locationId={locationId} locationName={locationName}
+          date={date} period={period} dateRange={dateRangeText(period, date)} token={token} refresh={refresh} delay={225} />}
+
         {locationId === "all" && <SectionCard id="locations" icon={MapPin} tone={TONES.violet.badge} title="Patients reached by location" label="Location comparison" delay={250}
           description="Compare how many different patients each clinic location saw."
           info="A patient seen at two locations counts at both, so these can add up to more than Patients reached.">
@@ -366,13 +372,7 @@ export default function AnalyticsDashboard() {
                 return { id: label, label, value: count, detail: visible.summary.people ? `${Math.round(count / visible.summary.people * 100)}%` : undefined };
               })} />
             </SectionCard>
-            <SectionCard icon={Send} tone={TONES.teal.badge} title="Referral destinations" delay={400}
-              description="Where patients were referred." info="A visit can be referred to several places, so these can add up to more than the number of referrals.">
-              {visible.destinations.length
-                ? <BarList color={PRIMARY_SERIES_COLOR} unit="visits" items={visible.destinations.map(item => ({ id: item.label, label: item.label, value: item.count }))} />
-                : <p className="text-sm text-muted-foreground">No referral destinations recorded.</p>}
-            </SectionCard>
-            <SectionCard icon={FileWarning} tone={TONES.teal.badge} title="Documentation check" delay={450}
+            <SectionCard icon={FileWarning} tone={TONES.teal.badge} title="Documentation check" delay={400} className="lg:col-span-2"
               description="Records that may need a second look." info="These are prompts for review, not measures of clinical quality. Saved notes do not necessarily mean a consultation is complete.">
               <dl className="space-y-1 text-sm">
                 {[

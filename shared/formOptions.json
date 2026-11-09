@@ -21,12 +21,15 @@
     { "id": "other", "label": "Other concern (describe in notes)" }
   ],
   "referral_destinations": [
-    { "id": "MongKol Borey Hospital", "label": "MongKol Borey Hospital" },
-    { "id": "Poipett Referral Hospital", "label": "Poipett Referral Hospital" },
-    { "id": "Partner NGO", "label": "Partner NGO" },
-    { "id": "Optometrist", "label": "Optometrist" },
-    { "id": "Dentist", "label": "Dentist" },
-    { "id": "Bong Bondol", "label": "Bong Bondol" }
+    { "id": "Preah Ang Duong Hospital", "label": "Preah Ang Duong Hospital" },
+    { "id": "Samdech Ov Referral Hospital", "label": "Samdech Ov Referral Hospital" },
+    { "id": "Optician", "label": "Optician" }
+  ],
+  "referral_doctors": [
+    { "id": "Dr Lim Huai Yang", "label": "Dr Lim Huai Yang" },
+    { "id": "Dr Nadia Wong", "label": "Dr Nadia Wong" },
+    { "id": "Dr Ellie Choi", "label": "Dr Ellie Choi" },
+    { "id": "Dr Rayal Dy", "label": "Dr Rayal Dy" }
   ],
   "sticker_colours": [
     { "id": "silver", "label": "Silver", "colour": "#c0c0c0" },

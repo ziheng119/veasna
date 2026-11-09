@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
 import { completeStation } from "@/lib/api/queue/stations";
-import { StationId, stationLabel } from "@/constants/stations";
+import { StationId, stationLabel, stationPageHref } from "@/constants/stations";
 import TbBadge, { tbCardClass } from "./TbBadge";
 import FamilyBadge from "./FamilyBadge";
 import StickerTag, { findSticker, stickerLabel, useStickerColours } from "./StickerTag";
@@ -23,7 +23,7 @@ import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, CircleCheck, Hourglass, ListChecks, X } from "lucide-react";
+import { Check, ChevronRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -52,6 +52,8 @@ export default function QueuePatientPicker({
   const { mode, setMode } = useQueueSort(station);
   const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
+  // Present on station pages (not Home): Next saves the open form first, and the order is shared.
+  const flow = useStationFlow();
 
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
@@ -88,6 +90,30 @@ export default function QueuePatientPicker({
     if (refreshKey !== undefined) void loadQueue();
   }, [loadQueue, refreshKey]);
 
+  // The open patient leaving this queue without this device moving them on (another device sent them
+  // on, finished or discharged them): StationFlow saves what was typed for them, closes their forms
+  // and says where they went. Moves made here are remembered so they never count.
+  const ownMoves = useRef(new Set<number>());
+  const seen = useRef<{ key: string; patients: Map<number, QueuedPatient> } | null>(null);
+  const openVisit = useRef(selectedVisitId);
+  openVisit.current = selectedVisitId;
+  const listKey = `${locationId}:${station}`;
+  useEffect(() => {
+    if (!loaded) return;
+    const previous = seen.current;
+    const now = new Map(patients.map((patient) => [patient.visit_id, patient]));
+    seen.current = { key: listKey, patients: now };
+    if (!flow || !selectedVisitId || previous?.key !== listKey || now.has(selectedVisitId)) return;
+    const left = previous.patients.get(selectedVisitId);
+    if (!left || ownMoves.current.has(selectedVisitId)) return;
+    void flow.patientLeft(left, () => openVisit.current === left.visit_id);
+  }, [loaded, patients, listKey, flow, selectedVisitId]);
+  // Opening a patient replaces the note about the one who left.
+  const clearDeparture = flow?.clearDeparture;
+  useEffect(() => {
+    if (selectedVisitId) clearDeparture?.();
+  }, [selectedVisitId, clearDeparture]);
+
   // Station after this one for the patient, or null when this is their last.
   const nextStation = (patient: QueuedPatient): StationId | null => {
     const pending = (patient.stations ?? []).filter((s) => !s.completed).map((s) => s.station);
@@ -98,7 +124,11 @@ export default function QueuePatientPicker({
     if (!token) return;
 
     try {
+      // Saves anything typed into this patient's open form first; a failed save keeps them here.
+      if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
+      ownMoves.current.add(patient.visit_id);
       const move = await completeStation(patient.visit_id, station, token);
+      move.family_moved.forEach((member) => ownMoves.current.add(member.visit_id));
       const left = [patient.visit_id, ...move.family_moved.map((member) => member.visit_id)];
       // A patient waiting for family is still here, so stays selected.
       if (selectedVisitId && !move.held && left.includes(selectedVisitId)) {
@@ -122,6 +152,7 @@ export default function QueuePatientPicker({
     })) return;
 
     try {
+      ownMoves.current.add(patient.visit_id);
       await completeQueueVisit(patient.visit_id, token);
       if (selectedVisitId === patient.visit_id) {
         onSelectPatient(null);
@@ -131,6 +162,14 @@ export default function QueuePatientPicker({
       console.error("Failed to remove patient from queue:", err);
       toast.error("Failed to remove patient from queue");
     }
+  };
+
+  // A returning patient's earlier visits, on Patient Details. Anything typed into their open form is
+  // saved first, as with Next; Back there returns to this queue with the patient selected again.
+  const openPastVisits = async (patient: QueuedPatient) => {
+    if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
+    const from = stationPageHref(station, patient.visit_id);
+    router.push(`/patient-details?id=${patient.patient_id}&from=${encodeURIComponent(from)}`);
   };
 
   // A cleared patient who is still waiting here stays selected, without the red marker.
@@ -158,7 +197,6 @@ export default function QueuePatientPicker({
   }, [patients, searchQuery, mode]);
 
   // "Save & next" on this page opens the next patient in the order shown here.
-  const flow = useStationFlow();
   useEffect(() => {
     flow?.registerQueue(sortedPatients, loadQueue);
   }, [flow, sortedPatients, loadQueue]);
@@ -204,7 +242,7 @@ export default function QueuePatientPicker({
                 // The native buttons handle their own actions; all remaining card space selects.
                 if (!(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
-              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
+              className={`cursor-pointer rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
                 tbFlagged
                   ? tbCardClass(isSelected)
                   : isSelected
@@ -212,6 +250,7 @@ export default function QueuePatientPicker({
                     : "border-border hover:bg-accent/60"
               }`}
             >
+              <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
@@ -299,6 +338,24 @@ export default function QueuePatientPicker({
                   Discharge
                 </Button>
               </div>
+              </div>
+              {/* Only for a patient who has been before: their earlier trips and days. */}
+              {!!patient.previous_visits && (
+                <div className="mt-2 border-t border-border/70 pt-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="group/past h-7 gap-1.5 rounded-full px-2 text-xs font-medium text-muted-foreground hover:text-primary"
+                    aria-label={`Past visits of ${patient.english_name || "patient"}: ${patient.previous_visits}`}
+                    onClick={() => void openPastVisits(patient)}
+                  >
+                    <History className="size-3.5" aria-hidden="true" />
+                    Past visits ({patient.previous_visits})
+                    <ChevronRight className="size-3.5 transition-transform duration-200 group-hover/past:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })
@@ -306,7 +363,11 @@ export default function QueuePatientPicker({
       <EditStationsDialog
         patient={editingPatient}
         onClose={() => setEditingPatient(null)}
-        onSaved={loadQueue}
+        onSaved={() => {
+          // A new route can take the patient off this queue: that move was made here.
+          if (editingPatient) ownMoves.current.add(editingPatient.visit_id);
+          return loadQueue();
+        }}
       />
       {dialog}
     </PageCard>

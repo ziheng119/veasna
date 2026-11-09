@@ -7,7 +7,7 @@ import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
-import { useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad from "./SignaturePad";
@@ -16,6 +16,29 @@ import { writeAndPrint } from "@/lib/printDocument";
 import { LETTERHEAD, letterheadLogoUrl } from "@/constants/letterhead";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { canEditSavedData, isAdmin } from "@/lib/permissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
+import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
+
+// The device's local calendar date, not UTC (which can be yesterday on a clinic morning).
+function localToday() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+// The form's fields for a saved referral (a new one when there is none). The signature is not one of
+// them: it belongs to whoever signs here.
+function referralFields(referral: Referral | null) {
+  return {
+    referralDate: referral?.referralDate || localToday(),
+    referralType: referral?.referralType ?? [],
+    illness: referral?.illness ?? "",
+    duration: referral?.duration ?? "",
+    reason: referral?.reason ?? "",
+    doctorName: referral?.doctorName ?? "",
+  };
+}
 
 interface Props {
   patient: QueuedPatient;
@@ -28,12 +51,7 @@ interface Props {
 
 export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved, onDeleted }: Props) {
 
-  const [referralDate, setReferralDate] = useState<string>(() => {
-    if (retrievedReferral?.referralDate) return retrievedReferral.referralDate;
-    // Use the device's local calendar date, not UTC (which can be yesterday on a clinic morning).
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  })
+  const [referralDate, setReferralDate] = useState<string>(() => referralFields(retrievedReferral).referralDate)
   const [referralType, setReferralType] = useState<string[]>(
     retrievedReferral?.referralType ?? []
   );
@@ -44,10 +62,18 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const [illness, setIllness] = useState<string>(retrievedReferral? retrievedReferral.illness : "")
   const [duration, setDuration] = useState<string>(retrievedReferral ? retrievedReferral.duration : "")
   const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : "")
+  // The doctor printed under the signature. Choices come from the Station data page; a name this
+  // referral was saved with stays selectable if it has since been taken off the list.
+  const [doctorName, setDoctorName] = useState<string>(retrievedReferral?.doctorName ?? "");
+  const listedDoctors = useFormOptions("referral_doctors").map(option => option.label);
+  const doctors = doctorName && !listedDoctors.includes(doctorName) ? [...listedDoctors, doctorName] : listedDoctors;
+  const doctorId = useId();
 
   const user = useUserStore((state) => state.user)
 
-  const readOnly = user?.role !== "admin" && retrievedReferral !== null;
+  // Every account can change a saved referral; printing it and deleting it are admin-only.
+  const readOnly = !canEditSavedData(user?.role) && retrievedReferral !== null;
+  const admin = isAdmin(user?.role);
   // A signature this user saved earlier in the session fills in on each new referral.
   const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
   const saveSignature = useSavedSignatureStore((state) => state.save);
@@ -57,11 +83,30 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   );
   const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);
+  // A referral saved for this visit on another device while this is open fills in its fields; the
+  // signature box keeps whatever is signed here.
+  const [shownVersion, setShownVersion] = useState(0);
+  const loadReferral = useCallback(async () => (await getConsultation(patient.visit_id))?.referral ?? null, [patient.visit_id]);
+  const live = useLiveRecord({
+    visitId: patient.visit_id, savedVersion: `referral:${shownVersion}`,
+    values: { referralDate, referralType, illness, duration, reason, doctorName },
+    load: loadReferral, valuesOf: referralFields,
+    apply: (referral) => {
+      const fields = referralFields(referral);
+      setReferralDate(fields.referralDate);
+      setReferralType(fields.referralType);
+      setIllness(fields.illness);
+      setDuration(fields.duration);
+      setReason(fields.reason);
+      setDoctorName(fields.doctorName);
+      setShownVersion(version => version + 1);
+    },
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const handleDelete = async () => {
-    if (user?.role !== "admin" || saving || !retrievedReferral || !confirmDelete) return;
+    if (!admin || saving || !retrievedReferral || !confirmDelete) return;
     setDeleteError("");
     setSaving(true);
     try {
@@ -80,7 +125,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   };
   // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
-    if (saving || readOnly) return;
+    if (saving || readOnly || (print && !admin)) return;
+    if (print && !doctorName) { toast.error("Choose the doctor's name before printing."); return; }
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
     const printWindow = print ? window.open("", "_blank") : null;
     if (print && !printWindow) { toast.error("Allow pop-ups to print this referral."); return; }
@@ -92,6 +138,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       duration: duration,
       reason: reason,
       signature,
+      doctorName: doctorName || null,
     }
 
     try {
@@ -121,13 +168,14 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
-      {readOnly && <div className="px-6 py-3">
-        <p>Read-only. Only an admin can change a saved referral.</p>
-        <GlassButton type="button" onClick={() => {
+      {live.notice && <div className="px-6 pt-4 sm:px-8"><LiveRecordNotice live={live} label="Referral details" /></div>}
+      {readOnly && <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-8">
+        <p className="text-muted-foreground">Read-only. This account can&apos;t change a saved referral.</p>
+        {admin && <GlassButton type="button" onClick={() => {
           const popup = window.open("", "_blank");
           if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
           writeAndPrint(popup, referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
-        }}>Print saved referral</GlassButton>
+        }}>Print saved referral</GlassButton>}
       </div>}
       <form onSubmit={event => event.preventDefault()}>
         <fieldset disabled={saving || readOnly} className="space-y-6 px-6 py-6 sm:px-8">
@@ -178,6 +226,18 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
           </section>
 
           <section className="space-y-3 border-t border-border pt-5">
+            <div>
+              <label htmlFor={doctorId} className="font-medium">Doctor&apos;s name</label>
+              <Select value={doctorName} onValueChange={setDoctorName} disabled={saving || readOnly}>
+                <SelectTrigger id={doctorId} className="mt-2 h-10 w-full rounded-lg sm:w-80">
+                  <SelectValue placeholder="Choose a doctor" />
+                </SelectTrigger>
+                <SelectContent side="bottom" className="max-h-72 border-border bg-popover">
+                  {doctors.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-xs text-muted-foreground">Printed under the signature on the referral letter.</p>
+            </div>
             <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{user?.username}</span></p>
             <SignaturePad value={signature} onChange={setSignature} disabled={saving}
               saved={signatureSaved}
@@ -191,7 +251,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             {retrievedReferral?.signerName && <p className="text-xs text-muted-foreground">Saved signature by {retrievedReferral.signerName}. An unchanged signature keeps its original signer.</p>}
           </section>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
-            {retrievedReferral && user?.role === "admin" && <Dialog open={confirmDelete} onOpenChange={open => {
+            {retrievedReferral && admin && <Dialog open={confirmDelete} onOpenChange={open => {
               if (saving) return;
               setDeleteError("");
               setConfirmDelete(open);
@@ -225,7 +285,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
               </DialogContent>
             </Dialog>}
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving..." : "Save referral"}</GlassButton>
-            <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>
+            {/* Printing referrals is for the admin account only. */}
+            {admin && <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>}
           </div>
         </fieldset>
       </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Dispatch, SetStateAction, RefObject, MouseEvent, useEffect, useState } from "react";
+import { useVisitChanges } from "@/hooks/useVisitChanges";
 import HorizontalLabelInputPair from "../../../HorizontalLabelInputPair";
 import { QueuedPatient } from "@/lib/types/patient";
 import { getHistory } from "@/lib/api/visit/getHistory"; // Assume you have a helper to fetch history
@@ -27,10 +28,12 @@ interface Props {
 export default function HistoryPopUp({ setShowPopUp, popupRef, pos, onMouseDown, patient }: Props) {
   const [patientHistory, setPatientHistory] = useState<MedicalHistory | null>(null);
   const [loading, setLoading] = useState(false);
+  // Saves elsewhere (e.g. Triage on another device) reload this quietly, without the spinner.
+  const changes = useVisitChanges(patient.visit_id);
 
   useEffect(() => {
     const fetchHistory = async () => {
-      setLoading(true);
+      if (changes === 0) setLoading(true);
       try {
         const data = await getHistory(patient.patient_id, patient.visit_id);
         setPatientHistory(data);
@@ -43,7 +46,7 @@ export default function HistoryPopUp({ setShowPopUp, popupRef, pos, onMouseDown,
     };
 
     fetchHistory();
-  }, [patient]);
+  }, [patient, changes]);
 
   return (
     <div

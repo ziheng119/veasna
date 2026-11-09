@@ -9,7 +9,7 @@ import { isAdmin } from "@/lib/permissions";
 
 /**
  * "Print referrals" on the Consult page: pick a day (today by default) and print its saved referrals.
- * Admin only; anyone can still print the one referral they open.
+ * Admin only, like printing a single referral.
  */
 export default function PrintReferrals({ locationId }: { locationId?: number }) {
   const [open, setOpen] = useState(false);

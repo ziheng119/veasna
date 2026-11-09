@@ -7,6 +7,8 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import DottedImage from "@/components/physiotherapy/DottedImage";
 import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
 import EditableRecordSection, { CheckboxTile, FieldOption, FieldSpec } from "./EditableRecordSection";
+import VisitPrescriptions from "./VisitPrescriptions";
+import VisitStations from "./VisitStations";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { parseReferralDestinations } from "@/constants/referral";
@@ -54,7 +56,7 @@ type SevaDraft = {
 type PhysioDraft = { notes: string; painpoints: PainPoint[] };
 type DentalDraft = { notes: string; referral_needed: boolean };
 type ConsultDraft = { notes: string; prescription: string; condition_categories: string[] | null };
-type ReferralDraft = { referral_date: string; destinations: string[]; illness: string; duration: string; reason: string };
+type ReferralDraft = { referral_date: string; destinations: string[]; doctor_name: string; illness: string; duration: string; reason: string };
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value));
 
@@ -148,7 +150,8 @@ const PHYSIO_FIELDS: FieldSpec<PhysioDraft>[] = [
 // Fields with choices from the Station data page are built from the current lists.
 const consultFields = (conditions: FormOption[]): FieldSpec<ConsultDraft>[] => [
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
-  { key: "prescription", label: "Prescription", kind: "textarea", wide: true },
+  // Free text from before prescribing used the pharmacy list; medicines are on the Pharmacy tab.
+  { key: "prescription", label: "Written prescription", kind: "textarea", wide: true },
   {
     key: "condition_categories",
     label: "Conditions Addressed",
@@ -186,9 +189,12 @@ const consultFields = (conditions: FormOption[]): FieldSpec<ConsultDraft>[] => [
     },
   },
 ];
-const referralFields = (destinations: FormOption[]): FieldSpec<ReferralDraft>[] => [
+// A doctor name saved earlier stays a choice even if it has since been taken off the list.
+const referralFields = (destinations: FormOption[], doctors: FormOption[], savedDoctor: string): FieldSpec<ReferralDraft>[] => [
   { key: "referral_date", label: "Referral Date", kind: "date" },
   { key: "destinations", label: "Referral Destinations", kind: "checkboxes", options: toFieldOptions(destinations), wide: true },
+  { key: "doctor_name", label: "Doctor's Name", kind: "select", allowBlank: "Not chosen",
+    options: toFieldOptions(savedDoctor && !doctors.some((d) => d.label === savedDoctor) ? [...doctors, { id: savedDoctor, label: savedDoctor }] : doctors) },
   { key: "illness", label: "Condition / Illness", kind: "text" },
   { key: "duration", label: "Duration", kind: "text" },
   { key: "reason", label: "Reason for Referral", kind: "textarea", wide: true },
@@ -239,7 +245,7 @@ interface Props {
   onSaved: () => Promise<void>;
 }
 
-/** Every record of one visit, grouped by station. Admins can correct or add each section. */
+/** Every record of one visit, grouped by station. Each section can be corrected or added. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const locations = useLocationStore((state) => state.locations);
   // A visit flagged for suspected TB opens on its TB record.
@@ -250,7 +256,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
   const destinationItems = optionLists.referral_destinations.items;
   const redFlagItems = optionLists.tb_red_flags.items;
   const consultSpec = useMemo(() => consultFields(conditionItems), [conditionItems]);
-  const referralSpec = useMemo(() => referralFields(destinationItems), [destinationItems]);
+  const doctorItems = optionLists.referral_doctors.items;
+  const savedDoctor = visit.referrals[0]?.doctor_name ?? "";
+  const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
   const tbSpec = useMemo(() => tbFields(redFlagItems), [redFlagItems]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
@@ -292,6 +300,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
       } as ConsultDraft),
       referral: referral && ({
         referral_date: text(referral.referral_date), destinations: parseReferralDestinations(referral.referral_type),
+        doctor_name: text(referral.doctor_name),
         illness: text(referral.illness), duration: text(referral.duration), reason: text(referral.reason),
       } as ReferralDraft),
     };
@@ -326,10 +335,11 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     await onSaved();
   };
 
+  const prescriptions = visit.prescriptions ?? [];
   const hasRegistration = Boolean(visit.vitals || visit.hef);
   const hasTriage = Boolean(visit.visual_acuity || visit.presenting_complaint || visit.history);
   const hasConsultation = Boolean(visit.consultation || visit.referrals.length);
-  // Users only open tabs with data; admins can open every tab to add a missing record.
+  // Accounts that can edit open every tab, to add a missing record; others only tabs with data.
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [
@@ -341,10 +351,13 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     tab("physio", "Physiotherapy", STATION_ICONS.physiotherapy, Boolean(visit.physiotherapy)),
     tab("dental", "Dental", STATION_ICONS.dental, Boolean(visit.dental)),
     tab("seva", PARTNER_NGO_NAME, STATION_ICONS.seva, Boolean(visit.seva)),
+    // Read-only: medicines are prescribed at Consult and dispensed at Pharmacy.
+    { value: "pharmacy", label: "Pharmacy", icon: STATION_ICONS.pharmacy, marked: prescriptions.length > 0, disabled: prescriptions.length === 0 },
   ];
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-4">
+      <VisitStations stations={visit.stations ?? []} completedAt={visit.completed_at} />
       <SegmentedTabs tabs={tabs} value={activeTab} label="Visit stations" markedLabel="has records" />
 
       {visit.tb && drafts.tb && (
@@ -449,6 +462,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
         />
       </StationPanel>
 
+      <StationPanel value="pharmacy">
+        <VisitPrescriptions prescriptions={prescriptions} />
+      </StationPanel>
+
       <StationPanel value="seva">
         <EditableRecordSection
           title={`${PARTNER_NGO_NAME} Notes`}
@@ -528,6 +545,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
             illness: d.illness,
             duration: d.duration,
             reason: d.reason,
+            doctorName: d.doctor_name || null,
             // Resending the saved strokes keeps the original signer and signing time.
             signature: visit.referrals[0]?.signature ?? null,
           }, visitId))}

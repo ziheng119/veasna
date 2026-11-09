@@ -2,11 +2,12 @@
 
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import SaveButton from "../shared/SaveButton";
-import { SaveAndNextButton, StationDonePrompt } from "../shared/StationFlow";
+import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
+import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import DottedImage from "./DottedImage";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PainPoint, Physiotherapy } from "@/lib/types/physiotherapy";
 import { getPhysiotherapy } from "@/lib/api/visit/physiotherapy/getPhysiotherapy";
 import { QueuedPatient } from "@/lib/types/patient";
@@ -19,32 +20,27 @@ interface Props {
 }
 
 export default function PhysiotherapyNotesContainer({ patient }: Props) {
-  const { editable, saved, markSaved } = useSavedRecordAccess(patient.visit_id);
+  const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
 
   const [notes, setNotes] = useState<string>("");
   const [painpoints, setPainpoints] = useState<PainPoint[]>([]);
+
+  const load = useCallback(() => getPhysiotherapy(patient.visit_id), [patient.visit_id]);
+  const show = useCallback((data: Physiotherapy | null) => {
+    markSaved(data !== null);
+    setNotes(data?.notes ? data.notes : "");
+    setPainpoints(data?.painpoints ?? []);
+  }, [markSaved]);
 
   useEffect(() => {
     let cancelled = false;
     const loadData = async () => {
       try {
-        const data: Physiotherapy | null = await getPhysiotherapy(
-          patient.visit_id,
-        );
+        const data = await load();
         if (cancelled) return;
-        markSaved(data !== null);
-
-        if (!data) {
-          setNotes("");
-          setPainpoints([]);
-          toast("No data loaded");
-          return;
-        }
-
-        setNotes(data.notes ? data.notes : "");
-        setPainpoints(data.painpoints);
-
-        toast.success("Load success");
+        show(data);
+        if (!data) toast("No data loaded");
+        else toast.success("Load success");
       } catch (error) {
         if (cancelled) return;
         toast.error("Failed to load Physiotherapy data");
@@ -55,7 +51,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [patient.visit_id, markSaved]);
+  }, [load, show]);
 
   // Resolves to whether the notes were saved.
   const handleSave = async (): Promise<boolean> => {
@@ -75,6 +71,13 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       return false;
     }
   };
+  // Next on the queue card saves these notes and the body chart first.
+  useSaveBeforeNext(patient.visit_id, savedVersion, { notes, painpoints }, handleSave);
+  // Saves made for this visit on another device show here too.
+  const live = useLiveRecord({
+    visitId: patient.visit_id, savedVersion, values: { notes, painpoints }, load, apply: show,
+    valuesOf: (data) => ({ notes: data?.notes ? data.notes : "", painpoints: data?.painpoints ?? [] }),
+  });
 
   return (
     <PageCard
@@ -83,6 +86,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
       contentClassName="space-y-4"
     >
       <StationDonePrompt patient={patient} done={saved} />
+      <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
         <div className="flex w-full">
           <VerticalLabelInputPair onChangeFunction={setNotes} value={notes} />

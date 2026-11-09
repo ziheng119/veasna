@@ -1,8 +1,8 @@
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 
 export const ROLE_OPTIONS = [
-  { value: "user", label: "User (create and view)" },
-  { value: "admin", label: "Administrator (create, view and edit)" },
+  { value: "user", label: "User (view, enter and correct records)" },
+  { value: "admin", label: "Administrator (everything)" },
 ] as const;
 
 export const NAVIGATION = [
@@ -18,17 +18,33 @@ export const NAVIGATION = [
 ] as const;
 
 // Pages only an admin may open. Every other page is open to both roles; the API separately
-// enforces saved-record edits and limits screening-day accounts to their day's patients.
+// limits screening-day accounts to their day's patients.
 export const ADMIN_PAGES = ["/analytics", "/station-data", "/accounts"] as const;
 
 export function canAccessPage(role: string | undefined, path: string): boolean {
   if (role === "admin") return true;
   return role === "user" && !ADMIN_PAGES.some(page => path === page || path.startsWith(`${page}/`));
 }
+/**
+ * Changing saved records (patient details, visit records, station forms, referrals) is open to
+ * both roles, so doctors can add what they find as the patient moves through the stations.
+ * Matches canEditSavedRecords in apps/backend/utils/permissions.js.
+ */
 export function canEditSavedData(role: string | undefined): boolean {
-  return role === "admin";
+  return role === "admin" || role === "user";
 }
-/** Analytics, bulk referral printing and downloading every patient's data are admin-only. */
+/**
+ * Changing one visit's records on Patient Details: the admin any visit; other accounts only the
+ * visits of their day, so a returning patient's earlier visits are read-only for them. `editable`
+ * is the server's answer for this account (VisitSummary.editable); the server refuses other saves.
+ */
+export function canEditVisit(role: string | undefined, visit: { editable?: boolean } | undefined): boolean {
+  return canEditSavedData(role) && (role === "admin" || visit?.editable === true);
+}
+/**
+ * Admin only: deleting records, printing referrals (one or many), downloading patient data,
+ * Analytics, Station data, Accounts, and pharmacy stock and dispensing.
+ */
 export function isAdmin(role: string | undefined): boolean {
   return role === "admin";
 }
