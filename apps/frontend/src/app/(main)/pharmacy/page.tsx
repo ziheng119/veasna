@@ -21,7 +21,7 @@ import PendingPrescriptions from "@/components/pharmacy/PendingPrescriptions"
 import PatientPrescriptionHistory from "@/components/pharmacy/PatientPrescriptionHistory"
 import { Boxes, ClipboardList, Users } from "lucide-react"
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker"
-import { StationFlowProvider } from "@/components/shared/StationFlow"
+import { StationDepartureNotice, StationFlowProvider } from "@/components/shared/StationFlow"
 import { QueuedPatient } from "@/lib/types/patient"
 
 // Prescriptions waiting to be dispensed come first: they are the pharmacy's main queue.
@@ -136,6 +136,8 @@ export default function Pharmacy() {
                     )}
                     contentClassName="px-0"
                   >
+                    {/* The patient open here was finished on another device. */}
+                    {!selectedPatient && <StationDepartureNotice className="mx-6 mb-4" />}
                     {location
                       ? <PendingPrescriptions locationId={location.id} patient={selectedPatient} onStockChanged={() => void fetchData()} />
                       : <p className="px-6 text-sm text-muted-foreground">Select a location.</p>}

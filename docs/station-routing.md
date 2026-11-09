@@ -75,6 +75,14 @@ A patient is **done** at a station once everything needed there is saved:
   fails (for example an eye reading that isn't a Snellen value), the patient stays and
   the message says why. **Past visits** on the card saves the same way before opening
   the patient's earlier visits.
+- **Moved on from another device.** If the patient open on one device is sent on,
+  finished or discharged on another, the first device notices when its queue updates.
+  Anything typed for them there is saved, their forms close, and the empty panel says
+  where they went, e.g. "Queue 12, Sok Dara, was sent to Pharmacy from another device".
+  If that save fails, the forms stay open with the reason and a **Close patient**
+  button, so nothing typed is lost. Moves made on the device itself (Next, Send to,
+  Discharge, a TB flag) never show this. (`patientLeft` in
+  `components/shared/StationFlow.tsx`, detected by `QueuePatientPicker.tsx`.)
 
 ### Families move together
 

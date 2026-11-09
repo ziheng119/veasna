@@ -2,10 +2,12 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowRight, Check, CircleCheck, Hourglass } from "lucide-react";
+import { ArrowRight, Check, CircleCheck, Hourglass, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StationId, stationLabel } from "@/constants/stations";
 import { completeStation } from "@/lib/api/queue/stations";
+import { getVisit } from "@/lib/api/visit/getVisit";
+import { ENTER_FAST } from "@/lib/motion";
 import { stationMoveMessage } from "@/lib/family";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
@@ -20,6 +22,12 @@ import { cn } from "@/lib/utils";
 // open patient's form, so nothing written is lost. Each form registers itself with
 // useSaveBeforeNext; a form left as it was loaded or last saved is not saved again.
 
+//
+// When the open patient leaves this station's queue from another device (sent on, finished or
+// discharged there), anything typed for them here is saved, their forms close, and the empty panel
+// says where they went (StationDepartureNotice). If that save fails, the forms stay open with the
+// reason, so nothing typed is lost.
+
 // One form (or one Triage section) of the open patient.
 interface Draft {
   visitId: number;
@@ -29,8 +37,27 @@ interface Draft {
   save: () => Promise<boolean>;
 }
 
+// The patient who was open here when they were moved on from another device.
+export interface Departure {
+  visitId: number;
+  queueNo: string;
+  name: string;
+  // Their station now; "finished" when their visit is over; null when it couldn't be looked up.
+  now: StationId | "finished" | null;
+  // What was typed for them here: saved, couldn't be saved (their forms stay open), or nothing.
+  draft: "saved" | "failed" | null;
+}
+
 interface StationFlow {
   station: StationId;
+  // Set when the open patient was moved on from another device; cleared on the next selection.
+  departure: Departure | null;
+  // The queue saw the open patient leave without this device moving them. `stillOpen` tells
+  // whether they are still the open patient once their typing is saved.
+  patientLeft: (patient: QueuedPatient, stillOpen: () => boolean) => Promise<void>;
+  clearDeparture: () => void;
+  // Closes a patient whose forms stayed open after they left (a save failed), keeping the notice.
+  closeDeparted: () => void;
   // Finishes the patient's station and opens the next patient in this station's queue.
   advance: (patient: QueuedPatient) => Promise<void>;
   // Called by the queue with the patients as shown, so "next" follows the order on screen.
@@ -73,8 +100,28 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
     return true;
   }, []);
 
+  const [departure, setDeparture] = useState<Departure | null>(null);
+  const clearDeparture = useCallback(() => setDeparture(null), []);
+  const closeDeparted = useCallback(() => {
+    setDeparture((previous) => previous && { ...previous, draft: null });
+    onSelectPatient(null);
+  }, [onSelectPatient]);
+  const patientLeft = useCallback(async (patient: QueuedPatient, stillOpen: () => boolean) => {
+    const typed = Array.from(drafts.current).some((draft) => draft.visitId === patient.visit_id && draft.unsaved());
+    const [saved, now] = await Promise.all([
+      typed ? saveDrafts(patient.visit_id) : Promise.resolve(null),
+      token ? stationNow(patient.visit_id, token) : Promise.resolve(null),
+    ]);
+    // Another patient was opened meanwhile: they have moved on themselves.
+    if (!stillOpen()) return;
+    const draft = saved === null ? null : saved ? "saved" : "failed";
+    setDeparture({ visitId: patient.visit_id, queueNo: patient.queue_no, name: patient.english_name || "The patient", now, draft });
+    if (draft !== "failed") onSelectPatient(null);
+  }, [onSelectPatient, saveDrafts, token]);
+
   const advance = useCallback(async (patient: QueuedPatient) => {
     if (!token) throw new Error("Sign in again to continue.");
+    setDeparture(null);
     const move = await completeStation(patient.visit_id, station, token);
     // The next patient is the first one still to be seen here, in the order shown: not this patient,
     // not family members who just moved on with them, and not anyone already waiting for family.
@@ -89,9 +136,52 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
     await queue.current.refresh?.();
   }, [onSelectPatient, station, token]);
 
-  const value = useMemo(() => ({ station, advance, registerQueue, registerDraft, saveDrafts }),
-    [station, advance, registerQueue, registerDraft, saveDrafts]);
+  const value = useMemo(() => ({ station, advance, registerQueue, registerDraft, saveDrafts, departure, patientLeft, clearDeparture, closeDeparted }),
+    [station, advance, registerQueue, registerDraft, saveDrafts, departure, patientLeft, clearDeparture, closeDeparted]);
   return <StationFlowContext.Provider value={value}>{children}</StationFlowContext.Provider>;
+}
+
+// Where a visit is now: its first station not done, or "finished". null if it can't be looked up.
+async function stationNow(visitId: number, token: string): Promise<Departure["now"]> {
+  try {
+    const visit: { completed_at: string | null; stations?: { station: StationId; completed_at: string | null }[] } | null =
+      await getVisit(visitId, token);
+    if (!visit) return null;
+    if (visit.completed_at) return "finished";
+    return visit.stations?.find((entry) => !entry.completed_at)?.station ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// "Queue 12, Sok Dara, was sent to Pharmacy from another device."
+export function departureMessage(departure: Departure, station: StationId): string {
+  const who = `Queue ${departure.queueNo}, ${departure.name},`;
+  if (departure.now === "finished") return `${who} finished their visit on another device.`;
+  if (departure.now && departure.now !== station) return `${who} was sent to ${stationLabel(departure.now)} from another device.`;
+  return `${who} is no longer waiting at ${stationLabel(station)}: moved on from another device.`;
+}
+
+/**
+ * Where the open patient went when another device moved them on, shown where their forms were.
+ * Nothing when no patient left this way.
+ */
+export function StationDepartureNotice({ className }: { className?: string }) {
+  const flow = useStationFlow();
+  const departure = flow?.departure;
+  if (!flow || !departure || departure.draft === "failed") return null;
+  return (
+    <div key={departure.visitId} role="status"
+      className={cn("flex items-start gap-3 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2.5 text-left text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST, className)}>
+      <LogOut className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>
+        <span className="block font-medium">{departureMessage(departure, flow.station)}</span>
+        <span className="block text-sky-800/90 dark:text-sky-200/80">
+          {departure.draft === "saved" ? "What you had typed for them was saved first. " : ""}Choose the next patient from the queue.
+        </span>
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -178,6 +268,20 @@ export function SaveAndNextButton({ patient, onSave, ready = false, locked = fal
 export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; done: boolean }) {
   const flow = useStationFlow();
   const [busy, setBusy] = useState(false);
+  // Moved on from another device, but what was typed here couldn't be saved: the form stays open.
+  if (flow?.departure?.visitId === patient.visit_id && flow.departure.draft === "failed") {
+    return (
+      <div role="alert" className={cn("flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive", ENTER_FAST)}>
+        <span className="flex items-start gap-2 font-medium">
+          <LogOut className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {departureMessage(flow.departure, flow.station)} What you typed here isn&apos;t saved: fix what the message says and save, then close.
+        </span>
+        <Button type="button" size="sm" variant="outline" className="bg-background" onClick={() => flow.closeDeparted()}>
+          Close patient
+        </Button>
+      </div>
+    );
+  }
   if (!flow || !done) return null;
 
   const sendOn = async () => {

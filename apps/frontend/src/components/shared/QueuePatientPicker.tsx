@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,30 @@ export default function QueuePatientPicker({
     if (refreshKey !== undefined) void loadQueue();
   }, [loadQueue, refreshKey]);
 
+  // The open patient leaving this queue without this device moving them on (another device sent them
+  // on, finished or discharged them): StationFlow saves what was typed for them, closes their forms
+  // and says where they went. Moves made here are remembered so they never count.
+  const ownMoves = useRef(new Set<number>());
+  const seen = useRef<{ key: string; patients: Map<number, QueuedPatient> } | null>(null);
+  const openVisit = useRef(selectedVisitId);
+  openVisit.current = selectedVisitId;
+  const listKey = `${locationId}:${station}`;
+  useEffect(() => {
+    if (!loaded) return;
+    const previous = seen.current;
+    const now = new Map(patients.map((patient) => [patient.visit_id, patient]));
+    seen.current = { key: listKey, patients: now };
+    if (!flow || !selectedVisitId || previous?.key !== listKey || now.has(selectedVisitId)) return;
+    const left = previous.patients.get(selectedVisitId);
+    if (!left || ownMoves.current.has(selectedVisitId)) return;
+    void flow.patientLeft(left, () => openVisit.current === left.visit_id);
+  }, [loaded, patients, listKey, flow, selectedVisitId]);
+  // Opening a patient replaces the note about the one who left.
+  const clearDeparture = flow?.clearDeparture;
+  useEffect(() => {
+    if (selectedVisitId) clearDeparture?.();
+  }, [selectedVisitId, clearDeparture]);
+
   // Station after this one for the patient, or null when this is their last.
   const nextStation = (patient: QueuedPatient): StationId | null => {
     const pending = (patient.stations ?? []).filter((s) => !s.completed).map((s) => s.station);
@@ -102,7 +126,9 @@ export default function QueuePatientPicker({
     try {
       // Saves anything typed into this patient's open form first; a failed save keeps them here.
       if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
+      ownMoves.current.add(patient.visit_id);
       const move = await completeStation(patient.visit_id, station, token);
+      move.family_moved.forEach((member) => ownMoves.current.add(member.visit_id));
       const left = [patient.visit_id, ...move.family_moved.map((member) => member.visit_id)];
       // A patient waiting for family is still here, so stays selected.
       if (selectedVisitId && !move.held && left.includes(selectedVisitId)) {
@@ -126,6 +152,7 @@ export default function QueuePatientPicker({
     })) return;
 
     try {
+      ownMoves.current.add(patient.visit_id);
       await completeQueueVisit(patient.visit_id, token);
       if (selectedVisitId === patient.visit_id) {
         onSelectPatient(null);
@@ -336,7 +363,11 @@ export default function QueuePatientPicker({
       <EditStationsDialog
         patient={editingPatient}
         onClose={() => setEditingPatient(null)}
-        onSaved={loadQueue}
+        onSaved={() => {
+          // A new route can take the patient off this queue: that move was made here.
+          if (editingPatient) ownMoves.current.add(editingPatient.visit_id);
+          return loadQueue();
+        }}
       />
       {dialog}
     </PageCard>
