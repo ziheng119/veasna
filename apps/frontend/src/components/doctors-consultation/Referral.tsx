@@ -7,7 +7,7 @@ import { Referral, Signature } from "@/lib/types/consultation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
-import { useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad from "./SignaturePad";
@@ -18,6 +18,27 @@ import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { canEditSavedData, isAdmin } from "@/lib/permissions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
+import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
+
+// The device's local calendar date, not UTC (which can be yesterday on a clinic morning).
+function localToday() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+// The form's fields for a saved referral (a new one when there is none). The signature is not one of
+// them: it belongs to whoever signs here.
+function referralFields(referral: Referral | null) {
+  return {
+    referralDate: referral?.referralDate || localToday(),
+    referralType: referral?.referralType ?? [],
+    illness: referral?.illness ?? "",
+    duration: referral?.duration ?? "",
+    reason: referral?.reason ?? "",
+    doctorName: referral?.doctorName ?? "",
+  };
+}
 
 interface Props {
   patient: QueuedPatient;
@@ -30,12 +51,7 @@ interface Props {
 
 export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved, onDeleted }: Props) {
 
-  const [referralDate, setReferralDate] = useState<string>(() => {
-    if (retrievedReferral?.referralDate) return retrievedReferral.referralDate;
-    // Use the device's local calendar date, not UTC (which can be yesterday on a clinic morning).
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  })
+  const [referralDate, setReferralDate] = useState<string>(() => referralFields(retrievedReferral).referralDate)
   const [referralType, setReferralType] = useState<string[]>(
     retrievedReferral?.referralType ?? []
   );
@@ -67,6 +83,25 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   );
   const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);
+  // A referral saved for this visit on another device while this is open fills in its fields; the
+  // signature box keeps whatever is signed here.
+  const [shownVersion, setShownVersion] = useState(0);
+  const loadReferral = useCallback(async () => (await getConsultation(patient.visit_id))?.referral ?? null, [patient.visit_id]);
+  const live = useLiveRecord({
+    visitId: patient.visit_id, savedVersion: `referral:${shownVersion}`,
+    values: { referralDate, referralType, illness, duration, reason, doctorName },
+    load: loadReferral, valuesOf: referralFields,
+    apply: (referral) => {
+      const fields = referralFields(referral);
+      setReferralDate(fields.referralDate);
+      setReferralType(fields.referralType);
+      setIllness(fields.illness);
+      setDuration(fields.duration);
+      setReason(fields.reason);
+      setDoctorName(fields.doctorName);
+      setShownVersion(version => version + 1);
+    },
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
@@ -133,6 +168,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         <h2 className="mt-1 text-xl font-semibold">Patient referral</h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose destinations, add clinical details, then sign.</p>
       </header>
+      {live.notice && <div className="px-6 pt-4 sm:px-8"><LiveRecordNotice live={live} label="Referral details" /></div>}
       {readOnly && <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-8">
         <p className="text-muted-foreground">Read-only. This account can&apos;t change a saved referral.</p>
         {admin && <GlassButton type="button" onClick={() => {

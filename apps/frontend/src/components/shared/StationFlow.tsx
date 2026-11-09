@@ -104,17 +104,28 @@ export function useSaveBeforeNext(visitId: number, savedVersion: string | null, 
   const current = JSON.stringify(values);
   const latest = useRef({ current, save });
   latest.current = { current, save };
-  const baseline = useRef<{ version: string; values: string } | null>(null);
-  // The values shown right after a load or save are the saved ones.
-  useEffect(() => {
-    baseline.current = savedVersion === null ? null : { version: savedVersion, values: latest.current.current };
-  }, [savedVersion]);
+  const baseline = useSavedBaseline(savedVersion, current);
   const registerDraft = flow?.registerDraft;
   useEffect(() => registerDraft?.({
     visitId,
     unsaved: () => baseline.current !== null && baseline.current.values !== latest.current.current,
     save: () => latest.current.save(),
-  }), [registerDraft, visitId]);
+  }), [registerDraft, visitId, baseline]);
+}
+
+/**
+ * The form's values (as JSON) when it was last loaded or saved: the values shown right after
+ * `savedVersion` changes. null until the form has loaded. Comparing with the current values tells
+ * whether anything was typed since.
+ */
+export function useSavedBaseline(savedVersion: string | null, current: string) {
+  const latest = useRef(current);
+  latest.current = current;
+  const baseline = useRef<{ version: string; values: string } | null>(null);
+  useEffect(() => {
+    baseline.current = savedVersion === null ? null : { version: savedVersion, values: latest.current };
+  }, [savedVersion]);
+  return baseline;
 }
 
 interface SaveAndNextProps {

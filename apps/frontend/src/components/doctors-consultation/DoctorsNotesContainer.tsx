@@ -3,7 +3,7 @@
 import { useFormOptions } from "@/stores/useFormOptionsStore";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -17,6 +17,7 @@ import PrescriptionPanel from "./PrescriptionPanel";
 import DentalSummary from "./DentalSummary";
 import SendToPhysiotherapy from "./SendToPhysiotherapy";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
+import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import SaveButton from "../shared/SaveButton";
 
 interface Props {
@@ -99,29 +100,29 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     };
   }, [patient.patient_id]);
 
+  const load = useCallback(() => getConsultation(patient.visit_id), [patient.visit_id]);
+  // The notes and conditions, which this form saves.
+  const show = useCallback((data: Consultation | null) => {
+    setLoaded(true);
+    setConditionCategories(data?.conditionCategories ?? null);
+    markSaved(data !== null && data.hasSavedNotes !== false);
+    setNotes(data?.notes ?? "");
+  }, [markSaved]);
+  // Saved on their own: the referral, and the free-text prescription from older visits.
+  const showShared = useCallback((data: Consultation | null) => {
+    setPrescription(data?.prescription ?? "");
+    setReferral(data?.referral ?? null);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     const fetchConsultation = async () => {
       try {
-        const data: Consultation | null = await getConsultation(
-          patient.visit_id,
-        );
+        const data = await load();
         if (cancelled) return;
-
-        setLoaded(true);
-        setConditionCategories(data?.conditionCategories ?? null);
-        markSaved(data !== null && data.hasSavedNotes !== false);
-        if (!data) {
-          setNotes("");
-          setPrescription("");
-          setReferral(null);
-          return;
-        }
-
-        setNotes(data.notes);
-        setPrescription(data.prescription);
-        setReferral(data.referral);
+        show(data);
+        showShared(data);
       } catch (error) {
         if (!cancelled) {
           setLoadFailed(true);
@@ -136,7 +137,13 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [patient.visit_id, markSaved]);
+  }, [load, show, showShared]);
+
+  // Saves made for this visit on another device show here too, including a referral written there.
+  const live = useLiveRecord({
+    visitId: patient.visit_id, savedVersion, values: { notes, conditionCategories }, load, apply: show, applyShared: showShared,
+    valuesOf: (data) => ({ notes: data?.notes ?? "", conditionCategories: data?.conditionCategories ?? null }),
+  });
 
   return (
     <PageCard
@@ -146,6 +153,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
       contentClassName="space-y-4 text-sm leading-5"
     >
       <StationDonePrompt patient={patient} done={saved} />
+      <LiveRecordNotice live={live} />
       {/* Full page width: notes and conditions on the left, prescribing on the right. */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="min-w-0 space-y-4">

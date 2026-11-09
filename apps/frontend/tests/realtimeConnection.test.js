@@ -21,7 +21,7 @@ describe('Shared realtime connection', () => {
     global.document = new EventTarget(); document.visibilityState = 'visible';
     global.window = new EventTarget();
     useUserStore.setState({ user: { token: 'test-token' } });
-    useRealtimeStore.setState({ revision: 0, status: 'connecting' });
+    useRealtimeStore.setState({ revision: 0, status: 'connecting', visitChanges: { seq: 0, visitIds: [] } });
     sockets = [];
     io.mockImplementation(() => {
       const socket = new EventEmitter();
@@ -52,6 +52,19 @@ describe('Shared realtime connection', () => {
     expect(useRealtimeStore.getState().status).toBe('offline');
     await act(async () => sockets[0].emit('connect')); await flush();
     expect(useRealtimeStore.getState().revision).toBe(3);
+  });
+  test('names the visits saved, so only their open forms reload; a reconnect may concern any visit', async () => {
+    await mount();
+    await act(async () => sockets[0].emit('connect')); await flush();
+    expect(useRealtimeStore.getState().visitChanges.visitIds).toBeNull();
+    await act(async () => { sockets[0].emit('lists:changed', { visitId: 4 }); sockets[0].emit('lists:changed', { visitId: 9 }); }); await flush();
+    expect(useRealtimeStore.getState().visitChanges.visitIds).toEqual([4, 9]);
+    await act(async () => { sockets[0].emit('lists:changed', { visitId: 4 }); sockets[0].emit('lists:changed', { visitId: null }); }); await flush();
+    expect(useRealtimeStore.getState().visitChanges.visitIds).toBeNull();
+    // An older server sends no details: treated as any visit.
+    await act(async () => sockets[0].emit('lists:changed')); await flush();
+    expect(useRealtimeStore.getState().visitChanges.visitIds).toBeNull();
+    expect(useRealtimeStore.getState().visitChanges.seq).toBe(4);
   });
   test('token change replaces the connection and logout disconnects it', async () => {
     await mount();

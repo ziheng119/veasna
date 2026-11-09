@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { DentalNotes, getDental } from "@/lib/api/visit/dental";
 import { ENTER_FAST } from "@/lib/motion";
+import { useVisitChanges } from "@/hooks/useVisitChanges";
 
 /**
  * What the Dental station recorded for this visit: whether the students ticked "Referral needed",
@@ -16,15 +17,17 @@ export default function DentalSummary({ visitId }: { visitId: number }) {
   const id = useId();
   const [dental, setDental] = useState<DentalNotes | null>(null);
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  // A save at Dental (another device) reloads this quietly.
+  const changes = useVisitChanges(visitId);
 
   useEffect(() => {
     const controller = new AbortController();
-    setState("loading");
+    if (changes === 0) setState("loading");
     getDental(visitId, controller.signal)
       .then((data) => { setDental(data); setState("loaded"); })
       .catch(() => { if (!controller.signal.aborted) setState("failed"); });
     return () => controller.abort();
-  }, [visitId]);
+  }, [visitId, changes]);
 
   const referralNeeded = state === "loaded" && dental?.referral_needed === true;
 

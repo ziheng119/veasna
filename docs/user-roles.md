@@ -104,6 +104,21 @@ Opening a visit shows:
   Everyone on a screening day shares one account, so the record shows that account.
 - If two people save the same form at the same moment, both saves succeed and the later
   one is kept, as with any edit. There is still only one record per form and visit.
+- **A save shows on every device with the same patient open.** When a form is saved
+  (for example the consultation notes), the same form open for that patient on other
+  devices updates too:
+  - If nothing was typed there since it was opened or saved, it shows the new version
+    with a short note, "Updated with a save from another device".
+  - If something was typed there, it is kept. A notice says the form was saved on
+    another device and offers **Show saved version** or **Keep mine**. Saving keeps
+    whichever version is saved last.
+  - Triage names the section that changed. The referral dialog updates its fields but
+    never its signature box: a signature belongs to whoever signs on that device. The
+    signature a doctor keeps for their next referrals stays in their own browser tab
+    and is never shared.
+  - Read-only panels (vitals, triage summary, dental notes at Consult) update quietly.
+  (`components/shared/LiveRecord.tsx`; the server names the saved visit in its live
+  notice, `apps/backend/realtime.js`.)
 - Each prescription is its own record, so doctors can still prescribe after their
   consultation notes are saved. Cancelling or dispensing one stays with the admin, since
   it changes stock.

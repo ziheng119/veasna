@@ -51,6 +51,23 @@ test('a patient not yet seen at Dental says so; a failed load says so too', asyn
   expect(shown).toMatch(/Unable to load dental notes/);
 });
 
+test('a save at Dental on another device updates the summary without a loading flash', async () => {
+  const { useRealtimeStore } = require('../src/stores/useRealtimeStore');
+  getDental.mockResolvedValue(null);
+  await render(React.createElement(DentalSummary, { visitId: 5 }));
+  let resolve;
+  getDental.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  await act(async () => useRealtimeStore.getState().noteVisitChanges([5]));
+  // Still showing the last answer while the new one loads.
+  expect(text(renderer.root)).toMatch(/Not seen at Dental yet/);
+  await act(async () => resolve({ notes: 'Scaling done', referral_needed: true }));
+  expect(text(renderer.root)).toMatch(/Scaling done/);
+  expect(renderer.root.findByType('input').props.checked).toBe(true);
+  // A save for another patient's visit does not reload it.
+  await act(async () => useRealtimeStore.getState().noteVisitChanges([6]));
+  expect(getDental).toHaveBeenCalledTimes(2);
+});
+
 const patient = (extra = {}) => ({ visit_id: 5, stations: [{ station: 'consultation', completed: false }], tb_status: null, ...extra });
 const box = () => renderer.root.findByType('input');
 

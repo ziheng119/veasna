@@ -3,9 +3,10 @@
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SaveButton from "../shared/SaveButton";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
+import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import VerticalLabelInputPair from "../shared/VerticalLabelInputPair";
 import toast from "react-hot-toast";
 import { Seva } from "@/lib/types/seva";
@@ -37,6 +38,17 @@ interface Props {
   patient: QueuedPatient;
 }
 
+// The form's values for a saved record (empty when there is none), in the order the form saves them.
+function sevaFormValues(data: Seva | null) {
+  return {
+    readings: Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, data?.[sevaKey(field)] ?? ""])) as EyeReadings,
+    diagnosis: data?.diagnosis ?? "",
+    dateOfReferral: data?.dateOfReferral ? formatDate(data.dateOfReferral) : "",
+    referral: (data?.referral ?? "") as SevaReferral | "",
+    additionalNotes: data?.notes ?? "",
+  };
+}
+
 export default function SevaNotesContainer({ patient }: Props) {
   const { editable, saved, markSaved, savedVersion } = useSavedRecordAccess(patient.visit_id);
   const [readings, setReadings] = useState<EyeReadings>(EMPTY_EYE_READINGS);
@@ -45,33 +57,26 @@ export default function SevaNotesContainer({ patient }: Props) {
   const [referral, setReferral] = useState<SevaReferral | "">("");
   const [additionalNotes, setAdditionalNotes] = useState<string>("");
 
+  const load = useCallback(() => getSeva(patient.visit_id), [patient.visit_id]);
+  const show = useCallback((data: Seva | null) => {
+    markSaved(data !== null);
+    const values = sevaFormValues(data);
+    setReadings(values.readings);
+    setDiagnosis(values.diagnosis);
+    setDateOfReferral(values.dateOfReferral);
+    setReferral(values.referral);
+    setAdditionalNotes(values.additionalNotes);
+  }, [markSaved]);
+
   useEffect(() => {
     let cancelled = false;
     const loadData = async () => {
       try {
-        const data: Seva | null = await getSeva(patient.visit_id);
+        const data = await load();
         if (cancelled) return;
-        markSaved(data !== null);
-
-        if (!data) {
-          setReadings(EMPTY_EYE_READINGS);
-          setDiagnosis("");
-          setDateOfReferral("");
-          setReferral("");
-          setAdditionalNotes("");
-          toast("No data loaded");
-          return;
-        }
-
-        setReadings(Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, data[sevaKey(field)] ?? ""])) as EyeReadings);
-        setDiagnosis(data.diagnosis);
-        setDateOfReferral(
-          data.dateOfReferral ? formatDate(data.dateOfReferral) : "",
-        );
-        setReferral(data.referral);
-        setAdditionalNotes(data.notes ?? "");
-
-        toast.success("Load success");
+        show(data);
+        if (!data) toast("No data loaded");
+        else toast.success("Load success");
       } catch (error) {
         if (cancelled) return;
         toast.error(`Failed to load ${PARTNER_NGO_NAME} notes`);
@@ -82,7 +87,7 @@ export default function SevaNotesContainer({ patient }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [patient.visit_id, markSaved]);
+  }, [load, show]);
 
   // Resolves to whether the notes were saved.
   const handleSave = async (): Promise<boolean> => {
@@ -115,6 +120,11 @@ export default function SevaNotesContainer({ patient }: Props) {
   };
   // Next on the queue card saves this form first.
   useSaveBeforeNext(patient.visit_id, savedVersion, { readings, diagnosis, dateOfReferral, referral, additionalNotes }, handleSave);
+  // Saves made for this visit on another device show here too.
+  const live = useLiveRecord({
+    visitId: patient.visit_id, savedVersion, values: { readings, diagnosis, dateOfReferral, referral, additionalNotes },
+    load, apply: show, valuesOf: sevaFormValues,
+  });
 
   // Saved readings are shown open so they are not missed.
   const eyeReadingsRecorded = EYE_READING_FIELDS.some((field) => Boolean(readings[field]));
@@ -128,6 +138,7 @@ export default function SevaNotesContainer({ patient }: Props) {
       contentClassName="space-y-4"
     >
       <StationDonePrompt patient={patient} done={saved} />
+      <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
         {/* Kept deliberately simple: the fields may change with the partner NGO's requests.
             Free-text notes come first; eye readings are optional. */}
