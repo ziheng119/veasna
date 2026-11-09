@@ -7,7 +7,7 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role: 'user' } }) }));
 jest.mock('../src/assets/icons', () => ({ EyeIcon: () => null, TrashIcon: () => null, PersonIcon: () => null }));
 jest.mock('../src/components/patient-list/FamilyButton', () => ({ __esModule: true, default: () => null }));
-const { sortPatients, nextPatientSort, DEFAULT_PATIENT_SORT } = require('../src/lib/patientSort');
+const { sortPatients, nextPatientSort, describeSort, DEFAULT_PATIENT_SORT } = require('../src/lib/patientSort');
 const { PatientTable } = require('../src/components/patient-list/PatientTable');
 const { ArrowDown, ArrowUp } = require('lucide-react');
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -23,16 +23,33 @@ describe('sorting', () => {
     person(4, 'Chan 9', { date_of_birth: '2000-01-01' }),
   ];
 
-  test('the default is English name A to Z, ignoring case and with numbers in order', () => {
-    expect(DEFAULT_PATIENT_SORT).toEqual({ key: 'english_name', direction: 'asc' });
-    expect(ids(sortPatients(list, DEFAULT_PATIENT_SORT))).toEqual([2, 1, 4, 3]);
+  test('the default is Last Seen, most recent first; patients never seen come last', () => {
+    expect(DEFAULT_PATIENT_SORT).toEqual({ key: 'last_visit_date', direction: 'desc' });
+    expect(describeSort(DEFAULT_PATIENT_SORT)).toBe('most recent first');
+    expect(ids(sortPatients(list, DEFAULT_PATIENT_SORT))).toEqual([2, 3, 1, 4]);
   });
 
-  test('a second click on the same column flips it; another column starts ascending', () => {
-    const flipped = nextPatientSort(DEFAULT_PATIENT_SORT, 'english_name');
+  test('patients seen the same day: the most recently registered first', () => {
+    const today = [
+      person(1, 'Early', { last_visit_date: '2026-11-10', last_visit_at: '2026-11-10T01:00:00Z' }),
+      person(2, 'Yesterday', { last_visit_date: '2026-11-09', last_visit_at: '2026-11-09T09:00:00Z' }),
+      person(3, 'Late', { last_visit_date: '2026-11-10', last_visit_at: '2026-11-10T03:00:00Z' }),
+    ];
+    expect(ids(sortPatients(today, DEFAULT_PATIENT_SORT))).toEqual([3, 1, 2]);
+    expect(ids(sortPatients(today, nextPatientSort(DEFAULT_PATIENT_SORT, 'last_visit_date')))).toEqual([2, 1, 3]);
+  });
+
+  test('names sort A to Z ignoring case, with numbers in order; a second click flips a column', () => {
+    const byName = nextPatientSort(DEFAULT_PATIENT_SORT, 'english_name');
+    expect(byName).toEqual({ key: 'english_name', direction: 'asc' });
+    expect(describeSort(byName)).toBe('A to Z');
+    expect(ids(sortPatients(list, byName))).toEqual([2, 1, 4, 3]);
+    const flipped = nextPatientSort(byName, 'english_name');
     expect(flipped).toEqual({ key: 'english_name', direction: 'desc' });
     expect(ids(sortPatients(list, flipped))).toEqual([3, 4, 1, 2]);
+    // Another column starts ascending, except Last Seen, which starts with the most recent.
     expect(nextPatientSort(flipped, 'age')).toEqual({ key: 'age', direction: 'asc' });
+    expect(nextPatientSort(flipped, 'last_visit_date')).toEqual({ key: 'last_visit_date', direction: 'desc' });
   });
 
   test('dates, age and station sort by value; empty cells always come last', () => {
@@ -62,9 +79,19 @@ describe('the table', () => {
   const header = label => renderer.root.findAllByType('th').find(th => text(th) === label);
 
   test('clicking a header sorts by it, clicking again flips it, and only the sorted column is marked', async () => {
-    await render([person(1, 'Bo', { sex: 'M' }), person(2, 'Ann', { sex: 'F' }), person(3, 'Cy', { sex: 'M' })]);
+    await render([person(1, 'Bo', { sex: 'M', last_visit_date: '2026-11-01' }), person(2, 'Ann', { sex: 'F', last_visit_date: '2026-10-01' }),
+      person(3, 'Cy', { sex: 'M', last_visit_date: '2026-11-10' })]);
+    // Opens sorted by Last Seen, most recent first, with that header raised and its arrow coloured.
+    expect(names()).toEqual(['Cy', 'Bo', 'Ann']);
+    expect(header('Last Seen').props['aria-sort']).toBe('descending');
+    expect(header('Last Seen').findByType('button').props.className).toMatch(/font-semibold/);
+    expect(header('Last Seen').findByType('button').props.title).toBe('Sorted by Last Seen, most recent first. Click to reverse.');
+    expect(text(renderer.root.findByType('caption'))).toBe('Patients sorted by Last Seen, most recent first');
+    await act(async () => header('English Name').findByType('button').props.onClick());
     expect(names()).toEqual(['Ann', 'Bo', 'Cy']);
     expect(header('English Name').props['aria-sort']).toBe('ascending');
+    expect(header('Last Seen').props['aria-sort']).toBeUndefined();
+    expect(header('Last Seen').findByType('button').props.className).not.toMatch(/font-semibold/);
     // The arrow points the way the values grow: down for A to Z, up for Z to A.
     const arrow = label => header(label).findByType('button').findByProps({ 'aria-hidden': 'true' }).type;
     expect(arrow('English Name')).toBe(ArrowDown);

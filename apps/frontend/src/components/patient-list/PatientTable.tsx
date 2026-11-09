@@ -6,7 +6,7 @@ import { PatientInfo } from '@/lib/types/patient';
 import { PatientTableRow } from './PatientTableRow';
 import { PersonIcon } from '@/assets/icons';
 import { groupFamilies } from '@/lib/family';
-import { DEFAULT_PATIENT_SORT, nextPatientSort, PatientSort, PatientSortKey, sortPatients } from '@/lib/patientSort';
+import { DEFAULT_PATIENT_SORT, describeSort, nextPatientSort, PatientSort, PatientSortKey, sortPatients } from '@/lib/patientSort';
 import { cn } from '@/lib/utils';
 
 interface PatientTableProps {
@@ -50,6 +50,9 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
 
         <div className="overflow-x-auto xl:min-h-0 xl:overflow-y-auto">
           <table className="w-full min-w-[1300px] table-fixed">
+            <caption className="sr-only">
+              Patients sorted by {COLUMNS.find((column) => column.key === sort.key)?.label}, {describeSort(sort)}
+            </caption>
             <thead className="bg-muted sticky top-0 z-10">
               <tr>
                 {COLUMNS.map(({ key, label, width }, index) => {
@@ -65,17 +68,22 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
                       <button
                         type="button"
                         onClick={() => setSort(nextPatientSort(sort, key))}
-                        title={`Sort by ${label}`}
+                        title={active ? `Sorted by ${label}, ${describeSort(sort)}. Click to reverse.` : `Sort by ${label}`}
                         className={cn(
                           HEADER_TEXT,
-                          'flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 transition-colors duration-150',
-                          'hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          active && 'text-foreground',
+                          'flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 transition-[color,background-color,box-shadow] duration-200',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          // The sorted column stands out: raised, darker and bolder, with a coloured arrow.
+                          active
+                            ? 'bg-background font-semibold text-foreground shadow-sm ring-1 ring-border'
+                            : 'hover:bg-background/60 hover:text-foreground',
                         )}
                       >
                         <span className="truncate">{label}</span>
-                        {/* Space is kept for the arrow on every column, so headers don't shift when sorting. */}
-                        <Arrow aria-hidden="true" className={cn('size-3.5 shrink-0 text-muted-foreground', !active && 'invisible')} />
+                        {/* Space is kept for the arrow on every column, so headers don't shift when sorting.
+                            Keyed on the direction so the arrow replays its entrance when it flips. */}
+                        <Arrow key={active ? sort.direction : 'idle'} aria-hidden="true"
+                          className={cn('size-3.5 shrink-0', active ? 'text-primary animate-in fade-in zoom-in-50 duration-200 motion-reduce:animate-none' : 'invisible')} />
                       </button>
                     </th>
                   );

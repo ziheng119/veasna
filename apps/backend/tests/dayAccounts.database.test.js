@@ -35,7 +35,7 @@ const { localDate } = require('../utils/validation');
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, face_id TEXT,
         date_of_birth DATE, sex TEXT, address TEXT, phone_number TEXT, family TEXT);
       INSERT INTO patients (id, location_id, english_name) VALUES (1, 1, 'Alice Returning'), (2, 1, 'Bob Earlier');
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
       INSERT INTO visits VALUES (10, 1, 1, '2025-01-01', NOW()), (11, 1, 1, '${today}', NULL), (20, 2, 1, '2025-01-01', NOW());
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);
       CREATE TEMP TABLE audit (author INT REFERENCES users(id));`);

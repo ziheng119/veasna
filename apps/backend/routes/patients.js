@@ -50,6 +50,14 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           FROM visits lv
           WHERE lv.patient_id = p.id
         ) AS last_visit_date,
+        -- When the latest visit was registered: orders patients seen on the same day, newest first.
+        (
+          SELECT lv.created_at
+          FROM visits lv
+          WHERE lv.patient_id = p.id
+          ORDER BY lv.visit_date DESC, lv.created_at DESC
+          LIMIT 1
+        ) AS last_visit_at,
         -- In today's queue here: the open visit and the station it waits at (null when not queued).
         q.visit_id AS queue_visit_id, q.station AS current_station
       FROM patients p

@@ -129,7 +129,13 @@ A few things worth knowing:
   the admin account.
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
-- Queues and patient lists update on every device automatically when someone saves.
+- Queues, patient lists and open forms update on every device automatically when
+  someone saves. A patient sent on from another device closes on yours, with a note
+  saying where they went.
+- **Patient List** opens sorted by **Last Seen**, most recent first: today's patients
+  on top, the most recently registered first. Click any column header to sort by it
+  (the sorted header is raised and bold, with a coloured arrow); click again to
+  reverse.
 - Deleting, removing or discharging anything asks first in a pop-up that says what will
   happen.
 - Always check that a save succeeded before leaving a page. Unsaved work is not
