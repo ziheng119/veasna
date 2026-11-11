@@ -94,7 +94,7 @@ files in `migrations/` are kept as a record of each change.
 From the project folder:
 
 ```bash
-npm start              # server and web app together, for clinic use
+npm start              # server and web app together, for clinic use; either restarts if it crashes
 npm run dev:backend    # server only, restarting when code changes
 ```
 

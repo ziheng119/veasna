@@ -191,7 +191,9 @@ can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
 
    It prints the addresses to use, such as `LAN: http://192.168.68.50:3000/health`
    and `Name: http://veasna.local:3000/health`. If PostgreSQL starts slowly, the
-   server waits for it for up to a minute.
+   server waits for it for up to a minute. If the server or the web app crashes, it is
+   restarted after 3 seconds (the log shows `restarted`) and the other keeps running;
+   devices reconnect by themselves. Ctrl+C stops both.
 5. **Check from one staff device** (see below), then sign in on each device at
    `http://veasna.local:3001` (or `http://192.168.68.50:3001`).
 
