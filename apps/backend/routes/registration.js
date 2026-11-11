@@ -8,6 +8,7 @@ integerParams(router, ['patientId']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
 const { normalizeSexToEnum } = require('../utils/sex');
+const { lockPatients, leaveFamily } = require('./family');
 
 /**
  * POST /api/registration
@@ -257,13 +258,32 @@ router.put('/:patientId', authenticateToken, requireRole(['any']), async (req, r
  * Removes the patient (cascades to vitals/hef/visits due to FK ON DELETE CASCADE)
  */
 router.delete('/:patientId', authenticateToken, requireRole(['admin']), async (req, res) => {
+  const patientId = Number(req.params.patientId);
+  let client;
   try {
-    const del = await db.query('DELETE FROM patients WHERE id = $1 RETURNING id', [ req.params.patientId ]);
-    if (!del.rows.length) return res.status(404).json({ message: 'Patient not found' });
-    res.json({ message: 'Patient deleted', patient_id: del.rows[0].id });
+    client = await db.pool.connect();
   } catch (err) {
+    console.error('Failed to acquire database connection:', err);
+    return res.status(500).json({ message: 'Database connection unavailable' });
+  }
+  try {
+    await client.query('BEGIN');
+    const [patient] = await lockPatients(client, [patientId]);
+    if (!patient) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    // Their family must not be left with one member, or waiting for them at a station.
+    await leaveFamily(client, patient, req.user.id);
+    await client.query('DELETE FROM patients WHERE id = $1', [patientId]);
+    await client.query('COMMIT');
+    res.json({ message: 'Patient deleted', patient_id: patientId });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
     console.error('Registration delete error:', err);
     res.status(500).json({ message: 'Internal server error' });
+  } finally {
+    client.release();
   }
 });
 

@@ -79,6 +79,16 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
       .toEqual([{ requested_stations: ['consultation', 'dental', 'pharmacy'] }]);
   });
 
+  test('a patient sent back to Consult after Pharmacy goes to Pharmacy again when more is prescribed', async () => {
+    await client.query(`DELETE FROM visit_stations;
+      INSERT INTO visit_stations (visit_id, station, position, entered_at, completed_at, last_updated_by) VALUES
+        (1, 'pharmacy', 1, NOW(), NOW(), 1), (1, 'consultation', 2, NOW(), NULL, 1);`);
+    expect((await prescribe({ quantity: 1 })).status).toBe(201);
+    expect(await pending()).toEqual(['consultation', 'pharmacy']);
+    const { rows } = await client.query("SELECT entered_at FROM visit_stations WHERE station = 'pharmacy'");
+    expect(rows[0].entered_at).toBeNull(); // arrives once Consult is done
+  });
+
   test('a finished visit can still be prescribed for; its route is left alone', async () => {
     await client.query('UPDATE visits SET completed_at = NOW()');
     expect((await prescribe({ quantity: 1 })).status).toBe(201);

@@ -54,14 +54,16 @@ const DAY = '2026-11-05';
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE,
         family TEXT CHECK (family ~ '^[A-Z]{1,4}$'), last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT REFERENCES patients(id), location_id INT, queue_no TEXT, visit_date DATE,
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT REFERENCES patients(id) ON DELETE CASCADE, location_id INT, queue_no TEXT, visit_date DATE,
         completed_at TIMESTAMP, last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW(), sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
+      CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id) ON DELETE CASCADE, station TEXT, position INT,
         entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
         last_updated_at TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), UNIQUE (visit_id, station));
       CREATE TEMP TABLE visit_station_route_history (id SERIAL PRIMARY KEY, visit_id INT, previous_stations JSONB,
         requested_stations JSONB, last_updated_by INT, created_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE tb_screening (visit_id INT PRIMARY KEY, status TEXT);
+      CREATE TEMP TABLE tb_screening (visit_id INT PRIMARY KEY, red_flags TEXT[] DEFAULT '{}', flag_notes TEXT DEFAULT '', status TEXT,
+        doctor_notes TEXT DEFAULT '', flagged_by INT, flagged_at TIMESTAMP DEFAULT NOW(), reviewed_by INT, reviewed_at TIMESTAMP,
+        last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visual_acuity (visit_id INT); CREATE TEMP TABLE presenting_complaint (visit_id INT);
       CREATE TEMP TABLE history (visit_id INT); CREATE TEMP TABLE consultation (visit_id INT);
       CREATE TEMP TABLE physiotherapy (visit_id INT); CREATE TEMP TABLE dental (visit_id INT);
@@ -72,12 +74,14 @@ const DAY = '2026-11-05';
     app.use(express.json());
     app.use('/api/family', require('../routes/family'));
     app.use('/api/queue', require('../routes/queue'));
+    app.use('/api/tb', require('../routes/tb'));
+    app.use('/api/registration', require('../routes/registration'));
   });
 
   // Patients 1-3 are the Tan family, 4 is Sok, 5 is Dara (another location) and 6 is Vanna, who has
   // no visit today. Visits 3, 4, 5 and 6 (patients 1-4) wait at Triage, then go to Consult.
   beforeEach(() => client.query(`
-    TRUNCATE visit_station_route_history, visit_stations, visits, patients, users RESTART IDENTITY CASCADE;
+    TRUNCATE tb_screening, visit_station_route_history, visit_stations, visits, patients, users RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (1), (${USER_ID});
     INSERT INTO patients (id, location_id, english_name, last_updated_by) VALUES
       (1, 1, 'Mother Tan', 1), (2, 1, 'Father Tan', 1), (3, 1, 'Child Tan', 1), (4, 1, 'Sok', 1), (5, 2, 'Dara', 1), (6, 1, 'Vanna', 1);
@@ -186,6 +190,22 @@ const DAY = '2026-11-05';
       await done(5, 'triage'); // the child waits for the father
       await auth(request(app).put('/api/queue/4/stations')).send({ stations: ['consultation'] });
       expect(await stations()).toMatchObject({ 4: 'consultation', 5: 'consultation' });
+    });
+
+    test('a member flagged for TB goes to Consult alone; those waiting for them move on', async () => {
+      await done(3, 'triage'); // 1 waits for 2
+      const flag = await post('/api/tb/4/flag', { flagged: true, red_flags: ['cough_2_weeks', 'fever', 'night_sweats'] });
+      expect(flag.body.current_station).toBe('consultation');
+      expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation' });
+    });
+
+    test('deleting a patient dissolves a family left with one member, and lets them move on', async () => {
+      await done(3, 'triage'); // 1 waits for 2
+      const res = await request(app).delete('/api/registration/2').set('Authorization', `Bearer ${jwt.sign({ id: USER_ID, role: 'admin' }, secret)}`);
+      expect(res.status).toBe(200);
+      expect(await families()).toEqual({ 1: null, 3: null, 4: null, 5: null, 6: null });
+      expect(await stations()).toMatchObject({ 3: 'consultation' });
+      expect((await request(app).delete('/api/registration/2').set('Authorization', `Bearer ${jwt.sign({ id: USER_ID, role: 'admin' }, secret)}`)).status).toBe(404);
     });
 
     test('a member waiting for family whose family is dissolved moves on', async () => {
