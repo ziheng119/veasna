@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Loading from "../../Loading";
 import NoDataAvailable from "../../NoDataAvailable";
 import { PATIENT } from "@/constants/strings";
+import { hostNow } from "@/stores/useHostClockStore";
 
 interface Props {
   patient: QueuedPatient;
@@ -20,7 +21,7 @@ export default function PatientDetails({ patient }: Props) {
   const getAge = (dob: string | null) => {
     if (!dob) return "N/A";
     const birthDate = new Date(dob);
-    const diff = new Date().getTime() - birthDate.getTime();
+    const diff = hostNow().getTime() - birthDate.getTime();
     return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25)).toString();
   };
 

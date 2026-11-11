@@ -20,6 +20,7 @@ import { ENTER_FAST, LIFT } from "@/lib/motion";
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
 import { sortQueuePatients } from "@/lib/queueSort";
+import { hostToday } from "@/stores/useHostClockStore";
 
 interface Props {
   patients: QueuedPatient[];
@@ -50,7 +51,8 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
   });
 
   const sortedPatients = sortQueuePatients(filteredPatients, mode);
-  const today = new Date().toLocaleDateString();
+  // The host's date: the day this queue belongs to.
+  const today = new Date(`${hostToday()}T00:00:00`).toLocaleDateString();
 
   return (
     <PageCard

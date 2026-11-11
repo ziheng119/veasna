@@ -1,8 +1,10 @@
 import { backend_url } from "@/constants/env_variable";
 import { User } from "@/lib/types/user";
+import { useHostClockStore } from "@/stores/useHostClockStore";
 
 export async function loginUser(username: string, password: string): Promise<User> {
     try {
+      const sentAt = Date.now();
       const res = await fetch(`${backend_url}/api/auth/login`, {
         method: "POST",
         headers: {
@@ -16,7 +18,9 @@ export async function loginUser(username: string, password: string): Promise<Use
         throw new Error(errJson?.message || `Failed to login user: ${res.status} ${res.statusText}`);
       }
 
-      const { token, user: backendUser } = await res.json();
+      const body = await res.json();
+      const { token, user: backendUser } = body;
+      useHostClockStore.getState().sync(body, sentAt);
       const createdUser: User = {
         id: backendUser.id,
         username: backendUser.username,

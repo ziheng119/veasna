@@ -65,7 +65,11 @@ const { localDate } = require('../utils/validation');
   });
 
   test("a day account lists only patients queued on its day; other non-admins see today's; the admin sees everyone", async () => {
-    expect((await as('today_village', 'get', '/auth/me')).body.screening_date).toBe(today);
+    const me = (await as('today_village', 'get', '/auth/me')).body;
+    expect(me.screening_date).toBe(today);
+    // The host's clock comes with the profile, so a device with a wrong clock still uses the host's date.
+    expect(me).toMatchObject({ server_date: today, utc_offset_minutes: -new Date().getTimezoneOffset() });
+    expect(Math.abs(Date.parse(me.server_time) - Date.now())).toBeLessThan(5000);
     expect((await as('today_village', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
     // An account without a screening date is limited to the host's clinic day.
     expect((await as('user', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);

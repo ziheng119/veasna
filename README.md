@@ -70,7 +70,8 @@ Before the clinic opens:
   and keep it plugged in and awake.
 - Check the host's **date, time and time zone**. Without internet it cannot set its
   own clock, and the clinic day (which patients appear in today's queue) comes from
-  the host's clock.
+  the host's clock. Other devices use the host's date too, and show a yellow warning
+  bar when their own clock is more than 5 minutes off; correct that device's clock.
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 

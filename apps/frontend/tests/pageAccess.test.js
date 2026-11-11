@@ -41,3 +41,31 @@ test('direct unauthorized URL never renders its page and permissions come from t
     global.fetch = originalFetch; log.mockRestore();
   }
 });
+
+test("a device whose clock is days ahead stays signed in, and learns the host's clock", async () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const originalFetch = global.fetch;
+  const { useHostClockStore } = require('../src/stores/useHostClockStore');
+  // Issued by the host an hour ago, valid for 7 days; this device's clock reads 10 days later.
+  const hostNow = Date.now();
+  const token = `x.${Buffer.from(JSON.stringify({ exp: Math.floor(hostNow / 1000) + 7 * 86400 })).toString('base64')}.x`;
+  jest.useFakeTimers({ now: hostNow + 10 * 86400000, doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+  replace.mockClear(); pathname = '/triage';
+  useUserStore.setState({ user: { id: 2, username: 'Nurse', role: 'user', token } });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({
+    id: 2, username: 'Nurse', role: 'user', screening_date: null, server_time: new Date(hostNow).toISOString(), utc_offset_minutes: 420,
+  }) });
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement('protected-page'))); });
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
+    expect(replace).not.toHaveBeenCalledWith('/login');
+    expect(useUserStore.getState().user.token).toBe(token);
+    expect(useHostClockStore.getState()).toMatchObject({ utcOffsetMinutes: 420 });
+    expect(Math.round(useHostClockStore.getState().offsetMs / 86400000)).toBe(-10);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    jest.useRealTimers(); useHostClockStore.setState({ offsetMs: 0, utcOffsetMinutes: null });
+    global.fetch = originalFetch; log.mockRestore();
+  }
+});

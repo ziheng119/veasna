@@ -6,6 +6,7 @@ const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 const { comparePassword } = require('../config/db');
 const { normalizeRole } = require('../utils/permissions');
+const { hostClock } = require('../utils/hostClock');
 
 let ensurePasswordColumnPromise = null;
 
@@ -58,7 +59,10 @@ const { authenticateToken } = require('./auth');
 
 router.get('/me', authenticateToken, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.json({ id: req.user.id, username: req.user.username, role: req.user.role, screening_date: req.user.screening_date ?? null });
+  res.json({
+    id: req.user.id, username: req.user.username, role: req.user.role, screening_date: req.user.screening_date ?? null,
+    ...hostClock(),
+  });
 });
 
 // Fixed deployment accounts: registration is deliberately unavailable, including to admins.
@@ -104,7 +108,7 @@ router.post('/login', async (req, res) => {
 
     const token = signUserToken(user);
 
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, screening_date: user.screening_date } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, screening_date: user.screening_date }, ...hostClock() });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error' });

@@ -53,6 +53,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const apiRoutes = require('./routes/api');
 app.use('/api', notifyListChanges(io), apiRoutes);
 
+const { hostClock } = require('./utils/hostClock');
+
 // Health check: reports database reachability so a client device can verify the
 // whole path (LAN -> backend -> PostgreSQL) with one request.
 app.get('/health', async (req, res) => {
@@ -67,6 +69,7 @@ app.get('/health', async (req, res) => {
     database,
     realtimeClients: io.engine.clientsCount,
     timestamp: new Date().toISOString(),
+    ...hostClock(),
   });
 });
 

@@ -8,7 +8,7 @@ import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import { isAdmin } from "@/lib/permissions";
 import { downloadFile, toCsv } from "@/components/analytics/exportCsv";
-import { todayIso } from "@/components/shared/PrintReferralsDialog";
+import { hostToday } from "@/stores/useHostClockStore";
 
 /**
  * Admin only: a spreadsheet of every patient and every visit, all locations and dates, one row per
@@ -36,7 +36,7 @@ export default function DownloadAllPatientsButton() {
         return;
       }
       const columns = Object.keys(rows[0]);
-      downloadFile(toCsv([columns, ...rows.map(row => columns.map(column => row[column]))]), `veasna-all-patients-${todayIso()}.csv`);
+      downloadFile(toCsv([columns, ...rows.map(row => columns.map(column => row[column]))]), `veasna-all-patients-${hostToday()}.csv`);
       toast.success(`Downloaded ${rows.length} rows.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to download patient data.");

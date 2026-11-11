@@ -107,6 +107,8 @@ To check that it is working, open `/health` in a browser:
 
 - `"database": "ok"` means everything is connected.
 - `realtimeClients` is the number of devices currently receiving live updates.
+- `server_time`, `server_date` and `utc_offset_minutes` are the host's clock, which
+  every device uses for "today".
 
 ## Settings
 
@@ -150,7 +152,8 @@ These rules are enforced by the server, so they apply on every device:
 - **Permissions:** users can enter new records; only admins can change or delete
   saved ones. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
-  correctly.
+  correctly. Devices use the host's date too (see `utils/hostClock.js`), whatever their
+  own clock says.
 - **Stations:** each visit goes through only the stations it needs, in clinic order
   (`STATIONS` in `utils/stations.js`): Triage, Dental, Consultation, Physiotherapy, Partner
   NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration offers

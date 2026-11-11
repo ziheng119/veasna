@@ -178,7 +178,10 @@ can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
    `192.168.68.50`).
 2. **Check the host's date, time and time zone** (for Cambodia: `Asia/Phnom_Penh`, UTC+7).
    Without internet the clock is not corrected automatically. Today's queue and the
-   date on new visits come from the host's clock. Other devices' clocks don't matter.
+   date on new visits come from the host's clock. Other devices use the host's date as
+   well (for referral dates, printing "Today", ages and analytics) and show a yellow
+   warning bar when their own clock is more than 5 minutes off the host's. Correct that
+   device's clock when you see it; its records are still dated correctly meanwhile.
 3. **Keep the host plugged in** and stop it from sleeping.
 4. **Start Veasna** from the project folder:
 

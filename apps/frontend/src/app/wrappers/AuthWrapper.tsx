@@ -7,18 +7,10 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { backend_url } from '@/constants/env_variable';
 import { canAccessPage, defaultPage } from '@/lib/permissions';
 import { User } from '@/lib/types/user';
+import { HostClock, useHostClockStore } from '@/stores/useHostClockStore';
 
 interface Props {
   children: React.ReactNode;
-}
-
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 < Date.now();
-  } catch {
-    return true;
-  }
 }
 
 export default function AuthWrapper({ children }: Props) {
@@ -29,7 +21,9 @@ export default function AuthWrapper({ children }: Props) {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!user || !user.token || isTokenExpired(user.token)) {
+    // Expiry is checked by the host (its /auth/me answers 401), not by this device's clock, which
+    // may be days out on a tablet that has been offline.
+    if (!user || !user.token) {
       removeUser();
       router.replace("/login");
     }
@@ -37,7 +31,7 @@ export default function AuthWrapper({ children }: Props) {
 
   if (!hasHydrated) return <LoadingSpinner />;
 
-  if (!user || !user.token || isTokenExpired(user.token)) return null;
+  if (!user || !user.token) return null;
 
   return <PageAccess user={user}>{children}</PageAccess>;
 };
@@ -56,6 +50,7 @@ function PageAccess({ user, children }: Props & { user: User }) {
   useEffect(() => {
     const controller = new AbortController();
     setError(false);
+    const sentAt = Date.now();
     fetch(`${backend_url}/api/auth/me`, {
       headers: { Authorization: `Bearer ${user.token}` }, cache: "no-store", signal: controller.signal,
     }).then(async response => {
@@ -64,11 +59,12 @@ function PageAccess({ user, children }: Props & { user: User }) {
         return;
       }
       if (!response.ok) throw new Error("Permission check failed");
-      const profile: Pick<User, "id" | "username" | "role" | "screening_date"> = await response.json();
+      const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock = await response.json();
       if (controller.signal.aborted) return;
+      useHostClockStore.getState().sync(profile, sentAt);
       if (profile.role !== user.role || profile.username !== user.username ||
           (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
-        setUser({ ...profile, token: user.token });
+        setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token: user.token });
       }
       if (!canAccessPage(profile.role, pathname)) {
         router.replace(defaultPage(profile.role));

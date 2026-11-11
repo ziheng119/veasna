@@ -27,7 +27,14 @@ Wrong details return `401`; a disabled account returns `403`. Limited to 30 atte
 per device every 15 minutes.
 
 **GET** `auth/me`
-The signed-in account: `{ "id", "username", "role" }`.
+The signed-in account: `{ "id", "username", "role", "screening_date" }`, plus the host's
+clock (below). An expired or revoked token returns `401`: devices rely on this rather
+than their own clock to tell that a sign-in has expired.
+
+**Host clock.** `auth/me`, `auth/login` and `/health` also return
+`{ "server_time": "<ISO time>", "server_date": "YYYY-MM-DD", "utc_offset_minutes": 420 }`.
+Devices use it for anything dated "today" (referral dates, printing, ages, analytics),
+because a device that has been offline often has the wrong clock.
 
 **POST** `auth/register`, **POST** `users`
 Always `403`: account creation is disabled.
