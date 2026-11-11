@@ -1,5 +1,6 @@
 // Unsaved form drafts, kept in this browser so typing survives a dropped connection, a sign-out or a
-// reload (components/shared/LiveRecord.tsx). One per account, visit and form; kept for a day.
+// reload (components/shared/LiveRecord.tsx, hooks/useNewFormDraft.ts). One per account, visit and form
+// (or account, form and location for Registration); kept for a day.
 // Storage can be unavailable (private browsing, blocked site data): drafts are then simply not kept.
 
 const PREFIX = "veasna-draft:";
@@ -13,6 +14,8 @@ export interface Draft {
 }
 
 export const draftKey = (userId: number, visitId: number, form: string) => `${PREFIX}${userId}:${visitId}:${form}`;
+// A form for a new record, which has no visit yet: one per account and location (Registration).
+export const newRecordDraftKey = (userId: number, form: string, locationId: number) => `${PREFIX}${userId}:new:${form}:${locationId}`;
 
 export function removeDraft(key: string): void {
   try { localStorage.removeItem(key); } catch { /* storage unavailable */ }

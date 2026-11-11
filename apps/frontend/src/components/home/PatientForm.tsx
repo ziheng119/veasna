@@ -36,6 +36,9 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
+import { useNewFormDraft } from "@/hooks/useNewFormDraft";
+import { newRecordDraftKey } from "@/lib/drafts";
+import { LiveRecordNotice } from "../shared/LiveRecord";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -67,6 +70,20 @@ const emptyPatientInfo: PatientFormData = {
     age: undefined,
     queue_no: "",
 };
+
+const emptyVitals: Vitals = {
+    height: "",
+    weight: "",
+    bmi: "",
+    below_3rd_percentile: false,
+    category: "",
+    bp_systolic: "",
+    bp_diastolic: "",
+    temperature: "",
+    notes: ""
+};
+
+const emptyHef: HEF = { know_of_hef: "", has_hef: "", notes: "" };
 
 const MAX_SUGGESTIONS = 8;
 const MAX_AGE = 130;
@@ -150,23 +167,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     }, [existingPatients, lookedUp]);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-    const [vitals, setVitals] = useState<Vitals>({
-        height: "",
-        weight: "",
-        bmi: "",
-        below_3rd_percentile: false,
-        category: "",
-        bp_systolic: "",
-        bp_diastolic: "",
-        temperature: "",
-        notes: ""
-    });
+    const [vitals, setVitals] = useState<Vitals>(emptyVitals);
 
-    const [hef, setHEF] = useState<HEF>({
-        know_of_hef: "",
-        has_hef: "",
-        notes: ""
-    })
+    const [hef, setHEF] = useState<HEF>(emptyHef);
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
@@ -179,6 +182,30 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const tbRedFlagOptions = useFormOptions("tb_red_flags");
     // Fewer red flags than the threshold are not sent: the patient is not flagged.
     const tbFlagged = meetsTbThreshold(tbRedFlags);
+
+    // Unsaved typing is kept on this device until the patient is registered (hooks/useNewFormDraft.ts),
+    // with the registration's request id: if the host saved it but the answer was lost before a
+    // reload, Submit returns that registration instead of queuing the patient twice.
+    const userId = useUserStore((state) => state.user?.id);
+    const requestId = registrationId.current.get();
+    const draftValues = { patientInfo, linkedPatient, vitals, hef, stations, stickerColour, tbRedFlags, tbNotes, requestId };
+    const emptyForm: typeof draftValues = {
+      patientInfo: emptyPatientInfo, linkedPatient: null, vitals: emptyVitals, hef: emptyHef,
+      stations: DEFAULT_STATION_IDS, stickerColour: "", tbRedFlags: [], tbNotes: "", requestId,
+    };
+    const fillForm = (values: typeof draftValues) => {
+      setPatientInfo(values.patientInfo);
+      setLinkedPatient(values.linkedPatient);
+      setVitals(values.vitals);
+      setHEF(values.hef);
+      setStations(values.stations);
+      setStickerColour(values.stickerColour);
+      setTbRedFlags(values.tbRedFlags);
+      setTbNotes(values.tbNotes);
+      registrationId.current.resume(values.requestId);
+    };
+    const draft = useNewFormDraft(userId && locationId ? newRecordDraftKey(userId, "registration", locationId) : null,
+      draftValues, emptyForm, fillForm);
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -366,29 +393,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
           }
 
-          // Reset form states
-          setLinkedPatient(null);
-          setPatientInfo(emptyPatientInfo);
-          setStations(DEFAULT_STATION_IDS);
-          setStickerColour("");
-          setTbRedFlags([]);
-          setTbNotes("");
-          setVitals({
-            height: "",
-            weight: "",
-            bmi: "",
-            below_3rd_percentile: false,
-            category: "",
-            bp_systolic: "",
-            bp_diastolic: "",
-            temperature: "",
-            notes: ""
-          });
-          setHEF({
-            know_of_hef: "",
-            has_hef: "",
-            notes: ""
-          });
+          // Empty the form for the next patient, which also removes the draft.
+          fillForm({ ...emptyForm, requestId: registrationId.current.get() });
           setActiveTab("patient-info");
           setErrors({});
           refreshNextQueueNo();
@@ -438,6 +444,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         headerClassName="py-3"
         contentClassName="flex-1 flex flex-col overflow-hidden"
       >
+          <div className="mb-3 empty:hidden"><LiveRecordNotice live={draft} /></div>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
               

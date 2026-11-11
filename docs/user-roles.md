@@ -133,8 +133,12 @@ Opening a visit shows:
   saved yet." and a **Discard** button. If the form was saved on another device in the
   meantime, the draft is not put back over that save: a notice offers **Put mine back**
   or **Discard**. Saving removes the draft; drafts older than a day are deleted. Another
-  account signing in on the same device doesn't see them. The registration form and the
-  referral dialog don't keep drafts. (`lib/drafts.ts`.)
+  account signing in on the same device doesn't see them. The registration form keeps
+  one draft per account and location, put back the same way until the patient is
+  registered; it keeps the registration's request id too, so if the host saved it but
+  the answer was lost, Submit doesn't queue the patient twice
+  (`hooks/useNewFormDraft.ts`). The referral dialog doesn't keep drafts.
+  (`lib/drafts.ts`.)
 - Each prescription is its own record, so doctors can still prescribe after their
   consultation notes are saved. Cancelling or dispensing one stays with the admin, since
   it changes stock.

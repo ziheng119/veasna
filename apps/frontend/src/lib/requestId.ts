@@ -21,5 +21,8 @@ export function retryableRequestId() {
       return (id ??= newRequestId());
     },
     saved: () => { id = null; },
+    // Carries on with an id sent earlier (e.g. kept in a draft across a reload): the host may have
+    // saved that registration already.
+    resume: (earlierId: string | null, key = "") => { id = earlierId; idFor = key; },
   };
 }

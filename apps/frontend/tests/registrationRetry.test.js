@@ -17,6 +17,13 @@ test('a registration keeps its id after a failure and gets a new one once saved'
   expect(registration.get()).not.toBe(first);
 });
 
+test('a registration put back from a draft carries on with its earlier id', () => {
+  const registration = retryableRequestId();
+  registration.get();
+  registration.resume('earlier');
+  expect(registration.get()).toBe('earlier');
+});
+
 test('a different key (e.g. another drug or quantity) is a different save, with a new id', () => {
   const dispense = retryableRequestId();
   const first = dispense.get('1:2');
