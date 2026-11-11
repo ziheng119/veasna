@@ -212,8 +212,11 @@ The quickest check: open `http://192.168.68.50:3000/health` in the device's brow
 For a full check from a laptop with the project installed:
 
 ```bash
-npm run check:lan -- http://192.168.68.50:3000 http://192.168.68.51:3001 user user
+npm run check:lan -- http://192.168.68.50:3000 http://192.168.68.51:3001 dec13village <password>
 ```
+
+Use any active account, such as that day's screening-day account. The old shared
+`user` account is disabled, so it can't be used here.
 
 It checks, without changing anything: that the server and database are reachable, that
 this web app address is allowed, and that live updates connect for a signed-in user.

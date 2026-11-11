@@ -69,9 +69,10 @@ already has patient data.
 npm run setup:backend
 ```
 
-This checks that the server can reach the database and sets up the two sign-in
-account (`admin` / `admin12345`) and disables the old shared `user` sign-in; everyone
-else signs in with a screening-day account made on the Accounts page. It is safe to run again.
+This checks that the server can reach the database, sets up the admin sign-in
+(`admin` / `admin12345`) and disables the old shared `user` sign-in. Everyone else
+signs in with a screening-day account made on the Accounts page. It is safe to run
+again.
 
 ### 6. Load practice data (optional)
 
@@ -152,8 +153,10 @@ These rules are enforced by the server, so they apply on every device:
   next page change gets a new one), so a device in daily use stays signed in. Account
   changes apply straight away: the account is re-read on every request, and a disabled
   account or an expired sign-in gets `401`, which signs the device out.
-- **Permissions:** users can enter new records; only admins can change or delete
-  saved ones. See [accounts and permissions](../../docs/user-roles.md).
+- **Permissions:** every account can enter and correct records. A screening-day
+  account only reaches its day's patients, and their earlier visits are read-only to it.
+  Deleting records, pharmacy stock changes, Analytics, downloads and settings are
+  admin-only. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
   correctly. Devices use the host's date too (see `utils/hostClock.js`), whatever their
   own clock says.

@@ -154,7 +154,7 @@ npm run dev:frontend   # web app only
 npm run dev:desktop    # desktop window (start the web app first)
 npm test               # backend tests
 npm run lint           # web app lint
-npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 user user
+npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 <username> <password>
 ```
 
 Most tests use fake or temporary data. The exceptions are three older backend test

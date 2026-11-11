@@ -5,7 +5,8 @@
 // Read-only: it never writes clinic data. Needs Node 18+ (global fetch), no packages.
 //
 // Usage: node scripts/checkLan.js <backend-url> <frontend-origin> [username password]
-// e.g.   node scripts/checkLan.js http://192.168.1.10:3000 http://192.168.1.20:3001 user user
+// e.g.   node scripts/checkLan.js http://192.168.1.10:3000 http://192.168.1.20:3001 dec13village <password>
+// Any active account works (the old shared "user" account is disabled).
 
 const [backendArg, originArg, username, password] = process.argv.slice(2);
 if (!backendArg || !originArg) {

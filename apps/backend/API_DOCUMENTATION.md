@@ -20,12 +20,14 @@ A token lasts 7 days; `GET auth/me` returns a renewed one (`"token"`) when less 
 3 days are left. The server checks on every request that the account is still active
 and has permission for the request: an expired or invalid token, or a disabled
 account, returns `401` (sign in again); a request the account isn't allowed to make
-returns `403`. There are two fixed accounts, `admin` and
-`user`; see [accounts and permissions](../../docs/user-roles.md).
+returns `403`. Accounts are the `admin` account and screening-day accounts made on the
+Accounts page (the old shared `user` account is disabled); see
+[accounts and permissions](../../docs/user-roles.md).
 
 **POST** `auth/login`
-Body `{ "username": "user", "password": "user" }`. Returns
-`{ "token": "...", "user": { "id": 2, "username": "user", "role": "user" } }`.
+Body `{ "username": "dec13village", "password": "..." }`. Returns
+`{ "token": "...", "user": { "id": 5, "username": "dec13village", "role": "user", "screening_date": "2026-12-13" } }`
+plus the host's clock (below). `screening_date` is `null` for the admin.
 Wrong details return `401`; a disabled account returns `403`. Limited to 30 attempts
 per device every 15 minutes.
 
@@ -64,7 +66,6 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```json
 {
   "patientInfo": { "location_id": 1, "english_name": "Sok Dara", "khmer_name": "សុខ ដារា", "sex": "M", "date_of_birth": "1990-03-07" },
-  "visit": { "queue_no": "A12" },
   "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
   "hef": { "know_of_hef": "yes", "has_hef": "no" },
   "stations": ["triage", "dental", "consultation"],
@@ -98,7 +99,7 @@ Delete a patient.
 **GET** `patient/{id}`
 Fetch a patient plus a lightweight visit list (used by the patient details page).
 
-**PUT** `patient/{id}` (admin only)
+**PUT** `patient/{id}`
 Correct a patient’s demographic details: `english_name`, `date_of_birth` (`YYYY-MM-DD`) and `sex` (`M`/`F`) are required; `khmer_name`, `phone_number`, `address` and `location_id` (registered location) are optional, and an omitted `location_id` keeps the current one. The Unique ID is regenerated from the names and date of birth. Sets `last_updated_by` and `last_updated_at`. The old `PUT patients/{id}` route was removed; it wrote to a column that does not exist.
 
 **GET** `patient/visit/{visitId}`
@@ -106,9 +107,9 @@ Every record of one visit: `queue_no`, `visit_date`, `location_id`, `location_na
 
 ---
 
-### Editing Saved Visits (admin only)
+### Editing Saved Visits
 
-Users can create records but cannot change them once saved; admins can correct every part of a visit. The Patient Details page edits one section at a time:
+Every account can correct a saved visit, one section at a time, at the station or on the Patient Details page. A non-admin account only reaches the visits of its day (a screening-day account: its screening date; otherwise the host's today); anything else returns `403`. Deleting stays admin-only.
 
 | Section | Endpoint |
 | --- | --- |
@@ -118,7 +119,7 @@ Users can create records but cannot change them once saved; admins can correct e
 | Visual acuity, presenting complaint, medical history | `POST triage/visual-acuity`, `POST triage/presenting-complaint`, `POST triage/history` |
 | Seva, physiotherapy, dental, consultation, referral | `POST visits/seva/{visitId}`, `POST visits/physiotherapy/{visitId}`, `POST visits/dental/{visitId}`, `POST visits/consultation/{visitId}`, `POST visits/referral/{visitId}` |
 
-The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
+The station `POST` endpoints are the same upserts the station pages use. They create a missing record or overwrite the saved one; when two devices save the same form, the later save is kept. Every edit sets `last_updated_by` to the signed-in account and `last_updated_at` to now.
 
 **PUT** `visits/{visitId}`
 Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. A changed number, date or location is checked against that location and date's sequence, leaving this visit out, by the same rule as `POST visits`; an unchanged number is not re-checked. This replaces the old route of the same path, which wrote to a column that does not exist.
@@ -259,15 +260,15 @@ The triage, Seva, consultation and referral save endpoints accept partially fill
 
 ### Older endpoints
 
-The app no longer uses these, but they still work. New code should use the visit-based endpoints above (`POST visits`, `triage/*`, `visits/*`).
+Left from an earlier version. The app uses only `DELETE registration/{patientId}` (admin), behind **Delete** on the Patient List. Don't build on the others: several were written for an older database layout and now fail with `500`, and they are due to be removed.
 
-| Endpoint | Purpose |
+| Endpoint | Status |
 | --- | --- |
-| `POST patients` | Create a patient (requires `location_id`, `date_of_birth`, `sex`) |
-| `GET patients/today`, `GET patients/search?q=` | Today's patients; search by name |
-| `POST`/`GET patients/{id}/visual_acuity`, `/presenting_complaint`, `/history`, `/consultations`, `/physiotherapy` | Per-patient records |
-| `POST`/`GET consultations/{id}/referrals` | Referrals for a consultation |
-| `POST registration`, `PUT registration/{patientId}`, `DELETE registration/{patientId}` (admin) | Create or update a patient with vitals, HEF and a visit in one request |
+| `DELETE registration/{patientId}` (admin) | In use: deletes a patient and everything recorded for them. |
+| `POST patients`, `GET patients/today` | Work, but unused. `POST patients` records the `user_id` sent in the body rather than the signed-in account; use `POST visits`. |
+| `POST registration` | Fails (`500`); use `POST visits`. |
+| `PUT registration/{patientId}` | Fails (`500`) when it includes vitals, HEF or a visit; use `PUT patient/{id}` and the visit endpoints. |
+| `POST`/`GET patients/{id}/visual_acuity`, `/presenting_complaint`, `/history`, `/consultations`, `/physiotherapy`; `POST`/`GET consultations/{id}/referrals` | Fail (`500`); use `triage/*` and `visits/*`. |
 
 ---
 
@@ -278,8 +279,8 @@ Errors return JSON with a `message` or `error` field explaining the problem.
 | Status | When |
 | --- | --- |
 | `400` | Missing or invalid input: malformed JSON, non-numeric IDs in the URL (e.g. `/patients/abc`), invalid numbers or dates, or a reference to a deleted record. Field checks may add an `errors` list. |
-| `401` | No token (`"Authentication required"`), or wrong sign-in details. |
-| `403` | Expired or invalid token, disabled account, or the role isn't allowed to do this (`"Your role does not have permission for this action"`). |
+| `401` | No token (`"Authentication required"`), an expired or invalid token, a disabled account, or wrong sign-in details. The app signs the device out. |
+| `403` | The account isn't allowed to do this (`"Your role does not have permission for this action"`), or the visit is outside its day. Also a disabled account at `POST auth/login`. |
 | `404` | Unknown address or record, including saving a station form for a visit deleted on another device. |
 | `409` | Conflict with the current state: not enough available stock, a prescription that is no longer pending, duplicate queue number, or a station route changed by someone else. |
 | `413` | Request body too large. |

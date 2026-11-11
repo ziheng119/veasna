@@ -5,8 +5,8 @@
 //   POST   /api/accounts      { username, password, screening_date } creates a screening-day account
 //   PUT    /api/accounts/:id  { password?, screening_date?, is_active? } changes a screening-day account
 //   DELETE /api/accounts/:id  removes a screening-day account; one that entered records is disabled
-// The fixed admin and user accounts are reset with `npm run setup:accounts`, never changed here,
-// so an admin cannot lock everyone out.
+// The admin account is reset with `npm run setup:accounts`, never changed here, so an admin cannot
+// lock everyone out. The old shared "user" account is disabled (migration 022).
 const express = require('express');
 const router = express.Router();
 const { integerParams, isIsoDate } = require('../utils/validation');

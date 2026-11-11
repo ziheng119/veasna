@@ -31,7 +31,7 @@ router.use('/locations', locationRoutes);
 router.use('/registration', registrationRoutes);
 router.use('/queue', queueRoutes);
 router.use('/visits', visitRoutes);
-// Admin-only corrections to saved visits (details, vitals/HEF, TB record).
+// Corrections to saved visits (details, vitals/HEF, TB record): any account, within its day (utils/dayScope.js).
 router.use('/visits', visitEditRoutes);
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/prescriptions', prescriptionRoutes);
