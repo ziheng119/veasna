@@ -10,7 +10,7 @@ import { FullSearchBar } from "@/components/patient-list/FullSearchBar"
 import { getDrugsByLocation, addDrug, updateDrugCount, updateDrugName, deleteDrug } from "@/lib/api/pharmacy/pharmacy"
 import { useLocationStore } from "@/stores/useLocationStore"
 import toast from "react-hot-toast"
-import { SET_LOCATION_MESSAGE } from "@/messages/info"
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { Button } from "@/components/ui/button"
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -25,11 +25,7 @@ export default function PharmacyDashboard() {
 
     const location = useLocationStore((state) => state.currentLocation)
 
-    useEffect(() => {
-      if (!location) {
-        toast(SET_LOCATION_MESSAGE);
-      }
-    }, [location]);
+    useLocationReminder();
 
     async function refreshDrugs() {
       if (location) {

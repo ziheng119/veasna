@@ -4,8 +4,8 @@ import { useLocationStore } from "@/stores/useLocationStore";
 
 import { PatientQueue } from "@/components/home/PatientQueue";
 import { PatientForm } from "@/components/home/PatientForm";
-import { useCallback, useEffect, useRef } from "react";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
+import { useCallback } from "react";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
@@ -30,17 +30,8 @@ export default function HomePage() {
   }, [token, locationId]);
   const { data: patients, refresh: refreshAllPatients } = useLiveList(loadPatients);
   const { data: queuePatients, refresh: refreshQueuePatients } = useLiveList(loadQueue);
-  const hasShownLocationToast = useRef(false);
 
-  useEffect(() => {
-    if (!location && !hasShownLocationToast.current) {
-      hasShownLocationToast.current = true;
-      toast(SET_LOCATION_MESSAGE);
-    }
-    if (location) {
-      hasShownLocationToast.current = false;
-    }
-  }, [location]);
+  useLocationReminder();
 
   async function handleRemoveFromQueue(visitId: number) {
     if (!token) return;

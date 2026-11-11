@@ -8,24 +8,17 @@ import TriageContainer from "@/components/shared/read-only/triage-container/Tria
 import StationDataButton from "@/components/shared/StationDataButton";
 import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
+import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 export default function Seva() {
-    const location = useLocationStore((state) => state.currentLocation)
     
     const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-    useEffect(() => {
-        if (!location) {
-        toast(SET_LOCATION_MESSAGE);
-        }
-    }, [location]);
+    useLocationReminder();
 
     return (
         <StationFlowProvider station="seva" onSelectPatient={setSelectedPatient}>

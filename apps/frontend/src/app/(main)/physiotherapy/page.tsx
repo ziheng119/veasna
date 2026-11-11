@@ -6,24 +6,17 @@ import PatientContainer from "@/components/shared/read-only/patient-container/Pa
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
 import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
+import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
 
 export default function Physiotherapy() {
-  const location = useLocationStore((state) => state.currentLocation);
 
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-  useEffect(() => {
-    if (!location) {
-      toast(SET_LOCATION_MESSAGE);
-    }
-  }, [location]);
+  useLocationReminder();
 
   return (
     <StationFlowProvider station="physiotherapy" onSelectPatient={setSelectedPatient}>
