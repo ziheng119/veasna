@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
 import { clearPatientCache } from "./getPatients";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export async function updatePatient(
   patientId: number, 
@@ -19,7 +20,7 @@ export async function updatePatient(
       location_id: patientData.location_id ?? undefined,
     };
 
-    const res = await fetch(`${backend_url}/api/patient/${patientId}`, {
+    const res = await apiFetch(`${backend_url}/api/patient/${patientId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -34,8 +35,7 @@ export async function updatePatient(
     }
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `Failed to update patient: ${res.statusText}`);
+      throw new Error(await readError(res, "Failed to update patient"));
     }
 
     const data = await res.json();

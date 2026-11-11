@@ -4,6 +4,7 @@ import { PatientFormData } from "@/lib/types/patient";
 import { Vitals } from "@/lib/types/vitals";
 import { HEF } from "@/lib/types/hef";
 import { StationId } from "@/constants/stations";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export async function createVisit(
     data: {
@@ -32,7 +33,7 @@ export async function createVisit(
     };
 
     try {
-        const res = await fetch(`${backend_url}/api/visits`, {
+        const res = await apiFetch(`${backend_url}/api/visits`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -42,8 +43,7 @@ export async function createVisit(
         });
 
         if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || `Failed to create visit: ${res.statusText}`);
+            throw new Error(await readError(res, "Failed to register the patient"));
         }
         return await res.json();
 

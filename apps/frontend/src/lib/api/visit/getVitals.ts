@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { Vitals } from "@/lib/types/vitals";
 import formatDate from "@/helper/format_date"; // optional if you want to format dates
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for vitals per patientId + visitId
 const cachedVitals: Record<string, Vitals> = {};
@@ -23,7 +24,7 @@ export async function getVitals(patientId: number, visitId: number): Promise<Vit
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/vitals/${patientId}/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/vitals/${patientId}/${visitId}`, { headers });
 
     if (res.status === 304 && cachedVitals[cacheKey]) {
       console.log(`✅ Vitals for patient ${patientId} visit ${visitId} not modified, using cache`);

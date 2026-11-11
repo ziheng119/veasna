@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // What the dental students did, and whether the doctor should refer the patient on.
 export interface DentalNotes {
@@ -15,20 +16,19 @@ function authHeaders(): HeadersInit {
 
 // The visit's dental notes, or null before the first save.
 export async function getDental(visitId: number, signal?: AbortSignal): Promise<DentalNotes | null> {
-  const res = await fetch(`${backend_url}/api/visits/dental/${visitId}`, { cache: "no-cache", headers: authHeaders(), signal });
+  const res = await apiFetch(`${backend_url}/api/visits/dental/${visitId}`, { cache: "no-cache", headers: authHeaders(), signal });
   if (!res.ok) throw new Error(`Failed to load dental notes (${res.status})`);
   const json = await res.json();
   return json && { notes: json.notes ?? "", referral_needed: Boolean(json.referral_needed) };
 }
 
 export async function postDental(visitId: number, data: DentalNotes): Promise<void> {
-  const res = await fetch(`${backend_url}/api/visits/dental/${visitId}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/dental/${visitId}`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to save dental notes");
+    throw new Error(await readError(res, "Failed to save dental notes"));
   }
 }

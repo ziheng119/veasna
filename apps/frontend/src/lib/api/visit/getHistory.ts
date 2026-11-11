@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import formatDate from "@/helper/format_date";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for medical history per patientId + visitId
 const cachedHistories: Record<string, MedicalHistory> = {};
@@ -23,7 +24,7 @@ export async function getHistory(patientId: number, visitId: number): Promise<Me
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/history/${patientId}/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/history/${patientId}/${visitId}`, { headers });
 
     if (res.status === 304 && cachedHistories[cacheKey]) {
       // Data not modified, return cached

@@ -69,3 +69,40 @@ test("a device whose clock is days ahead stays signed in, and learns the host's 
     global.fetch = originalFetch; log.mockRestore();
   }
 });
+
+test('a brief Wi-Fi drop on a page change is retried quietly; a longer one shows Retry', async () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const originalFetch = global.fetch;
+  jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+  pathname = '/triage';
+  useUserStore.setState({ user: { id: 2, username: 'Nurse', role: 'user', token: 'x.e30.x' } });
+  const profile = { ok: true, status: 200, json: async () => ({ id: 2, username: 'Nurse', role: 'user', screening_date: null }) };
+  global.fetch = jest.fn()
+    .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockResolvedValueOnce(profile);
+  const alerts = () => renderer.root.findAll(node => node.props.role === 'alert');
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement('protected-page'))); });
+    expect(alerts()).toHaveLength(0);
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(alerts()).toHaveLength(0);
+    await act(async () => { jest.advanceTimersByTime(3000); });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(alerts()).toHaveLength(0);
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
+
+    // The host stays unreachable on the next page: after the retries, the error and its Retry button.
+    global.fetch.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
+    pathname = '/seva';
+    await act(async () => renderer.update(React.createElement(AuthWrapper, null, React.createElement('protected-page'))));
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    await act(async () => { jest.advanceTimersByTime(3000); });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(alerts()).toHaveLength(1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    jest.useRealTimers(); global.fetch = originalFetch; log.mockRestore();
+  }
+});

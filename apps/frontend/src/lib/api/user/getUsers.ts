@@ -1,9 +1,10 @@
 import { backend_url } from "@/constants/env_variable";
 import { User } from "../../types/user";
+import { apiFetch } from "@/lib/api/request";
 
 export async function getUsers(): Promise<User[]> {
   try {
-    const res = await fetch(`${backend_url}/api/users`, {
+    const res = await apiFetch(`${backend_url}/api/users`, {
       cache: "no-cache",
     });
 

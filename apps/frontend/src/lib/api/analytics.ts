@@ -1,4 +1,5 @@
 import { backend_url } from "@/constants/env_variable";
+import { apiFetch } from "@/lib/api/request";
 
 export type AnalyticsPeriod = "day" | "week" | "month" | "all";
 export type AnalyticsLocation = number | "all";
@@ -41,7 +42,7 @@ export interface AnalyticsTrend {
 }
 
 async function request<T>(path: string, params: Record<string, string>, token: string, signal: AbortSignal, failure: string): Promise<T> {
-  const response = await fetch(`${backend_url}/api/analytics${path}?${new URLSearchParams(params)}`, {
+  const response = await apiFetch(`${backend_url}/api/analytics${path}?${new URLSearchParams(params)}`, {
     headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal,
   });
   if (response.status === 401 || response.status === 403) throw new Error("Access unavailable. Please sign in again.");

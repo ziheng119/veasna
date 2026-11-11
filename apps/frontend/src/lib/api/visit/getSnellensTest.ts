@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { VisualAcuity } from "@/lib/types/visualAcuity";
 import formatDate from "@/helper/format_date";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for visual acuity per patientId + visitId
 const cachedVisualAcuity: Record<string, VisualAcuity> = {};
@@ -23,7 +24,7 @@ export async function getVisualAcuity(patientId: number, visitId: number): Promi
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/visual-acuity/${patientId}/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/visual-acuity/${patientId}/${visitId}`, { headers });
 
     if (res.status === 304 && cachedVisualAcuity[cacheKey]) {
       console.log(`✅ Visual Acuity for patient ${patientId} visit ${visitId} not modified, using cache`);

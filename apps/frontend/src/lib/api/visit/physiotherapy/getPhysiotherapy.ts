@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { Physiotherapy } from "@/lib/types/physiotherapy";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 const cachedPhysio: Record<number, Physiotherapy | null> = {};
 const cachedETags: Record<number, string> = {};
@@ -22,7 +23,7 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
       headers["If-None-Match"] = cachedETags[visitId];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/physiotherapy/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/physiotherapy/${visitId}`, { headers });
 
     if (res.status === 304) {
       console.log(`✅ Physiotherapy for visit ${visitId} not modified, using cache`);

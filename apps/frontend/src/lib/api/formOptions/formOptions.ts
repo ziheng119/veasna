@@ -1,20 +1,20 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import type { FormOption, FormOptionKey, FormOptionList } from "@/lib/types/formOptions";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Station form choices an admin can change (apps/backend/routes/formOptions.js).
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = useUserStore.getState().user?.token;
   if (!token) throw new Error("User not authenticated");
-  const res = await fetch(`${backend_url}/api/form-options${path}`, {
+  const res = await apiFetch(`${backend_url}/api/form-options${path}`, {
     ...init,
     cache: "no-store",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `Request failed (${res.status})`);
+    throw new Error(await readError(res, "Request failed"));
   }
   return res.json();
 }

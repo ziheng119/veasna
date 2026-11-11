@@ -2,6 +2,7 @@ import { invalidateConsultation } from "./getConsultation";
 import { backend_url } from "@/constants/env_variable";
 import { Consultation } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export async function postConsultation(data: Consultation, visitId: number) {
   if (!visitId) throw new Error("visitId is required");
@@ -11,7 +12,7 @@ export async function postConsultation(data: Consultation, visitId: number) {
 
   console.log("posting consult")
 
-  const res = await fetch(`${backend_url}/api/visits/consultation/${visitId}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/consultation/${visitId}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -26,8 +27,7 @@ export async function postConsultation(data: Consultation, visitId: number) {
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to save consultation: ${res.status} ${text}`);
+    throw new Error(await readError(res, `Failed to save consultation`));
   }
 
   invalidateConsultation(visitId);

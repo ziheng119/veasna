@@ -1,8 +1,9 @@
 import { backend_url } from "@/constants/env_variable";
 import { clearQueueCache } from "./getQueue";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export async function completeQueueVisit(visitId: number, token: string): Promise<void> {
-  const res = await fetch(`${backend_url}/api/queue/${visitId}/complete`, {
+  const res = await apiFetch(`${backend_url}/api/queue/${visitId}/complete`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -10,8 +11,7 @@ export async function completeQueueVisit(visitId: number, token: string): Promis
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to remove patient from queue");
+    throw new Error(await readError(res, "Failed to remove patient from queue"));
   }
 
   clearQueueCache();

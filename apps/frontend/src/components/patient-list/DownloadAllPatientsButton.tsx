@@ -9,6 +9,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { isAdmin } from "@/lib/permissions";
 import { downloadFile, toCsv } from "@/components/analytics/exportCsv";
 import { hostToday } from "@/stores/useHostClockStore";
+import { apiFetch, readError } from "@/lib/api/request";
 
 /**
  * Admin only: a spreadsheet of every patient and every visit, all locations and dates, one row per
@@ -22,14 +23,13 @@ export default function DownloadAllPatientsButton() {
   const download = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`${backend_url}/api/export/patients`, {
+      const res = await apiFetch(`${backend_url}/api/export/patients`, {
         cache: "no-store",
         headers: { Authorization: `Bearer ${user?.token}` },
+        // Every patient and visit: allow longer than an ordinary request.
+        timeoutMs: 120_000,
       });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || error.message || `Download failed (${res.status})`);
-      }
+      if (!res.ok) throw new Error(await readError(res, "Download failed"));
       const rows: Record<string, string | number | boolean | null>[] = await res.json();
       if (!rows.length) {
         toast("There are no patients to download yet.");

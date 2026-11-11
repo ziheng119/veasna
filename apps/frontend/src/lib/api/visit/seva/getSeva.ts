@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { Seva } from "@/lib/types/seva";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for SEVA per visitId
 const cachedSeva: Record<number, Seva | null> = {};
@@ -24,7 +25,7 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
       headers["If-None-Match"] = cachedETags[visitId];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/seva/${visitId}`, {
+    const res = await apiFetch(`${backend_url}/api/visits/seva/${visitId}`, {
       headers 
     });
 

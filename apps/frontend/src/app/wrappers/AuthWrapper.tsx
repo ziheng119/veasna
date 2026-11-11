@@ -8,6 +8,11 @@ import { backend_url } from '@/constants/env_variable';
 import { canAccessPage, defaultPage } from '@/lib/permissions';
 import { User } from '@/lib/types/user';
 import { HostClock, useHostClockStore } from '@/stores/useHostClockStore';
+import { apiFetch } from '@/lib/api/request';
+
+// The permission check on each page change: retried after these delays before an error shows.
+const RETRY_DELAYS_MS = [1000, 3000];
+const CHECK_TIMEOUT_MS = 8000;
 
 interface Props {
   children: React.ReactNode;
@@ -49,30 +54,39 @@ function PageAccess({ user, children }: Props & { user: User }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setError(false);
-    const sentAt = Date.now();
-    fetch(`${backend_url}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${user.token}` }, cache: "no-store", signal: controller.signal,
-    }).then(async response => {
-      if (response.status === 401 || response.status === 403) {
-        if (!controller.signal.aborted) { removeUser(); router.replace("/login"); }
-        return;
-      }
-      if (!response.ok) throw new Error("Permission check failed");
-      const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock = await response.json();
-      if (controller.signal.aborted) return;
-      useHostClockStore.getState().sync(profile, sentAt);
-      if (profile.role !== user.role || profile.username !== user.username ||
-          (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
-        setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token: user.token });
-      }
-      if (!canAccessPage(profile.role, pathname)) {
-        router.replace(defaultPage(profile.role));
-        return;
-      }
-      setVerified(key);
-    }).catch(() => { if (!controller.signal.aborted) setError(true); });
-    return () => controller.abort();
+    const check = (attempt: number) => {
+      const sentAt = Date.now();
+      apiFetch(`${backend_url}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${user.token}` }, cache: "no-store", signal: controller.signal, timeoutMs: CHECK_TIMEOUT_MS,
+      }).then(async response => {
+        if (response.status === 401 || response.status === 403) {
+          if (!controller.signal.aborted) { removeUser(); router.replace("/login"); }
+          return;
+        }
+        if (!response.ok) throw new Error("Permission check failed");
+        const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock = await response.json();
+        if (controller.signal.aborted) return;
+        useHostClockStore.getState().sync(profile, sentAt);
+        if (profile.role !== user.role || profile.username !== user.username ||
+            (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
+          setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token: user.token });
+        }
+        if (!canAccessPage(profile.role, pathname)) {
+          router.replace(defaultPage(profile.role));
+          return;
+        }
+        setVerified(key);
+      }).catch(() => {
+        if (controller.signal.aborted) return;
+        // A brief Wi-Fi drop: try again quietly before showing an error.
+        if (attempt < RETRY_DELAYS_MS.length) timer = setTimeout(() => check(attempt + 1), RETRY_DELAYS_MS[attempt]);
+        else setError(true);
+      });
+    };
+    check(0);
+    return () => { controller.abort(); clearTimeout(timer); };
     // Refresh permissions on navigation; a profile update must not start an extra request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.token, pathname, retry, removeUser, setUser, router]);

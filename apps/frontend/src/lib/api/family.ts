@@ -1,18 +1,18 @@
 import { backend_url } from "@/constants/env_variable";
 import { clearQueueCache } from "./queue/getQueue";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Families: patients who come together share a letter (patients.family), apart from their queue
 // numbers (apps/backend/routes/family.js). A family always has at least two members.
 
 async function post<T>(path: string, body: object, token: string): Promise<T> {
-  const res = await fetch(`${backend_url}/api/family${path}`, {
+  const res = await apiFetch(`${backend_url}/api/family${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to update the family");
+    throw new Error(await readError(res, "Failed to update the family"));
   }
   clearQueueCache();
   return res.json();

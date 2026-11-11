@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for presenting complaint per patientId + visitId
 const cachedComplaints: Record<string, PresentingComplaint> = {};
@@ -22,7 +23,7 @@ export async function getPresentingComplaint(patientId: number, visitId: number)
       headers['If-None-Match'] = cachedETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/presenting-complaint/${patientId}/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/presenting-complaint/${patientId}/${visitId}`, { headers });
 
     if (res.status === 304 && cachedComplaints[cacheKey]) {
       console.log(`✅ Presenting Complaint for patient ${patientId} visit ${visitId} not modified, using cache`);

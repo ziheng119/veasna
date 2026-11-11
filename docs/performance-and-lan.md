@@ -231,6 +231,8 @@ Anything that fails comes with a suggested fix.
 | "Too many requests" (HTTP 429) on a busy day | Raise `API_RATE_LIMIT_MAX` in `apps/backend/.env` (default 5000 per device every 15 minutes) and restart. |
 | A page shows **Retry page** | The connection to the host dropped, or the app was rebuilt. Check the network, then press Retry. Save any unsaved work you can see first. |
 | Lists may be out of date after Wi-Fi drops | They refresh by themselves when the connection returns, or when you come back to the tab. |
+| A save says the host "took too long to answer" or "couldn't be reached, so this may not have been saved" | The device waited 20 seconds with no answer, or the Wi-Fi dropped. The host may still have saved it: check the record (or the queue) before entering it again. A patient registration can simply be submitted again; the host won't add the patient twice. |
+| "Unable to verify page access" | The device couldn't reach the host for a few seconds while changing page (it already tried 3 times). Check the Wi-Fi, then press Retry. |
 
 **Saves are not queued while offline.** If a device loses the connection, a save
 fails rather than waiting. Always check that a save succeeded before moving on. Losing

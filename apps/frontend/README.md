@@ -77,7 +77,7 @@ shadcn/ui, and Zustand for sign-in and location state.
 | `src/app/(auth)/login` | Sign-in page |
 | `src/app/(main)/` | Signed-in pages |
 | `src/app/wrappers/AuthWrapper.tsx` | Redirects to sign-in when needed |
-| `src/lib/api/` | Calls to the backend |
+| `src/lib/api/` | Calls to the backend, all through `request.ts` (`apiFetch`: 20-second timeout, readable messages when the host can't be reached, sign-out on 401; `readError`: the host's error message) |
 | `src/stores/` | Shared state |
 | `src/constants/` | Shared lists and names (see [Customising](#customising)) |
 
