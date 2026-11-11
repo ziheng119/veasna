@@ -77,6 +77,26 @@ describe('Live list notifications', () => {
     expect(transaction.release).toHaveBeenCalled();
   });
 
+  test("devices are told only about changes at their own location (or all, with none chosen)", async () => {
+    db.pool.connect.mockResolvedValue({ release: jest.fn(), query: jest.fn(async sql => {
+      if (sql.includes('FROM visits')) return { rows: [{ id: 1, completed_at: null }] };
+      if (sql.includes('SELECT id, station')) return { rows: [{ id: 1, station: 'triage' }, { id: 2, station: 'seva' }] };
+      return { rows: [] };
+    }) });
+    db.query.mockResolvedValue({ rows: [{ location_id: 1 }] }); // visit 1 is at location 1
+    const at = locationId => client(token(), { auth: { token: token(), locationId } });
+    const here = at(1), elsewhere = at(2), anywhere = client();
+    await Promise.all([ready(here), ready(elsewhere), ready(anywhere)]);
+    let elsewhereTold = false;
+    elsewhere.on('lists:changed', () => { elsewhereTold = true; });
+    const told = Promise.all([event(here, 'lists:changed'), event(anywhere, 'lists:changed')]);
+    await request(app).post('/api/queue/1/stations/triage/complete').set('Authorization', `Bearer ${token()}`).send({});
+    expect(await told).toEqual([[{ visitId: 1 }], [{ visitId: 1 }]]);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(elsewhereTold).toBe(false);
+    expect(db.query).toHaveBeenCalledWith('SELECT location_id FROM visits WHERE id = $1', [1]);
+  });
+
   test('new registration notifies observers only after commit', async () => {
     let committed = false;
     const transaction = { release: jest.fn(), query: jest.fn(async sql => {

@@ -133,8 +133,9 @@ A few things worth knowing:
   the admin account.
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
-- Queues, patient lists and open forms update on every device automatically when
-  someone saves. A patient sent on from another device closes on yours, with a note
+- Queues, patient lists and open forms update automatically on every device at the
+  same location when someone saves (a device with no location chosen hears about
+  every location). A patient sent on from another device closes on yours, with a note
   saying where they went.
 - **Patient List** opens sorted by **Last Seen**, most recent first: today's patients
   on top, the most recently registered first. Click any column header to sort by it

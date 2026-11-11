@@ -107,7 +107,9 @@ Press Ctrl+C to stop it cleanly.
 To check that it is working, open `/health` in a browser:
 
 - `"database": "ok"` means everything is connected.
-- `realtimeClients` is the number of devices currently receiving live updates.
+- `realtimeClients` is the number of devices currently receiving live updates. Each
+  device is told only about changes at the location it chose (`realtime.js`); a change
+  whose location can't be told goes to every device.
 - `server_time`, `server_date` and `utc_offset_minutes` are the host's clock, which
   every device uses for "today".
 
