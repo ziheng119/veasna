@@ -1014,6 +1014,7 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
     return res.status(400).json({ error: "visit_id is required" });
   }
   if (await rejectUnsavableVisit(db, res, visit_id)) return;
+  if (await rejectChangedRecord(db, res, 'referral', visit_id, req.body.expected_updated_at)) return;
 
   const { referralDate, referralType, illness, duration, reason, signature } = req.body;
   if (!validateSignature(signature)) return res.status(400).json({ error: "Invalid signature. Please clear and sign again." });
@@ -1056,8 +1057,10 @@ router.post("/referral/:visit_id", authenticateToken, async (req, res) => {
     WHERE ${canEditSavedRecords(req.user.role)}
     RETURNING *), updated AS (
       UPDATE consultation SET require_referral = TRUE, last_updated_by = $7, last_updated_at = NOW()
-      WHERE visit_id = $1 AND EXISTS (SELECT 1 FROM saved) RETURNING visit_id
-    ) SELECT * FROM saved;
+      WHERE visit_id = $1 AND EXISTS (SELECT 1 FROM saved) RETURNING last_updated_at
+    -- The consultation's new version too, so the notes form on this device doesn't take its own
+    -- referral save for a save elsewhere (utils/recordVersion.js).
+    ) SELECT saved.*, (SELECT last_updated_at FROM updated) AS consultation_updated_at FROM saved;
   `;
 
   try {
@@ -1092,12 +1095,13 @@ router.delete("/referral/:visit_id", authenticateToken, async (req, res) => {
   if (!Number.isSafeInteger(visitId) || visitId <= 0) return res.status(400).json({ error: "Invalid visit_id" });
   try {
     if (await rejectUnsavableVisit(db, res, visitId)) return;
-    await db.query(`
+    const { rows } = await db.query(`
       WITH deleted AS (DELETE FROM referral WHERE visit_id = $1 RETURNING id)
       UPDATE consultation SET require_referral = FALSE, last_updated_by = $2, last_updated_at = NOW()
-      WHERE visit_id = $1
+      WHERE visit_id = $1 RETURNING last_updated_at
     `, [visitId, req.user.id]);
-    res.sendStatus(204);
+    // The consultation's new version, as for a save; null when there are no notes.
+    res.status(200).json({ consultation_updated_at: rows[0]?.last_updated_at ?? null });
   } catch (error) {
     console.error("Referral deletion failed:", error);
     res.status(500).json({ error: "Unable to delete referral" });

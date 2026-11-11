@@ -47,6 +47,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
     if (!res.ok) {
       if (res.status === 404) {
         noteVersion("consultation", visitId, null);
+        noteVersion("referral", visitId, null);
         cachedConsultation[visitId] = null;
         cachedETags[visitId] = res.headers.get("ETag") || "";
         return null;
@@ -57,6 +58,7 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
     const json = await res.json();
     // The notes' version; the row can exist for a referral alone, with no saved notes.
     noteVersion("consultation", visitId, json?.id != null ? json.last_updated_at : null);
+    noteVersion("referral", visitId, json?.referral_updated_at);
 
     // If backend returns null/empty
     if (!json) {

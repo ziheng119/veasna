@@ -8,11 +8,14 @@ const db = require("../config/db");
 const { authenticateToken, requireRole } = require("../routes/auth");
 const { normalizeSexToEnum } = require("../utils/sex");
 const { saveScope } = require("../utils/dayScope");
+const { rejectChangedRecord } = require("../utils/recordVersion");
 
 // Responses rely on Express's content-hash ETag (app.set("etag", ...)), so any change to a
 // patient, visit or station record yields a new ETag and clients never get a stale 304.
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+// Patient Details is edited in place, with no choice of versions: Cancel shows what was saved.
+const PATIENT_CHANGED = "These details were changed on another device after you opened them. Cancel to see the saved details, or Save again to replace them.";
 function isValidDate(value) {
   return typeof value === "string" && DATE_PATTERN.test(value) &&
     Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
@@ -148,6 +151,7 @@ router.put(
     if (!last_updated_by) {
       return res.status(401).json({ error: "Authentication required" });
     }
+    if (await rejectChangedRecord(db, res, 'patients', id, req.body.expected_updated_at, { column: 'id', message: PATIENT_CHANGED })) return;
 
     try {
       const updateQuery = `

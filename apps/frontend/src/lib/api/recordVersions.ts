@@ -1,5 +1,5 @@
 // The version (last_updated_at) of each station record this device last loaded or saved: Triage
-// sections, Dental, partner NGO, Physiotherapy and Consult notes. Each save sends it back as
+// sections, Dental, partner NGO, Physiotherapy, Consult notes and the referral. Each save sends it back as
 // expected_updated_at, and the host refuses the save (409) if the record was saved on another device
 // since (apps/backend/utils/recordVersion.js).
 import { useRealtimeStore } from "@/stores/useRealtimeStore";

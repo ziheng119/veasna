@@ -111,6 +111,14 @@ export default function PatientDetailsPage() {
     if (patient) setPatientData(patient);
   }, [token, selectedVisitId, patientId]);
 
+  // The patient's details were saved on another device since this page loaded them.
+  const reloadPatient = useCallback(async () => {
+    if (!token) return;
+    clearPatientCache(patientId);
+    const patient = await getPatient(patientId, token).catch(() => null);
+    if (patient) setPatientData(patient);
+  }, [token, patientId]);
+
   const handleBackToVisitList = () => {
     setSelectedVisitId(null);
     setVisitDetails(null);
@@ -173,6 +181,7 @@ export default function PatientDetailsPage() {
             patient={patient}
             canEdit={canEdit}
             onSaved={(updated) => setPatientData(previous => previous && { ...previous, patient: { ...previous.patient, ...updated } })}
+            onStale={reloadPatient}
           />
         </div>
 

@@ -35,10 +35,12 @@ interface Props {
   patient: PatientRecord;
   canEdit: boolean;
   onSaved: (patient: PatientRecord) => void;
+  // The details were saved on another device since this page loaded them: load them again.
+  onStale: () => void;
 }
 
 /** Demographics of the patient. Any account can correct them; the Unique ID is regenerated on save. */
-export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
+export default function PatientInfoCard({ patient, canEdit, onSaved, onStale }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const locations = useLocationStore((state) => state.locations);
 
@@ -80,7 +82,10 @@ export default function PatientInfoCard({ patient, canEdit, onSaved }: Props) {
       ...draft,
       sex: draft.sex as PatientInfo["sex"],
       location_id: draft.location_id ? Number(draft.location_id) : undefined,
-    }, token);
+    }, token, patient.last_updated_at);
+    // Saved elsewhere: what was typed stays, the saved details load underneath, and Save again
+    // (now with their version) replaces them.
+    if (result.conflict) onStale();
     if (!result.success) throw new Error(result.error);
     onSaved(result.data.patient);
   };

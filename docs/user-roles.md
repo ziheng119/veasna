@@ -105,11 +105,15 @@ Opening a visit shows:
 - If two people save the same form at the same moment, both saves succeed and the later
   one is kept, as with any edit. There is still only one record per form and visit.
 - **A form can't silently overwrite a newer save.** On the Triage, Dental, Consult notes,
-  Physiotherapy and partner NGO forms, a device that missed a save from another device
-  (for example, its Wi-Fi dropped) has its own save refused with "This form was saved on
-  another device after you opened it". The form then shows **Show saved version** or
-  **Keep mine**; saving again after choosing goes through. The referral dialog and
-  Patient Details still keep the later save.
+  Physiotherapy and partner NGO forms and the referral dialog, a device that missed a
+  save from another device (for example, its Wi-Fi dropped) has its own save refused with
+  "This form was saved on another device after you opened it". The form then shows
+  **Show saved version** or **Keep mine**; saving again after choosing goes through.
+  Saving or deleting a referral also updates the consult notes' referral flag, and the
+  device that did it carries on with the notes' new version, so its next notes save
+  isn't refused. On **Patient Details**, a stale edit of the patient's details is refused
+  with "These details were changed on another device after you opened them"; the saved
+  details load underneath, **Cancel** shows them, and **Save** again replaces them.
 - **A save shows on every device with the same patient open.** When a form is saved
   (for example the consultation notes), the same form open for that patient on other
   devices updates too:

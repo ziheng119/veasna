@@ -2,7 +2,8 @@ import { invalidateConsultation } from "./doctors-consultation/getConsultation";
 import { backend_url } from "@/constants/env_variable";
 import { Referral } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
-import { apiFetch, readError } from "@/lib/api/request";
+import { apiFetch } from "@/lib/api/request";
+import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
 
 export async function postReferral(data: Referral, visitId: number) {
   if (!visitId) throw new Error("visitId is required");
@@ -30,13 +31,16 @@ export async function postReferral(data: Referral, visitId: number) {
       reason: data.reason,
       signature: data.signature ?? null,
       doctorName: data.doctorName ?? "",
+      ...expectedVersion("referral", visitId),
     }),
   });
 
-  if (!res.ok) {
-    throw new Error(await readError(res, `Failed to save referral`));
-  }
+  if (!res.ok) throw await saveError(res, visitId, "Failed to save referral");
 
   invalidateConsultation(visitId);
-  return res.json();
+  const saved = await res.json();
+  noteVersion("referral", visitId, saved.last_updated_at);
+  // Saving a referral also marks the consult notes as needing one, which changes their version.
+  if (saved.consultation_updated_at) noteVersion("consultation", visitId, saved.consultation_updated_at);
+  return saved;
 }

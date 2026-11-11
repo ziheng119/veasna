@@ -3,10 +3,13 @@ import { PatientInfo } from "@/lib/types/patient";
 import { clearPatientCache } from "./getPatients";
 import { apiFetch, readError } from "@/lib/api/request";
 
+// `expectedUpdatedAt`: the last_updated_at of the details shown when editing started. If the
+// patient was saved on another device since, the host refuses (409) and `conflict` is true.
 export async function updatePatient(
-  patientId: number, 
-  patientData: Partial<PatientInfo>, 
-  token: string
+  patientId: number,
+  patientData: Partial<PatientInfo>,
+  token: string,
+  expectedUpdatedAt?: string,
 ) {
   try {
     const payload = {
@@ -18,6 +21,7 @@ export async function updatePatient(
       address: patientData.address ?? null,
       // Omitted keeps the registered location.
       location_id: patientData.location_id ?? undefined,
+      expected_updated_at: expectedUpdatedAt,
     };
 
     const res = await apiFetch(`${backend_url}/api/patient/${patientId}`, {
@@ -32,6 +36,10 @@ export async function updatePatient(
     if (res.status === 404) {
       console.error(`Patient ${patientId} not found`);
       return { success: false, error: 'Patient not found' };
+    }
+
+    if (res.status === 409) {
+      return { success: false, conflict: true, error: await readError(res, "Saved on another device. Cancel to see the saved details.") };
     }
 
     if (!res.ok) {
