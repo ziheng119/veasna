@@ -21,6 +21,39 @@ const { normalizeStickerColour } = require('../utils/formOptions');
 const { canEditSavedRecords } = require('../utils/permissions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
+// A device's one-off id for a registration (letters, digits, - and _).
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+// What POST /api/visits answers: the queued visit, as the registration desk shows it.
+function registrationResponse(visit, age) {
+  return {
+    visit_id: visit.visit_id,
+    patient_id: visit.patient_id,
+    queue_no: visit.queue_no,
+    sticker_colour: visit.sticker_colour,
+    current_station: visit.current_station,
+    tb_status: visit.tb_status,
+    english_name: visit.english_name,
+    khmer_name: visit.khmer_name,
+    age,
+    sex: visit.sex,
+    timestamp: new Date(visit.created_at).toLocaleTimeString(),
+  };
+}
+
+// The visit an earlier request with this id registered, or null.
+async function findRegistration(client, requestId) {
+  const { rows } = await client.query(`
+    SELECT v.id AS visit_id, v.patient_id, v.queue_no, v.sticker_colour, v.created_at,
+      p.english_name, p.khmer_name, p.sex, tb.status AS tb_status,
+      (SELECT s.station FROM visit_stations s WHERE s.visit_id = v.id
+        ORDER BY (s.completed_at IS NOT NULL), s.position LIMIT 1) AS current_station
+    FROM visits v
+    JOIN patients p ON p.id = v.patient_id
+    LEFT JOIN tb_screening tb ON tb.visit_id = v.id
+    WHERE v.request_id = $1`, [requestId]);
+  return rows[0] ?? null;
+}
 const MAX_DOCTOR_NAME = 100;
 
 // Saved referrals to print, for a day, a period or every date, at one location or all
@@ -109,6 +142,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
     const tbFlagged = tb !== null;
 
+    // Optional one-off id from the device: a registration sent again with the same id (because the
+    // device never got the answer) returns the first one instead of queuing the patient twice.
+    const requestId = req.body.request_id ?? null;
+    if (requestId !== null && (typeof requestId !== 'string' || !REQUEST_ID_PATTERN.test(requestId))) {
+        return res.status(400).json({ error: 'request_id must be 8 to 64 letters, digits, - or _.' });
+    }
+
     if (patientInfo?.sex != null && String(patientInfo.sex).trim() !== '' && normalizedPatientSex === null) {
         return res.status(400).json({ error: 'Invalid patientInfo.sex. Use M or F.' });
     }
@@ -139,6 +179,34 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
     try {
         await client.query('BEGIN');
+
+        const visitDate = currentVisitDate();
+        // Held until commit: registrations at this location go one at a time, so each gets its own
+        // queue number, and a registration sent twice or a patient queued twice is caught here.
+        await lockQueue(client, locationId);
+        if (requestId) {
+            const earlier = await findRegistration(client, requestId);
+            if (earlier) {
+                await client.query('ROLLBACK');
+                return res.status(200).json({ ...registrationResponse(earlier, patientInfo.age), repeated: true });
+            }
+        }
+        if (existingPatientId) {
+            const { rows: [open] } = await client.query(
+                `SELECT id, queue_no FROM visits
+                 WHERE patient_id = $1 AND visit_date = $2 AND completed_at IS NULL
+                 ORDER BY id LIMIT 1`,
+                [existingPatientId, visitDate]
+            );
+            if (open) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({
+                    error: `This patient is already in today's queue as number ${open.queue_no}.`,
+                    visit_id: open.id,
+                    queue_no: open.queue_no,
+                });
+            }
+        }
 
         // Step 1: Insert or Find/Update the patient
         let patientId = existingPatientId;
@@ -185,14 +253,11 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             );
         }
 
-        // Step 2: Insert into visits table
-        const visitDate = currentVisitDate();
-        // Held until commit, so two devices registering at once cannot be given the same number.
-        await lockQueue(client, locationId);
+        // Step 2: Insert into visits table (the queue is locked above)
         const queueNo = await getNextQueueNo(client, locationId, visitDate);
         const visitQuery = `
-            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by, sticker_colour)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by, sticker_colour, request_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, created_at;
         `;
         const visitValues = [
@@ -201,7 +266,8 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             queueNo,
             visitDate,
             last_updated_by,
-            stickerColour.value
+            stickerColour.value,
+            requestId
         ];
         const visitResult = await client.query(visitQuery, visitValues);
         const visitId = visitResult.rows[0].id;
@@ -257,7 +323,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         await client.query('COMMIT');
 
-        res.status(201).json({
+        res.status(201).json(registrationResponse({
             visit_id: visitId,
             patient_id: patientId,
             queue_no: queueNo,
@@ -266,13 +332,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             tb_status: tbFlagged ? 'suspected' : null,
             english_name: patientInfo.english_name,
             khmer_name: patientInfo.khmer_name,
-            age: patientInfo.age,
             sex: normalizedPatientSex ?? patientInfo.sex ?? null,
-            timestamp: new Date(visitTimestamp).toLocaleTimeString()
-        });
+            created_at: visitTimestamp,
+        }, patientInfo.age));
 
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
+        if (err && err.code === '23505' && err.constraint === 'visits_request_id_key') {
+            return res.status(409).json({ error: 'This registration was already saved. Check the queue before registering again.' });
+        }
         if (err && err.code === '23505') {
             return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
         }

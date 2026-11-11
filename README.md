@@ -112,6 +112,9 @@ A few things worth knowing:
   Patient List: they share a family letter, keep their numbers, sit together in every
   queue and move between stations together (see
   [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
+  If **Submit** fails on weak Wi-Fi, press it again: a patient the host had already saved
+  is not added twice. A returning patient who is still in today's queue can't be queued
+  a second time; the message gives their number.
   Pick the **Sticker colour** of the sticker you give the patient (on **Patient Info**):
   it shows as a small coloured tag on their queue number in every queue. An admin can
   change the colours on **Station data**.

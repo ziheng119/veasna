@@ -230,7 +230,18 @@ function ensureReferralDoctor() {
   return referralDoctorPromise;
 }
 
+// visits.request_id: a registration sent twice is saved once.
+let registrationRequestIdPromise;
+function ensureRegistrationRequestId() {
+  if (!registrationRequestIdPromise) {
+    registrationRequestIdPromise = runMigration('024_registration_request_id.sql')
+      .catch(err => { registrationRequestIdPromise = null; throw err; });
+  }
+  return registrationRequestIdPromise;
+}
+
 module.exports = {
+  ensureRegistrationRequestId,
   ensureReferralDoctor,
   ensureSharedUserRetired,
   ensureGlassesAndStickerColour,

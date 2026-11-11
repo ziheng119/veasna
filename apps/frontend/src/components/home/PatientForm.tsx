@@ -18,6 +18,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import { retryableRequestId } from "@/lib/requestId";
 import StickerColourSelect from "@/components/shared/StickerColourSelect";
 import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPatients";
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
@@ -88,6 +89,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const [nextQueueNo, setNextQueueNo] = useState("");
 
     const previewRequest = useRef<AbortController | null>(null);
+    // Sent with the registration and again if Submit is pressed after a failure: when the host had
+    // saved it but the answer was lost, it returns that registration instead of queuing twice.
+    const registrationId = useRef(retryableRequestId());
 
     // The server assigns the queue number on submit; this previews it. It reloads after every change
     // on any device (live updates), so it moves on when someone else registers a patient first.
@@ -345,9 +349,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               stations: tbFlagged ? TB_STATIONS : stations,
               sticker_colour: stickerColour,
               tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
+              request_id: registrationId.current.get(),
             },
             token
           );
+          registrationId.current.saved();
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
@@ -387,7 +393,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
           setErrors({});
           refreshNextQueueNo();
         } catch (error) {
-          console.error("Submissio failed: ", error)
+          console.error("Submission failed: ", error)
           alert(`Error: ${error instanceof Error ? error.message : "Could not add patient to queue."}`);
         } finally {
           setIsSubmitting(false);

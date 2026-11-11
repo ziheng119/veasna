@@ -66,7 +66,8 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
   "hef": { "know_of_hef": "yes", "has_hef": "no" },
   "stations": ["triage", "dental", "consultation"],
   "sticker_colour": "light_blue",
-  "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" }
+  "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" },
+  "request_id": "9f2c4e0a7b1d4c3e8a6f5b2d1c0e9a8b"
 }
 ```
 
@@ -74,7 +75,9 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 - The queue number is always the next one for the location today, assigned under the location's queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
 - `stations` defaults to `triage`, `dental`, `consultation`; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - `sticker_colour` is optional: the id of a sticker colour from `form-options` (`sticker_colours`), or blank/`null` for no sticker. Returned on the visit and in `GET queue` rows.
-- Returns `400` for missing or invalid fields, including an unknown location or patient.
+- `request_id` is optional: a one-off id the device makes for this registration (8–64 letters, digits, `-` or `_`). If the same `request_id` is sent again, for example after the Wi-Fi dropped before the answer arrived, nothing new is saved and the first registration is returned with `200` and `"repeated": true`. The app keeps the id until the host confirms the registration.
+- A returning patient (`patientInfo.id`) who already has an unfinished visit today is not queued again: `409` with `{ "error": "This patient is already in today's queue as number 12.", "visit_id", "queue_no" }`. Once that visit is finished or discharged they can be registered again.
+- Returns `201` with the new visit, `400` for missing or invalid fields, including an unknown location or patient.
 
 ---
 

@@ -15,6 +15,8 @@ export async function createVisit(
         sticker_colour?: string | null;
         // Set when TB red flags were ticked: the patient goes straight to Consultation, marked red.
         tb?: { red_flags: string[]; notes: string } | null;
+        // One-off id (lib/requestId.ts): sending the same registration again returns the first.
+        request_id?: string;
     },
     token: string
 ): Promise<QueuedPatient> {
@@ -26,6 +28,7 @@ export async function createVisit(
         stations: data.stations,
         sticker_colour: data.sticker_colour || null,
         ...(data.tb ? { tb: data.tb } : {}),
+        ...(data.request_id ? { request_id: data.request_id } : {}),
     };
 
     try {
