@@ -49,8 +49,9 @@ function PageAccess({ user, children }: Props & { user: User }) {
   const [verified, setVerified] = useState("");
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  // Keep the shared layout/live connection mounted between already permitted pages.
-  const key = user.token;
+  // Keep the shared layout/live connection mounted between already permitted pages, and when the
+  // host renews the sign-in (a new token for the same account must not remount a half-filled form).
+  const key = String(user.id);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,12 +67,14 @@ function PageAccess({ user, children }: Props & { user: User }) {
           return;
         }
         if (!response.ok) throw new Error("Permission check failed");
-        const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock = await response.json();
+        const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock & { token?: string } = await response.json();
         if (controller.signal.aborted) return;
         useHostClockStore.getState().sync(profile, sentAt);
-        if (profile.role !== user.role || profile.username !== user.username ||
+        // The host sends a new token when this sign-in is close to expiry (routes/session.js).
+        const token = profile.token || user.token;
+        if (profile.role !== user.role || profile.username !== user.username || token !== user.token ||
             (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
-          setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token: user.token });
+          setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token });
         }
         if (!canAccessPage(profile.role, pathname)) {
           router.replace(defaultPage(profile.role));

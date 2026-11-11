@@ -16,8 +16,11 @@ Every endpoint except `POST auth/login` needs a signed-in token in the
 Authorization: Bearer <token>
 ```
 
-A token lasts 7 days. The server checks on every request that the account is still
-active and has permission for the request. There are two fixed accounts, `admin` and
+A token lasts 7 days; `GET auth/me` returns a renewed one (`"token"`) when less than
+3 days are left. The server checks on every request that the account is still active
+and has permission for the request: an expired or invalid token, or a disabled
+account, returns `401` (sign in again); a request the account isn't allowed to make
+returns `403`. There are two fixed accounts, `admin` and
 `user`; see [accounts and permissions](../../docs/user-roles.md).
 
 **POST** `auth/login`

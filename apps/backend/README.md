@@ -148,7 +148,10 @@ router setup with several devices.
 These rules are enforced by the server, so they apply on every device:
 
 - **Sign-in:** every request except sign-in needs a signed-in account. A sign-in lasts
-  7 days. Account changes (such as a role change) apply at the next sign-in.
+  7 days and is renewed while the device is in use (when less than 3 days are left, the
+  next page change gets a new one), so a device in daily use stays signed in. Account
+  changes apply straight away: the account is re-read on every request, and a disabled
+  account or an expired sign-in gets `401`, which signs the device out.
 - **Permissions:** users can enter new records; only admins can change or delete
   saved ones. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone

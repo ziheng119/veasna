@@ -45,14 +45,26 @@ function normalizeCredentials(username, password) {
   };
 }
 
+// A sign-in lasts 7 days, renewed while the device is in use: when less than 3 days are left,
+// GET /auth/me (called on every page change) returns a new token. A device in daily use never
+// reaches expiry in the middle of a form; one left unused for a week signs in again.
+const TOKEN_LIFETIME_SECONDS = 7 * 24 * 3600;
+const RENEW_WITHIN_SECONDS = 3 * 24 * 3600;
+
 function signUserToken(user) {
   const token = jwt.sign(
     { id: user.id, username: user.username, role: user.role || 'user' },
     getJwtSecret(),
-    { expiresIn: '7d' }
+    { expiresIn: TOKEN_LIFETIME_SECONDS }
   );
 
   return token;
+}
+
+// A new token when this one (its `exp`, in seconds) is close to expiry; otherwise undefined.
+function renewedToken(user, now = Date.now()) {
+  if (typeof user.exp !== 'number' || user.exp - now / 1000 > RENEW_WITHIN_SECONDS) return undefined;
+  return signUserToken(user);
 }
 
 const { authenticateToken } = require('./auth');
@@ -62,6 +74,8 @@ router.get('/me', authenticateToken, (req, res) => {
   res.json({
     id: req.user.id, username: req.user.username, role: req.user.role, screening_date: req.user.screening_date ?? null,
     ...hostClock(),
+    // The role and name here are the current ones from the database (middleware/authorizeApi.js).
+    token: renewedToken(req.user),
   });
 });
 
@@ -117,3 +131,4 @@ router.post('/login', async (req, res) => {
 
 module.exports = router;
 module.exports.ensurePasswordColumn = ensurePasswordColumn;
+module.exports.renewedToken = renewedToken;

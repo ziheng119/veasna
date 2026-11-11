@@ -106,3 +106,30 @@ test('a brief Wi-Fi drop on a page change is retried quietly; a longer one shows
     jest.useRealTimers(); global.fetch = originalFetch; log.mockRestore();
   }
 });
+
+test('a sign-in renewed by the host is stored without remounting the open page', async () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const originalFetch = global.fetch;
+  pathname = '/triage';
+  useUserStore.setState({ user: { id: 2, username: 'Nurse', role: 'user', token: 'old.e30.x' } });
+  const profile = (token) => ({ ok: true, status: 200, json: async () => ({ id: 2, username: 'Nurse', role: 'user', screening_date: null, token }) });
+  // The first check: nothing to renew. The next (a later page check): the host renews the sign-in.
+  global.fetch = jest.fn().mockResolvedValueOnce(profile(undefined)).mockResolvedValueOnce(profile('new.e30.x'))
+    .mockResolvedValue(profile(undefined));
+  const mounts = jest.fn();
+  function Form() { React.useEffect(() => { mounts(); }, []); return React.createElement('protected-page'); }
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement(Form))); });
+    expect(mounts).toHaveBeenCalledTimes(1);
+    pathname = '/triage?visit=1';
+    await act(async () => renderer.update(React.createElement(AuthWrapper, null, React.createElement(Form))));
+    expect(useUserStore.getState().user.token).toBe('new.e30.x');
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
+    // Mounted once: the token change did not swap the form for a spinner and back.
+    expect(mounts).toHaveBeenCalledTimes(1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    global.fetch = originalFetch; log.mockRestore();
+  }
+});
