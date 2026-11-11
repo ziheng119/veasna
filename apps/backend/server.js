@@ -11,7 +11,7 @@ const { createServer } = require('http');
 const db = require('./config/db');
 const { parseOrigins, createOriginCheck, lanAddresses } = require('./config/network');
 const { startMdns } = require('./config/mdns');
-const { scheduleBackups } = require('./utils/backup');
+const { backupStatus, scheduleBackups } = require('./utils/backup');
 const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
@@ -69,6 +69,9 @@ app.get('/health', async (req, res) => {
     status: database === 'ok' ? 'OK' : 'DEGRADED',
     database,
     realtimeClients: io.engine.clientsCount,
+    // The latest automatic backup under npm start (null until the first): at, file, and error if
+    // the latest attempt failed.
+    lastBackup: backupStatus(),
     timestamp: new Date().toISOString(),
     ...hostClock(),
   });

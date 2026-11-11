@@ -20,7 +20,8 @@
     "setup:backend": "npm run setup --workspace apps/backend",
     "seed:demo": "npm run seed:demo --workspace apps/backend",
     "check:lan": "npm run check:lan --workspace apps/backend --",
-    "backup": "npm run backup --workspace apps/backend"
+    "backup": "npm run backup --workspace apps/backend --",
+    "restore": "npm run restore --workspace apps/backend --"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

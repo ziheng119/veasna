@@ -21,15 +21,16 @@ On macOS or Linux, run `psql postgres`. Then run:
 
 ```sql
 CREATE DATABASE veasna_screening;
-CREATE USER veasna_app WITH PASSWORD 'change_me';
+CREATE USER veasna_app WITH PASSWORD 'change_me' CREATEDB;
 GRANT ALL PRIVILEGES ON DATABASE veasna_screening TO veasna_app;
 \q
 ```
 
-Replace `change_me` with a password of your own.
+Replace `change_me` with a password of your own. `CREATEDB` lets `npm run restore` put a
+backup into a new database.
 
 Prefer a graphical tool? In pgAdmin, create a login role `veasna_app` with a
-password, then create a database `veasna_screening` owned by that role.
+password and the "Create databases" privilege, then create a database `veasna_screening` owned by that role.
 
 ### 3. Enter your settings
 
@@ -107,6 +108,8 @@ Press Ctrl+C to stop it cleanly.
 To check that it is working, open `/health` in a browser:
 
 - `"database": "ok"` means everything is connected.
+- `lastBackup` is the latest automatic backup: when (`at`) and where (`file`), plus
+  `error` and `failed_at` when the latest attempt failed. `null` until the first.
 - `realtimeClients` is the number of devices currently receiving live updates. Each
   device is told only about changes at the location it chose (`realtime.js`); a change
   whose location can't be told goes to every device.
@@ -115,29 +118,53 @@ To check that it is working, open `/health` in a browser:
 
 ## Backups
 
-All records live in this laptop's database, so keep copies off it. `npm start` saves a
-backup when it starts and every 2 hours while it runs. To take one now (for example,
-at the end of a clinic day), run this from the project folder:
+All records live in this laptop's database, so keep copies off it. Backups need no
+internet. `npm start` saves one when it starts and every 2 hours while it runs; `/health`
+shows the latest as `lastBackup` (with `error` if the latest attempt failed). A failed
+backup never stops the server.
+
+**Take a backup now**, for example at the end of a clinic day. From the project folder:
 
 ```bash
-npm run backup
+npm run backup                      # into the backups/ folder
+npm run backup -- E:\veasna-backups # or straight onto a USB stick
 ```
 
-Backups go to the `backups/` folder in the project, named by date and time, for example
-`veasna-2026-11-11_173000.dump`. The newest 30 are kept. Copy the folder to a USB stick
-after each clinic day, or set `BACKUP_DIR` to the USB stick so every backup lands there.
-A failed backup is logged as `Backup failed: ...` and never stops the server.
+On Windows you can instead double-click `backup.cmd` in the project folder, or drag a
+folder (such as the USB stick) onto it to save the backup there.
 
-To restore a backup into a new, empty database (Windows: run from
-`C:\Program Files\PostgreSQL\<version>\bin`):
+Backups are named by date and time, for example `veasna-2026-11-11_173000.dump`, and the
+newest 30 in each folder are kept. Keep at least one copy off the host laptop after every
+clinic day: a USB stick, or another laptop.
+
+**Check that a backup restores.** Do this before each trip; it changes nothing:
 
 ```bash
-createdb -U veasna_app veasna_restored
-pg_restore -U veasna_app -d veasna_restored --no-owner backups/veasna-2026-11-11_173000.dump
+npm run restore -- latest --check
+# Backup OK: veasna-2026-11-11_173000.dump restores with 120 patients, 140 visits, 11 accounts.
 ```
 
-Check the records there, then set `DB_NAME=veasna_restored` in `.env` and restart the
-server. Restoring into a new database leaves the current one untouched until you switch.
+**Restore a backup**, after a lost database or on a replacement laptop:
+
+```bash
+npm run restore                                  # lists the backups
+npm run restore -- latest                        # restores the newest
+npm run restore -- E:\veasna-backups\veasna-2026-11-11_173000.dump  # or a chosen file
+```
+
+Restoring:
+1. backs up the current database first, if it can still be reached;
+2. restores into a new database, named like `veasna_restored_20261111_180000`, and shows
+   how many patients, visits and accounts it holds;
+3. sets `DB_NAME` in `apps/backend/.env` to that database.
+
+Then restart the server (Ctrl+C, then `npm start`). The old database is never changed: to
+go back, set `DB_NAME` to the name the restore printed and restart.
+
+On a replacement laptop, first install PostgreSQL and do steps 2–3 of
+[Database setup](#database-setup-first-time) (the database user and `.env`); skip step 4,
+since the restore brings the tables. The database user needs permission to create
+databases (`ALTER USER veasna_app CREATEDB;` in psql), as in step 2.
 
 ## Settings
 
@@ -175,7 +202,8 @@ router setup with several devices.
 | `relation "..." does not exist` | The tables are missing. Go back to step 4. |
 | `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
 | Start-up warns that some visits share a queue number | Older data has two visits with the same number at one location and date, so the database can't refuse duplicates yet (`migrations/026_visit_indexes.sql`). Run the query in the warning, change one number in each pair on **Patient Details**, then restart. Everything else works meanwhile. |
-| `Backup failed: pg_dump was not found` | Set `PG_BIN` in `.env` to PostgreSQL's `bin` folder. |
+| `Backup failed: pg_dump was not found` (or `createdb`, `pg_restore`) | Set `PG_BIN` in `.env` to PostgreSQL's `bin` folder. |
+| `Restore failed: permission denied to create database` | In psql, run `ALTER USER veasna_app CREATEDB;`, then try again. |
 | `Backup failed: ... server version mismatch` | `pg_dump` is older than the database. Install the matching PostgreSQL version, or point `PG_BIN` at its `bin` folder. |
 | Other devices can't connect | See [checking each device](../../docs/performance-and-lan.md#check-each-device). |
 
