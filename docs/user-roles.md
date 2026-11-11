@@ -102,8 +102,9 @@ Opening a visit shows:
   `utils/dayScope.js`, the same rule the server enforces on save).
 - Each save records the account and time in `last_updated_by` and `last_updated_at`.
   Everyone on a screening day shares one account, so the record shows that account.
-- If two people save the same form at the same moment, both saves succeed and the later
-  one is kept, as with any edit. There is still only one record per form and visit.
+- If two people save the same form for the same patient at the same moment, the first
+  save is kept and the other device is told the form was saved on another device (see
+  below), so neither is lost without warning. There is only one record per form and visit.
 - **A form can't silently overwrite a newer save.** On the Triage, Dental, Consult notes,
   Physiotherapy and partner NGO forms and the referral dialog, a device that missed a
   save from another device (for example, its Wi-Fi dropped) has its own save refused with
