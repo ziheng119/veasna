@@ -30,6 +30,6 @@ export async function postDental(visitId: number, data: DentalNotes): Promise<vo
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ ...data, ...expectedVersion("dental", visitId) }),
   });
-  if (!res.ok) throw await saveError(res, visitId, "Failed to save dental notes");
+  if (!res.ok) throw await saveError(res, "dental", visitId, "Failed to save dental notes");
   noteVersion("dental", visitId, (await res.json()).last_updated_at);
 }

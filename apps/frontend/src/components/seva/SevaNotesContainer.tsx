@@ -3,7 +3,7 @@
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import SaveButton from "../shared/SaveButton";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
+import { useRecordLoad } from "@/hooks/useRecordLoad";
 
 // Radix Select items cannot have an empty value, so "no referral" needs a stand-in.
 const NO_REFERRAL = "none";
@@ -68,26 +69,7 @@ export default function SevaNotesContainer({ patient }: Props) {
     setAdditionalNotes(values.additionalNotes);
   }, [markSaved]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadData = async () => {
-      try {
-        const data = await load();
-        if (cancelled) return;
-        show(data);
-        if (!data) toast("No data loaded");
-        else toast.success("Load success");
-      } catch (error) {
-        if (cancelled) return;
-        toast.error(`Failed to load ${PARTNER_NGO_NAME} notes`);
-        console.error("Error loading SEVA:", error);
-      }
-    };
-    void loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [load, show]);
+  useRecordLoad(load, show, `Couldn't load the ${PARTNER_NGO_NAME} notes`);
 
   // Resolves to whether the notes were saved.
   const handleSave = async (): Promise<boolean> => {

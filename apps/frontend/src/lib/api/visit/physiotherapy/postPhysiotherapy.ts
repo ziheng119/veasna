@@ -28,7 +28,7 @@ export async function postPhysiotherapy(
     }),
   });
 
-  if (!res.ok) throw await saveError(res, visitId, "Failed to save physiotherapy");
+  if (!res.ok) throw await saveError(res, "physiotherapy", visitId, "Failed to save physiotherapy");
   const saved = await res.json();
   noteVersion("physiotherapy", visitId, saved.lastUpdatedAt);
   return saved;

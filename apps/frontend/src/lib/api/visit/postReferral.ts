@@ -35,7 +35,7 @@ export async function postReferral(data: Referral, visitId: number) {
     }),
   });
 
-  if (!res.ok) throw await saveError(res, visitId, "Failed to save referral");
+  if (!res.ok) throw await saveError(res, "referral", visitId, "Failed to save referral");
 
   invalidateConsultation(visitId);
   const saved = await res.json();

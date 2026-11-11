@@ -26,7 +26,7 @@ export async function postConsultation(data: Consultation, visitId: number) {
     }),
   });
 
-  if (!res.ok) throw await saveError(res, visitId, "Failed to save consultation");
+  if (!res.ok) throw await saveError(res, "consultation", visitId, "Failed to save consultation");
   invalidateConsultation(visitId);
   const saved = await res.json();
   noteVersion("consultation", visitId, saved.last_updated_at);

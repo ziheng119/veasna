@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import toast from "react-hot-toast";
 import SaveButton from "../shared/SaveButton";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { DentalNotes, getDental, postDental } from "@/lib/api/visit/dental";
 import { QueuedPatient } from "@/lib/types/patient";
+import { useRecordLoad } from "@/hooks/useRecordLoad";
 
 interface Props {
   patient: QueuedPatient;
@@ -33,17 +34,7 @@ export default function DentalNotesContainer({ patient }: Props) {
     setReferralNeeded(data?.referral_needed ?? false);
   }, [markSaved]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal)
-      .then(show)
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        console.error("Error loading dental notes:", error);
-        toast.error("Failed to load dental notes");
-      });
-    return () => controller.abort();
-  }, [load, show]);
+  useRecordLoad(load, show, "Couldn't load the dental notes");
 
   // Resolves to whether the notes were saved.
   const handleSave = async (): Promise<boolean> => {

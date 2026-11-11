@@ -32,7 +32,7 @@ export async function postSeva(data: Seva, visitId: number) {
     }),
   });
 
-  if (!res.ok) throw await saveError(res, visitId, `Failed to save ${PARTNER_NGO_NAME} notes`);
+  if (!res.ok) throw await saveError(res, "seva", visitId, `Failed to save ${PARTNER_NGO_NAME} notes`);
   const saved = await res.json();
   noteVersion("seva", visitId, saved.last_updated_at);
   return saved;

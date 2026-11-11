@@ -19,6 +19,7 @@ import SendToPhysiotherapy from "./SendToPhysiotherapy";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import SaveButton from "../shared/SaveButton";
+import { useRecordLoad } from "@/hooks/useRecordLoad";
 
 interface Props {
   patient: QueuedPatient;
@@ -35,7 +36,6 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   // and sent back unchanged when the notes are saved; new prescriptions go through PrescriptionPanel.
   const [prescription, setPrescription] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null);
 
@@ -114,30 +114,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     setReferral(data?.referral ?? null);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchConsultation = async () => {
-      try {
-        const data = await load();
-        if (cancelled) return;
-        show(data);
-        showShared(data);
-      } catch (error) {
-        if (!cancelled) {
-          setLoadFailed(true);
-          toast.error("Failed to load consultation data");
-          console.error("Error loading consultation:", error);
-        }
-      }
-    };
-
-    fetchConsultation();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [load, show, showShared]);
+  const showAll = useCallback((data: Consultation | null) => {
+    show(data);
+    showShared(data);
+  }, [show, showShared]);
+  const loadFailed = useRecordLoad(load, showAll, "Couldn't load the consultation");
 
   // Saves made for this visit on another device show here too, including a referral written there.
   const live = useLiveRecord({
@@ -214,7 +195,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         <div className="ml-auto">
           {loadFailed ? (
             <p role="alert" className="text-sm text-destructive">
-              Unable to load consultation. Switch patients and try again.
+              Can&apos;t reach the host laptop to load this consultation. Trying again…
             </p>
           ) : !loaded || patientInfo === null ? (
             <Loading />

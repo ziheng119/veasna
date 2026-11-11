@@ -64,6 +64,8 @@ function PageAccess({ user, children }: Props & { user: User }) {
       const sentAt = Date.now();
       apiFetch(`${backend_url}/api/auth/me`, {
         headers: { Authorization: `Bearer ${user.token}` }, cache: "no-store", signal: controller.signal, timeoutMs: CHECK_TIMEOUT_MS,
+        // Retried below, with its own delays.
+        retryOnDrop: false,
       }).then(async response => {
         if (response.status === 401 || response.status === 403) {
           if (!controller.signal.aborted) { removeUser(); router.replace("/login"); }

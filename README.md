@@ -82,6 +82,10 @@ After the clinic closes, back up onto a USB stick: `npm run backup -- E:\veasna-
 Before each trip, run `npm run restore -- latest --check` to prove the backup restores.
 See [backups and restoring](apps/backend/README.md#backups).
 
+If the Wi-Fi is weak, devices keep working: typing is kept on each device, an amber bar
+shows when the host can't be reached, and lists and forms reload by themselves once it
+can. See [when the Wi-Fi is weak](docs/performance-and-lan.md#when-the-wi-fi-is-weak).
+
 For connecting several devices through a router, giving the host a fixed address
 in the Deco app, and opening the app at `http://veasna.local:3001` instead of the IP,
 see [running on a local network](docs/performance-and-lan.md).

@@ -16,7 +16,7 @@ async function saveData(endpoint: string, data: any) {
         body: JSON.stringify({ ...data, ...expectedVersion(endpoint, visitId) }),
     });
 
-    if (!res.ok) throw await saveError(res, visitId, `Failed to save ${endpoint} data.`);
+    if (!res.ok) throw await saveError(res, endpoint, visitId, `Failed to save ${endpoint} data.`);
     const saved = await res.json();
     noteVersion(endpoint, visitId, saved.last_updated_at);
     return saved;
