@@ -10,7 +10,7 @@ test('ordered saves include the original snapshot and preserve caller order', as
 });
 test('a stale route response surfaces a useful error', async () => {
   const original = global.fetch;
-  global.fetch = jest.fn().mockResolvedValue({ ok: false, json: async () => ({ error: 'The route changed on another device.' }) });
+  global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'The route changed on another device.' }), { status: 409 }));
   try { await expect(updateVisitStations(7, ['seva'], 'token', [])).rejects.toThrow('The route changed'); }
   finally { global.fetch = original; }
 });

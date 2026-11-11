@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { Location } from "@/lib/types/location";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 let cachedLocations: Location[] | null = null;
 let lastETag: string | null = null; // store last ETag
@@ -18,7 +19,7 @@ export async function getLocations(): Promise<Location[]> {
       headers["If-None-Match"] = lastETag;
     }
 
-    const res = await fetch(`${backend_url}/api/locations`, {
+    const res = await apiFetch(`${backend_url}/api/locations`, {
       method: "GET",
       cache: "no-cache",
       headers,

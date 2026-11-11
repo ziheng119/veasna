@@ -123,12 +123,15 @@ const db = require('../config/db');
     const remove = () => request(app).delete('/referral/1').set('Authorization', `Bearer ${token}`);
     expect((await request(app).delete('/referral/1')).status).toBe(401);
     expect((await request(app).delete('/referral/invalid').set('Authorization', `Bearer ${token}`)).status).toBe(400);
-    expect((await remove()).status).toBe(204);
+    const removed = await remove();
+    expect(removed.status).toBe(200);
     const after = await get().set('If-None-Match', before.headers.etag);
     expect(after.status).toBe(200);
+    // The notes' new version, for the notes form on this device.
+    expect(removed.body.consultation_updated_at).toBe(after.body.last_updated_at);
     expect(after.body).toMatchObject({ notes: 'Keep notes', prescription: 'Keep prescription', require_referral: false, referral_type: null, last_updated_by: 1 });
     expect((await client.query('SELECT visit_id FROM referral')).rows).toEqual([{ visit_id: 2 }]);
-    expect((await remove()).status).toBe(204);
+    expect((await remove()).status).toBe(200); // repeating it is harmless
     expect((await save(draft)).status).toBe(200);
     expect((await get()).body.require_referral).toBe(true);
   });

@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for patients per location (+ optional visit date)
 const cachedPatients: Record<string, PatientInfo[]> = {};
@@ -36,7 +37,7 @@ export async function getPatientsByLocation(
       params.set('visit_date', visitDate);
     }
 
-    const res = await fetch(`${backend_url}/api/patients?${params.toString()}`, {
+    const res = await apiFetch(`${backend_url}/api/patients?${params.toString()}`, {
       // Always revalidated with the server; an unchanged list returns 304 without a body.
       cache: "no-cache",
       headers,

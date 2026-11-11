@@ -12,7 +12,8 @@ function authorizeApi(req, res, next) {
         `SELECT id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date
          FROM users WHERE id=$1`, [req.user.id]);
       const account = rows[0];
-      if (!account?.is_active) return res.status(403).json({ message: 'Account inactive or unavailable' });
+      // 401: this sign-in no longer works, so the device signs out.
+      if (!account?.is_active) return res.status(401).json({ message: 'This account has been disabled. Please sign in again.' });
       req.user = {
         ...req.user, id: account.id, username: account.username, role: normalizeRole(account.role),
         // Set for a screening-day account (utils/dayScope.js).

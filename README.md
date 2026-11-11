@@ -70,9 +70,21 @@ Before the clinic opens:
   and keep it plugged in and awake.
 - Check the host's **date, time and time zone**. Without internet it cannot set its
   own clock, and the clinic day (which patients appear in today's queue) comes from
-  the host's clock.
+  the host's clock. Other devices use the host's date too, and show a yellow warning
+  bar when their own clock is more than 5 minutes off; correct that device's clock.
+  Each device's chosen location is forgotten at 6 am on the host's clock, so every
+  clinic day starts with choosing it again, even on a device whose clock is wrong.
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
+
+After the clinic closes, back up onto a USB stick: `npm run backup -- E:\veasna-backups`
+(or drag the USB folder onto `backup.cmd`). `npm start` also saves a backup every 2 hours.
+Before each trip, run `npm run restore -- latest --check` to prove the backup restores.
+See [backups and restoring](apps/backend/README.md#backups).
+
+If the Wi-Fi is weak, devices keep working: typing is kept on each device, an amber bar
+shows when the host can't be reached, and lists and forms reload by themselves once it
+can. See [when the Wi-Fi is weak](docs/performance-and-lan.md#when-the-wi-fi-is-weak).
 
 For connecting several devices through a router, giving the host a fixed address
 in the Deco app, and opening the app at `http://veasna.local:3001` instead of the IP,
@@ -105,12 +117,21 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 
 A few things worth knowing:
 
+- **New to Veasna?** Press the **?** button at the top of any page for a guided tour.
+  A spotlight follows one patient from registration through every station to Pharmacy,
+  with a short note on each part of the screen, covering what screening-day accounts
+  can do. The page is paused during the tour, so nothing is changed; use **Next** /
+  **Back** or the arrow keys, and **Esc** or **✕** to leave at any time, which goes back to
+  the page you were on. The **?** pulses until the guide has been opened once on that device.
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
   the same form. The form shows the queue number the patient will get; it is assigned
   automatically. To group a family, register each member, then use **Add to family** on
   Patient List: they share a family letter, keep their numbers, sit together in every
   queue and move between stations together (see
   [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
+  If **Submit** fails on weak Wi-Fi, press it again: a patient the host had already saved
+  is not added twice. A returning patient who is still in today's queue can't be queued
+  a second time; the message gives their number.
   Pick the **Sticker colour** of the sticker you give the patient (on **Patient Info**):
   it shows as a small coloured tag on their queue number in every queue. An admin can
   change the colours on **Station data**.
@@ -129,8 +150,9 @@ A few things worth knowing:
   the admin account.
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
-- Queues, patient lists and open forms update on every device automatically when
-  someone saves. A patient sent on from another device closes on yours, with a note
+- Queues, patient lists and open forms update automatically on every device at the
+  same location when someone saves (a device with no location chosen hears about
+  every location). A patient sent on from another device closes on yours, with a note
   saying where they went.
 - **Patient List** opens sorted by **Last Seen**, most recent first: today's patients
   on top, the most recently registered first. Click any column header to sort by it
@@ -150,17 +172,15 @@ npm run dev:frontend   # web app only
 npm run dev:desktop    # desktop window (start the web app first)
 npm test               # backend tests
 npm run lint           # web app lint
-npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 user user
+npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 <username> <password>
 ```
 
-Most tests use fake or temporary data. The exceptions are three older backend test
-files (`users`, `locations` and `registration_and_components`), which write to the
-database in `apps/backend/.env`. **Do not run the full backend suite against a clinic
-database.** To run only the safe tests:
+Tests use fake data or temporary tables only, so they never change the database in
+`apps/backend/.env`:
 
 ```bash
 npm test --workspace apps/frontend
-npm test --workspace apps/backend -- --testPathIgnorePatterns "users|locations|registration_and_components"
+npm test --workspace apps/backend
 ```
 
 Database changes are applied automatically when the server starts. More detail:

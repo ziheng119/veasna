@@ -106,4 +106,15 @@ async function releasePatient(client, patientId, userId) {
   }
 }
 
-module.exports = { lockFamilies, visitLocation, advanceVisit, releaseFamily, releasePatient };
+// After a visit left the station its family waits at (e.g. a TB flag sent it to Consultation), lets
+// the members waiting there move on. The caller holds lockFamilies.
+async function releaseVisitFamily(client, visitId, userId) {
+  const { rows } = await client.query(
+    `SELECT v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
+     FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1`,
+    [visitId]
+  );
+  if (rows.length) await releaseFamily(client, rows[0], rows[0].family, userId);
+}
+
+module.exports = { lockFamilies, visitLocation, advanceVisit, releaseFamily, releasePatient, releaseVisitFamily };

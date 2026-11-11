@@ -13,20 +13,24 @@ describe.each(loaders)('Live %s API reads', (_name, load, clear) => {
   });
   afterEach(() => { global.fetch = originalFetch; logs.mockRestore(); });
   test('always revalidates with the server and passes cancellation to fetch', async () => {
-    const signal = new AbortController().signal;
+    const caller = new AbortController();
+    const signal = caller.signal;
     fetch.mockResolvedValue({ ok: true, status: 200, json: async () => [{ id: 1 }], headers: new Headers() });
     expect(await load(signal)).toEqual([{ id: 1 }]);
     const [url, options] = fetch.mock.calls[0];
     expect(url).toContain('location_id=1');
     expect(url).toContain('2026-10-19');
-    expect(options.signal).toBe(signal);
+    // Cancelling the caller's signal cancels the request (lib/api/request.ts adds a timeout of its own).
+    expect(options.signal.aborted).toBe(false);
+    caller.abort();
+    expect(options.signal.aborted).toBe(true);
     // "no-cache" never serves a stored list unchecked; unchanged lists return 304 with no body.
     expect(options.cache).toBe('no-cache');
     expect(options.headers['If-None-Match']).toBeUndefined();
   });
   test('surfaces failures rather than returning an empty or stale successful list', async () => {
-    fetch.mockRejectedValue(new Error('offline'));
-    await expect(load(new AbortController().signal)).rejects.toThrow('offline');
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(load(new AbortController().signal)).rejects.toThrow("Couldn't reach the host laptop. Check the Wi-Fi, then try again.");
   });
 });
 

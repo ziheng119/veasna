@@ -2,6 +2,8 @@ import { invalidateConsultation } from "./getConsultation";
 import { backend_url } from "@/constants/env_variable";
 import { Consultation } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
+import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
 
 export async function postConsultation(data: Consultation, visitId: number) {
   if (!visitId) throw new Error("visitId is required");
@@ -9,9 +11,7 @@ export async function postConsultation(data: Consultation, visitId: number) {
   const token = useUserStore.getState().user?.token;
   if (!token) throw new Error("User not authenticated");
 
-  console.log("posting consult")
-
-  const res = await fetch(`${backend_url}/api/visits/consultation/${visitId}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/consultation/${visitId}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -22,14 +22,13 @@ export async function postConsultation(data: Consultation, visitId: number) {
       condition_categories: data.conditionCategories,
       prescription: data.prescription,
       require_referral: data.requireReferral,
+      ...expectedVersion("consultation", visitId),
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to save consultation: ${res.status} ${text}`);
-  }
-
+  if (!res.ok) throw await saveError(res, "consultation", visitId, "Failed to save consultation");
   invalidateConsultation(visitId);
-  return res.json();
+  const saved = await res.json();
+  noteVersion("consultation", visitId, saved.last_updated_at);
+  return saved;
 }

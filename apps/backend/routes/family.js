@@ -66,6 +66,15 @@ async function tidyFamily(client, locationId, family, userId) {
     return rows.map((row) => row.id);
 }
 
+// Takes the patient out of their family (a family left with one member is dissolved) and lets whoever
+// was waiting for them move on. The caller holds lockPatients.
+async function leaveFamily(client, patient, userId) {
+    if (!patient.family) return;
+    await setFamily(client, patient.id, null, userId);
+    const leftBehind = await tidyFamily(client, patient.location_id, patient.family, userId);
+    for (const id of [patient.id, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, userId);
+}
+
 // POST /api/family - Body: { patient_id, with_patient_id }
 // Puts patient_id in with_patient_id's family, or, when that patient has none, starts a new family
 // of the two with the first free letter at the location. A patient leaving another family for it
@@ -124,13 +133,11 @@ router.post('/leave', authenticateToken, requireRole(['any']), async (req, res) 
     await inTransaction(res, 'leaving a family', async (client) => {
         const [patient] = await lockPatients(client, [patientId]);
         if (!patient) return PATIENT_NOT_FOUND;
-        if (patient.family) {
-            await setFamily(client, patientId, null, req.user.id);
-            const leftBehind = await tidyFamily(client, patient.location_id, patient.family, req.user.id);
-            for (const id of [patientId, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, req.user.id);
-        }
+        await leaveFamily(client, patient, req.user.id);
         return { status: 200, body: { patient_id: patientId, family: null } };
     });
 });
 
 module.exports = router;
+module.exports.lockPatients = lockPatients;
+module.exports.leaveFamily = leaveFamily;

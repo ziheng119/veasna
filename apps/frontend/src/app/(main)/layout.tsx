@@ -4,7 +4,9 @@ import TopNav from "@/components/shared/TopNav";
 import AuthWrapper from "../wrappers/AuthWrapper";
 import Footer from "@/components/shared/Footer";
 import RealtimeConnection from "@/components/shared/RealtimeConnection";
+import ClockWarning from "@/components/shared/ClockWarning";
 import PageTransition from "@/components/shared/PageTransition";
+import GuideTour from "@/components/guide/GuideTour";
 
 export default async function MainLayout({
   children,
@@ -19,6 +21,7 @@ export default async function MainLayout({
         <div className="flex h-screen flex-col">
           <TopNav/>
           <RealtimeConnection />
+          <ClockWarning />
           <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5">
             <div className="mx-auto w-full max-w-[1600px] xl:h-full">
               <PageTransition>{children}</PageTransition>
@@ -26,6 +29,7 @@ export default async function MainLayout({
           </main>
           <Footer />
         </div>
+        <GuideTour />
       </AuthWrapper>
     </>
   );

@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import { VisitHef, VisitTb, VisitVitals } from "@/lib/types/visit";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Admin-only corrections to a saved visit (apps/backend/routes/visitEdits.js).
 // Station notes are corrected through their usual save functions (postSeva, postConsultation, ...).
@@ -9,7 +10,7 @@ async function adminPut<T>(path: string, body: unknown): Promise<T> {
   const token = useUserStore.getState().user?.token;
   if (!token) throw new Error("User not authenticated");
 
-  const res = await fetch(`${backend_url}/api/visits/${path}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/${path}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -18,8 +19,7 @@ async function adminPut<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `Request failed (${res.status})`);
+    throw new Error(await readError(res, "Request failed"));
   }
   return res.json();
 }
@@ -57,12 +57,11 @@ export function updateVisitTb(
 export async function deleteVisit(visitId: number): Promise<void> {
   const token = useUserStore.getState().user?.token;
   if (!token) throw new Error("User not authenticated");
-  const res = await fetch(`${backend_url}/api/visits/${visitId}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/${visitId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `Request failed (${res.status})`);
+    throw new Error(await readError(res, "Request failed"));
   }
 }

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { Account, createDayAccount, deleteDayAccount, getAccounts, updateDayAccount } from "@/lib/api/accounts/accounts";
 import { formatDayLabel } from "@/helper/format_date";
-import { todayIso } from "@/components/shared/PrintReferralsDialog";
+import { hostToday } from "@/stores/useHostClockStore";
 
 const LABEL = "flex flex-col gap-1.5 text-sm font-medium";
 
@@ -22,7 +22,7 @@ const LABEL = "flex flex-col gap-1.5 text-sm font-medium";
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ username: "", password: "", screening_date: todayIso() });
+  const [form, setForm] = useState({ username: "", password: "", screening_date: hostToday() });
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<Account | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);

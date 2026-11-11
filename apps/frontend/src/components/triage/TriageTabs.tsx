@@ -26,6 +26,7 @@ import { canEditSavedData } from "@/lib/permissions";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "@/components/shared/StationFlow";
 import { LiveRecordNotice, useLiveRecord } from "@/components/shared/LiveRecord";
+import { LOAD_RETRY_DELAYS_MS } from "@/hooks/useRecordLoad";
 
 // Triage is done when every section is saved.
 const SECTIONS = [
@@ -90,6 +91,12 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
       }).catch(() => { if (!cancelled) setLoadError(true); });
       return () => { cancelled = true; };
     }, [patient_id, visit_id, retry]);
+    // A failed load (weak Wi-Fi) is tried again by itself; Retry does it at once.
+    useEffect(() => {
+      if (!loadError) return;
+      const timer = setTimeout(() => setRetry(value => value + 1), LOAD_RETRY_DELAYS_MS[Math.min(retry, LOAD_RETRY_DELAYS_MS.length - 1)]);
+      return () => clearTimeout(timer);
+    }, [loadError, retry]);
     const token = useUserStore((state) => state.user?.token);
     const remainingStations = (stations ?? []).filter((s) => !s.completed).map((s) => s.station);
     const sevaQueued = remainingStations.includes("seva");
@@ -172,16 +179,19 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         visitId: visit_id, savedVersion: sectionVersion("acuity"), values: visualAcuity, valuesOf: acuityValues,
         load: () => getTriageRecord<VisualAcuity>("visual-acuity", patient_id, visit_id),
         apply: (data) => { setVisualAcuity(acuityValues(data)); showSaved("acuity", data !== null); },
+        draft: { form: "triage-acuity", restore: setVisualAcuity },
     });
     const liveComplaint = useLiveRecord({
         visitId: visit_id, savedVersion: sectionVersion("complaint"), values: presentingComplaint, valuesOf: complaintValues,
         load: () => getTriageRecord<PresentingComplaint>("presenting-complaint", patient_id, visit_id),
         apply: (data) => { setPresentingComplaint(complaintValues(data)); showSaved("complaint", data !== null); },
+        draft: { form: "triage-complaint", restore: setPresentingComplaint },
     });
     const liveHistory = useLiveRecord({
         visitId: visit_id, savedVersion: sectionVersion("history"), values: medicalHistory, valuesOf: historyValues,
         load: () => getTriageRecord<MedicalHistory>("history", patient_id, visit_id),
         apply: (data) => { setMedicalHistory(historyValues(data)); showSaved("history", data !== null); },
+        draft: { form: "triage-history", restore: setMedicalHistory },
     });
 
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);
@@ -231,7 +241,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
 
     return (
         <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
-            {loadError && <p role="alert">Unable to load saved data. <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
+            {loadError && <p role="alert">Can&apos;t reach the host laptop to load the saved triage data. Trying again… <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
             <div className="mb-3 space-y-2">
                 <StationDonePrompt patient={patient} done={loadedVisit === visit_id && triageDone} />
                 <LiveRecordNotice live={liveAcuity} label="Visual Acuity" />

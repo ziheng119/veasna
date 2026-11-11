@@ -151,3 +151,85 @@
 @media (prefers-reduced-motion: reduce) {
   .ready-pop, .sortable-dragging, .sticker-tag { animation: none; }
 }
+
+/* Guided tour (components/guide/GuideTour.tsx). The spotlight's hole is cut by a clip-path: on a
+   plain dim layer every frame (cheap), and on the blur layer only once the spotlight has arrived
+   (blurring redraws the whole screen). The ring is a plain outline, so the lit part stays the
+   thing to look at. */
+.guide-dim,
+.guide-blur {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.guide-dim { background: rgb(2 6 23 / 0.5); }
+.guide-blur {
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.guide-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 0 0 6px color-mix(in oklch, var(--primary) 18%, transparent);
+}
+
+/* One soft pulse when the spotlight reaches a new part. */
+.guide-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--primary);
+  animation: guide-ripple 700ms ease-out both;
+}
+
+/* Fades in only if it is still there after a moment (a note that would otherwise flash). */
+.guide-later { animation: guide-later 200ms ease-out 400ms both; }
+
+/* The pop-up's arrow: a turned square on the edge facing the lit part. */
+.guide-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  rotate: 45deg;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.guide-arrow[data-side="bottom"] { top: -7.5px; border-right: 0; border-bottom: 0; }
+.guide-arrow[data-side="top"] { bottom: -7.5px; border-left: 0; border-top: 0; }
+.guide-arrow[data-side="right"] { left: -7.5px; border-right: 0; border-top: 0; }
+.guide-arrow[data-side="left"] { right: -7.5px; border-left: 0; border-bottom: 0; }
+.guide-arrow[data-side="center"] { display: none; }
+
+@keyframes guide-ripple {
+  from { opacity: 0.8; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.04); }
+}
+@keyframes guide-later { from { opacity: 0; } to { opacity: 1; } }
+
+/* The ? button, until the guide has been opened once on this device. */
+.guide-ping {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--primary);
+  animation: guide-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes guide-ping {
+  0% { opacity: 0.7; transform: scale(0.9); }
+  70%, 100% { opacity: 0; transform: scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-ripple, .guide-ping { animation: none; opacity: 0; }
+  .guide-later { animation: none; }
+}

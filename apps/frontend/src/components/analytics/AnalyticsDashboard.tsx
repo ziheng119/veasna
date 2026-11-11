@@ -23,6 +23,7 @@ import TrendSection from "./TrendSection";
 import ReferralListsSection from "./ReferralListsSection";
 import { buildAnalyticsCsv, downloadFile } from "./exportCsv";
 import { enter, ExportMenu, fieldClass, InfoTip, panel, Segmented, SectionCard } from "./ui";
+import { hostToday, isoDate } from "@/stores/useHostClockStore";
 
 const PERIODS: { id: AnalyticsPeriod; label: string; title: string }[] = [
   { id: "day", label: "Day", title: "Only the selected date" },
@@ -43,7 +44,6 @@ const TONES = {
   indigo: { dot: "bg-indigo-500", active: "bg-indigo-600 text-white", badge: "bg-indigo-100 text-indigo-700" },
 };
 
-const localDate = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 const readable = (value: string, withYear = true) => new Date(value + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", ...(withYear && { year: "numeric" }) });
 function dateRangeText(period: AnalyticsPeriod, date: string) {
   if (!date) return "";
@@ -51,7 +51,7 @@ function dateRangeText(period: AnalyticsPeriod, date: string) {
   if (period === "all") return `all dates up to ${readable(date)}`;
   const start = new Date(date + "T00:00:00");
   start.setDate(start.getDate() - (PERIOD_OFFSET[period] ?? 0));
-  return `${readable(localDate(start), false)} – ${readable(date)}`;
+  return `${readable(isoDate(start), false)} – ${readable(date)}`;
 }
 
 function StatCard({ icon: Icon, label, value, detail, info, tone, delay, action }: {
@@ -82,7 +82,7 @@ export default function AnalyticsDashboard() {
   const currentLocation = useLocationStore(state => state.currentLocation);
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationId, setLocationId] = useState<AnalyticsLocation>(currentLocation?.id ?? 0);
-  const [date, setDate] = useState(() => localDate());
+  const [date, setDate] = useState(() => hostToday());
   const conditions = useFormOptions("consultation_conditions");
   const [chosenCondition, setCondition] = useState("diabetes");
   // Falls back to the first listed condition if the chosen one was removed on the Station data page.
@@ -240,8 +240,8 @@ export default function AnalyticsDashboard() {
           <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-1">
             <label htmlFor="analytics-date">{period === "day" ? "Date" : "Up to date"}</label>
             <div className="flex gap-2">
-              <input id="analytics-date" type="date" value={date} max={localDate()} onChange={event => setDate(event.target.value)} className={cn(fieldClass, "min-w-0 flex-1 text-foreground")} />
-              {date !== localDate() && <button type="button" onClick={() => setDate(localDate())} className="h-10 shrink-0 rounded-lg border border-border px-3 text-sm text-foreground transition hover:bg-muted active:scale-95 animate-in fade-in duration-200 motion-reduce:animate-none">Today</button>}
+              <input id="analytics-date" type="date" value={date} max={hostToday()} onChange={event => setDate(event.target.value)} className={cn(fieldClass, "min-w-0 flex-1 text-foreground")} />
+              {date !== hostToday() && <button type="button" onClick={() => setDate(hostToday())} className="h-10 shrink-0 rounded-lg border border-border px-3 text-sm text-foreground transition hover:bg-muted active:scale-95 animate-in fade-in duration-200 motion-reduce:animate-none">Today</button>}
             </div>
           </div>
         </div>

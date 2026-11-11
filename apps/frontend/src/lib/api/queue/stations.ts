@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { StationId } from "@/constants/stations";
 import { StationMove } from "@/lib/family";
 import { clearQueueCache } from "./getQueue";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Finishes a station and moves the visit to its next indicated station (next_station is null when
 // that was the last one and the visit is finished). A family member instead waits for the rest of
@@ -11,7 +12,7 @@ export async function completeStation(
   station: StationId,
   token: string
 ): Promise<StationMove> {
-  const res = await fetch(`${backend_url}/api/queue/${visitId}/stations/${station}/complete`, {
+  const res = await apiFetch(`${backend_url}/api/queue/${visitId}/stations/${station}/complete`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -19,8 +20,7 @@ export async function completeStation(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to complete station");
+    throw new Error(await readError(res, "Failed to complete station"));
   }
 
   clearQueueCache();
@@ -36,7 +36,7 @@ export async function updateVisitStations(
   token: string,
   expectedStations?: { station: StationId; completed: boolean }[]
 ): Promise<void> {
-  const res = await fetch(`${backend_url}/api/queue/${visitId}/stations`, {
+  const res = await apiFetch(`${backend_url}/api/queue/${visitId}/stations`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -46,8 +46,7 @@ export async function updateVisitStations(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to update stations");
+    throw new Error(await readError(res, "Failed to update stations"));
   }
 
   clearQueueCache();
@@ -61,14 +60,13 @@ export async function setStationNeeded(
   needed: boolean,
   token: string
 ): Promise<StationId[]> {
-  const res = await fetch(`${backend_url}/api/queue/${visitId}/stations/${station}`, {
+  const res = await apiFetch(`${backend_url}/api/queue/${visitId}/stations/${station}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ needed }),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to update stations");
+    throw new Error(await readError(res, "Failed to update stations"));
   }
   clearQueueCache();
   return (await res.json()).stations;

@@ -18,6 +18,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
 import { createVisit } from "@/lib/api/visit/createVisit";
+import { retryableRequestId } from "@/lib/requestId";
 import StickerColourSelect from "@/components/shared/StickerColourSelect";
 import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPatients";
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
@@ -35,6 +36,9 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
+import { useNewFormDraft } from "@/hooks/useNewFormDraft";
+import { newRecordDraftKey } from "@/lib/drafts";
+import { LiveRecordNotice } from "../shared/LiveRecord";
 
 interface PatientFormProps {
     existingPatients: PatientInfo[];
@@ -67,6 +71,20 @@ const emptyPatientInfo: PatientFormData = {
     queue_no: "",
 };
 
+const emptyVitals: Vitals = {
+    height: "",
+    weight: "",
+    bmi: "",
+    below_3rd_percentile: false,
+    category: "",
+    bp_systolic: "",
+    bp_diastolic: "",
+    temperature: "",
+    notes: ""
+};
+
+const emptyHef: HEF = { know_of_hef: "", has_hef: "", notes: "" };
+
 const MAX_SUGGESTIONS = 8;
 const MAX_AGE = 130;
 
@@ -88,6 +106,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const [nextQueueNo, setNextQueueNo] = useState("");
 
     const previewRequest = useRef<AbortController | null>(null);
+    // Sent with the registration and again if Submit is pressed after a failure: when the host had
+    // saved it but the answer was lost, it returns that registration instead of queuing twice.
+    const registrationId = useRef(retryableRequestId());
 
     // The server assigns the queue number on submit; this previews it. It reloads after every change
     // on any device (live updates), so it moves on when someone else registers a patient first.
@@ -146,23 +167,9 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     }, [existingPatients, lookedUp]);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-    const [vitals, setVitals] = useState<Vitals>({
-        height: "",
-        weight: "",
-        bmi: "",
-        below_3rd_percentile: false,
-        category: "",
-        bp_systolic: "",
-        bp_diastolic: "",
-        temperature: "",
-        notes: ""
-    });
+    const [vitals, setVitals] = useState<Vitals>(emptyVitals);
 
-    const [hef, setHEF] = useState<HEF>({
-        know_of_hef: "",
-        has_hef: "",
-        notes: ""
-    })
+    const [hef, setHEF] = useState<HEF>(emptyHef);
 
     // Stations this visit is indicated for; the patient queues at each one in order.
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
@@ -175,6 +182,30 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const tbRedFlagOptions = useFormOptions("tb_red_flags");
     // Fewer red flags than the threshold are not sent: the patient is not flagged.
     const tbFlagged = meetsTbThreshold(tbRedFlags);
+
+    // Unsaved typing is kept on this device until the patient is registered (hooks/useNewFormDraft.ts),
+    // with the registration's request id: if the host saved it but the answer was lost before a
+    // reload, Submit returns that registration instead of queuing the patient twice.
+    const userId = useUserStore((state) => state.user?.id);
+    const requestId = registrationId.current.get();
+    const draftValues = { patientInfo, linkedPatient, vitals, hef, stations, stickerColour, tbRedFlags, tbNotes, requestId };
+    const emptyForm: typeof draftValues = {
+      patientInfo: emptyPatientInfo, linkedPatient: null, vitals: emptyVitals, hef: emptyHef,
+      stations: DEFAULT_STATION_IDS, stickerColour: "", tbRedFlags: [], tbNotes: "", requestId,
+    };
+    const fillForm = (values: typeof draftValues) => {
+      setPatientInfo(values.patientInfo);
+      setLinkedPatient(values.linkedPatient);
+      setVitals(values.vitals);
+      setHEF(values.hef);
+      setStations(values.stations);
+      setStickerColour(values.stickerColour);
+      setTbRedFlags(values.tbRedFlags);
+      setTbNotes(values.tbNotes);
+      registrationId.current.resume(values.requestId);
+    };
+    const draft = useNewFormDraft(userId && locationId ? newRecordDraftKey(userId, "registration", locationId) : null,
+      draftValues, emptyForm, fillForm);
 
     const clearFieldError = (field: keyof FormErrors) => {
       setErrors(prev => {
@@ -345,9 +376,11 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               stations: tbFlagged ? TB_STATIONS : stations,
               sticker_colour: stickerColour,
               tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
+              request_id: registrationId.current.get(),
             },
             token
           );
+          registrationId.current.saved();
 
           // on success, call the onsubmit prop passed from the parent page
           onSubmit(newQueuedPatient);
@@ -360,34 +393,13 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
           }
 
-          // Reset form states
-          setLinkedPatient(null);
-          setPatientInfo(emptyPatientInfo);
-          setStations(DEFAULT_STATION_IDS);
-          setStickerColour("");
-          setTbRedFlags([]);
-          setTbNotes("");
-          setVitals({
-            height: "",
-            weight: "",
-            bmi: "",
-            below_3rd_percentile: false,
-            category: "",
-            bp_systolic: "",
-            bp_diastolic: "",
-            temperature: "",
-            notes: ""
-          });
-          setHEF({
-            know_of_hef: "",
-            has_hef: "",
-            notes: ""
-          });
+          // Empty the form for the next patient, which also removes the draft.
+          fillForm({ ...emptyForm, requestId: registrationId.current.get() });
           setActiveTab("patient-info");
           setErrors({});
           refreshNextQueueNo();
         } catch (error) {
-          console.error("Submissio failed: ", error)
+          console.error("Submission failed: ", error)
           alert(`Error: ${error instanceof Error ? error.message : "Could not add patient to queue."}`);
         } finally {
           setIsSubmitting(false);
@@ -432,21 +444,22 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         headerClassName="py-3"
         contentClassName="flex-1 flex flex-col overflow-hidden"
       >
+          <div className="mb-3 empty:hidden"><LiveRecordNotice live={draft} /></div>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
               
               <TabsTrigger 
-                value="patient-info" 
+                value="patient-info" data-tour-tab="patient-info" 
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground ">
                   Patient Info
               </TabsTrigger>
               <TabsTrigger 
-                value="vitals" 
+                value="vitals" data-tour-tab="vitals" 
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   Vitals
               </TabsTrigger>
               <TabsTrigger
-                 value="hef" 
+                 value="hef" data-tour-tab="hef" 
                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   HEF
               </TabsTrigger>
@@ -505,7 +518,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                 </div>
     
-                <div className="relative">
+                <div className="relative" data-tour="reg-name">
                   <Label htmlFor="englishName" className="text-muted-foreground">English Name *</Label>
                   <Input
                     id="englishName"
@@ -631,7 +644,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 </div>
               </TabsContent>
     
-              <TabsContent value="vitals" className="space-y-4 mt-6 h-full">
+              <TabsContent value="vitals" data-tour="reg-vitals" className="space-y-4 mt-6 h-full">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="height" className="text-muted-foreground">Height (cm)</Label>
@@ -823,7 +836,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   />
                 </div>
 
-                <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
+                <div data-tour="reg-tb" className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
@@ -866,7 +879,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   )}
                 </div>
 
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-4" data-tour="reg-stations">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Dental, Consult, Physiotherapy, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
@@ -894,7 +907,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             </div>
           </Tabs>
   
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border" data-tour="reg-actions">
             <Button 
               onClick={checkExistingPatient}
               variant="outline"

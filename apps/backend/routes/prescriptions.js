@@ -194,9 +194,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
             [visitId, drugId, drug.drug_name, quantity, instructions, req.user.id]
         );
-        // The patient now queues at Pharmacy after their other stations, TB patients included. A
-        // visit that is already finished keeps its prescription pending for the pharmacy list.
-        await setStationNeeded(client, visitId, 'pharmacy', true, req.user.id);
+        // The patient now queues at Pharmacy after their other stations, TB patients included, and
+        // goes back there if they have already been. A visit that is already finished keeps its
+        // prescription pending on the Pharmacy page's list (setStationNeeded refuses it).
+        await setStationNeeded(client, visitId, 'pharmacy', true, req.user.id, { reopen: true });
         const prescription = await fetchPrescription(client, rows[0].id);
         return { status: 201, body: { ...prescription, available_count: drug.available_count - quantity } };
     });

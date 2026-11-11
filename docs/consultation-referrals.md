@@ -118,7 +118,10 @@ referrals, one or many at once, or delete one. See
   `from=...&to=...` or `all=true` (`utils/referralFilter.js`).
 - `DELETE /api/visits/referral/:visit_id` removes the referral and signature and clears
   the consultation's referral flag in one statement. It records who deleted it and
-  when. Deleting twice is harmless.
+  when. Deleting twice is harmless. It answers `200` with `consultation_updated_at`, the
+  consultation's new `last_updated_at` (or `null` without notes); it used to answer `204`.
+- `POST /api/visits/referral/:visit_id` takes `expected_updated_at` and refuses a stale
+  save with `409`, as the station forms do (`utils/recordVersion.js`).
 - Signatures are stored (JSONB) as size-limited pen strokes, or as
   `{ "image": "data:image/png;base64,..." }` for an upload (PNG or JPEG, at most about
   60 KB, checked by `utils/referralSignature.js`), with the signer's ID,

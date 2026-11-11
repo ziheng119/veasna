@@ -58,14 +58,37 @@ const { localDate } = require('../utils/validation');
       expect(login.status).toBe(200);
       tokens[name] = login.body.token;
     }
-  });
+  }, 30000); // Hashing and four sign-ins can be slow while the other suites run.
   afterAll(async () => {
     if (client) await client.end();
     if (previousSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousSecret;
   });
 
+  test('a sign-in close to expiry is renewed on /auth/me with the current role; an expired one gets 401', async () => {
+    const jwt = require('jsonwebtoken');
+    const { rows: [account] } = await client.query("SELECT id FROM users WHERE username = 'today_village'");
+    const me = token => request(app).get('/auth/me').set('Authorization', 'Bearer ' + token);
+    // Fresh from sign-in: nothing to renew.
+    expect((await me(tokens.today_village)).body.token).toBeUndefined();
+    // A day left, and an out-of-date role in the old token: the new one has a week and the database's role.
+    const old = jwt.sign({ id: account.id, username: 'today_village', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const renewed = (await me(old)).body.token;
+    const payload = jwt.verify(renewed, process.env.JWT_SECRET);
+    expect(payload).toMatchObject({ id: account.id, username: 'today_village', role: 'user' });
+    expect(payload.exp - Date.now() / 1000).toBeGreaterThan(6.9 * 86400);
+    expect((await me(renewed)).status).toBe(200);
+    const expired = jwt.sign({ id: account.id, role: 'user' }, process.env.JWT_SECRET, { expiresIn: -10 });
+    const res = await me(expired);
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe('Your sign-in has expired. Please sign in again.');
+  });
+
   test("a day account lists only patients queued on its day; other non-admins see today's; the admin sees everyone", async () => {
-    expect((await as('today_village', 'get', '/auth/me')).body.screening_date).toBe(today);
+    const me = (await as('today_village', 'get', '/auth/me')).body;
+    expect(me.screening_date).toBe(today);
+    // The host's clock comes with the profile, so a device with a wrong clock still uses the host's date.
+    expect(me).toMatchObject({ server_date: today, utc_offset_minutes: -new Date().getTimezoneOffset() });
+    expect(Math.abs(Date.parse(me.server_time) - Date.now())).toBeLessThan(5000);
     expect((await as('today_village', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
     // An account without a screening date is limited to the host's clinic day.
     expect((await as('user', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);

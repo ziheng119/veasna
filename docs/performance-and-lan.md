@@ -178,7 +178,10 @@ can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
    `192.168.68.50`).
 2. **Check the host's date, time and time zone** (for Cambodia: `Asia/Phnom_Penh`, UTC+7).
    Without internet the clock is not corrected automatically. Today's queue and the
-   date on new visits come from the host's clock. Other devices' clocks don't matter.
+   date on new visits come from the host's clock. Other devices use the host's date as
+   well (for referral dates, printing "Today", ages and analytics) and show a yellow
+   warning bar when their own clock is more than 5 minutes off the host's. Correct that
+   device's clock when you see it; its records are still dated correctly meanwhile.
 3. **Keep the host plugged in** and stop it from sleeping.
 4. **Start Veasna** from the project folder:
 
@@ -188,7 +191,9 @@ can then also use `http://<that laptop's IP>:3001`. For the desktop window, set
 
    It prints the addresses to use, such as `LAN: http://192.168.68.50:3000/health`
    and `Name: http://veasna.local:3000/health`. If PostgreSQL starts slowly, the
-   server waits for it for up to a minute.
+   server waits for it for up to a minute. If the server or the web app crashes, it is
+   restarted after 3 seconds (the log shows `restarted`) and the other keeps running;
+   devices reconnect by themselves. Ctrl+C stops both.
 5. **Check from one staff device** (see below), then sign in on each device at
    `http://veasna.local:3001` (or `http://192.168.68.50:3001`).
 
@@ -209,8 +214,11 @@ The quickest check: open `http://192.168.68.50:3000/health` in the device's brow
 For a full check from a laptop with the project installed:
 
 ```bash
-npm run check:lan -- http://192.168.68.50:3000 http://192.168.68.51:3001 user user
+npm run check:lan -- http://192.168.68.50:3000 http://192.168.68.51:3001 dec13village <password>
 ```
+
+Use any active account, such as that day's screening-day account. The old shared
+`user` account is disabled, so it can't be used here.
 
 It checks, without changing anything: that the server and database are reachable, that
 this web app address is allowed, and that live updates connect for a signed-in user.
@@ -227,11 +235,36 @@ Anything that fails comes with a suggested fix.
 | Today's queue is empty or shows yesterday's patients | The host's date or time zone is wrong. Fix the clock and time zone, then restart Veasna. |
 | "Too many requests" (HTTP 429) on a busy day | Raise `API_RATE_LIMIT_MAX` in `apps/backend/.env` (default 5000 per device every 15 minutes) and restart. |
 | A page shows **Retry page** | The connection to the host dropped, or the app was rebuilt. Check the network, then press Retry. Save any unsaved work you can see first. |
-| Lists may be out of date after Wi-Fi drops | They refresh by themselves when the connection returns, or when you come back to the tab. |
+| An amber bar: "Can't reach the host laptop since ..." | The Wi-Fi dropped or the host is restarting. Carry on typing: it is kept on the device. Lists and forms reload by themselves once the bar is back to normal; then save. See [when the Wi-Fi is weak](#when-the-wi-fi-is-weak). |
+| "Couldn't load the ... notes. Trying again…" | The form's saved record didn't load. It keeps trying by itself and opens once the host answers; until then it can't be saved, so nothing typed can replace notes this device hasn't seen. |
+| A save says the host "took too long to answer" or "couldn't be reached, so this may not have been saved" | The device waited 20 seconds with no answer, or the Wi-Fi dropped. The host may still have saved it: check the record (or the queue) before entering it again. A patient registration can simply be submitted again; the host won't add the patient twice. |
+| "Unable to verify page access" | The device opened the app (or signed in) while it couldn't reach the host, and 3 tries failed. Check the Wi-Fi, then press Retry. Once the host has confirmed the account, changing page during a Wi-Fi drop keeps showing the page instead. |
 
-**Saves are not queued while offline.** If a device loses the connection, a save
-fails rather than waiting. Always check that a save succeeded before moving on. Losing
-the internet has no effect, but losing the router or host stops all saving and loading.
+### When the Wi-Fi is weak
+
+Veasna never needs the internet: everything runs between the devices, the Decos and the
+host laptop. What a weak or dropping Wi-Fi link to the host does, and what keeps working:
+
+- **The status bar turns amber** with "Can't reach the host laptop since 10:42" while
+  live updates are lost. It goes back to normal by itself when the host answers.
+- **Typing is never lost.** Every station form, the registration form and the referral
+  details keep unsaved typing on the device (drafts), through a dropped connection, a
+  sign-out or a reload.
+- **Loads try again by themselves.** A request that loses its connection is sent once
+  more after a second. A list that couldn't reload tries again after 3, 10 and then every
+  30 seconds, and keeps showing its last rows meanwhile. A form whose record didn't load
+  tries again after 2, 5, 10 and then every 20 seconds, and can't be saved until it has
+  loaded. On reconnecting, everything reloads.
+- **Changing page keeps working** for an account the host has already confirmed.
+- **Saves are not queued.** A save while the host can't be reached fails with a message
+  instead of waiting; press Save again once the bar is normal. If the answer to a save
+  was lost, saving again is safe: a registration or dispense isn't repeated, and a form
+  isn't refused as "saved on another device" because of its own earlier save.
+- **Avoid reloading the page** while the bar is amber. The page comes from the host, so
+  the browser can't show it until the host answers; drafts are still kept.
+
+Losing the router or the host stops all saving and loading on every device. `npm start`
+restarts the server by itself if it crashes; devices reconnect on their own.
 
 ## Giving the host a fixed address
 

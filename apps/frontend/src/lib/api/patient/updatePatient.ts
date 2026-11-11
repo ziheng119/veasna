@@ -1,11 +1,15 @@
 import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
 import { clearPatientCache } from "./getPatients";
+import { apiFetch, readError } from "@/lib/api/request";
 
+// `expectedUpdatedAt`: the last_updated_at of the details shown when editing started. If the
+// patient was saved on another device since, the host refuses (409) and `conflict` is true.
 export async function updatePatient(
-  patientId: number, 
-  patientData: Partial<PatientInfo>, 
-  token: string
+  patientId: number,
+  patientData: Partial<PatientInfo>,
+  token: string,
+  expectedUpdatedAt?: string,
 ) {
   try {
     const payload = {
@@ -17,9 +21,10 @@ export async function updatePatient(
       address: patientData.address ?? null,
       // Omitted keeps the registered location.
       location_id: patientData.location_id ?? undefined,
+      expected_updated_at: expectedUpdatedAt,
     };
 
-    const res = await fetch(`${backend_url}/api/patient/${patientId}`, {
+    const res = await apiFetch(`${backend_url}/api/patient/${patientId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -33,9 +38,12 @@ export async function updatePatient(
       return { success: false, error: 'Patient not found' };
     }
 
+    if (res.status === 409) {
+      return { success: false, conflict: true, error: await readError(res, "Saved on another device. Cancel to see the saved details.") };
+    }
+
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `Failed to update patient: ${res.statusText}`);
+      throw new Error(await readError(res, "Failed to update patient"));
     }
 
     const data = await res.json();

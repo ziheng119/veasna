@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import { Drug, PharmacyStats } from "@/lib/types/drug";
+import { apiFetch, readError } from "@/lib/api/request";
 
 type AddDrugPayload = {
     location_id: number;
@@ -27,7 +28,7 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
         headers['If-None-Match'] = cachedETags[locationId];
     }
 
-    const res = await fetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
         cache: "no-cache",
         headers
     });
@@ -36,7 +37,7 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
         if (cachedDrugs[locationId]) {
             return cachedDrugs[locationId];
         }
-        const freshRes = await fetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
+        const freshRes = await apiFetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
             cache: "no-cache",
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -60,7 +61,7 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
 export async function getPharmacyStats(locationId: number): Promise<PharmacyStats> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy/stats?location_id=${locationId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/stats?location_id=${locationId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Failed to fetch pharmacy stats');
@@ -70,7 +71,7 @@ export async function getPharmacyStats(locationId: number): Promise<PharmacyStat
 export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -90,7 +91,7 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
 export async function updateDrugCount(drugId: number, stockCount: number): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/${drugId}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -100,8 +101,7 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
     });
     if (!res.ok) {
         // e.g. stock cannot go below what pending prescriptions have reserved
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || body?.message || 'Failed to update drug stock');
+        throw new Error(await readError(res, 'Failed to update drug stock'));
     }
 
     Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
@@ -110,21 +110,21 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
 
 // Subtracts on the server, so concurrent dispensing on several devices is never lost.
 // Throws the server's message (e.g. "Only 3 left in stock") when it refuses.
-export async function dispenseDrug(drugId: number, quantity: number): Promise<Drug> {
+// `requestId` (lib/requestId.ts): the same dispense sent again doesn't take the stock twice.
+export async function dispenseDrug(drugId: number, quantity: number, requestId?: string): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/dispense`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/${drugId}/dispense`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ quantity }),
+        body: JSON.stringify({ quantity, request_id: requestId }),
     });
     clearPharmacyCache();
     if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || body?.message || 'Failed to dispense medication.');
+        throw new Error(await readError(res, 'Failed to dispense medication.'));
     }
     return res.json();
 }
@@ -132,7 +132,7 @@ export async function dispenseDrug(drugId: number, quantity: number): Promise<Dr
 export async function updateDrugName(drugId: number, drugName: string): Promise<Drug> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}/name`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/${drugId}/name`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -149,14 +149,13 @@ export async function updateDrugName(drugId: number, drugName: string): Promise<
 export async function deleteDrug(drugId: number): Promise<void> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await fetch(`${backend_url}/api/pharmacy/${drugId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/${drugId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) {
         // e.g. a drug with pending prescriptions cannot be removed
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || body?.message || 'Failed to delete drug');
+        throw new Error(await readError(res, 'Failed to delete drug'));
     }
 
     Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });

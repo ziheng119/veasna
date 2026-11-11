@@ -47,6 +47,8 @@ const db = require("../config/db");
         "physiotherapy",
         "painpoints",
         "dental",
+        "consultation",
+        "referral",
       ]) {
         const start = setup.indexOf("CREATE TABLE " + table + " (");
         const sql = setup.slice(start, setup.indexOf("\n);", start) + 3);
@@ -117,6 +119,58 @@ const db = require("../config/db");
         expect(await saved()).toHaveLength(1);
       },
     );
+    test.each([
+      ["/triage/visual-acuity", "visual_acuity", { visit_id: 1, notes: "First" }],
+      ["/triage/presenting-complaint", "presenting_complaint", { visit_id: 1, history: "First" }],
+      ["/triage/history", "history", { visit_id: 1, past: "First" }],
+      ["/visits/seva/1", "seva", { diagnosis: "First" }],
+      ["/visits/physiotherapy/1", "physiotherapy", { notes: "First", painpoints: [] }],
+      ["/visits/dental/1", "dental", { notes: "First" }],
+      ["/visits/consultation/1", "consultation", { notes: "First" }],
+      ["/visits/referral/1", "referral", { reason: "First" }],
+    ])("%s: a save from a form opened before another device saved is refused (409)", async (url, table, body) => {
+      await client.query(`TRUNCATE ${table} CASCADE`);
+      const field = Object.keys(body).find((key) => !["visit_id", "painpoints"].includes(key));
+      const save = (changes) => request(app).post(url).set("Authorization", "Bearer " + token("user")).send({ ...body, ...changes });
+      const version = async () => (await client.query(`SELECT last_updated_at FROM ${table}`)).rows[0].last_updated_at.toISOString();
+      const text = async () => (await client.query(`SELECT ${field} FROM ${table}`)).rows[0][field];
+
+      expect((await save({ expected_updated_at: null })).status).toBe(200); // first entry: no record yet
+      const seen = await version();
+      expect((await save({ [field]: "Other device", expected_updated_at: seen })).status).toBe(200);
+      // This form still has the version from before the other device saved.
+      const stale = await save({ [field]: "Stale", expected_updated_at: seen });
+      expect(stale.status).toBe(409);
+      expect(stale.body.error).toMatch(/saved on another device after you opened it/);
+      expect(new Date(stale.body.last_updated_at).toISOString()).toBe(await version());
+      expect(await text()).toBe("Other device");
+      // A form that saw no record, when there is one now, is refused too.
+      expect((await save({ [field]: "Stale", expected_updated_at: null })).status).toBe(409);
+      // With the current version it saves; an app that sends none keeps "the later save wins".
+      expect((await save({ [field]: "Mine", expected_updated_at: await version() })).status).toBe(200);
+      expect((await save({ [field]: "Older app" })).status).toBe(200);
+      expect(await text()).toBe("Older app");
+      expect((await save({ expected_updated_at: "yesterday" })).status).toBe(400);
+    });
+    test("a referral save or delete gives this device the notes' new version, so its next notes save goes through", async () => {
+      await client.query("TRUNCATE consultation, referral CASCADE");
+      const as = (method, url, body) => request(app)[method](url).set("Authorization", "Bearer " + token("admin")).send(body);
+      const notes = await as("post", "/visits/consultation/1", { notes: "Seen", expected_updated_at: null });
+      // Saving the referral also marks the consultation as needing one, which changes its version.
+      const referral = await as("post", "/visits/referral/1", { reason: "Glasses", expected_updated_at: null });
+      expect(referral.status).toBe(200);
+      expect(referral.body.consultation_updated_at).not.toBe(notes.body.last_updated_at);
+      expect((await as("post", "/visits/consultation/1", { notes: "Old version", expected_updated_at: notes.body.last_updated_at })).status).toBe(409);
+      const saved = await as("post", "/visits/consultation/1", { notes: "Later", expected_updated_at: referral.body.consultation_updated_at });
+      expect(saved.status).toBe(200);
+
+      const removed = await as("delete", "/visits/referral/1");
+      expect(removed.status).toBe(200);
+      expect((await as("post", "/visits/consultation/1", { notes: "After delete", expected_updated_at: removed.body.consultation_updated_at })).status).toBe(200);
+      // A referral without saved notes: there is no consultation version to pass on.
+      await client.query("TRUNCATE consultation CASCADE");
+      expect((await as("post", "/visits/referral/1", { reason: "Alone" })).body.consultation_updated_at).toBeNull();
+    });
     test("with glasses readings are optional and saved with the pinhole readings", async () => {
       const save = (url, body) =>
         request(app).post(url).set("Authorization", "Bearer " + token("admin")).send(body);

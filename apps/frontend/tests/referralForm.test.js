@@ -88,8 +88,9 @@ test('editing retains signature; print saves first, uses saved record, and save 
     await act(async () => renderer.root.findByType('textarea').props.onChange({ target: { value: 'Updated reason' } }));
     expect(renderer.root.findByType('signature-pad').props.value).toEqual(signature);
     await act(async () => sign());
-    postReferral.mockRejectedValueOnce(new Error('offline'));
+    postReferral.mockRejectedValueOnce(new Error("Couldn't reach the host laptop, so this may not have been saved."));
     await act(async () => print());
+    expect(toast.error).toHaveBeenLastCalledWith("Couldn't reach the host laptop, so this may not have been saved.");
     expect(popup.print).not.toHaveBeenCalled();
     expect(popup.close).toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();

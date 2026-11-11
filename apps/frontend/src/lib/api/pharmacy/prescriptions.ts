@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import { Prescription, PrescriptionPatient } from "@/lib/types/prescription";
 import { clearPharmacyCache } from "./pharmacy";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Prescribing reserves stock straight away; dispensing takes it off the shelf; cancelling
 // releases it. Stock counts change with every call, so the pharmacy cache is cleared.
@@ -15,10 +16,9 @@ function authHeaders(json = false): HeadersInit {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, fallback = "Request failed"): Promise<T> {
-  const res = await fetch(`${backend_url}/api/prescriptions${path}`, { cache: "no-cache", ...init });
+  const res = await apiFetch(`${backend_url}/api/prescriptions${path}`, { cache: "no-cache", ...init });
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error || body?.message || fallback);
+    throw new Error(await readError(res, fallback));
   }
   return res.json();
 }

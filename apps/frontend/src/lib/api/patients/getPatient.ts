@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { PatientInfo } from "@/lib/types/patient";
 import formatDate from "@/helper/format_date";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for patients by id
 const cachedPatients: Record<number, PatientInfo> = {};
@@ -21,7 +22,7 @@ export async function getPatient(id: number): Promise<PatientInfo | null> {
       headers['If-None-Match'] = cachedETags[id];
     }
 
-    const res = await fetch(`${backend_url}/api/patients/${id}`, {
+    const res = await apiFetch(`${backend_url}/api/patients/${id}`, {
       cache: "no-cache",
       headers
     });

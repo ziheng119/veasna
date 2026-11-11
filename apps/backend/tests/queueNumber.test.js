@@ -62,4 +62,18 @@ describe('Automatic queue numbers at registration', () => {
     expect(next).toBeLessThan(insert);
     expect(sql()).toContain('COMMIT');
   });
+
+  test('the queue is locked before checking for a repeated request or a patient already queued, so two devices sending at once are caught', async () => {
+    await request(app).post('/api/visits')
+      .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`)
+      .send({ patientInfo: { id: 500, location_id: 1 }, request_id: 'reg-lock-order', stations: ['triage'], hef: {},
+        vitals: { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diastolic: 70, temperature: 37, below_3rd_percentile: false } });
+    const lock = sql().findIndex(text => text.includes('pg_advisory_xact_lock'));
+    const repeated = sql().findIndex(text => text.includes('WHERE v.request_id = $1'));
+    const queued = sql().findIndex(text => text.includes('completed_at IS NULL') && text.includes('patient_id = $1'));
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(repeated);
+    expect(repeated).toBeLessThan(queued);
+    expect(queued).toBeLessThan(sql().findIndex(text => text.includes('INSERT INTO visits')));
+  });
 });

@@ -7,13 +7,14 @@ import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import DottedImage from "./DottedImage";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { PainPoint, Physiotherapy } from "@/lib/types/physiotherapy";
 import { getPhysiotherapy } from "@/lib/api/visit/physiotherapy/getPhysiotherapy";
 import { QueuedPatient } from "@/lib/types/patient";
 import toast from "react-hot-toast";
 import { postPhysiotherapy } from "@/lib/api/visit/physiotherapy/postPhysiotherapy";
 import { PageCard } from "../shared/PageCard";
+import { useRecordLoad } from "@/hooks/useRecordLoad";
 
 interface Props {
   patient: QueuedPatient;
@@ -32,26 +33,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
     setPainpoints(data?.painpoints ?? []);
   }, [markSaved]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadData = async () => {
-      try {
-        const data = await load();
-        if (cancelled) return;
-        show(data);
-        if (!data) toast("No data loaded");
-        else toast.success("Load success");
-      } catch (error) {
-        if (cancelled) return;
-        toast.error("Failed to load Physiotherapy data");
-        console.error("Error loading Physiotherapy:", error);
-      }
-    };
-    void loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [load, show]);
+  useRecordLoad(load, show, "Couldn't load the physiotherapy notes");
 
   // Resolves to whether the notes were saved.
   const handleSave = async (): Promise<boolean> => {
@@ -77,6 +59,10 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
   const live = useLiveRecord({
     visitId: patient.visit_id, savedVersion, values: { notes, painpoints }, load, apply: show,
     valuesOf: (data) => ({ notes: data?.notes ? data.notes : "", painpoints: data?.painpoints ?? [] }),
+    draft: { form: "physiotherapy", restore: (draft: { notes: string; painpoints: PainPoint[] }) => {
+      setNotes(draft.notes);
+      setPainpoints(draft.painpoints);
+    } },
   });
 
   return (

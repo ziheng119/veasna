@@ -3,6 +3,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import type { PrintableReferral } from "@/components/doctors-consultation/ReferralDocument";
 import type { Signature } from "@/lib/types/consultation";
 import type { PatientInfo } from "@/lib/types/patient";
+import { apiFetch } from "@/lib/api/request";
 
 // Which saved referrals to print: one day, a period (both days included) or every date.
 export type ReferralRange =
@@ -39,7 +40,7 @@ export async function getReferrals(locationId: number | "all", range: ReferralRa
   if (range.kind === "date") params.set("date", range.date);
   else if (range.kind === "period") { params.set("from", range.from); params.set("to", range.to); }
   else params.set("all", "true");
-  const response = await fetch(`${backend_url}/api/visits/referrals?${params}`, {
+  const response = await apiFetch(`${backend_url}/api/visits/referrals?${params}`, {
     headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
   });
   if (!response.ok) throw new Error("Unable to load referrals. Please try again.");

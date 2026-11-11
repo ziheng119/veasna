@@ -41,4 +41,9 @@ function integerParams(router, names) {
   }
 }
 
-module.exports = { MAX_INT, toPositiveInt, toCount, isIsoDate, localDate, integerParams };
+// A device's one-off id for a save the host must apply only once (letters, digits, - and _).
+function isRequestId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value);
+}
+
+module.exports = { MAX_INT, toPositiveInt, toCount, isIsoDate, localDate, integerParams, isRequestId };

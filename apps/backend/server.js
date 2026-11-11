@@ -11,6 +11,7 @@ const { createServer } = require('http');
 const db = require('./config/db');
 const { parseOrigins, createOriginCheck, lanAddresses } = require('./config/network');
 const { startMdns } = require('./config/mdns');
+const { backupStatus, scheduleBackups } = require('./utils/backup');
 const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
@@ -53,6 +54,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const apiRoutes = require('./routes/api');
 app.use('/api', notifyListChanges(io), apiRoutes);
 
+const { hostClock } = require('./utils/hostClock');
+
 // Health check: reports database reachability so a client device can verify the
 // whole path (LAN -> backend -> PostgreSQL) with one request.
 app.get('/health', async (req, res) => {
@@ -66,7 +69,11 @@ app.get('/health', async (req, res) => {
     status: database === 'ok' ? 'OK' : 'DEGRADED',
     database,
     realtimeClients: io.engine.clientsCount,
+    // The latest automatic backup under npm start (null until the first): at, file, and error if
+    // the latest attempt failed.
+    lastBackup: backupStatus(),
     timestamp: new Date().toISOString(),
+    ...hostClock(),
   });
 });
 
@@ -131,6 +138,9 @@ const SCHEMA_STEPS = [
   schema.ensureGlassesAndStickerColour,
   schema.ensureSharedUserRetired,
   schema.ensureReferralDoctor,
+  schema.ensureRegistrationRequestId,
+  schema.ensurePharmacyDispenses,
+  schema.ensureVisitIndexes,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.
@@ -157,6 +167,8 @@ async function start() {
     for (const step of SCHEMA_STEPS) {
       await step().catch(err => console.error(`Migration warning (${step.name}):`, err.message));
     }
+    // The clinic host (npm start) keeps regular copies of the database; development doesn't.
+    if (loadedEnv.mode === 'production') scheduleBackups();
   } else {
     // Still listen, so clients get a clear 503 from /health instead of connection refused.
     console.error('Database unreachable; starting without schema checks. Restart once PostgreSQL is running.');

@@ -6,6 +6,7 @@ const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty } = require('../utils/partialFields');
 const { rejectUnsavableVisit } = require('../utils/tb');
 const { canEditSavedRecords } = require('../utils/permissions');
+const { rejectChangedRecord } = require('../utils/recordVersion');
 
 // UPSERT Visual Acuity (Snellen's Test)
 router.post('/visual-acuity', authenticateToken, async (req, res) => {
@@ -14,6 +15,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
     if (await rejectUnsavableVisit(db, res, visit_id)) return;
+    if (await rejectChangedRecord(db, res, 'visual_acuity', visit_id, req.body.expected_updated_at)) return;
     // With glasses is optional: only for patients who brought their glasses.
     const acuity = normalizeSnellenFields(req.body, ['left_with_pinhole', 'left_without_pinhole', 'right_with_pinhole', 'right_without_pinhole', 'left_with_glasses', 'right_with_glasses']);
     if (acuity.error) {
@@ -55,6 +57,7 @@ router.post('/presenting-complaint', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
     if (await rejectUnsavableVisit(db, res, visit_id)) return;
+    if (await rejectChangedRecord(db, res, 'presenting_complaint', visit_id, req.body.expected_updated_at)) return;
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO presenting_complaint (visit_id, history, red_flags, systems_review, drug_allergies, last_updated_by)
@@ -82,6 +85,7 @@ router.post('/history', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Valid visit_id is required' });
     }
     if (await rejectUnsavableVisit(db, res, visit_id)) return;
+    if (await rejectChangedRecord(db, res, 'history', visit_id, req.body.expected_updated_at)) return;
     const last_updated_by = req.user.id;
     const query = `
         INSERT INTO history (visit_id, past, drug_and_treatment, family, social, systems_review, last_updated_by)

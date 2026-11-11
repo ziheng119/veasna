@@ -44,7 +44,7 @@ const { setupAccounts } = require('../scripts/setupAccounts');
     expect((await client.query('SELECT username FROM users WHERE is_active=TRUE ORDER BY username')).rows).toEqual([{username:'admin'},{username:'dec13village'}]);
     expect((await client.query('SELECT u.username FROM audit a JOIN users u ON u.id=a.author ORDER BY a.author')).rows).toEqual([{username:'triage_doctor'},{username:'user'}]);
     const oldToken=jwt.sign({id:1,role:'admin'},secret);
-    expect((await request(app).get('/queue').set('Authorization','Bearer '+oldToken)).status).toBe(403);
+    expect((await request(app).get('/queue').set('Authorization','Bearer '+oldToken)).status).toBe(401);
   });
   test('the retire migration disables only the shared user sign-in and can run again', async()=>{
     const migration=require('fs').readFileSync(path.join(__dirname,'../migrations/022_retire_shared_user_account.sql'),'utf8');

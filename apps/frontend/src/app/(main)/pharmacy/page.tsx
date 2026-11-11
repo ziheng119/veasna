@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Drug, PharmacyStats } from "@/lib/types/drug"
 import { getDrugsByLocation, getPharmacyStats, dispenseDrug } from "@/lib/api/pharmacy/pharmacy"
 import { useLocationStore } from "@/stores/useLocationStore"
@@ -8,6 +8,7 @@ import { useRealtimeStore } from "@/stores/useRealtimeStore"
 import { DashboardStats } from "@/components/pharmacy/DashboardStats"
 import { StockStatusBadge } from "@/components/pharmacy/StockStatusBadge"
 import { DispenseForm } from "@/components/pharmacy/DispenseForm"
+import { retryableRequestId } from "@/lib/requestId"
 import { DrugIcon } from "@/assets/icons"
 import { PageCard } from "@/components/shared/PageCard"
 import Link from "next/link"
@@ -70,12 +71,15 @@ export default function Pharmacy() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location, revision]);
 
+    // Sent again if Dispense is pressed after a failure, so a dispense the host already made isn't repeated.
+    const dispenseRequest = useRef(retryableRequestId());
     const handleDispense = async (drugId: number, quantity: number) => {
       const drug = drugs.find(d => d.id === drugId);
       if (!drug) return;
 
       try {
-        const updatedDrug = await dispenseDrug(drugId, quantity);
+        const updatedDrug = await dispenseDrug(drugId, quantity, dispenseRequest.current.get(`${drugId}:${quantity}`));
+        dispenseRequest.current.saved();
         setDrugs(prev => prev.map(d => d.id === drugId ? updatedDrug : d));
         if (stats && location) {
           const newStats = await getPharmacyStats(location.id);
@@ -128,7 +132,7 @@ export default function Pharmacy() {
                   onSelectPatient={setSelectedPatient}
                   selectedVisitId={selectedPatient?.visit_id}
                 />
-                <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+                <div data-tour="pharmacy-prescriptions" className={`${PANEL_WRAPPER} xl:col-span-8`}>
                   <PageCard
                     title={selectedPatient ? `Prescriptions for ${selectedPatient.english_name || "this patient"}` : "Prescriptions to dispense"}
                     action={selectedPatient && (

@@ -24,7 +24,10 @@ Patients go through the stations they need in this order:
   **Send to**. Unticking it takes the patient off the Physiotherapy queue again.
 - **Pharmacy** has its own queue on the Pharmacy page. Nobody is on it until a doctor
   prescribes: the first prescription adds Pharmacy to the patient's stations, after the
-  others, and the patient appears in the Pharmacy queue when they get there. Picking a
+  others, and the patient appears in the Pharmacy queue when they get there. If the
+  patient has already been to Pharmacy (for example, sent back to Consult) a new
+  prescription puts Pharmacy back on their route. A prescription for a visit that is
+  already finished stays on the Pharmacy page's pending list. Picking a
   patient shows only their prescriptions; once they are dispensed, press **Finish** to
   complete the visit. A patient with no prescription finishes at their last station. If
   every prescription is cancelled before the patient reaches Pharmacy, Pharmacy comes off
@@ -98,8 +101,10 @@ waiting at the same station move on together:
   their own next station (or finishing their visit).
 - A family member at another station, or not in the clinic that day, doesn't hold
   anyone up.
-- Removing a member from the family, discharging them, or sending them elsewhere with
-  **Send to** lets the others who were waiting for them move on. A patient waiting for
+- Removing a member from the family, discharging them, sending them elsewhere with
+  **Send to**, flagging them for suspected TB (which sends them to Consult) or deleting
+  the patient lets the others who were waiting for them move on. Deleting a member of a
+  two-person family also takes the other's family letter off. A patient waiting for
   family who is removed from it moves on straight away.
 
 While a patient is in the clinic, anyone signed in (user or admin) can send them to

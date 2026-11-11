@@ -12,6 +12,8 @@
     "seed:stations": "node scripts/seedStationUsers.js",
     "seed:demo": "node scripts/seedDemo.js",
     "check:lan": "node scripts/checkLan.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js",
     "test": "jest",
     "format": "prettier --write ."
   },

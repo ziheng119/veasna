@@ -18,7 +18,8 @@ jest.mock('../src/components/ui/dialog', () => {
 const toast = require('react-hot-toast').default;
 const { getReferrals } = require('../src/lib/api/visit/getReferrals');
 const PrintReferralsDialog = require('../src/components/shared/PrintReferralsDialog').default;
-const { todayIso, rangeText } = require('../src/components/shared/PrintReferralsDialog');
+const { rangeText } = require('../src/components/shared/PrintReferralsDialog');
+const { useHostClockStore } = require('../src/stores/useHostClockStore');
 const PrintReferrals = require('../src/components/doctors-consultation/PrintReferrals').default;
 const { useUserStore } = require('../src/stores/useUserStore');
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,6 +35,7 @@ beforeEach(() => {
 afterEach(async () => {
   if (renderer) await act(async () => renderer.unmount());
   renderer = null; delete global.window; log.mockRestore(); jest.clearAllMocks();
+  useHostClockStore.setState({ offsetMs: 0, utcOffsetMinutes: null });
 });
 const render = async props => {
   await act(async () => { renderer = create(React.createElement(PrintReferralsDialog, { open: true, onOpenChange, locationId: 4, ...props })); });
@@ -60,11 +62,14 @@ test('Consult\'s "Print referrals" opens a pop-up offering today (the default) o
   expect(radios[0].props['aria-checked']).toBe(true);
 });
 
-test('printing today, then another date', async () => {
+test("printing today (the host laptop's date, not this device's), then another date", async () => {
+  // The host laptop (in Cambodia, UTC+7) is three days ahead of this device's clock.
+  useHostClockStore.setState({ offsetMs: 3 * 86400000, utcOffsetMinutes: 420 });
+  const hostDate = new Date(Date.now() + 3 * 86400000 + 420 * 60000).toISOString().slice(0, 10);
   await render();
   getReferrals.mockResolvedValueOnce([{ visitId: 1 }]);
   await act(async () => printButton().props.onClick());
-  expect(getReferrals).toHaveBeenLastCalledWith(4, { kind: 'date', date: todayIso() });
+  expect(getReferrals).toHaveBeenLastCalledWith(4, { kind: 'date', date: hostDate });
   expect(popup.document.write).toHaveBeenCalledWith('<html>Batch</html>');
   expect(popup.print).toHaveBeenCalledTimes(1);
   expect(onOpenChange).toHaveBeenCalledWith(false);

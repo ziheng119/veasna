@@ -109,6 +109,8 @@ CREATE TABLE visits (
     visit_date DATE NOT NULL,
     -- Registration sticker colour: an id from the sticker_colours form list, NULL if none.
     sticker_colour VARCHAR(40),
+    -- One-off id the registering device sent, so a registration sent twice is saved once.
+    request_id VARCHAR(64),
     completed_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
@@ -133,6 +135,13 @@ CREATE TABLE visit_stations (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (visit_id, station)
 );
+
+CREATE UNIQUE INDEX visits_request_id_key ON visits (request_id) WHERE request_id IS NOT NULL;
+-- One queue number per location and day ("12a" and "12A" are the same number).
+CREATE UNIQUE INDEX visits_queue_no_key ON visits (location_id, visit_date, UPPER(queue_no));
+CREATE INDEX visits_location_date_idx ON visits (location_id, visit_date);
+CREATE INDEX visits_patient_idx ON visits (patient_id);
+CREATE INDEX patients_location_idx ON patients (location_id);
 
 CREATE INDEX visit_stations_pending_idx
     ON visit_stations (visit_id, position) WHERE completed_at IS NULL;
@@ -341,6 +350,17 @@ CREATE TABLE pharmacy (
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (location_id, drug_name)
+);
+
+-- Walk-in dispenses (without a prescription); request_id makes a repeated request a no-op.
+CREATE TABLE pharmacy_dispenses (
+    id SERIAL PRIMARY KEY,
+    request_id VARCHAR(64) UNIQUE,
+    drug_id INT REFERENCES pharmacy(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    drug_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    dispensed_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    dispensed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Prescriptions linked to pharmacy inventory. A pending prescription reserves its quantity:

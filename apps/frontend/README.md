@@ -77,9 +77,36 @@ shadcn/ui, and Zustand for sign-in and location state.
 | `src/app/(auth)/login` | Sign-in page |
 | `src/app/(main)/` | Signed-in pages |
 | `src/app/wrappers/AuthWrapper.tsx` | Redirects to sign-in when needed |
-| `src/lib/api/` | Calls to the backend |
+| `src/lib/api/` | Calls to the backend, all through `request.ts` (`apiFetch`: 20-second timeout, readable messages when the host can't be reached, sign-out on 401; `readError`: the host's error message) |
 | `src/stores/` | Shared state |
 | `src/constants/` | Shared lists and names (see [Customising](#customising)) |
+
+### The guided tour
+
+The **?** button (`src/components/guide/GuideButton.tsx`) starts the tour in
+`src/components/guide/GuideTour.tsx`. Its steps are in `src/lib/guide/steps.ts`: each
+names the page (`path`), the part of it to light up (`target`), the pop-up's title and
+text, a preferred side, and optionally a registration tab to show first (`tab`).
+
+- Mark a part of a page with `data-tour="name"` (or `tour="name"` on a `PageCard`) and
+  use that name as the step's `target`. Tabs are marked with `data-tour-tab`.
+  `tests/guide.test.js` fails if a step points at a name no longer in the code, so
+  renaming or removing a marked part shows up in the tests.
+- Keep steps to what screening-day accounts can do; admin-only actions are mentioned
+  only as needing the admin account.
+- A step whose part isn't on screen (for example, no patient chosen) waits up to 4
+  seconds, then shows its pop-up in the middle of the screen.
+- Keep each step's text to one or two short sentences (the tests allow 140 characters).
+- A part that is cut off by the screen or its scrolling panel is scrolled into view
+  first; the spotlight moves once it has stopped moving, and only covers what can be
+  seen (a part taller than the screen is shown from its top).
+- The spotlight is a dimmed layer with a hole cut by a `clip-path` set on every
+  animation frame, so it follows scrolling and resizing. The blur is a second layer that
+  fades in once the spotlight has arrived, as redrawing a blur every frame is slow on
+  tablets. Styles are under "Guided tour" in `src/app/globals.css`. With reduced motion
+  turned on, it moves without animating.
+- The tour's pages are prefetched when it starts. With no location chosen, it borrows
+  the first location and clears it again when it ends, so the pages aren't empty.
 
 ```bash
 npm test --workspace apps/frontend

@@ -16,23 +16,35 @@ Every endpoint except `POST auth/login` needs a signed-in token in the
 Authorization: Bearer <token>
 ```
 
-A token lasts 7 days. The server checks on every request that the account is still
-active and has permission for the request. There are two fixed accounts, `admin` and
-`user`; see [accounts and permissions](../../docs/user-roles.md).
+A token lasts 7 days; `GET auth/me` returns a renewed one (`"token"`) when less than
+3 days are left. The server checks on every request that the account is still active
+and has permission for the request: an expired or invalid token, or a disabled
+account, returns `401` (sign in again); a request the account isn't allowed to make
+returns `403`. Accounts are the `admin` account and screening-day accounts made on the
+Accounts page (the old shared `user` account is disabled); see
+[accounts and permissions](../../docs/user-roles.md).
 
 **POST** `auth/login`
-Body `{ "username": "user", "password": "user" }`. Returns
-`{ "token": "...", "user": { "id": 2, "username": "user", "role": "user" } }`.
+Body `{ "username": "dec13village", "password": "..." }`. Returns
+`{ "token": "...", "user": { "id": 5, "username": "dec13village", "role": "user", "screening_date": "2026-12-13" } }`
+plus the host's clock (below). `screening_date` is `null` for the admin.
 Wrong details return `401`; a disabled account returns `403`. Limited to 30 attempts
 per device every 15 minutes.
 
 **GET** `auth/me`
-The signed-in account: `{ "id", "username", "role" }`.
+The signed-in account: `{ "id", "username", "role", "screening_date" }`, plus the host's
+clock (below). An expired or revoked token returns `401`: devices rely on this rather
+than their own clock to tell that a sign-in has expired.
+
+**Host clock.** `auth/me`, `auth/login` and `/health` also return
+`{ "server_time": "<ISO time>", "server_date": "YYYY-MM-DD", "utc_offset_minutes": 420 }`.
+Devices use it for anything dated "today" (referral dates, printing, ages, analytics),
+because a device that has been offline often has the wrong clock.
 
 **POST** `auth/register`, **POST** `users`
 Always `403`: account creation is disabled.
 
-**GET** `users` lists accounts. **PATCH** `users/deactivate` (admin) disables one.
+Accounts are listed, created, changed and disabled with `accounts` (admin; see "Accounts, station data and export" below).
 
 ---
 
@@ -54,12 +66,12 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```json
 {
   "patientInfo": { "location_id": 1, "english_name": "Sok Dara", "khmer_name": "សុខ ដារា", "sex": "M", "date_of_birth": "1990-03-07" },
-  "visit": { "queue_no": "A12" },
   "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
   "hef": { "know_of_hef": "yes", "has_hef": "no" },
   "stations": ["triage", "dental", "consultation"],
   "sticker_colour": "light_blue",
-  "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" }
+  "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" },
+  "request_id": "9f2c4e0a7b1d4c3e8a6f5b2d1c0e9a8b"
 }
 ```
 
@@ -67,7 +79,9 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 - The queue number is always the next one for the location today, assigned under the location's queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
 - `stations` defaults to `triage`, `dental`, `consultation`; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - `sticker_colour` is optional: the id of a sticker colour from `form-options` (`sticker_colours`), or blank/`null` for no sticker. Returned on the visit and in `GET queue` rows.
-- Returns `400` for missing or invalid fields, including an unknown location or patient.
+- `request_id` is optional: a one-off id the device makes for this registration (8–64 letters, digits, `-` or `_`). If the same `request_id` is sent again, for example after the Wi-Fi dropped before the answer arrived, nothing new is saved and the first registration is returned with `200` and `"repeated": true`. The app keeps the id until the host confirms the registration.
+- A returning patient (`patientInfo.id`) who already has an unfinished visit today is not queued again: `409` with `{ "error": "This patient is already in today's queue as number 12.", "visit_id", "queue_no" }`. Once that visit is finished or discharged they can be registered again.
+- Returns `201` with the new visit, `400` for missing or invalid fields, including an unknown location or patient.
 
 ---
 
@@ -85,17 +99,17 @@ Delete a patient.
 **GET** `patient/{id}`
 Fetch a patient plus a lightweight visit list (used by the patient details page).
 
-**PUT** `patient/{id}` (admin only)
-Correct a patient’s demographic details: `english_name`, `date_of_birth` (`YYYY-MM-DD`) and `sex` (`M`/`F`) are required; `khmer_name`, `phone_number`, `address` and `location_id` (registered location) are optional, and an omitted `location_id` keeps the current one. The Unique ID is regenerated from the names and date of birth. Sets `last_updated_by` and `last_updated_at`. The old `PUT patients/{id}` route was removed; it wrote to a column that does not exist.
+**PUT** `patient/{id}`
+Correct a patient’s demographic details: `english_name`, `date_of_birth` (`YYYY-MM-DD`) and `sex` (`M`/`F`) are required; `khmer_name`, `phone_number`, `address` and `location_id` (registered location) are optional, and an omitted `location_id` keeps the current one. The Unique ID is regenerated from the names and date of birth. Sets `last_updated_by` and `last_updated_at`. Takes an optional `expected_updated_at`, as the station saves do: the patient's `last_updated_at` when editing started; `409` with the current `last_updated_at` if the patient was saved since. The old `PUT patients/{id}` route was removed; it wrote to a column that does not exist.
 
 **GET** `patient/visit/{visitId}`
 Every record of one visit: `queue_no`, `visit_date`, `location_id`, `location_name`, `completed_at`, then `vitals`, `hef`, `visual_acuity`, `presenting_complaint`, `history`, `seva`, `physiotherapy` (with `painpoints`), `consultation` (with `condition_categories`), `tb` and `referrals` (with `signature`, `signer_name`, `signed_at`). A section is `null` when it was never recorded. Responses carry a content-hash `ETag`, so `If-None-Match` returns `304` only when nothing in the visit changed.
 
 ---
 
-### Editing Saved Visits (admin only)
+### Editing Saved Visits
 
-Users can create records but cannot change them once saved; admins can correct every part of a visit. The Patient Details page edits one section at a time:
+Every account can correct a saved visit, one section at a time, at the station or on the Patient Details page. A non-admin account only reaches the visits of its day (a screening-day account: its screening date; otherwise the host's today); anything else returns `403`. Deleting stays admin-only.
 
 | Section | Endpoint |
 | --- | --- |
@@ -105,7 +119,7 @@ Users can create records but cannot change them once saved; admins can correct e
 | Visual acuity, presenting complaint, medical history | `POST triage/visual-acuity`, `POST triage/presenting-complaint`, `POST triage/history` |
 | Seva, physiotherapy, dental, consultation, referral | `POST visits/seva/{visitId}`, `POST visits/physiotherapy/{visitId}`, `POST visits/dental/{visitId}`, `POST visits/consultation/{visitId}`, `POST visits/referral/{visitId}` |
 
-The station `POST` endpoints are the same upserts the station pages use. They create a missing record, and they overwrite a saved one only for admins (`403` for users). Every edit sets `last_updated_by` to the admin and `last_updated_at` to now.
+The station `POST` endpoints are the same upserts the station pages use. They create a missing record or overwrite the saved one. The Triage, Seva, physiotherapy, dental, consultation and referral saves take an optional `expected_updated_at`: the `last_updated_at` of the record the form loaded or last saved (`physiotherapy` returns it as `lastUpdatedAt`), or `null` when there was none. If the record has been saved since, the save is refused with `409` and the current `last_updated_at`; an invalid value returns `400`. Without the field the later save is kept. The referral save also returns `consultation_updated_at`: the consultation's new `last_updated_at` (it sets `require_referral`), or `null` when there are no notes. Every edit sets `last_updated_by` to the signed-in account and `last_updated_at` to now.
 
 **PUT** `visits/{visitId}`
 Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `location_id`; omitted fields keep their value. Returns `409` if the queue number is already used at that location on that date, and `400` for an unknown location. A changed number, date or location is checked against that location and date's sequence, leaving this visit out, by the same rule as `POST visits`; an unchanged number is not re-checked. This replaces the old route of the same path, which wrote to a column that does not exist.
@@ -181,7 +195,7 @@ Body `{ "stock_count": 80 }`. Sets the stock to an exact number (for stock-takin
 **PATCH** `pharmacy/{drugId}/name` (admin) renames a medicine. **DELETE** `pharmacy/{drugId}` (admin) removes it; `409` while it has pending prescriptions.
 
 **POST** `pharmacy/{drugId}/dispense` (admin)
-Body: `{ "quantity": 3 }`. Dispensing without a prescription (e.g. a walk-in). Only available stock can be used: reserved stock is kept for its prescriptions. The medicine row is locked, so dispensing on several devices at once is never lost. Returns the updated medicine, `409` with `stock_count` and `available_count` when there is not enough, or `404` for an unknown medicine.
+Body: `{ "quantity": 3, "request_id": "..." }`. Dispensing without a prescription (e.g. a walk-in). Only available stock can be used: reserved stock is kept for its prescriptions. The medicine row is locked, so dispensing on several devices at once is never lost. Each dispense is recorded in `pharmacy_dispenses` (medicine, quantity, who, when). `request_id` is optional, as for `POST visits`: sent again, it returns the medicine with `"repeated": true` without taking the stock a second time. Returns the updated medicine, `409` with `stock_count` and `available_count` when there is not enough, or `404` for an unknown medicine.
 
 ### Prescriptions
 
@@ -244,17 +258,12 @@ The triage, Seva, consultation and referral save endpoints accept partially fill
 
 ---
 
-### Older endpoints
+### Deleting a patient
 
-The app no longer uses these, but they still work. New code should use the visit-based endpoints above (`POST visits`, `triage/*`, `visits/*`).
+**DELETE** `registration/{patientId}` (admin)
+Deletes a patient and everything recorded for them (behind **Delete** on the Patient List). A family left with one member is dissolved, and family members waiting for this patient at a station move on. Returns `404` for an unknown patient.
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST patients` | Create a patient (requires `location_id`, `date_of_birth`, `sex`) |
-| `GET patients/today`, `GET patients/search?q=` | Today's patients; search by name |
-| `POST`/`GET patients/{id}/visual_acuity`, `/presenting_complaint`, `/history`, `/consultations`, `/physiotherapy` | Per-patient records |
-| `POST`/`GET consultations/{id}/referrals` | Referrals for a consultation |
-| `POST registration`, `PUT registration/{patientId}`, `DELETE registration/{patientId}` (admin) | Create or update a patient with vitals, HEF and a visit in one request |
+The older endpoints from an earlier version (`POST registration`, `PUT registration/{id}`, `POST patients`, `GET patients/today`, `DELETE patients/{id}`, `patients/{id}/visual_acuity` and the like, `consultations/{id}/referrals`, `GET users`, `PATCH users/deactivate`) have been removed. Use `POST visits`, `PUT patient/{id}`, `triage/*`, `visits/*` and `accounts` instead.
 
 ---
 
@@ -265,8 +274,8 @@ Errors return JSON with a `message` or `error` field explaining the problem.
 | Status | When |
 | --- | --- |
 | `400` | Missing or invalid input: malformed JSON, non-numeric IDs in the URL (e.g. `/patients/abc`), invalid numbers or dates, or a reference to a deleted record. Field checks may add an `errors` list. |
-| `401` | No token (`"Authentication required"`), or wrong sign-in details. |
-| `403` | Expired or invalid token, disabled account, or the role isn't allowed to do this (`"Your role does not have permission for this action"`). |
+| `401` | No token (`"Authentication required"`), an expired or invalid token, a disabled account, or wrong sign-in details. The app signs the device out. |
+| `403` | The account isn't allowed to do this (`"Your role does not have permission for this action"`), or the visit is outside its day. Also a disabled account at `POST auth/login`. |
 | `404` | Unknown address or record, including saving a station form for a visit deleted on another device. |
 | `409` | Conflict with the current state: not enough available stock, a prescription that is no longer pending, duplicate queue number, or a station route changed by someone else. |
 | `413` | Request body too large. |

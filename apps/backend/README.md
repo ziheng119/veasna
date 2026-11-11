@@ -21,15 +21,16 @@ On macOS or Linux, run `psql postgres`. Then run:
 
 ```sql
 CREATE DATABASE veasna_screening;
-CREATE USER veasna_app WITH PASSWORD 'change_me';
+CREATE USER veasna_app WITH PASSWORD 'change_me' CREATEDB;
 GRANT ALL PRIVILEGES ON DATABASE veasna_screening TO veasna_app;
 \q
 ```
 
-Replace `change_me` with a password of your own.
+Replace `change_me` with a password of your own. `CREATEDB` lets `npm run restore` put a
+backup into a new database.
 
 Prefer a graphical tool? In pgAdmin, create a login role `veasna_app` with a
-password, then create a database `veasna_screening` owned by that role.
+password and the "Create databases" privilege, then create a database `veasna_screening` owned by that role.
 
 ### 3. Enter your settings
 
@@ -69,9 +70,10 @@ already has patient data.
 npm run setup:backend
 ```
 
-This checks that the server can reach the database and sets up the two sign-in
-account (`admin` / `admin12345`) and disables the old shared `user` sign-in; everyone
-else signs in with a screening-day account made on the Accounts page. It is safe to run again.
+This checks that the server can reach the database, sets up the admin sign-in
+(`admin` / `admin12345`) and disables the old shared `user` sign-in. Everyone else
+signs in with a screening-day account made on the Accounts page. It is safe to run
+again.
 
 ### 6. Load practice data (optional)
 
@@ -93,7 +95,7 @@ files in `migrations/` are kept as a record of each change.
 From the project folder:
 
 ```bash
-npm start              # server and web app together, for clinic use
+npm start              # server and web app together, for clinic use; either restarts if it crashes
 npm run dev:backend    # server only, restarting when code changes
 ```
 
@@ -106,7 +108,63 @@ Press Ctrl+C to stop it cleanly.
 To check that it is working, open `/health` in a browser:
 
 - `"database": "ok"` means everything is connected.
-- `realtimeClients` is the number of devices currently receiving live updates.
+- `lastBackup` is the latest automatic backup: when (`at`) and where (`file`), plus
+  `error` and `failed_at` when the latest attempt failed. `null` until the first.
+- `realtimeClients` is the number of devices currently receiving live updates. Each
+  device is told only about changes at the location it chose (`realtime.js`); a change
+  whose location can't be told goes to every device.
+- `server_time`, `server_date` and `utc_offset_minutes` are the host's clock, which
+  every device uses for "today".
+
+## Backups
+
+All records live in this laptop's database, so keep copies off it. Backups need no
+internet. `npm start` saves one when it starts and every 2 hours while it runs; `/health`
+shows the latest as `lastBackup` (with `error` if the latest attempt failed). A failed
+backup never stops the server.
+
+**Take a backup now**, for example at the end of a clinic day. From the project folder:
+
+```bash
+npm run backup                      # into the backups/ folder
+npm run backup -- E:\veasna-backups # or straight onto a USB stick
+```
+
+On Windows you can instead double-click `backup.cmd` in the project folder, or drag a
+folder (such as the USB stick) onto it to save the backup there.
+
+Backups are named by date and time, for example `veasna-2026-11-11_173000.dump`, and the
+newest 30 in each folder are kept. Keep at least one copy off the host laptop after every
+clinic day: a USB stick, or another laptop.
+
+**Check that a backup restores.** Do this before each trip; it changes nothing:
+
+```bash
+npm run restore -- latest --check
+# Backup OK: veasna-2026-11-11_173000.dump restores with 120 patients, 140 visits, 11 accounts.
+```
+
+**Restore a backup**, after a lost database or on a replacement laptop:
+
+```bash
+npm run restore                                  # lists the backups
+npm run restore -- latest                        # restores the newest
+npm run restore -- E:\veasna-backups\veasna-2026-11-11_173000.dump  # or a chosen file
+```
+
+Restoring:
+1. backs up the current database first, if it can still be reached;
+2. restores into a new database, named like `veasna_restored_20261111_180000`, and shows
+   how many patients, visits and accounts it holds;
+3. sets `DB_NAME` in `apps/backend/.env` to that database.
+
+Then restart the server (Ctrl+C, then `npm start`). The old database is never changed: to
+go back, set `DB_NAME` to the name the restore printed and restart.
+
+On a replacement laptop, first install PostgreSQL and do steps 2–3 of
+[Database setup](#database-setup-first-time) (the database user and `.env`); skip step 4,
+since the restore brings the tables. The database user needs permission to create
+databases (`ALTER USER veasna_app CREATEDB;` in psql), as in step 2.
 
 ## Settings
 
@@ -125,6 +183,10 @@ comes from the command, so `NODE_ENV` lines in the files are ignored. See
 | `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.68.50:3001`. |
 | `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address or `.local` name. Useful when device IPs change. |
 | `MDNS_NAME` | A name devices can use instead of the IP, e.g. `veasna` for `http://veasna.local:3001`. Works offline. Leave empty to turn off. See [using a name instead of the IP](../../docs/performance-and-lan.md#using-a-name-instead-of-the-ip). |
+| `BACKUP_DIR` | Where backups go (default: the project's `backups/` folder). Can be a USB stick, e.g. `E:\veasna-backups`. |
+| `BACKUP_INTERVAL_HOURS` | Hours between automatic backups under `npm start` (default `2`; `0` turns them off). |
+| `BACKUP_KEEP` | How many backups to keep (default `30`); older ones are deleted. |
+| `PG_BIN` | The PostgreSQL `bin` folder, if backups say `pg_dump was not found`. On Windows the newest installed version is found automatically. |
 | `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
 
 See [running on a local network](../../docs/performance-and-lan.md) for a full
@@ -139,6 +201,10 @@ router setup with several devices.
 | `database "veasna_screening" does not exist` | Go back to step 2. |
 | `relation "..." does not exist` | The tables are missing. Go back to step 4. |
 | `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
+| Start-up warns that some visits share a queue number | Older data has two visits with the same number at one location and date, so the database can't refuse duplicates yet (`migrations/026_visit_indexes.sql`). Run the query in the warning, change one number in each pair on **Patient Details**, then restart. Everything else works meanwhile. |
+| `Backup failed: pg_dump was not found` (or `createdb`, `pg_restore`) | Set `PG_BIN` in `.env` to PostgreSQL's `bin` folder. |
+| `Restore failed: permission denied to create database` | In psql, run `ALTER USER veasna_app CREATEDB;`, then try again. |
+| `Backup failed: ... server version mismatch` | `pg_dump` is older than the database. Install the matching PostgreSQL version, or point `PG_BIN` at its `bin` folder. |
 | Other devices can't connect | See [checking each device](../../docs/performance-and-lan.md#check-each-device). |
 
 ## How the server behaves
@@ -146,11 +212,17 @@ router setup with several devices.
 These rules are enforced by the server, so they apply on every device:
 
 - **Sign-in:** every request except sign-in needs a signed-in account. A sign-in lasts
-  7 days. Account changes (such as a role change) apply at the next sign-in.
-- **Permissions:** users can enter new records; only admins can change or delete
-  saved ones. See [accounts and permissions](../../docs/user-roles.md).
+  7 days and is renewed while the device is in use (when less than 3 days are left, the
+  next page change gets a new one), so a device in daily use stays signed in. Account
+  changes apply straight away: the account is re-read on every request, and a disabled
+  account or an expired sign-in gets `401`, which signs the device out.
+- **Permissions:** every account can enter and correct records. A screening-day
+  account only reaches its day's patients, and their earlier visits are read-only to it.
+  Deleting records, pharmacy stock changes, Analytics, downloads and settings are
+  admin-only. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone
-  correctly.
+  correctly. Devices use the host's date too (see `utils/hostClock.js`), whatever their
+  own clock says.
 - **Stations:** each visit goes through only the stations it needs, in clinic order
   (`STATIONS` in `utils/stations.js`): Triage, Dental, Consultation, Physiotherapy, Partner
   NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration offers
@@ -217,7 +289,6 @@ npm run format                             # Prettier
 ```
 
 Files named `*.database.test.js` use temporary tables only and are skipped unless you
-set `RUN_DB_TESTS=1` (PowerShell: `$env:RUN_DB_TESTS='1'`). Three older test files
-(`users`, `locations`, `registration_and_components`) write to the real database, so
-don't run the full suite against a clinic database. See the
-[main README](../../README.md#for-developers).
+set `RUN_DB_TESTS=1` (PowerShell: `$env:RUN_DB_TESTS='1'`); they connect with
+`apps/backend/.env` but never change its data. Every other test mocks the database. See
+the [main README](../../README.md#for-developers).

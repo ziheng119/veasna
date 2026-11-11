@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for queue per location + date
 const cachedQueues: Record<string, QueuedPatient[]> = {};
@@ -32,7 +33,7 @@ export async function getQueue(locationId: number, date: string | typeof CLINIC_
     const params = new URLSearchParams({ location_id: String(locationId) });
     if (date) params.set("date", date);
     if (station) params.set("station", station);
-    const res = await fetch(`${backend_url}/api/queue?${params}`, {
+    const res = await apiFetch(`${backend_url}/api/queue?${params}`, {
       // Always revalidated with the server; an unchanged list returns 304 without a body.
       cache: "no-cache",
       headers,

@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { TbStatus } from "@/constants/tb";
 import { StationId } from "@/constants/stations";
 import { clearQueueCache } from "../queue/getQueue";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export interface TbScreening {
   visit_id: number;
@@ -18,13 +19,12 @@ export interface TbScreening {
 
 // TB screening for a visit, or null when the visit was never flagged.
 export async function getTbScreening(visitId: number, token: string): Promise<TbScreening | null> {
-  const res = await fetch(`${backend_url}/api/tb/${visitId}`, {
+  const res = await apiFetch(`${backend_url}/api/tb/${visitId}`, {
     cache: "no-cache",
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to load TB flag");
+    throw new Error(await readError(res, "Failed to load TB flag"));
   }
   return res.json();
 }
@@ -36,14 +36,13 @@ export async function setTbFlag(
   flag: { flagged: boolean; red_flags?: string[]; notes?: string },
   token: string
 ): Promise<{ flagged: boolean; status?: TbStatus | null; current_station?: StationId | null }> {
-  const res = await fetch(`${backend_url}/api/tb/${visitId}/flag`, {
+  const res = await apiFetch(`${backend_url}/api/tb/${visitId}/flag`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(flag),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || "Failed to update TB flag");
+    throw new Error(await readError(res, "Failed to update TB flag"));
   }
   clearQueueCache();
   return res.json();

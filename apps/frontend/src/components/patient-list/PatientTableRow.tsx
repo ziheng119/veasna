@@ -13,6 +13,7 @@ import { stationLabel, stationPageHref } from "@/constants/stations";
 import { familyTone } from "@/lib/family";
 import { ENTER_FAST, POP } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { hostNow } from "@/stores/useHostClockStore";
 
 // Rows fade in one after another when the list loads, up to this many (the rest appear at once).
 const STAGGERED_ROWS = 15;
@@ -31,7 +32,7 @@ interface PatientTableRowProps {
 }
 
 const calculateAge = (birthDate: string): number => {
-    const today = new Date();
+    const today = hostNow();
     const dob = new Date(birthDate);
     const age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();

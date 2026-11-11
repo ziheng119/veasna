@@ -1,4 +1,5 @@
 import { backend_url } from "@/constants/env_variable";
+import { apiFetch } from "@/lib/api/request";
 
 // Cache for visit data
 const cachedVisits: Record<number, any> = {};
@@ -17,7 +18,7 @@ export async function getVisit(visitId: number, token: string) {
       headers['If-None-Match'] = cachedVisitETags[cacheKey];
     }
 
-    const res = await fetch(`${backend_url}/api/patient/visit/${visitId}`, {
+    const res = await apiFetch(`${backend_url}/api/patient/visit/${visitId}`, {
       headers,
     });
 

@@ -2,6 +2,7 @@ import { useUserStore } from '@/stores/useUserStore';
 import { canEditSavedData } from '@/lib/permissions';
 import React from 'react';
 import { PatientFormData } from '@/lib/types/patient';
+import { hostNow } from '@/stores/useHostClockStore';
 
 interface Props {
     patient: PatientFormData;
@@ -55,7 +56,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
             if (day && month && year && year > 1900) {
                 // javascript months are 0 index (ie January = 0)
                 const birthDate = new Date(year, month - 1, day);
-                const today = new Date();
+                const today = hostNow();
                 let age = today.getFullYear() - birthDate.getFullYear();
                 const monthDiff = today.getMonth() - birthDate.getMonth();
 

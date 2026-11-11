@@ -15,6 +15,15 @@ describe('Basic API Tests', () => {
     expect(response.body).toMatchObject({ status: 'OK', database: 'ok', realtimeClients: 0 });
   });
 
+  test("Health check reports the host's clock, so devices can use the host's date", async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+    const before = Date.now();
+    const { body } = await request(app).get('/health');
+    expect(Date.parse(body.server_time)).toBeGreaterThanOrEqual(before - 1000);
+    expect(body.server_date).toBe(require('../utils/validation').localDate());
+    expect(body.utc_offset_minutes).toBe(-new Date().getTimezoneOffset());
+  });
+
   test('Health check returns 503 when PostgreSQL is unreachable', async () => {
     db.query.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
     const response = await request(app).get('/health');

@@ -51,6 +51,9 @@ describe('Live list notifications', () => {
     sockets.push(socket);
     return socket;
   }
+  // DELETE /api/registration/5 runs in a transaction that finds patient 5, or nobody.
+  const patientFive = (found = true) => db.pool.connect.mockResolvedValue({ release: jest.fn(), query: jest.fn(async sql => (
+    found && sql.includes('FROM patients') ? { rows: [{ id: 5, location_id: 1, family: null }] } : { rows: [] })) });
   async function ready(socket) { const connected = event(socket, 'connect'); socket.connect(); await connected; }
 
   test('committed station movement notifies two users with the visit id, without patient data', async () => {
@@ -72,6 +75,26 @@ describe('Live list notifications', () => {
     expect(await notifications).toEqual([[{ visitId: 1 }], [{ visitId: 1 }]]);
     expect(committed).toBe(true);
     expect(transaction.release).toHaveBeenCalled();
+  });
+
+  test("devices are told only about changes at their own location (or all, with none chosen)", async () => {
+    db.pool.connect.mockResolvedValue({ release: jest.fn(), query: jest.fn(async sql => {
+      if (sql.includes('FROM visits')) return { rows: [{ id: 1, completed_at: null }] };
+      if (sql.includes('SELECT id, station')) return { rows: [{ id: 1, station: 'triage' }, { id: 2, station: 'seva' }] };
+      return { rows: [] };
+    }) });
+    db.query.mockResolvedValue({ rows: [{ location_id: 1 }] }); // visit 1 is at location 1
+    const at = locationId => client(token(), { auth: { token: token(), locationId } });
+    const here = at(1), elsewhere = at(2), anywhere = client();
+    await Promise.all([ready(here), ready(elsewhere), ready(anywhere)]);
+    let elsewhereTold = false;
+    elsewhere.on('lists:changed', () => { elsewhereTold = true; });
+    const told = Promise.all([event(here, 'lists:changed'), event(anywhere, 'lists:changed')]);
+    await request(app).post('/api/queue/1/stations/triage/complete').set('Authorization', `Bearer ${token()}`).send({});
+    expect(await told).toEqual([[{ visitId: 1 }], [{ visitId: 1 }]]);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(elsewhereTold).toBe(false);
+    expect(db.query).toHaveBeenCalledWith('SELECT location_id FROM visits WHERE id = $1', [1]);
   });
 
   test('new registration notifies observers only after commit', async () => {
@@ -99,7 +122,7 @@ describe('Live list notifications', () => {
 
   test('HTTP polling fallback also receives updates', async () => {
     const observer = client(token(), { transports: ['polling'] }); await ready(observer);
-    db.query.mockResolvedValue({ rows: [{ id: 5 }] });
+    patientFive();
     const changed = event(observer, 'lists:changed');
     await request(app).delete('/api/registration/5').set('Authorization', `Bearer ${token()}`);
     await changed;
@@ -129,7 +152,7 @@ describe('Live list notifications', () => {
   });
 
   test('patient deletion notifies other users', async () => {
-    db.query.mockResolvedValue({ rows: [{ id: 5 }] });
+    patientFive();
     const observer = client(); await ready(observer);
     const changed = event(observer, 'lists:changed');
     const response = await request(app).delete('/api/registration/5').set('Authorization', `Bearer ${token()}`);
@@ -169,7 +192,7 @@ describe('Live list notifications', () => {
     expect((await request(app).post('/api/queue/invalid/stations/triage/complete')
       .set('Authorization', `Bearer ${token()}`).send({})).status).toBe(400);
     expect((await request(app).delete('/api/registration/5')).status).toBe(401);
-    db.query.mockResolvedValue({ rows: [] });
+    patientFive(false);
     expect((await request(app).delete('/api/registration/5').set('Authorization', `Bearer ${token()}`)).status).toBe(404);
     await request(app).get('/api/patients');
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -194,7 +217,7 @@ describe('Live list notifications', () => {
     const reconnected = event(socket, 'connect');
     socket.io.engine.close();
     await reconnected;
-    db.query.mockResolvedValue({ rows: [{ id: 5 }] });
+    patientFive();
     const changed = event(socket, 'lists:changed');
     await request(app).delete('/api/registration/5').set('Authorization', `Bearer ${token()}`);
     await changed;

@@ -20,8 +20,9 @@ const authenticateToken = (req, res, next) => {
   }
 
   jwt.verify(token, secret, (err, user) => {
+    // 401, not 403: the device signs out and asks for a new sign-in (403 means "not allowed").
     if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
+      return res.status(401).json({ message: 'Your sign-in has expired. Please sign in again.' });
     }
     req.user = user;
     next();

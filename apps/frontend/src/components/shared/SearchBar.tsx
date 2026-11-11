@@ -135,7 +135,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
       : "No patients in today's queue yet."
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-2xl text-foreground">
+    <div ref={containerRef} data-tour="station-search" className="relative w-full max-w-2xl text-foreground">
       {/* Keep one border and icon mounted so the circle expands into the field. */}
       <div
         className={cn(

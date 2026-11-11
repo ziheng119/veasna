@@ -53,8 +53,10 @@ function insertInClinicOrder(pending, station) {
 // visit's row lock. Returns { stations } (the remaining route), or { error, status }:
 //   409 when the visit is finished, a needed station is already finished, or the station to remove
 //   is the one the patient is waiting at (use Next, Finish or Send to for those).
+// With `reopen`, a needed station that is already finished is put back on the route instead (as
+// Pharmacy is when more is prescribed after the patient has been there).
 // Each change is recorded in visit_station_route_history, like any route edit.
-async function setStationNeeded(client, visitId, station, needed, userId) {
+async function setStationNeeded(client, visitId, station, needed, userId, { reopen = false } = {}) {
   const fail = (status, error) => ({ status, error });
   const visit = await client.query('SELECT completed_at FROM visits WHERE id = $1', [visitId]);
   if (!visit.rows.length) return fail(404, 'Visit not found');
@@ -63,7 +65,7 @@ async function setStationNeeded(client, visitId, station, needed, userId) {
   const pending = route.filter((row) => !row.completed_at).map((row) => row.station);
   const done = route.some((row) => row.station === station && row.completed_at);
 
-  if (needed && done) return fail(409, 'This station is already finished. Use Send to to send the patient back.');
+  if (needed && done && !reopen) return fail(409, 'This station is already finished. Use Send to to send the patient back.');
   if (!needed && pending[0] === station) return fail(409, 'The patient is waiting at this station now. Use Next, Finish or Send to instead.');
   const wanted = needed ? insertInClinicOrder(pending, station) : pending.filter((other) => other !== station);
   if (wanted.join() === pending.join()) return { stations: pending };
@@ -76,13 +78,16 @@ async function setStationNeeded(client, visitId, station, needed, userId) {
     await client.query('DELETE FROM visit_stations WHERE visit_id = $1 AND station = $2 AND completed_at IS NULL', [visitId, station]);
   }
   // Positions are rewritten in route order. A visit with nothing pending (all stations finished but
-  // not yet discharged) starts its new station straight away.
+  // not yet discharged) starts its new station straight away. A reopened station starts afresh.
   for (const [index, name] of wanted.entries()) {
     await client.query(
       `INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
        VALUES ($1, $2, $3, CASE WHEN $4 THEN NOW() END, $5)
        ON CONFLICT (visit_id, station) DO UPDATE SET
-          position = EXCLUDED.position, last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()`,
+          position = EXCLUDED.position, last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW(),
+          entered_at = CASE WHEN visit_stations.completed_at IS NULL THEN visit_stations.entered_at ELSE EXCLUDED.entered_at END,
+          family_ready_at = CASE WHEN visit_stations.completed_at IS NULL THEN visit_stations.family_ready_at END,
+          completed_at = NULL`,
       [visitId, name, index + 1, index === 0 && pending.length === 0, userId]
     );
   }

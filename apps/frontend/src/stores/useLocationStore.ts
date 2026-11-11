@@ -3,20 +3,12 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { createLocation } from "@/lib/api/location/createLocation";
 import { deleteLocation } from "@/lib/api/location/deleteLocation";
+import { hostNow, nextHostHour } from "@/stores/useHostClockStore";
 
-const getNext6AM = () => {
-  const now = new Date();
-  const next6am = new Date();
-
-  next6am.setHours(6, 0, 0, 0); // today 6am
-
-  if (now >= next6am) {
-    // if it's already past 6am today → move to tomorrow 6am
-    next6am.setDate(next6am.getDate() + 1);
-  }
-
-  return next6am.getTime();
-};
+// The chosen location is forgotten at 6 am on the host's clock, the start of a new clinic day.
+// The host's, not this device's: a tablet whose clock is hours or days out would otherwise keep a
+// stale location, or lose it mid-clinic. The expiry is stored as a time on the host's clock.
+const RESET_HOUR = 6;
 
 interface LocationState {
   locations: Location[];
@@ -100,7 +92,7 @@ export const useLocationStore = create<LocationState>()(
           try {
             const data = JSON.parse(str);
 
-            if (Date.now() > data.expiry) {
+            if (hostNow().getTime() > data.expiry) {
               localStorage.removeItem(name);
               return null;
             }
@@ -116,7 +108,7 @@ export const useLocationStore = create<LocationState>()(
             name,
             JSON.stringify({
               value,
-              expiry: getNext6AM(),
+              expiry: nextHostHour(RESET_HOUR),
             })
           );
         },

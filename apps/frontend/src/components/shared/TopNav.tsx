@@ -20,6 +20,7 @@ import { NAVIGATION, canAccessPage, isAdmin } from "@/lib/permissions";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import { formatDayLabel } from "@/helper/format_date";
 import { MENU_CHEVRON, MENU_TRIGGER } from "@/lib/motion";
+import GuideButton from "@/components/guide/GuideButton";
 
 export default function TopNav() {
 
@@ -77,7 +78,7 @@ export default function TopNav() {
     <nav className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-3">
         {/* Navigation Links */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1" data-tour="nav">
           {NAVIGATION.filter(item => canAccessPage(user?.role, item.href)).map(item => (
             <Link key={item.href} href={item.href}
               className={`${linkBaseClass} ${isActive(item.href) || (item.href === "/pharmacy" && pathname.startsWith("/pharmacy/")) ? activeLinkClass : inactiveLinkClass}`}>
@@ -100,7 +101,7 @@ export default function TopNav() {
             className={`size-4 transition-transform duration-500 group-hover:rotate-90 motion-reduce:transition-none ${isRefreshing ? 'animate-spin' : ''}`}
             />
           </Button>
-          <LocationDropdown />
+          <div data-tour="location"><LocationDropdown /></div>
           {user?.token ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -131,6 +132,8 @@ export default function TopNav() {
               Login
             </Button>
           )}
+          {/* Last in the bar: the right-hand corner. */}
+          {user?.token && <GuideButton />}
         </div>
       </div>
       {user?.role === "user" && (user.screening_date

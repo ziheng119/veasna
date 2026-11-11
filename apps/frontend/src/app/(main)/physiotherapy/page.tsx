@@ -35,7 +35,7 @@ export default function Physiotherapy() {
             onSelectPatient={setSelectedPatient}
             selectedVisitId={selectedPatient?.visit_id}
           />
-          <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+          <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
             {!selectedPatient ? (
               <NoPatientSelected />
             ) : (

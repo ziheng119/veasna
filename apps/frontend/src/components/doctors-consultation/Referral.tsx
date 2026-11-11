@@ -20,18 +20,13 @@ import { canEditSavedData, isAdmin } from "@/lib/permissions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
 import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
-
-// The device's local calendar date, not UTC (which can be yesterday on a clinic morning).
-function localToday() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-}
+import { hostToday } from "@/stores/useHostClockStore";
 
 // The form's fields for a saved referral (a new one when there is none). The signature is not one of
 // them: it belongs to whoever signs here.
 function referralFields(referral: Referral | null) {
   return {
-    referralDate: referral?.referralDate || localToday(),
+    referralDate: referral?.referralDate || hostToday(),
     referralType: referral?.referralType ?? [],
     illness: referral?.illness ?? "",
     duration: referral?.duration ?? "",
@@ -153,7 +148,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
     } catch (error) {
       console.error("Referral save error:", error)
       printWindow?.close();
-      toast.error("Unable to save referral. Please try again.")
+      // The host's reason (e.g. a missing field) or why it couldn't be reached (lib/api/request.ts).
+      toast.error(error instanceof Error ? error.message : "Unable to save referral. Please try again.")
     } finally {
       setSaving(false);
     }

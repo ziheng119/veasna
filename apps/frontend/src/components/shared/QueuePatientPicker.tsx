@@ -204,6 +204,7 @@ export default function QueuePatientPicker({
   return (
     <PageCard
       title={`${stationLabel(station)} Queue`}
+      tour="station-queue"
       action={<Badge variant="inactive">{patients.length} waiting</Badge>}
       className="xl:col-span-4"
       contentClassName="space-y-3"

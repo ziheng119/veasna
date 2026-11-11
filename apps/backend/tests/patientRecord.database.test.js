@@ -72,6 +72,20 @@ const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 't
     if (previousSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousSecret;
   });
 
+  test('a Patient Details edit from a page opened before another device saved is refused (409)', async () => {
+    const put = (body) => request(app).put('/patient/2').set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'admin' }, secret)}`)
+      .send({ english_name: 'Only Earlier', date_of_birth: '1990-01-01', sex: 'F', ...body });
+    const opened = (await as(1, 'admin', '/patient/2')).body.patient.last_updated_at;
+    expect((await put({ address: 'Other device', expected_updated_at: opened })).status).toBe(200);
+    const stale = await put({ address: 'Stale', expected_updated_at: opened });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error).toMatch(/Cancel to see the saved details/);
+    const current = (await as(1, 'admin', '/patient/2')).body.patient;
+    expect(current.address).toBe('Other device');
+    expect((await put({ address: 'Mine', expected_updated_at: current.last_updated_at })).status).toBe(200);
+    expect((await put({ address: 'Older app' })).status).toBe(200);
+  });
+
   test('a visit shows its prescriptions, stations, and every station record', async () => {
     const { status, body } = await as(1, 'admin', '/patient/visit/10');
     expect(status).toBe(200);

@@ -104,6 +104,16 @@ Opening a visit shows:
   Everyone on a screening day shares one account, so the record shows that account.
 - If two people save the same form at the same moment, both saves succeed and the later
   one is kept, as with any edit. There is still only one record per form and visit.
+- **A form can't silently overwrite a newer save.** On the Triage, Dental, Consult notes,
+  Physiotherapy and partner NGO forms and the referral dialog, a device that missed a
+  save from another device (for example, its Wi-Fi dropped) has its own save refused with
+  "This form was saved on another device after you opened it". The form then shows
+  **Show saved version** or **Keep mine**; saving again after choosing goes through.
+  Saving or deleting a referral also updates the consult notes' referral flag, and the
+  device that did it carries on with the notes' new version, so its next notes save
+  isn't refused. On **Patient Details**, a stale edit of the patient's details is refused
+  with "These details were changed on another device after you opened them"; the saved
+  details load underneath, **Cancel** shows them, and **Save** again replaces them.
 - **A save shows on every device with the same patient open.** When a form is saved
   (for example the consultation notes), the same form open for that patient on other
   devices updates too:
@@ -119,6 +129,20 @@ Opening a visit shows:
   - Read-only panels (vitals, triage summary, dental notes at Consult) update quietly.
   (`components/shared/LiveRecord.tsx`; the server names the saved visit in its live
   notice, `apps/backend/realtime.js`.)
+- **Unsaved typing is kept on the device.** On the Triage, Dental, Consult notes,
+  Physiotherapy and partner NGO forms, anything typed and not yet saved is kept in that
+  browser as a draft, for that account, visit and form. If the Wi-Fi drops, the device is
+  signed out, the page reloads or someone opens another patient, opening the form again
+  puts it back with the note "Put back what you typed earlier on this device. It isn't
+  saved yet." and a **Discard** button. If the form was saved on another device in the
+  meantime, the draft is not put back over that save: a notice offers **Put mine back**
+  or **Discard**. Saving removes the draft; drafts older than a day are deleted. Another
+  account signing in on the same device doesn't see them. The registration form keeps
+  one draft per account and location, put back the same way until the patient is
+  registered; it keeps the registration's request id too, so if the host saved it but
+  the answer was lost, Submit doesn't queue the patient twice
+  (`hooks/useNewFormDraft.ts`). The referral dialog doesn't keep drafts.
+  (`lib/drafts.ts`.)
 - Each prescription is its own record, so doctors can still prescribe after their
   consultation notes are saved. Cancelling or dispensing one stays with the admin, since
   it changes stock.

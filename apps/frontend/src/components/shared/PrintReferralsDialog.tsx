@@ -18,10 +18,7 @@ import { writeAndPrint } from "@/lib/printDocument";
 import { letterheadLogoUrl } from "@/constants/letterhead";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-
-// Today on this device's calendar (not UTC, which is still yesterday on a Cambodian morning).
-export const todayIso = (now = new Date()) =>
-  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+import { hostToday } from "@/stores/useHostClockStore";
 
 export type ReferralChoice = "today" | "date" | "period" | "all";
 
@@ -36,7 +33,7 @@ const readable = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 // How the chosen range reads in messages: "today", "on 3 Nov 2026", "from 1 to 5 Nov 2026"...
-export function rangeText(range: ReferralRange, today = todayIso()): string {
+export function rangeText(range: ReferralRange, today = hostToday()): string {
   if (range.kind === "all") return "on any date";
   if (range.kind === "date") return range.date === today ? "today" : `on ${readable(range.date)}`;
   return range.from === range.to ? `on ${readable(range.from)}` : `from ${readable(range.from)} to ${readable(range.to)}`;
@@ -71,7 +68,7 @@ export default function PrintReferralsDialog({ open, onOpenChange, ...form }: Pr
 
 function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDate, busy, setBusy, onDone }:
   Omit<Props, "open" | "onOpenChange"> & { busy: boolean; setBusy: (busy: boolean) => void; onDone: () => void }) {
-  const today = todayIso();
+  const today = hostToday();
   const [choice, setChoice] = useState<ReferralChoice>(choices[0]);
   const [date, setDate] = useState(initialDate ?? today);
   const [from, setFrom] = useState(initialDate ?? today);

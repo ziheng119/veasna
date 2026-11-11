@@ -1,5 +1,6 @@
 import { backend_url } from "@/constants/env_variable";
 import { SevaReferral } from "@/constants/sevaReferral";
+import { apiFetch } from "@/lib/api/request";
 
 export interface SevaReferralRow {
   visit_id: number;
@@ -19,7 +20,7 @@ export interface SevaReferralRow {
 
 // Patients at a location that Seva has marked for referral, newest visit first.
 export async function getSevaReferrals(locationId: number, token: string): Promise<SevaReferralRow[]> {
-  const res = await fetch(`${backend_url}/api/visits/seva-referrals?location_id=${locationId}`, {
+  const res = await apiFetch(`${backend_url}/api/visits/seva-referrals?location_id=${locationId}`, {
     cache: "no-cache",
     headers: { Authorization: `Bearer ${token}` },
   });

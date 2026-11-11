@@ -1,6 +1,8 @@
 import { backend_url } from "@/constants/env_variable";
 import { Physiotherapy } from "@/lib/types/physiotherapy";
 import { useUserStore } from "@/stores/useUserStore";
+import { apiFetch } from "@/lib/api/request";
+import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
 
 const cachedPhysio: Record<number, Physiotherapy | null> = {};
 const cachedETags: Record<number, string> = {};
@@ -22,7 +24,7 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
       headers["If-None-Match"] = cachedETags[visitId];
     }
 
-    const res = await fetch(`${backend_url}/api/visits/physiotherapy/${visitId}`, { headers });
+    const res = await apiFetch(`${backend_url}/api/visits/physiotherapy/${visitId}`, { headers });
 
     if (res.status === 304) {
       console.log(`✅ Physiotherapy for visit ${visitId} not modified, using cache`);
@@ -31,6 +33,7 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
 
     if (!res.ok) {
       if (res.status === 404) {
+        noteVersion("physiotherapy", visitId, null);
         cachedPhysio[visitId] = null;
         cachedETags[visitId] = res.headers.get("ETag") || "";
         return null;
@@ -39,6 +42,7 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
     }
 
     const json = await res.json();
+    noteVersion("physiotherapy", visitId, json?.lastUpdatedAt);
 
     if (!json) {
       cachedPhysio[visitId] = null;
@@ -56,8 +60,6 @@ export async function getPhysiotherapy(visitId: number): Promise<Physiotherapy |
 
     cachedPhysio[visitId] = data;
     cachedETags[visitId] = res.headers.get("ETag") || "";
-
-    console.log(data.painpoints)
 
     return data;
 
