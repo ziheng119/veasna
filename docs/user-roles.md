@@ -104,6 +104,12 @@ Opening a visit shows:
   Everyone on a screening day shares one account, so the record shows that account.
 - If two people save the same form at the same moment, both saves succeed and the later
   one is kept, as with any edit. There is still only one record per form and visit.
+- **A form can't silently overwrite a newer save.** On the Triage, Dental, Consult notes,
+  Physiotherapy and partner NGO forms, a device that missed a save from another device
+  (for example, its Wi-Fi dropped) has its own save refused with "This form was saved on
+  another device after you opened it". The form then shows **Show saved version** or
+  **Keep mine**; saving again after choosing goes through. The referral dialog and
+  Patient Details still keep the later save.
 - **A save shows on every device with the same patient open.** When a form is saved
   (for example the consultation notes), the same form open for that patient on other
   devices updates too:

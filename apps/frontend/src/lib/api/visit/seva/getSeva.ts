@@ -2,6 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { Seva } from "@/lib/types/seva";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch } from "@/lib/api/request";
+import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
 
 // Cache for SEVA per visitId
 const cachedSeva: Record<number, Seva | null> = {};
@@ -37,6 +38,7 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
 
     if (!res.ok) {
       if (res.status === 404) {
+        noteVersion("seva", visitId, null);
         cachedSeva[visitId] = null;
         cachedETags[visitId] = res.headers.get("ETag") || "";
         return null;
@@ -45,6 +47,7 @@ export async function getSeva(visitId: number): Promise<Seva | null> {
     }
 
     const json = await res.json();
+    noteVersion("seva", visitId, json?.last_updated_at);
 
     // If backend returns null/empty
     if (!json) {

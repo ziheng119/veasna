@@ -2,7 +2,8 @@ import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { Seva } from "@/lib/types/seva";
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
-import { apiFetch, readError } from "@/lib/api/request";
+import { apiFetch } from "@/lib/api/request";
+import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
 
 export async function postSeva(data: Seva, visitId: number) {
   if (!visitId) throw new Error("visitId is required");
@@ -27,12 +28,12 @@ export async function postSeva(data: Seva, visitId: number) {
       date_of_referral: data.dateOfReferral,
       referral: data.referral || null,
       notes: data.notes ?? "",
+      ...expectedVersion("seva", visitId),
     }),
   });
 
-  if (!res.ok) {
-    throw new Error(await readError(res, `Failed to save ${PARTNER_NGO_NAME} notes`));
-  }
-
-  return res.json();
+  if (!res.ok) throw await saveError(res, visitId, `Failed to save ${PARTNER_NGO_NAME} notes`);
+  const saved = await res.json();
+  noteVersion("seva", visitId, saved.last_updated_at);
+  return saved;
 }

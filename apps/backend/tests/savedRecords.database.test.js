@@ -47,6 +47,8 @@ const db = require("../config/db");
         "physiotherapy",
         "painpoints",
         "dental",
+        "consultation",
+        "referral",
       ]) {
         const start = setup.indexOf("CREATE TABLE " + table + " (");
         const sql = setup.slice(start, setup.indexOf("\n);", start) + 3);
@@ -117,6 +119,38 @@ const db = require("../config/db");
         expect(await saved()).toHaveLength(1);
       },
     );
+    test.each([
+      ["/triage/visual-acuity", "visual_acuity", { visit_id: 1, notes: "First" }],
+      ["/triage/presenting-complaint", "presenting_complaint", { visit_id: 1, history: "First" }],
+      ["/triage/history", "history", { visit_id: 1, past: "First" }],
+      ["/visits/seva/1", "seva", { diagnosis: "First" }],
+      ["/visits/physiotherapy/1", "physiotherapy", { notes: "First", painpoints: [] }],
+      ["/visits/dental/1", "dental", { notes: "First" }],
+      ["/visits/consultation/1", "consultation", { notes: "First" }],
+    ])("%s: a save from a form opened before another device saved is refused (409)", async (url, table, body) => {
+      await client.query(`TRUNCATE ${table} CASCADE`);
+      const field = Object.keys(body).find((key) => !["visit_id", "painpoints"].includes(key));
+      const save = (changes) => request(app).post(url).set("Authorization", "Bearer " + token("user")).send({ ...body, ...changes });
+      const version = async () => (await client.query(`SELECT last_updated_at FROM ${table}`)).rows[0].last_updated_at.toISOString();
+      const text = async () => (await client.query(`SELECT ${field} FROM ${table}`)).rows[0][field];
+
+      expect((await save({ expected_updated_at: null })).status).toBe(200); // first entry: no record yet
+      const seen = await version();
+      expect((await save({ [field]: "Other device", expected_updated_at: seen })).status).toBe(200);
+      // This form still has the version from before the other device saved.
+      const stale = await save({ [field]: "Stale", expected_updated_at: seen });
+      expect(stale.status).toBe(409);
+      expect(stale.body.error).toMatch(/saved on another device after you opened it/);
+      expect(new Date(stale.body.last_updated_at).toISOString()).toBe(await version());
+      expect(await text()).toBe("Other device");
+      // A form that saw no record, when there is one now, is refused too.
+      expect((await save({ [field]: "Stale", expected_updated_at: null })).status).toBe(409);
+      // With the current version it saves; an app that sends none keeps "the later save wins".
+      expect((await save({ [field]: "Mine", expected_updated_at: await version() })).status).toBe(200);
+      expect((await save({ [field]: "Older app" })).status).toBe(200);
+      expect(await text()).toBe("Older app");
+      expect((await save({ expected_updated_at: "yesterday" })).status).toBe(400);
+    });
     test("with glasses readings are optional and saved with the pinhole readings", async () => {
       const save = (url, body) =>
         request(app).post(url).set("Authorization", "Bearer " + token("admin")).send(body);

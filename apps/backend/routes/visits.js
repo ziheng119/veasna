@@ -19,6 +19,7 @@ const { normalizeVitals } = require('../utils/vitals');
 const { patientOnDaySql } = require('../utils/dayScope');
 const { normalizeStickerColour } = require('../utils/formOptions');
 const { canEditSavedRecords } = require('../utils/permissions');
+const { rejectChangedRecord } = require('../utils/recordVersion');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
@@ -498,6 +499,7 @@ router.get('/dental/:visit_id', authenticateToken, async (req, res) => {
 // POST /api/visits/dental/:visit_id - Body: { notes, referral_needed }
 router.post('/dental/:visit_id', authenticateToken, async (req, res) => {
   if (await rejectUnsavableVisit(db, res, req.params.visit_id)) return;
+  if (await rejectChangedRecord(db, res, 'dental', req.params.visit_id, req.body.expected_updated_at)) return;
   const referralNeeded = req.body.referral_needed ?? false;
   if (typeof referralNeeded !== 'boolean') {
     return res.status(400).json({ error: 'referral_needed must be true or false' });
@@ -619,6 +621,7 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: "visit_id is required" });
   }
   if (await rejectUnsavableVisit(db, res, visit_id)) return;
+  if (await rejectChangedRecord(db, res, 'seva', visit_id, req.body.expected_updated_at)) return;
 
   const {
     diagnosis,
@@ -800,6 +803,7 @@ router.post("/physiotherapy/:visit_id", authenticateToken, async (req, res) => {
     return res.status(400).json({ error: "visit_id is required" });
   }
   if (await rejectUnsavableVisit(db, res, visit_id)) return;
+  if (await rejectChangedRecord(db, res, 'physiotherapy', visit_id, req.body.expected_updated_at)) return;
 
   const { notes = "", painpoints = [] } = req.body;
   if (painpoints !== undefined && !Array.isArray(painpoints)) {
@@ -949,6 +953,7 @@ router.post('/consultation/:visit_id', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: "visit_id is required" });
   }
   if (await rejectUnsavableVisit(db, res, visit_id)) return;
+  if (await rejectChangedRecord(db, res, 'consultation', visit_id, req.body.expected_updated_at)) return;
 
   const {
     notes,
