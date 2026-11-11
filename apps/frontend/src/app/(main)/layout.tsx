@@ -7,6 +7,7 @@ import RealtimeConnection from "@/components/shared/RealtimeConnection";
 import ClockWarning from "@/components/shared/ClockWarning";
 import PageTransition from "@/components/shared/PageTransition";
 import GuideTour from "@/components/guide/GuideTour";
+import GuidePage from "@/components/guide/GuidePage";
 
 export default async function MainLayout({
   children,
@@ -24,7 +25,7 @@ export default async function MainLayout({
           <ClockWarning />
           <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5">
             <div className="mx-auto w-full max-w-[1600px] xl:h-full">
-              <PageTransition>{children}</PageTransition>
+              <PageTransition><GuidePage>{children}</GuidePage></PageTransition>
             </div>
           </main>
           <Footer />

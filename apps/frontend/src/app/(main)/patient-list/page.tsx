@@ -11,8 +11,8 @@ import { PatientInfo } from "@/lib/types/patient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
+import { useCallback, useMemo, useState } from "react";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import toast from "react-hot-toast";
 import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
 import { deletePatient } from "@/lib/api/patients/deletePatient";
@@ -35,11 +35,7 @@ export default function PatientListPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [visitDate, setVisitDate] = useState<string>("");
 
-  useEffect(() => {
-    if (!location) {
-      toast(SET_LOCATION_MESSAGE);
-    }
-  }, [location]);
+  useLocationReminder();
 
   const locationId = location?.id;
   const loadPatients = useCallback(async (signal: AbortSignal): Promise<PatientInfo[]> => {

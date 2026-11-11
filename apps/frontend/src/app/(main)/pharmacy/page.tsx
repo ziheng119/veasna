@@ -14,7 +14,7 @@ import { PageCard } from "@/components/shared/PageCard"
 import Link from "next/link"
 import { Settings } from "lucide-react"
 import toast from "react-hot-toast"
-import { SET_LOCATION_MESSAGE } from "@/messages/info"
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import SegmentedTabs from "@/components/shared/SegmentedTabs"
@@ -44,11 +44,7 @@ export default function Pharmacy() {
     // Prescribing elsewhere changes available stock; reload when another device makes a change.
     const revision = useRealtimeStore((state) => state.revision)
 
-    useEffect(() => {
-      if (!location) {
-        toast(SET_LOCATION_MESSAGE);
-      }
-    }, [location]);
+    useLocationReminder();
 
     async function fetchData() {
       if (!location) return;

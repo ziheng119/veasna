@@ -14,7 +14,11 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GUIDE_STEPS } from "@/lib/guide/steps";
+import { GUIDE_STEPS, stepPage } from "@/lib/guide/steps";
+import { forgetSample, sampleWasShown } from "@/lib/guide/sample";
+import { clearQueueCache } from "@/lib/api/queue/getQueue";
+import { clearPatientsByLocationCache } from "@/lib/api/patients/getPatientsByLocation";
+import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { approach, intersect, padRect, placePopover, spotlightPath, type Rect, type Side } from "@/lib/guide/geometry";
 import { useGuideStore } from "@/stores/useGuideStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -27,8 +31,10 @@ const PAD = 8;
 const FIND_TIMEOUT_MS = 4000;
 // After scrolling a part into view, the spotlight moves once the part has stopped moving for this
 // many frames (or after SETTLE_MAX_MS at most), so it lands on the part instead of chasing it.
-const SETTLE_FRAMES = 5;
+const SETTLE_FRAMES = 3;
 const SETTLE_MAX_MS = 1200;
+// The blur comes in once the spotlight is this close (in pixels) to where it is going.
+const BLUR_NEAR = 32;
 // How long the overlay takes to fade out after the tour ends.
 const CLOSE_MS = 250;
 const NUDGE_NOTE_MS = 2600;
@@ -44,7 +50,20 @@ export default function GuideTour() {
   useEffect(() => () => useGuideStore.getState().stop(), []);
   // Kept for a moment after the tour ends, so it can fade out.
   const [mounted, setMounted] = useState(false);
+  const wasActive = useRef(false);
   useEffect(() => {
+    // Lists load again with the sample patient in them, and again without it afterwards; pages
+    // that showed it open fresh (GuidePage), so it isn't left on screen.
+    if (active !== wasActive.current) {
+      wasActive.current = active;
+      clearQueueCache();
+      clearPatientsByLocationCache();
+      useRealtimeStore.getState().invalidate();
+      if (!active && sampleWasShown()) {
+        forgetSample();
+        useGuideStore.getState().resetPages();
+      }
+    }
     if (active) { setMounted(true); return; }
     const timer = setTimeout(() => setMounted(false), CLOSE_MS);
     return () => clearTimeout(timer);
@@ -125,12 +144,12 @@ function Tour({ closing }: { closing: boolean }) {
   const startedOn = useRef("");
   useEffect(() => {
     startedOn.current = location.pathname + location.search;
-    for (const path of new Set(GUIDE_STEPS.map((guideStep) => guideStep.path))) if (path) router.prefetch?.(path);
+    for (const path of new Set(GUIDE_STEPS.map(stepPage))) if (path) router.prefetch?.(path);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    if (!closing && step.path && step.path !== pathname) router.push(step.path);
-  }, [closing, step.path, pathname, router]);
+    if (!closing && step.path && stepPage(step) !== pathname) router.push(step.path);
+  }, [closing, step, pathname, router]);
   useEffect(() => {
     if (closing && startedOn.current && startedOn.current !== location.pathname + location.search) router.push(startedOn.current);
   }, [closing, router]);
@@ -179,7 +198,7 @@ function Tour({ closing }: { closing: boolean }) {
       const { index: current, pathname: path } = live.current;
       const step = GUIDE_STEPS[current];
       if (session.index !== current) session = newSession(current, now);
-      const onPage = !step.path || path === step.path;
+      const onPage = !step.path || path === stepPage(step);
       const vw = innerWidth, vh = innerHeight;
       const screen: Rect = { x: 0, y: 0, w: vw, h: vh };
       // Read the pop-up's size before writing any style, so the page is laid out once a frame.
@@ -252,9 +271,11 @@ function Tour({ closing }: { closing: boolean }) {
         dimRef.current.style.clipPath = clip;
         dimRef.current.style.setProperty("-webkit-clip-path", clip);
       }
-      // Blurring costs a full redraw whenever its shape changes, so it fades in once the
-      // spotlight has arrived (or there is nothing to light up), and out while it moves.
-      const blur = session.arrived || !step.target || status === "missing" ? clip : "";
+      // Blurring costs a full redraw whenever its shape changes, so it is off while the spotlight
+      // travels and comes in for its last few pixels (or when there is nothing to light up).
+      const near = !!target && Math.max(Math.abs(hole.x - target.x), Math.abs(hole.y - target.y),
+        Math.abs(hole.x + hole.w - target.x - target.w), Math.abs(hole.y + hole.h - target.y - target.h)) < BLUR_NEAR;
+      const blur = session.arrived || near || !step.target || status === "missing" ? clip : "";
       if (blur !== lastBlur && blurRef.current) {
         lastBlur = blur;
         if (blur) { blurRef.current.style.clipPath = blur; blurRef.current.style.setProperty("-webkit-clip-path", blur); }
@@ -368,7 +389,7 @@ function Tour({ closing }: { closing: boolean }) {
                 // Shown only if finding takes a moment, so a quick step doesn't flash it.
                 <p className="guide-later mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                  {!step.path || step.path === pathname ? "Finding it on the page…" : `Opening ${step.chapter}…`}
+                  {!step.path || stepPage(step) === pathname ? "Finding it on the page…" : `Opening ${step.chapter}…`}
                 </p>
               )}
               {status === "missing" && (

@@ -3,13 +3,11 @@
 import SearchBar from "@/components/shared/SearchBar";
 import PatientDetails from "@/components/shared/read-only/patient-container/PatientDetails";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import { TriageTabs } from "@/components/triage/TriageTabs";
 import TbFlagPanel from "@/components/triage/TbFlagPanel";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
-import toast from "react-hot-toast";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { PageCard } from "@/components/shared/PageCard";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
@@ -18,7 +16,6 @@ import { StationFlowProvider } from "@/components/shared/StationFlow";
 import StationDataButton from "@/components/shared/StationDataButton";
 
 export default function Traige() {
-  const location = useLocationStore((state) => state.currentLocation);
 
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
   const [queueVersion, setQueueVersion] = useState(0);
@@ -42,11 +39,7 @@ export default function Traige() {
     setQueueVersion((version) => version + 1);
   };
 
-  useEffect(() => {
-    if (!location) {
-      toast(SET_LOCATION_MESSAGE);
-    }
-  }, [location]);
+  useLocationReminder();
 
 
     return (

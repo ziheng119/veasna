@@ -5,10 +5,9 @@ import TriageContainer from "@/components/shared/read-only/triage-container/Tria
 import DoctorsNotesContainer from "@/components/doctors-consultation/DoctorsNotesContainer";
 import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import { SET_LOCATION_MESSAGE } from "@/messages/info";
-import toast from "react-hot-toast";
+import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
@@ -23,11 +22,7 @@ export default function DoctorsConsultation() {
   const location = useLocationStore((state) => state.currentLocation);
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-  useEffect(() => {
-    if (!location) {
-      toast(SET_LOCATION_MESSAGE);
-    }
-  }, [location]);
+  useLocationReminder();
 
   return (
     <StationFlowProvider station="consultation" onSelectPatient={setSelectedPatient}>

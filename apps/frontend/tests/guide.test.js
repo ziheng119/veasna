@@ -13,7 +13,8 @@ jest.mock('../src/components/ui/button', () => {
   return { Button: ({ children, ...props }) => React.createElement('button', props, children) };
 });
 
-const { GUIDE_STEPS } = require('../src/lib/guide/steps');
+const { GUIDE_STEPS, stepPage } = require('../src/lib/guide/steps');
+const { sampleReply } = require('../src/lib/guide/sample');
 const { padRect, placePopover, spotlightPath, approach, intersect, EDGE, GAP } = require('../src/lib/guide/geometry');
 const { useGuideStore } = require('../src/stores/useGuideStore');
 const { useLocationStore } = require('../src/stores/useLocationStore');
@@ -35,7 +36,11 @@ describe('steps', () => {
     expect(chapters.indexOf('Registration')).toBeLessThan(chapters.indexOf('Triage'));
     expect(chapters.indexOf('Triage')).toBeLessThan(chapters.indexOf('Consult'));
     expect(chapters.indexOf('Consult')).toBeLessThan(chapters.indexOf('Pharmacy'));
-    for (const step of GUIDE_STEPS.slice(1)) expect(canAccessPage('user', step.path)).toBe(true);
+    for (const step of GUIDE_STEPS.slice(1)) expect(canAccessPage('user', stepPage(step))).toBe(true);
+    // Every station step opens the sample patient there.
+    for (const step of GUIDE_STEPS.filter((s) => ['Triage', 'Dental', 'Consult', 'Physiotherapy', 'Pharmacy'].includes(s.chapter))) {
+      expect(step.path).toMatch(/\?visit=-1$/);
+    }
     // The welcome shows over whatever page is open.
     expect(GUIDE_STEPS[0].path).toBeUndefined();
   });
@@ -228,6 +233,19 @@ describe('the tour on screen', () => {
     expect(useLocationStore.getState().currentLocation).toBeNull();
   });
 
+  test('pages that showed the sample patient open afresh once the tour ends', () => {
+    const tree = mount();
+    const round = useGuideStore.getState().pageRound;
+    sampleReply('http://h/api/queue?location_id=3&station=triage');
+    press('Escape');
+    expect(useGuideStore.getState().pageRound).toBe(round + 1);
+    // A tour that never showed it leaves the pages as they are.
+    act(() => useGuideStore.getState().start());
+    act(() => useGuideStore.getState().stop());
+    expect(useGuideStore.getState().pageRound).toBe(round + 1);
+    expect(tree).toBeTruthy();
+  });
+
   test("a location already chosen is left alone", () => {
     useLocationStore.setState({ currentLocation: { id: 9, name: 'Clinic' } });
     mount();
@@ -237,10 +255,10 @@ describe('the tour on screen', () => {
   });
 
   test("opens each step's page, and says so while that page loads", () => {
-    const triage = GUIDE_STEPS.findIndex((step) => step.path === '/triage');
+    const triage = GUIDE_STEPS.findIndex((step) => stepPage(step) === '/triage');
     useGuideStore.setState({ index: triage });
     const tree = mount();
-    expect(push).toHaveBeenCalledWith('/triage');
+    expect(push).toHaveBeenCalledWith('/triage?visit=-1');
     expect(text(tree)).toContain('Opening Triage');
   });
 

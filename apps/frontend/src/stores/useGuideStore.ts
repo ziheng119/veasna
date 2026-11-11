@@ -10,6 +10,9 @@ interface GuideState {
   // Past the last step, the tour ends.
   next: () => void;
   back: () => void;
+  // Counts tours that showed the sample patient: pages are opened afresh after each (GuidePage).
+  pageRound: number;
+  resetPages: () => void;
 }
 
 export const useGuideStore = create<GuideState>((set) => ({
@@ -19,4 +22,6 @@ export const useGuideStore = create<GuideState>((set) => ({
   stop: () => set({ active: false }),
   next: () => set((state) => (state.index < GUIDE_STEPS.length - 1 ? { index: state.index + 1 } : { active: false })),
   back: () => set((state) => ({ index: Math.max(0, state.index - 1) })),
+  pageRound: 0,
+  resetPages: () => set((state) => ({ pageRound: state.pageRound + 1 })),
 }));
