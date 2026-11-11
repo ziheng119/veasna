@@ -148,7 +148,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
     } catch (error) {
       console.error("Referral save error:", error)
       printWindow?.close();
-      toast.error("Unable to save referral. Please try again.")
+      // The host's reason (e.g. a missing field) or why it couldn't be reached (lib/api/request.ts).
+      toast.error(error instanceof Error ? error.message : "Unable to save referral. Please try again.")
     } finally {
       setSaving(false);
     }
