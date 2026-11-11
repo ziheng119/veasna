@@ -172,16 +172,19 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         visitId: visit_id, savedVersion: sectionVersion("acuity"), values: visualAcuity, valuesOf: acuityValues,
         load: () => getTriageRecord<VisualAcuity>("visual-acuity", patient_id, visit_id),
         apply: (data) => { setVisualAcuity(acuityValues(data)); showSaved("acuity", data !== null); },
+        draft: { form: "triage-acuity", restore: setVisualAcuity },
     });
     const liveComplaint = useLiveRecord({
         visitId: visit_id, savedVersion: sectionVersion("complaint"), values: presentingComplaint, valuesOf: complaintValues,
         load: () => getTriageRecord<PresentingComplaint>("presenting-complaint", patient_id, visit_id),
         apply: (data) => { setPresentingComplaint(complaintValues(data)); showSaved("complaint", data !== null); },
+        draft: { form: "triage-complaint", restore: setPresentingComplaint },
     });
     const liveHistory = useLiveRecord({
         visitId: visit_id, savedVersion: sectionVersion("history"), values: medicalHistory, valuesOf: historyValues,
         load: () => getTriageRecord<MedicalHistory>("history", patient_id, visit_id),
         apply: (data) => { setMedicalHistory(historyValues(data)); showSaved("history", data !== null); },
+        draft: { form: "triage-history", restore: setMedicalHistory },
     });
 
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RefreshCw, TriangleAlert } from "lucide-react";
+import { History, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVisitChanges } from "@/hooks/useVisitChanges";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useSavedBaseline } from "./StationFlow";
+import { useUserStore } from "@/stores/useUserStore";
+import { Draft, draftKey, readDraft, removeDraft, removeExpiredDrafts, writeDraft } from "@/lib/drafts";
 
 // Keeps an open form in step with saves made for the same visit elsewhere: on another device, or by
 // another volunteer signed in to the same account. When a live notice says the visit changed
@@ -16,6 +18,10 @@ import { useSavedBaseline } from "./StationFlow";
 // - different, and nothing typed here since: the form shows the saved version, with a short note;
 // - different, and something typed here: what was typed stays, and a notice offers the saved
 //   version. Saving here replaces it, as any later save does.
+// With `draft`, what is typed and not yet saved is also kept in this browser (lib/drafts.ts), so it
+// survives a dropped connection, a sign-out or a reload. When the form opens again:
+// - the saved record hasn't changed since: what was typed is put back, with a note and Discard;
+// - it was saved elsewhere since: a notice offers to put back what was typed, or discard it.
 // Only the visit's saved record is shared. What belongs to the signed-in user, such as the signature
 // kept for their next referrals (stores/useSavedSignatureStore.ts), stays in their browser tab.
 
@@ -34,29 +40,70 @@ interface Options<T> {
   // Parts of the record outside the form (e.g. the referral beside the consultation notes); always
   // taken from the saved record.
   applyShared?: (data: T) => void;
+  // Keeps unsaved typing as a draft. `form` names this form (or form section) within the visit;
+  // `restore` puts draft values (in the shape of `values`) back in the form.
+  draft?: { form: string; restore: (values: never) => void };
 }
 
 export interface LiveRecord {
   // "updated": the saved version is now shown. "conflict": saved elsewhere while typing here.
-  notice: "updated" | "conflict" | null;
+  // "restored": unsaved typing from earlier was put back. "draft": unsaved typing from earlier is
+  // waiting, but the record was saved elsewhere since.
+  notice: "updated" | "conflict" | "restored" | "draft" | null;
   // Bumped for each notice, so the note replays its entrance.
   seq: number;
   // Conflict: show the saved version instead of what was typed here.
   showSaved: () => void;
-  // Conflict: keep what was typed here (saving it replaces the other save).
+  // Conflict: keep what was typed here (saving it replaces the other save). Draft: put it back.
   keepMine: () => void;
+  // Restored or waiting draft: drop it (a restored one goes back to the saved version).
+  discardDraft: () => void;
 }
 
 // How long the "updated" note stays.
 const UPDATED_NOTE_MS = 6000;
 
-export function useLiveRecord<T>({ visitId, savedVersion, values, load, valuesOf, apply, applyShared }: Options<T>): LiveRecord {
+export function useLiveRecord<T>({ visitId, savedVersion, values, load, valuesOf, apply, applyShared, draft }: Options<T>): LiveRecord {
   const changes = useVisitChanges(visitId);
   const current = JSON.stringify(values);
   const baseline = useSavedBaseline(savedVersion, current);
-  const latest = useRef({ current, load, valuesOf, apply, applyShared });
-  latest.current = { current, load, valuesOf, apply, applyShared };
-  const [state, setState] = useState<{ notice: LiveRecord["notice"]; seq: number; pending?: T }>({ notice: null, seq: 0 });
+  const restore = draft?.restore;
+  const latest = useRef({ current, load, valuesOf, apply, applyShared, restore });
+  latest.current = { current, load, valuesOf, apply, applyShared, restore };
+  const [state, setState] = useState<{ notice: LiveRecord["notice"]; seq: number; pending?: T; draft?: Draft }>({ notice: null, seq: 0 });
+
+  const userId = useUserStore(state => state.user?.id);
+  const storageKey = draft && userId ? draftKey(userId, visitId, draft.form) : null;
+  // The form whose earlier draft has been looked at: until then, nothing is written over it.
+  const checked = useRef<string | null>(null);
+  // An earlier draft is waiting for Put mine back or Discard: it isn't written over meanwhile. A ref,
+  // as the draft is kept in the same render it is found.
+  const waiting = useRef(false);
+
+  // Once the saved record has loaded, look for unsaved typing left from earlier.
+  useEffect(() => {
+    if (!storageKey || savedVersion === null || checked.current === storageKey || !baseline.current) return;
+    checked.current = storageKey;
+    removeExpiredDrafts();
+    const earlier = readDraft(storageKey);
+    const saved = baseline.current.values;
+    if (!earlier || earlier.values === saved) return removeDraft(storageKey);
+    if (earlier.base === saved) {
+      latest.current.restore?.(JSON.parse(earlier.values) as never);
+      setState(previous => ({ notice: "restored", seq: previous.seq + 1, draft: earlier }));
+    } else {
+      waiting.current = true;
+      setState(previous => ({ notice: "draft", seq: previous.seq + 1, draft: earlier }));
+    }
+  }, [storageKey, savedVersion, baseline]);
+
+  // Keep the draft in step with the form: written while it differs from the saved record, removed
+  // once saved. An earlier draft waiting for a choice is left alone.
+  useEffect(() => {
+    if (!storageKey || checked.current !== storageKey || !baseline.current || waiting.current) return;
+    if (current === baseline.current.values) removeDraft(storageKey);
+    else writeDraft(storageKey, { values: current, base: baseline.current.values, savedAt: Date.now() });
+  }, [storageKey, current, savedVersion, baseline, state.notice]);
 
   useEffect(() => {
     if (changes === 0) return;
@@ -80,9 +127,15 @@ export function useLiveRecord<T>({ visitId, savedVersion, values, load, valuesOf
     return () => controller.abort();
   }, [changes, baseline]);
 
-  // Saving here settles a conflict: the later save is kept.
+  // Saving here settles a conflict (the later save is kept) and an earlier draft. Not the first
+  // load, which is when an earlier draft is found.
+  const previousVersion = useRef(savedVersion);
   useEffect(() => {
-    setState(previous => (previous.notice === "conflict" ? { notice: null, seq: previous.seq } : previous));
+    const loadedBefore = previousVersion.current !== null;
+    previousVersion.current = savedVersion;
+    if (loadedBefore) waiting.current = false;
+    setState(previous => (previous.notice === "conflict" || (loadedBefore && (previous.notice === "restored" || previous.notice === "draft"))
+      ? { notice: null, seq: previous.seq } : previous));
   }, [savedVersion]);
 
   useEffect(() => {
@@ -98,7 +151,17 @@ export function useLiveRecord<T>({ visitId, savedVersion, values, load, valuesOf
       if (state.pending !== undefined) latest.current.apply(state.pending);
       setState(previous => ({ notice: null, seq: previous.seq }));
     },
-    keepMine: () => setState(previous => ({ notice: null, seq: previous.seq })),
+    keepMine: () => {
+      waiting.current = false;
+      if (state.notice === "draft" && state.draft) latest.current.restore?.(JSON.parse(state.draft.values) as never);
+      setState(previous => ({ notice: null, seq: previous.seq }));
+    },
+    discardDraft: () => {
+      waiting.current = false;
+      if (state.notice === "restored" && baseline.current) latest.current.restore?.(JSON.parse(baseline.current.values) as never);
+      if (storageKey) removeDraft(storageKey);
+      setState(previous => ({ notice: null, seq: previous.seq }));
+    },
   };
 }
 
@@ -114,6 +177,25 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
         <RefreshCw className="size-4 shrink-0 motion-safe:animate-[spin_0.6s_ease-out_1]" aria-hidden="true" />
         {label ? `${label}: updated` : "Updated"} with a save from another device.
       </p>
+    );
+  }
+  if (live.notice === "restored" || live.notice === "draft") {
+    const restored = live.notice === "restored";
+    return (
+      <div key={live.seq} role="status"
+        className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST)}>
+        <span className="flex items-center gap-2 font-medium">
+          <History className="size-4 shrink-0" aria-hidden="true" />
+          {label ? `${label}: ` : ""}{restored
+            ? "Put back what you typed earlier on this device. It isn't saved yet."
+            : "You typed something here earlier that wasn't saved, and this was saved on another device since."}
+        </span>
+        <span className="flex items-center gap-2">
+          {!restored && <Button type="button" size="sm" variant="outline" className="h-8 bg-background" onClick={live.keepMine}
+            title="Put back what you typed. Saving it replaces the other save.">Put mine back</Button>}
+          <Button type="button" size="sm" variant="ghost" className="h-8" onClick={live.discardDraft}>Discard</Button>
+        </span>
+      </div>
     );
   }
   if (live.notice === "conflict") {

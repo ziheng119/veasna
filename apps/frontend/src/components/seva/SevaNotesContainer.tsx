@@ -124,6 +124,13 @@ export default function SevaNotesContainer({ patient }: Props) {
   const live = useLiveRecord({
     visitId: patient.visit_id, savedVersion, values: { readings, diagnosis, dateOfReferral, referral, additionalNotes },
     load, apply: show, valuesOf: sevaFormValues,
+    draft: { form: "seva", restore: (draft: ReturnType<typeof sevaFormValues>) => {
+      setReadings(draft.readings);
+      setDiagnosis(draft.diagnosis);
+      setDateOfReferral(draft.dateOfReferral);
+      setReferral(draft.referral);
+      setAdditionalNotes(draft.additionalNotes);
+    } },
   });
 
   // Saved readings are shown open so they are not missed.

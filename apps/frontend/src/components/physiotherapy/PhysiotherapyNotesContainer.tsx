@@ -77,6 +77,10 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
   const live = useLiveRecord({
     visitId: patient.visit_id, savedVersion, values: { notes, painpoints }, load, apply: show,
     valuesOf: (data) => ({ notes: data?.notes ? data.notes : "", painpoints: data?.painpoints ?? [] }),
+    draft: { form: "physiotherapy", restore: (draft: { notes: string; painpoints: PainPoint[] }) => {
+      setNotes(draft.notes);
+      setPainpoints(draft.painpoints);
+    } },
   });
 
   return (

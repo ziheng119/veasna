@@ -143,6 +143,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const live = useLiveRecord({
     visitId: patient.visit_id, savedVersion, values: { notes, conditionCategories }, load, apply: show, applyShared: showShared,
     valuesOf: (data) => ({ notes: data?.notes ?? "", conditionCategories: data?.conditionCategories ?? null }),
+    draft: { form: "consultation", restore: (draft: { notes: string; conditionCategories: string[] | null }) => {
+      setNotes(draft.notes);
+      setConditionCategories(draft.conditionCategories);
+    } },
   });
 
   return (

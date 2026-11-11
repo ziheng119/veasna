@@ -64,6 +64,10 @@ export default function DentalNotesContainer({ patient }: Props) {
   const live = useLiveRecord({
     visitId: patient.visit_id, savedVersion, values: { notes, referralNeeded }, load, apply: show,
     valuesOf: (data) => ({ notes: data?.notes ?? "", referralNeeded: data?.referral_needed ?? false }),
+    draft: { form: "dental", restore: (draft: { notes: string; referralNeeded: boolean }) => {
+      setNotes(draft.notes);
+      setReferralNeeded(draft.referralNeeded);
+    } },
   });
 
   return (

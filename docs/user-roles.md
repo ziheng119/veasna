@@ -119,6 +119,16 @@ Opening a visit shows:
   - Read-only panels (vitals, triage summary, dental notes at Consult) update quietly.
   (`components/shared/LiveRecord.tsx`; the server names the saved visit in its live
   notice, `apps/backend/realtime.js`.)
+- **Unsaved typing is kept on the device.** On the Triage, Dental, Consult notes,
+  Physiotherapy and partner NGO forms, anything typed and not yet saved is kept in that
+  browser as a draft, for that account, visit and form. If the Wi-Fi drops, the device is
+  signed out, the page reloads or someone opens another patient, opening the form again
+  puts it back with the note "Put back what you typed earlier on this device. It isn't
+  saved yet." and a **Discard** button. If the form was saved on another device in the
+  meantime, the draft is not put back over that save: a notice offers **Put mine back**
+  or **Discard**. Saving removes the draft; drafts older than a day are deleted. Another
+  account signing in on the same device doesn't see them. The registration form and the
+  referral dialog don't keep drafts. (`lib/drafts.ts`.)
 - Each prescription is its own record, so doctors can still prescribe after their
   consultation notes are saved. Cancelling or dispensing one stays with the admin, since
   it changes stock.
