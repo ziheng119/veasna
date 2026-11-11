@@ -117,6 +117,12 @@ See [accounts and permissions](docs/user-roles.md) for exactly what each can cha
 
 A few things worth knowing:
 
+- **New to Veasna?** Press the **?** button at the top of any page for a guided tour.
+  A spotlight follows one patient from registration through every station to Pharmacy,
+  with a short note on each part of the screen, covering what screening-day accounts
+  can do. The page is paused during the tour, so nothing is changed; use **Next** /
+  **Back** or the arrow keys, and **Esc** or **✕** to leave at any time, which goes back to
+  the page you were on. The **?** pulses until the guide has been opened once on that device.
 - Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
   the same form. The form shows the queue number the patient will get; it is assigned
   automatically. To group a family, register each member, then use **Add to family** on

@@ -46,7 +46,7 @@ export default function DoctorsConsultation() {
             selectedVisitId={selectedPatient?.visit_id}
           />
           {!selectedPatient ? (
-            <div className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
+            <div data-tour="station-work" className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
           ) : (
             <>
               <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
@@ -55,7 +55,9 @@ export default function DoctorsConsultation() {
           )}
         </div>
         {selectedPatient && (
-          <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
+          <div data-tour="station-work">
+            <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
+          </div>
         )}
       </div>
     </StationFlowProvider>

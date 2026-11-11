@@ -81,6 +81,25 @@ shadcn/ui, and Zustand for sign-in and location state.
 | `src/stores/` | Shared state |
 | `src/constants/` | Shared lists and names (see [Customising](#customising)) |
 
+### The guided tour
+
+The **?** button (`src/components/guide/GuideButton.tsx`) starts the tour in
+`src/components/guide/GuideTour.tsx`. Its steps are in `src/lib/guide/steps.ts`: each
+names the page (`path`), the part of it to light up (`target`), the pop-up's title and
+text, a preferred side, and optionally a registration tab to show first (`tab`).
+
+- Mark a part of a page with `data-tour="name"` (or `tour="name"` on a `PageCard`) and
+  use that name as the step's `target`. Tabs are marked with `data-tour-tab`.
+  `tests/guide.test.js` fails if a step points at a name no longer in the code, so
+  renaming or removing a marked part shows up in the tests.
+- Keep steps to what screening-day accounts can do; admin-only actions are mentioned
+  only as needing the admin account.
+- A step whose part isn't on screen (for example, no patient chosen) waits up to 4
+  seconds, then shows its pop-up in the middle of the screen.
+- The spotlight is a blurred, dimmed layer with a hole cut by a `clip-path` set on every
+  animation frame, so it follows scrolling and resizing; styles are under "Guided tour"
+  in `src/app/globals.css`. With reduced motion turned on, it moves without animating.
+
 ```bash
 npm test --workspace apps/frontend
 npm run lint

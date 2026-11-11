@@ -449,17 +449,17 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             <TabsList className="grid w-full grid-cols-3 bg-muted/80">
               
               <TabsTrigger 
-                value="patient-info" 
+                value="patient-info" data-tour-tab="patient-info" 
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground ">
                   Patient Info
               </TabsTrigger>
               <TabsTrigger 
-                value="vitals" 
+                value="vitals" data-tour-tab="vitals" 
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   Vitals
               </TabsTrigger>
               <TabsTrigger
-                 value="hef" 
+                 value="hef" data-tour-tab="hef" 
                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   HEF
               </TabsTrigger>
@@ -518,7 +518,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </div>
                 </div>
     
-                <div className="relative">
+                <div className="relative" data-tour="reg-name">
                   <Label htmlFor="englishName" className="text-muted-foreground">English Name *</Label>
                   <Input
                     id="englishName"
@@ -644,7 +644,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                 </div>
               </TabsContent>
     
-              <TabsContent value="vitals" className="space-y-4 mt-6 h-full">
+              <TabsContent value="vitals" data-tour="reg-vitals" className="space-y-4 mt-6 h-full">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="height" className="text-muted-foreground">Height (cm)</Label>
@@ -836,7 +836,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   />
                 </div>
 
-                <div className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
+                <div data-tour="reg-tb" className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
                   <Label className="text-muted-foreground block mb-1">TB red flags</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
@@ -879,7 +879,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   )}
                 </div>
 
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-4" data-tour="reg-stations">
                   <Label className="text-muted-foreground block mb-1">Stations for this visit *</Label>
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick the stations this patient needs. They are queued at each one in clinic order: Triage, Dental, Consult, Physiotherapy, {PARTNER_NGO_NAME}, Pharmacy. The doctor sends patients to Physiotherapy from Consult, Pharmacy is added when the doctor prescribes, and {PARTNER_NGO_NAME} is added at Triage if a cataract is suspected.
@@ -907,7 +907,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
             </div>
           </Tabs>
   
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border" data-tour="reg-actions">
             <Button 
               onClick={checkExistingPatient}
               variant="outline"

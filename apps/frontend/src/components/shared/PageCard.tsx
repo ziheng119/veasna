@@ -10,6 +10,8 @@ interface PageCardProps {
   className?: string;
   headerClassName?: string;
   contentClassName?: string;
+  // Marks the card for the guided tour (lib/guide/steps.ts).
+  tour?: string;
 }
 
 export function PageCard({
@@ -20,9 +22,10 @@ export function PageCard({
   className,
   headerClassName,
   contentClassName,
+  tour,
 }: PageCardProps) {
   return (
-    <Card className={cn("border-border xl:min-h-0 xl:max-h-full", className)}>
+    <Card data-tour={tour} className={cn("border-border xl:min-h-0 xl:max-h-full", className)}>
       <CardHeader className={cn("border-b border-border", headerClassName)}>
         <CardTitle className="flex items-center justify-between text-foreground">
           <span>{title}</span>

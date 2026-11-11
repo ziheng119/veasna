@@ -151,3 +151,107 @@
 @media (prefers-reduced-motion: reduce) {
   .ready-pop, .sortable-dragging, .sticker-tag { animation: none; }
 }
+
+/* Guided tour (components/guide/GuideTour.tsx). The spotlight's hole is cut by a clip-path set
+   every frame; the ring around it has a slow light sweeping round its edge. */
+@property --guide-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.guide-dim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgb(2 6 23 / 0.55);
+  -webkit-backdrop-filter: blur(3px) saturate(0.75);
+  backdrop-filter: blur(3px) saturate(0.75);
+}
+
+.guide-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  box-shadow:
+    0 0 0 2px color-mix(in oklch, var(--primary) 85%, white),
+    0 0 0 7px color-mix(in oklch, var(--primary) 20%, transparent),
+    0 0 42px 10px color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+/* The light running round the edge. */
+.guide-ring::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  padding: 3px;
+  border-radius: 17px;
+  background: conic-gradient(from var(--guide-angle), transparent 0deg, oklch(0.86 0.13 220) 50deg, white 80deg, oklch(0.72 0.19 285) 115deg, transparent 170deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: guide-sweep 3.6s linear infinite;
+}
+
+/* A soft light falling into the spotlight from above. */
+.guide-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 70% at 50% 0%, rgb(255 255 255 / 0.12), transparent 65%);
+  animation: guide-breathe 2.8s ease-in-out infinite;
+}
+
+/* One ripple when the spotlight reaches a new part. */
+.guide-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--primary);
+  animation: guide-ripple 900ms ease-out 150ms both;
+}
+
+/* The pop-up's arrow: a turned square on the edge facing the lit part. */
+.guide-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  rotate: 45deg;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.guide-arrow[data-side="bottom"] { top: -7.5px; border-right: 0; border-bottom: 0; }
+.guide-arrow[data-side="top"] { bottom: -7.5px; border-left: 0; border-top: 0; }
+.guide-arrow[data-side="right"] { left: -7.5px; border-right: 0; border-top: 0; }
+.guide-arrow[data-side="left"] { right: -7.5px; border-left: 0; border-bottom: 0; }
+.guide-arrow[data-side="center"] { display: none; }
+
+@keyframes guide-sweep { to { --guide-angle: 360deg; } }
+@keyframes guide-breathe { 50% { opacity: 0.45; } }
+@keyframes guide-ripple {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.06); }
+}
+
+/* The ? button, until the guide has been opened once on this device. */
+.guide-ping {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--primary);
+  animation: guide-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes guide-ping {
+  0% { opacity: 0.7; transform: scale(0.9); }
+  70%, 100% { opacity: 0; transform: scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-ring::before, .guide-ring::after, .guide-ripple, .guide-ping { animation: none; }
+  .guide-ripple { opacity: 0; }
+}

@@ -132,7 +132,7 @@ export default function Pharmacy() {
                   onSelectPatient={setSelectedPatient}
                   selectedVisitId={selectedPatient?.visit_id}
                 />
-                <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+                <div data-tour="pharmacy-prescriptions" className={`${PANEL_WRAPPER} xl:col-span-8`}>
                   <PageCard
                     title={selectedPatient ? `Prescriptions for ${selectedPatient.english_name || "this patient"}` : "Prescriptions to dispense"}
                     action={selectedPatient && (

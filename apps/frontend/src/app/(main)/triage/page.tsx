@@ -63,7 +63,7 @@ export default function Traige() {
               selectedVisitId={selectedPatient?.visit_id}
               refreshKey={queueVersion}
             />
-            <div className={`${PANEL_WRAPPER} xl:col-span-8`}>
+            <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
               {!selectedPatient ? (
                 <NoPatientSelected />
               ) : (

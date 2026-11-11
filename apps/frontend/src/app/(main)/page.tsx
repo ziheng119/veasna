@@ -56,10 +56,10 @@ export default function HomePage() {
   return (
     <div className={PAGE_SHELL}>
       <div className={PANEL_GRID}>
-        <div className={`${PANEL_WRAPPER} xl:col-span-4 2xl:col-span-3`}>
+        <div data-tour="home-queue" className={`${PANEL_WRAPPER} xl:col-span-4 2xl:col-span-3`}>
           <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
         </div>
-        <div id="patient-registration" className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
+        <div id="patient-registration" data-tour="registration" className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
           <PatientForm
             existingPatients={patients}
             onSubmit={() => {

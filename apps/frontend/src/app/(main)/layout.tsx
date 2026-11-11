@@ -6,6 +6,7 @@ import Footer from "@/components/shared/Footer";
 import RealtimeConnection from "@/components/shared/RealtimeConnection";
 import ClockWarning from "@/components/shared/ClockWarning";
 import PageTransition from "@/components/shared/PageTransition";
+import GuideTour from "@/components/guide/GuideTour";
 
 export default async function MainLayout({
   children,
@@ -28,6 +29,7 @@ export default async function MainLayout({
           </main>
           <Footer />
         </div>
+        <GuideTour />
       </AuthWrapper>
     </>
   );

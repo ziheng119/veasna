@@ -94,7 +94,7 @@ export default function PatientListPage() {
     <div className={PAGE_SHELL}>
       <PatientPageHeader/>
 
-      <div className='flex items-center justify-between gap-4'>
+      <div className='flex items-center justify-between gap-4' data-tour="patient-search">
         <FullSearchBar
           placeholder= "Search for Patient by English Name or Khmer Name"
           onSearchChange={handleSearchChange}
