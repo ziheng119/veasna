@@ -152,6 +152,24 @@ const db = require("../config/db");
       expect(await text()).toBe("Older app");
       expect((await save({ expected_updated_at: "yesterday" })).status).toBe(400);
     });
+    test.each([
+      ["/triage/history", "history", { visit_id: 1, past: "First" }],
+      ["/visits/consultation/1", "consultation", { notes: "First" }],
+      ["/visits/dental/1", "dental", { notes: "First" }],
+    ])("%s: of several devices saving the same version at once, only the first is kept", async (url, table, body) => {
+      await client.query(`TRUNCATE ${table} CASCADE`);
+      const field = Object.keys(body).find((key) => key !== "visit_id");
+      const save = (changes) => request(app).post(url).set("Authorization", "Bearer " + token("user")).send({ ...body, ...changes });
+      // Two forms opened before anything was saved, then five opened on the same saved version.
+      const firsts = await Promise.all([1, 2].map((n) => save({ [field]: `New ${n}`, expected_updated_at: null })));
+      expect(firsts.map((r) => r.status).sort()).toEqual([200, 409]);
+      const seen = (await client.query(`SELECT last_updated_at FROM ${table}`)).rows[0].last_updated_at.toISOString();
+      const saves = await Promise.all([1, 2, 3, 4, 5].map((n) => save({ [field]: `Device ${n}`, expected_updated_at: seen })));
+      const kept = saves.filter((r) => r.status === 200);
+      expect(kept).toHaveLength(1);
+      expect(saves.filter((r) => r.status === 409)).toHaveLength(4);
+      expect((await client.query(`SELECT ${field} FROM ${table}`)).rows[0][field]).toBe(kept[0].body[field]);
+    });
     test("a referral save or delete gives this device the notes' new version, so its next notes save goes through", async () => {
       await client.query("TRUNCATE consultation, referral CASCADE");
       const as = (method, url, body) => request(app)[method](url).set("Authorization", "Bearer " + token("admin")).send(body);
