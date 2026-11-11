@@ -70,7 +70,7 @@ test("a device whose clock is days ahead stays signed in, and learns the host's 
   }
 });
 
-test('a brief Wi-Fi drop on a page change is retried quietly; a longer one shows Retry', async () => {
+test('a Wi-Fi drop is retried quietly; a page change while it lasts keeps the page; never confirmed, it shows Retry', async () => {
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   const originalFetch = global.fetch;
   jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
@@ -93,14 +93,30 @@ test('a brief Wi-Fi drop on a page change is retried quietly; a longer one shows
     expect(alerts()).toHaveLength(0);
     expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
 
-    // The host stays unreachable on the next page: after the retries, the error and its Retry button.
+    // The host stays unreachable on the next page: the page stays, as this account was confirmed.
     global.fetch.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
     pathname = '/seva';
     await act(async () => renderer.update(React.createElement(AuthWrapper, null, React.createElement('protected-page'))));
     await act(async () => { jest.advanceTimersByTime(1000); });
     await act(async () => { jest.advanceTimersByTime(3000); });
     expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(alerts()).toHaveLength(0);
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
+    // A page this account's role doesn't allow is still never shown.
+    pathname = '/analytics';
+    await act(async () => renderer.update(React.createElement(AuthWrapper, null, React.createElement('protected-page'))));
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(0);
+    await act(async () => renderer.unmount());
+
+    // Opened while the host can't be reached, with no check ever confirmed: the error and Retry.
+    pathname = '/triage';
+    global.fetch.mockClear();
+    await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement('protected-page'))); });
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    await act(async () => { jest.advanceTimersByTime(3000); });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
     expect(alerts()).toHaveLength(1);
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(0);
   } finally {
     if (renderer) await act(async () => renderer.unmount());
     jest.useRealTimers(); global.fetch = originalFetch; log.mockRestore();

@@ -56,6 +56,9 @@ function PageAccess({ user, children }: Props & { user: User }) {
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // The host has confirmed this account before: a page change while it can't be reached keeps the
+    // page, allowed by the role it last confirmed. The host still checks every request it gets.
+    const confirmedBefore = verified === key;
     setError(false);
     const check = (attempt: number) => {
       const sentAt = Date.now();
@@ -85,7 +88,7 @@ function PageAccess({ user, children }: Props & { user: User }) {
         if (controller.signal.aborted) return;
         // A brief Wi-Fi drop: try again quietly before showing an error.
         if (attempt < RETRY_DELAYS_MS.length) timer = setTimeout(() => check(attempt + 1), RETRY_DELAYS_MS[attempt]);
-        else setError(true);
+        else if (!confirmedBefore) setError(true);
       });
     };
     check(0);
