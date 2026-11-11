@@ -65,3 +65,42 @@ test('clock differences read naturally', () => {
   expect(clockDifferenceText(-DAY)).toBe('24 hours');
   expect(clockDifferenceText(400 * DAY)).toBe('400 days');
 });
+
+describe('the 6 am location reset (stores/useLocationStore.ts)', () => {
+  const { nextHostHour } = require('../src/stores/useHostClockStore');
+  test("is the next 6 am on the host's clock and calendar", () => {
+    useHostClockStore.setState({ offsetMs: 0, utcOffsetMinutes: 420 }); // Cambodia, UTC+7
+    // 05:00 there: 6 am today (23:00 UTC the day before).
+    expect(new Date(nextHostHour(6, new Date('2026-11-10T22:00:00Z'))).toISOString()).toBe('2026-11-10T23:00:00.000Z');
+    // 07:00 there: 6 am tomorrow.
+    expect(new Date(nextHostHour(6, new Date('2026-11-11T00:00:00Z'))).toISOString()).toBe('2026-11-11T23:00:00.000Z');
+  });
+
+  test("uses the host's time, not this device's, however far out this device's clock is", () => {
+    jest.useFakeTimers({ now: new Date('2026-11-13T00:00:00Z') });
+    // The device reads two days ahead; on the host it is 05:00 on 11 November (UTC+7).
+    useHostClockStore.setState({ offsetMs: -2 * DAY - 2 * 3600000, utcOffsetMinutes: 420 });
+    expect(new Date(nextHostHour(6)).toISOString()).toBe('2026-11-10T23:00:00.000Z');
+  });
+
+  test('a location chosen yesterday is forgotten after 6 am on the host, even after the device clock is set right', () => {
+    const items = new Map();
+    global.localStorage = { getItem: k => items.get(k) ?? null, setItem: (k, v) => items.set(k, v), removeItem: k => items.delete(k) };
+    // Chosen at 19:00 on the host (UTC+7), on a tablet whose clock was a day fast.
+    // A fresh load of the stores, as when the app opens, with this device's view of the host clock.
+    const openApp = (offsetMs) => {
+      let store;
+      jest.isolateModules(() => {
+        require('../src/stores/useHostClockStore').useHostClockStore.setState({ offsetMs, utcOffsetMinutes: 420 });
+        store = require('../src/stores/useLocationStore').useLocationStore;
+      });
+      return store;
+    };
+    jest.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') });
+    openApp(-DAY).getState().setCurrentLocation({ id: 3, name: 'Village' });
+    // 06:30 the next morning on the host, and the tablet's clock has been corrected.
+    jest.setSystemTime(new Date('2026-11-10T23:30:00Z'));
+    expect(openApp(0).getState().currentLocation).toBeNull();
+    delete global.localStorage;
+  });
+});

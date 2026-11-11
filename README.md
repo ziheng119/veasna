@@ -72,6 +72,8 @@ Before the clinic opens:
   own clock, and the clinic day (which patients appear in today's queue) comes from
   the host's clock. Other devices use the host's date too, and show a yellow warning
   bar when their own clock is more than 5 minutes off; correct that device's clock.
+  Each device's chosen location is forgotten at 6 am on the host's clock, so every
+  clinic day starts with choosing it again, even on a device whose clock is wrong.
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 

@@ -59,6 +59,17 @@ export function hostToday(): string {
   return `${host.getUTCFullYear()}-${pad(host.getUTCMonth() + 1)}-${pad(host.getUTCDate())}`;
 }
 
+// The next `hour`:00 on the host's clock and calendar, as a time in milliseconds on the host's clock
+// (compare it with hostNow()). Before the host has been reached, this device's clock and timezone.
+export function nextHostHour(hour: number, now: Date = hostNow()): number {
+  const { utcOffsetMinutes } = useHostClockStore.getState();
+  const zoneMs = (utcOffsetMinutes ?? -now.getTimezoneOffset()) * 60_000;
+  // The host's wall clock, read through the UTC fields.
+  const wall = new Date(now.getTime() + zoneMs);
+  const today = Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), wall.getUTCDate(), hour) - zoneMs;
+  return today > now.getTime() ? today : today + 24 * 60 * 60 * 1000;
+}
+
 // A date on this device's calendar as YYYY-MM-DD (not UTC, which is still yesterday on a Cambodian morning).
 export function isoDate(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
