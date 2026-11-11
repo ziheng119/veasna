@@ -137,6 +137,11 @@ CREATE TABLE visit_stations (
 );
 
 CREATE UNIQUE INDEX visits_request_id_key ON visits (request_id) WHERE request_id IS NOT NULL;
+-- One queue number per location and day ("12a" and "12A" are the same number).
+CREATE UNIQUE INDEX visits_queue_no_key ON visits (location_id, visit_date, UPPER(queue_no));
+CREATE INDEX visits_location_date_idx ON visits (location_id, visit_date);
+CREATE INDEX visits_patient_idx ON visits (patient_id);
+CREATE INDEX patients_location_idx ON patients (location_id);
 
 CREATE INDEX visit_stations_pending_idx
     ON visit_stations (visit_id, position) WHERE completed_at IS NULL;

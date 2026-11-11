@@ -142,6 +142,7 @@ router setup with several devices.
 | `database "veasna_screening" does not exist` | Go back to step 2. |
 | `relation "..." does not exist` | The tables are missing. Go back to step 4. |
 | `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
+| Start-up warns that some visits share a queue number | Older data has two visits with the same number at one location and date, so the database can't refuse duplicates yet (`migrations/026_visit_indexes.sql`). Run the query in the warning, change one number in each pair on **Patient Details**, then restart. Everything else works meanwhile. |
 | Other devices can't connect | See [checking each device](../../docs/performance-and-lan.md#check-each-device). |
 
 ## How the server behaves

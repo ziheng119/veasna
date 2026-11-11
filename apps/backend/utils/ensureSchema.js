@@ -250,7 +250,26 @@ function ensurePharmacyDispenses() {
   return pharmacyDispensesPromise;
 }
 
+// Visit indexes and the one-queue-number rule, which is left out while duplicates exist.
+let visitIndexesPromise;
+function ensureVisitIndexes() {
+  if (!visitIndexesPromise) {
+    visitIndexesPromise = runMigration('026_visit_indexes.sql')
+      .then(async () => {
+        const { rows } = await db.query("SELECT to_regclass('visits_queue_no_key') IS NOT NULL AS present");
+        if (!rows[0].present) {
+          console.warn('Some visits share a queue number at the same location and date, so the database cannot ' +
+            'refuse duplicates yet. Find them with: SELECT location_id, visit_date, UPPER(queue_no), COUNT(*) FROM visits ' +
+            'GROUP BY 1, 2, 3 HAVING COUNT(*) > 1; change one number in each pair on Patient Details, then restart.');
+        }
+      })
+      .catch(err => { visitIndexesPromise = null; throw err; });
+  }
+  return visitIndexesPromise;
+}
+
 module.exports = {
+  ensureVisitIndexes,
   ensurePharmacyDispenses,
   ensureRegistrationRequestId,
   ensureReferralDoctor,

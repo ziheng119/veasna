@@ -22,8 +22,9 @@ const pool = new Pool({
   max: 20,
   // Time in milliseconds to wait for a client from the pool before timing out.
   idleTimeoutMillis: 30000,
-  // Time in milliseconds to wait for a connection to be established.
-  connectionTimeoutMillis: 2000,
+  // Time in milliseconds to wait for a free connection. When many devices reload at once (every
+  // save tells every device to), requests queue briefly for one instead of failing with 500.
+  connectionTimeoutMillis: 10000,
 });
 
 // Test database connection

@@ -136,6 +136,7 @@ const SCHEMA_STEPS = [
   schema.ensureReferralDoctor,
   schema.ensureRegistrationRequestId,
   schema.ensurePharmacyDispenses,
+  schema.ensureVisitIndexes,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.
