@@ -113,6 +113,32 @@ To check that it is working, open `/health` in a browser:
 - `server_time`, `server_date` and `utc_offset_minutes` are the host's clock, which
   every device uses for "today".
 
+## Backups
+
+All records live in this laptop's database, so keep copies off it. `npm start` saves a
+backup when it starts and every 2 hours while it runs. To take one now (for example,
+at the end of a clinic day), run this from the project folder:
+
+```bash
+npm run backup
+```
+
+Backups go to the `backups/` folder in the project, named by date and time, for example
+`veasna-2026-11-11_173000.dump`. The newest 30 are kept. Copy the folder to a USB stick
+after each clinic day, or set `BACKUP_DIR` to the USB stick so every backup lands there.
+A failed backup is logged as `Backup failed: ...` and never stops the server.
+
+To restore a backup into a new, empty database (Windows: run from
+`C:\Program Files\PostgreSQL\<version>\bin`):
+
+```bash
+createdb -U veasna_app veasna_restored
+pg_restore -U veasna_app -d veasna_restored --no-owner backups/veasna-2026-11-11_173000.dump
+```
+
+Check the records there, then set `DB_NAME=veasna_restored` in `.env` and restart the
+server. Restoring into a new database leaves the current one untouched until you switch.
+
 ## Settings
 
 Settings shared by both modes live in `apps/backend/.env`. Settings for one mode go in
@@ -130,6 +156,10 @@ comes from the command, so `NODE_ENV` lines in the files are ignored. See
 | `NEXT_PUBLIC_FRONTEND_URL` | The web app address(es) allowed to connect, separated by commas, e.g. `http://192.168.68.50:3001`. |
 | `ALLOW_LAN_ORIGINS` | Set to `true` to allow a web app on any local network address or `.local` name. Useful when device IPs change. |
 | `MDNS_NAME` | A name devices can use instead of the IP, e.g. `veasna` for `http://veasna.local:3001`. Works offline. Leave empty to turn off. See [using a name instead of the IP](../../docs/performance-and-lan.md#using-a-name-instead-of-the-ip). |
+| `BACKUP_DIR` | Where backups go (default: the project's `backups/` folder). Can be a USB stick, e.g. `E:\veasna-backups`. |
+| `BACKUP_INTERVAL_HOURS` | Hours between automatic backups under `npm start` (default `2`; `0` turns them off). |
+| `BACKUP_KEEP` | How many backups to keep (default `30`); older ones are deleted. |
+| `PG_BIN` | The PostgreSQL `bin` folder, if backups say `pg_dump was not found`. On Windows the newest installed version is found automatically. |
 | `API_RATE_LIMIT_MAX` | Requests allowed per device every 15 minutes (default `5000`). Raise it if devices see "too many requests" errors. |
 
 See [running on a local network](../../docs/performance-and-lan.md) for a full
@@ -145,6 +175,8 @@ router setup with several devices.
 | `relation "..." does not exist` | The tables are missing. Go back to step 4. |
 | `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
 | Start-up warns that some visits share a queue number | Older data has two visits with the same number at one location and date, so the database can't refuse duplicates yet (`migrations/026_visit_indexes.sql`). Run the query in the warning, change one number in each pair on **Patient Details**, then restart. Everything else works meanwhile. |
+| `Backup failed: pg_dump was not found` | Set `PG_BIN` in `.env` to PostgreSQL's `bin` folder. |
+| `Backup failed: ... server version mismatch` | `pg_dump` is older than the database. Install the matching PostgreSQL version, or point `PG_BIN` at its `bin` folder. |
 | Other devices can't connect | See [checking each device](../../docs/performance-and-lan.md#check-each-device). |
 
 ## How the server behaves

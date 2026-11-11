@@ -75,6 +75,10 @@ Before the clinic opens:
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 
+After the clinic closes, run `npm run backup` and copy the `backups/` folder to a USB
+stick (see [backups](apps/backend/README.md#backups)). `npm start` also saves a backup
+every 2 hours.
+
 For connecting several devices through a router, giving the host a fixed address
 in the Deco app, and opening the app at `http://veasna.local:3001` instead of the IP,
 see [running on a local network](docs/performance-and-lan.md).

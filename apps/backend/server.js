@@ -11,6 +11,7 @@ const { createServer } = require('http');
 const db = require('./config/db');
 const { parseOrigins, createOriginCheck, lanAddresses } = require('./config/network');
 const { startMdns } = require('./config/mdns');
+const { scheduleBackups } = require('./utils/backup');
 const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
@@ -163,6 +164,8 @@ async function start() {
     for (const step of SCHEMA_STEPS) {
       await step().catch(err => console.error(`Migration warning (${step.name}):`, err.message));
     }
+    // The clinic host (npm start) keeps regular copies of the database; development doesn't.
+    if (loadedEnv.mode === 'production') scheduleBackups();
   } else {
     // Still listen, so clients get a clear 503 from /health instead of connection refused.
     console.error('Database unreachable; starting without schema checks. Restart once PostgreSQL is running.');

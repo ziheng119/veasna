@@ -14,3 +14,6 @@ out/
 .next/
 .next-production/
 coverage/
+
+# database backups (npm run backup)
+backups/
