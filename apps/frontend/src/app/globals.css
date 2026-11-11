@@ -152,69 +152,48 @@
   .ready-pop, .sortable-dragging, .sticker-tag { animation: none; }
 }
 
-/* Guided tour (components/guide/GuideTour.tsx). The spotlight's hole is cut by a clip-path set
-   every frame; the ring around it has a slow light sweeping round its edge. */
-@property --guide-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-.guide-dim {
+/* Guided tour (components/guide/GuideTour.tsx). The spotlight's hole is cut by a clip-path: on a
+   plain dim layer every frame (cheap), and on the blur layer only once the spotlight has arrived
+   (blurring redraws the whole screen). The ring is a plain outline, so the lit part stays the
+   thing to look at. */
+.guide-dim,
+.guide-blur {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: rgb(2 6 23 / 0.55);
-  -webkit-backdrop-filter: blur(3px) saturate(0.75);
-  backdrop-filter: blur(3px) saturate(0.75);
+}
+.guide-dim { background: rgb(2 6 23 / 0.5); }
+.guide-blur {
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
 
 .guide-ring {
   position: fixed;
   top: 0;
   left: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 200ms ease-out;
+  transition: opacity 150ms ease-out;
   box-shadow:
-    0 0 0 2px color-mix(in oklch, var(--primary) 85%, white),
-    0 0 0 7px color-mix(in oklch, var(--primary) 20%, transparent),
-    0 0 42px 10px color-mix(in oklch, var(--primary) 35%, transparent);
+    0 0 0 2px var(--primary),
+    0 0 0 6px color-mix(in oklch, var(--primary) 18%, transparent);
 }
 
-/* The light running round the edge. */
-.guide-ring::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  padding: 3px;
-  border-radius: 17px;
-  background: conic-gradient(from var(--guide-angle), transparent 0deg, oklch(0.86 0.13 220) 50deg, white 80deg, oklch(0.72 0.19 285) 115deg, transparent 170deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: guide-sweep 3.6s linear infinite;
-}
-
-/* A soft light falling into the spotlight from above. */
-.guide-ring::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(120% 70% at 50% 0%, rgb(255 255 255 / 0.12), transparent 65%);
-  animation: guide-breathe 2.8s ease-in-out infinite;
-}
-
-/* One ripple when the spotlight reaches a new part. */
+/* One soft pulse when the spotlight reaches a new part. */
 .guide-ripple {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 2px solid var(--primary);
-  animation: guide-ripple 900ms ease-out 150ms both;
+  box-shadow: 0 0 0 2px var(--primary);
+  animation: guide-ripple 700ms ease-out both;
 }
+
+/* Fades in only if it is still there after a moment (a note that would otherwise flash). */
+.guide-later { animation: guide-later 200ms ease-out 400ms both; }
 
 /* The pop-up's arrow: a turned square on the edge facing the lit part. */
 .guide-arrow {
@@ -231,12 +210,11 @@
 .guide-arrow[data-side="left"] { right: -7.5px; border-left: 0; border-bottom: 0; }
 .guide-arrow[data-side="center"] { display: none; }
 
-@keyframes guide-sweep { to { --guide-angle: 360deg; } }
-@keyframes guide-breathe { 50% { opacity: 0.45; } }
 @keyframes guide-ripple {
-  from { opacity: 0.9; transform: scale(1); }
-  to { opacity: 0; transform: scale(1.06); }
+  from { opacity: 0.8; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.04); }
 }
+@keyframes guide-later { from { opacity: 0; } to { opacity: 1; } }
 
 /* The ? button, until the guide has been opened once on this device. */
 .guide-ping {
@@ -252,6 +230,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .guide-ring::before, .guide-ring::after, .guide-ripple, .guide-ping { animation: none; }
-  .guide-ripple { opacity: 0; }
+  .guide-ripple, .guide-ping { animation: none; opacity: 0; }
+  .guide-later { animation: none; }
 }

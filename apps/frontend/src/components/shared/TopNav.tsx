@@ -89,7 +89,6 @@ export default function TopNav() {
 
         {/* Refresh Button */}
         <div className="flex items-center gap-3">
-          {user?.token && <GuideButton />}
           <Button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -133,6 +132,8 @@ export default function TopNav() {
               Login
             </Button>
           )}
+          {/* Last in the bar: the right-hand corner. */}
+          {user?.token && <GuideButton />}
         </div>
       </div>
       {user?.role === "user" && (user.screening_date

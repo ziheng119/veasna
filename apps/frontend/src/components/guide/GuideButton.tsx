@@ -26,7 +26,8 @@ export default function GuideButton() {
     <button type="button" onClick={open} data-tour="guide-button" aria-label="Open the guide"
       title="Guide: how a patient moves through the clinic"
       className={cn(
-        "group relative grid size-8 place-items-center rounded-full border border-primary/30 bg-primary/5 text-sm font-bold text-primary",
+        // size-9 like the other buttons in the bar, so they line up.
+        "group relative grid size-9 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/5 text-base font-bold leading-none text-primary",
         "transition-[transform,background-color,box-shadow] duration-200 hover:scale-110 hover:bg-primary/10 hover:shadow-md active:scale-95 motion-reduce:transform-none",
         active && "bg-primary text-primary-foreground",
       )}>

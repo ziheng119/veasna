@@ -96,9 +96,17 @@ text, a preferred side, and optionally a registration tab to show first (`tab`).
   only as needing the admin account.
 - A step whose part isn't on screen (for example, no patient chosen) waits up to 4
   seconds, then shows its pop-up in the middle of the screen.
-- The spotlight is a blurred, dimmed layer with a hole cut by a `clip-path` set on every
-  animation frame, so it follows scrolling and resizing; styles are under "Guided tour"
-  in `src/app/globals.css`. With reduced motion turned on, it moves without animating.
+- Keep each step's text to one or two short sentences (the tests allow 140 characters).
+- A part that is cut off by the screen or its scrolling panel is scrolled into view
+  first; the spotlight moves once it has stopped moving, and only covers what can be
+  seen (a part taller than the screen is shown from its top).
+- The spotlight is a dimmed layer with a hole cut by a `clip-path` set on every
+  animation frame, so it follows scrolling and resizing. The blur is a second layer that
+  fades in once the spotlight has arrived, as redrawing a blur every frame is slow on
+  tablets. Styles are under "Guided tour" in `src/app/globals.css`. With reduced motion
+  turned on, it moves without animating.
+- The tour's pages are prefetched when it starts. With no location chosen, it borrows
+  the first location and clears it again when it ends, so the pages aren't empty.
 
 ```bash
 npm test --workspace apps/frontend

@@ -14,8 +14,9 @@ jest.mock('../src/components/ui/button', () => {
 });
 
 const { GUIDE_STEPS } = require('../src/lib/guide/steps');
-const { padRect, placePopover, spotlightPath, approach, EDGE, GAP } = require('../src/lib/guide/geometry');
+const { padRect, placePopover, spotlightPath, approach, intersect, EDGE, GAP } = require('../src/lib/guide/geometry');
 const { useGuideStore } = require('../src/stores/useGuideStore');
+const { useLocationStore } = require('../src/stores/useLocationStore');
 const { canAccessPage } = require('../src/lib/permissions');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -43,15 +44,16 @@ describe('steps', () => {
     for (const step of GUIDE_STEPS) {
       if (step.target) expect(code).toMatch(new RegExp(`(data-tour|tour)="${step.target}"`));
       if (step.tab) expect(code).toContain(`data-tour-tab="${step.tab}"`);
-      expect(step.body.length).toBeLessThanOrEqual(260);
+      // One or two short sentences.
+      expect(step.body.length).toBeLessThanOrEqual(140);
     }
   });
 
   test("don't send anyone to admin-only actions as if they could do them", () => {
     const text = GUIDE_STEPS.map((step) => step.body).join(' ');
     // Printing and dispensing are named only as needing the admin account.
-    expect(text).toMatch(/Printing it needs the admin account/);
-    expect(text).toMatch(/Dispensing changes the stock, so the admin account does it/);
+    expect(text).toMatch(/Printing needs the admin account/);
+    expect(text).toMatch(/The admin account dispenses/);
     expect(text).not.toMatch(/Analytics|Station data|Accounts page|Delete/);
   });
 });
@@ -63,6 +65,11 @@ describe('geometry', () => {
     const tall = padRect({ x: 0, y: -400, w: 300, h: 2000 }, 8, 1000, 800);
     expect(tall.y).toBeGreaterThanOrEqual(0);
     expect(tall.y + tall.h).toBeLessThanOrEqual(800);
+  });
+
+  test('the visible part of a rectangle inside another', () => {
+    expect(intersect({ x: 0, y: 100, w: 300, h: 900 }, { x: 0, y: 60, w: 1280, h: 700 })).toEqual({ x: 0, y: 100, w: 300, h: 660 });
+    expect(intersect({ x: 0, y: 0, w: 10, h: 10 }, { x: 50, y: 50, w: 10, h: 10 })).toMatchObject({ w: 0, h: 0 });
   });
 
   test('the clip-path covers the screen with a rounded hole', () => {
@@ -117,18 +124,23 @@ describe('store', () => {
 
 describe('the tour on screen', () => {
   // Just enough of a browser for the tour: one marked part on the page, and frames run by hand.
-  let frames, keydown, target;
+  let frames, keydown, target, box;
   const node = () => ({ style: { setProperty: jest.fn() }, dataset: {}, offsetWidth: 340, offsetHeight: 200, focus: jest.fn(), animate: jest.fn(), querySelectorAll: () => [], contains: () => false });
   beforeEach(() => {
     jest.useFakeTimers();
     frames = [];
-    target = { getBoundingClientRect: () => ({ left: 100, top: 120, width: 300, height: 80, bottom: 200 }), scrollIntoView: jest.fn() };
+    box = { left: 100, top: 120, width: 300, height: 80 };
+    target = { getBoundingClientRect: () => box, scrollIntoView: jest.fn(), isConnected: true, parentElement: null };
+    const stored = new Map();
+    global.localStorage = { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: (key) => stored.delete(key) };
+    useLocationStore.setState({ currentLocation: { id: 3, name: 'Kampong' }, locations: [{ id: 3, name: 'Kampong' }] });
     Object.assign(global, {
       window: global, innerWidth: 1280, innerHeight: 800, location: { pathname: '/', search: '' },
       matchMedia: () => ({ matches: true }), // reduced motion: positions settle in one frame
       requestAnimationFrame: (callback) => frames.push(callback), cancelAnimationFrame: jest.fn(),
       addEventListener: (type, handler) => { if (type === 'keydown') keydown = handler; },
       removeEventListener: jest.fn(),
+      getComputedStyle: () => ({ overflowX: 'visible', overflowY: 'visible', borderTopLeftRadius: '6px' }),
       document: {
         querySelector: () => null,
         querySelectorAll: (selector) => (selector.includes('"location"') ? [target] : []),
@@ -139,26 +151,44 @@ describe('the tour on screen', () => {
     push.mockClear();
     pathname = '/';
   });
-  afterEach(() => { jest.useRealTimers(); useGuideStore.setState({ active: false, index: 0 }); });
+  // Every tour rendered, unmounted after each test so none carries on into the next.
+  let trees = [];
+  const mount = (options) => {
+    const GuideTour = require('../src/components/guide/GuideTour').default;
+    let tree;
+    act(() => { tree = create(React.createElement(GuideTour), options ?? { createNodeMock: node }); });
+    trees.push(tree);
+    return tree;
+  };
+  afterEach(() => {
+    act(() => trees.forEach((tree) => tree.unmount()));
+    trees = [];
+    jest.useRealTimers();
+    useGuideStore.setState({ active: false, index: 0 });
+    delete global.localStorage;
+  });
   const runFrame = () => act(() => { const pending = frames; frames = []; pending.forEach((callback) => callback(performance.now())); });
   const text = (tree) => JSON.stringify(tree.toJSON());
   const press = (key) => act(() => keydown({ key, preventDefault: jest.fn() }));
 
   test('shows each step, moves the spotlight to its part, and ends with Esc', () => {
-    const GuideTour = require('../src/components/guide/GuideTour').default;
     const nodes = [];
-    let tree;
-    act(() => { tree = create(React.createElement(GuideTour), { createNodeMock: () => { const n = node(); nodes.push(n); return n; } }); });
+    const tree = mount({ createNodeMock: () => { const n = node(); nodes.push(n); return n; } });
     expect(text(tree)).toContain('Welcome to VEASNA');
     expect(tree.root.findByProps({ role: 'dialog' }).props['aria-modal']).toBe('true');
 
     press('ArrowRight');
     expect(text(tree)).toContain('Choose your location');
     runFrame();
-    // The spotlight's hole is cut where the location picker is, with the ring and a ripple on it.
-    const dim = nodes.find((n) => n.style.clipPath);
-    expect(dim.style.clipPath).toContain('M0 0H1280V800H0Z');
+    // The spotlight's hole is cut where the location picker is, with the ring and a ripple on it,
+    // and once it is there the blur is cut the same way.
+    const cut = nodes.filter((n) => n.style.clipPath);
+    expect(cut).toHaveLength(2);
+    expect(cut[0].style.clipPath).toContain('M0 0H1280V800H0Z');
+    expect(cut[1].style.clipPath).toBe(cut[0].style.clipPath);
     expect(text(tree)).toContain('guide-ripple');
+    // Already in view: nothing scrolls.
+    expect(target.scrollIntoView).not.toHaveBeenCalled();
 
     press('ArrowLeft');
     expect(text(tree)).toContain('Welcome to VEASNA');
@@ -168,22 +198,56 @@ describe('the tour on screen', () => {
     expect(tree.toJSON()).toBeNull();
   });
 
+  test('a part cut off by the screen is scrolled into view before the spotlight goes to it', () => {
+    box = { left: 100, top: 640, width: 300, height: 400 }; // runs off the bottom of the screen
+    const nodes = [];
+    const tree = mount({ createNodeMock: () => { const n = node(); nodes.push(n); return n; } });
+    press('ArrowRight');
+    runFrame();
+    expect(target.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: 'center' }));
+    expect(text(tree)).not.toContain('guide-ripple');
+    // Scrolling: the spotlight waits until the part has stopped moving.
+    box = { left: 100, top: 300, width: 300, height: 400 };
+    runFrame();
+    expect(text(tree)).not.toContain('guide-ripple');
+    for (let i = 0; i < 6; i++) runFrame();
+    expect(text(tree)).toContain('guide-ripple');
+    const ring = nodes.find((n) => n.style.transform && n.style.width);
+    expect(ring.style).toMatchObject({ transform: 'translate3d(92px, 292px, 0)', width: '316px', height: '416px', borderRadius: '14px' });
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  test('with no location chosen, the tour borrows one and clears it after', () => {
+    useLocationStore.setState({ currentLocation: null });
+    const tree = mount();
+    expect(useLocationStore.getState().currentLocation).toMatchObject({ id: 3 });
+    press('ArrowRight');
+    expect(text(tree)).toContain('Kampong');
+    press('Escape');
+    act(() => { jest.advanceTimersByTime(300); });
+    expect(useLocationStore.getState().currentLocation).toBeNull();
+  });
+
+  test("a location already chosen is left alone", () => {
+    useLocationStore.setState({ currentLocation: { id: 9, name: 'Clinic' } });
+    mount();
+    press('Escape');
+    act(() => { jest.advanceTimersByTime(300); });
+    expect(useLocationStore.getState().currentLocation).toMatchObject({ id: 9 });
+  });
+
   test("opens each step's page, and says so while that page loads", () => {
-    const GuideTour = require('../src/components/guide/GuideTour').default;
     const triage = GUIDE_STEPS.findIndex((step) => step.path === '/triage');
     useGuideStore.setState({ index: triage });
-    let tree;
-    act(() => { tree = create(React.createElement(GuideTour), { createNodeMock: node }); });
+    const tree = mount();
     expect(push).toHaveBeenCalledWith('/triage');
     expect(text(tree)).toContain('Opening Triage');
   });
 
   test('starts over the page that is open, and exiting goes back to it', () => {
-    const GuideTour = require('../src/components/guide/GuideTour').default;
     pathname = '/triage';
     global.location = { pathname: '/triage', search: '?visit=12' };
-    let tree;
-    act(() => { tree = create(React.createElement(GuideTour), { createNodeMock: node }); });
+    const tree = mount();
     expect(push).not.toHaveBeenCalled();
     press('ArrowRight'); // the location step, on Home
     expect(push).toHaveBeenLastCalledWith('/');
@@ -193,9 +257,7 @@ describe('the tour on screen', () => {
   });
 
   test("clicking the paused page doesn't reach it: the pop-up nudges and says why", () => {
-    const GuideTour = require('../src/components/guide/GuideTour').default;
-    let tree;
-    act(() => { tree = create(React.createElement(GuideTour), { createNodeMock: node }); });
+    const tree = mount();
     const blocker = tree.root.find((n) => typeof n.props.onPointerDown === 'function');
     act(() => blocker.props.onPointerDown());
     expect(text(tree)).toContain('The page is paused during the guide');

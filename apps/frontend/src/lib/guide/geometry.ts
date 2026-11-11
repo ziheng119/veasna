@@ -24,6 +24,12 @@ export function padRect(rect: Rect, pad: number, vw: number, vh: number): Rect {
   return { x, y, w: right - x, h: bottom - y };
 }
 
+// The overlap of two rectangles (zero size when they don't touch).
+export function intersect(a: Rect, b: Rect): Rect {
+  const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+  return { x, y, w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x), h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y) };
+}
+
 // A clip-path: the whole screen with a rounded hole where `hole` is (even-odd fill).
 export function spotlightPath(hole: Rect, vw: number, vh: number, radius = 14): string {
   const r = Math.max(0, Math.min(radius, hole.w / 2, hole.h / 2));
@@ -63,8 +69,8 @@ export function placePopover(target: Rect | null, box: { w: number; h: number },
   return { x, y, side, arrow: clamp(cy - y, ARROW_INSET, box.h - ARROW_INSET) };
 }
 
-// Moves `from` towards `to` for a frame of `dtMs`, easing out (about 90% of the way in 200 ms).
-export function approach(from: number, to: number, dtMs: number, timeMs = 90): number {
+// Moves `from` towards `to` for a frame of `dtMs`, easing out (about 90% of the way in 140 ms).
+export function approach(from: number, to: number, dtMs: number, timeMs = 60): number {
   const next = from + (to - from) * (1 - Math.exp(-dtMs / timeMs));
-  return Math.abs(to - next) < 0.3 ? to : next;
+  return Math.abs(to - next) < 0.5 ? to : next;
 }
