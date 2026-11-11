@@ -157,14 +157,12 @@ npm run lint           # web app lint
 npm run check:lan -- http://<backend-IP>:3000 http://<frontend-IP>:3001 <username> <password>
 ```
 
-Most tests use fake or temporary data. The exceptions are three older backend test
-files (`users`, `locations` and `registration_and_components`), which write to the
-database in `apps/backend/.env`. **Do not run the full backend suite against a clinic
-database.** To run only the safe tests:
+Tests use fake data or temporary tables only, so they never change the database in
+`apps/backend/.env`:
 
 ```bash
 npm test --workspace apps/frontend
-npm test --workspace apps/backend -- --testPathIgnorePatterns "users|locations|registration_and_components"
+npm test --workspace apps/backend
 ```
 
 Database changes are applied automatically when the server starts. More detail:

@@ -44,7 +44,7 @@ because a device that has been offline often has the wrong clock.
 **POST** `auth/register`, **POST** `users`
 Always `403`: account creation is disabled.
 
-**GET** `users` lists accounts. **PATCH** `users/deactivate` (admin) disables one.
+Accounts are listed, created, changed and disabled with `accounts` (admin; see "Accounts, station data and export" below).
 
 ---
 
@@ -258,17 +258,12 @@ The triage, Seva, consultation and referral save endpoints accept partially fill
 
 ---
 
-### Older endpoints
+### Deleting a patient
 
-Left from an earlier version. The app uses only `DELETE registration/{patientId}` (admin), behind **Delete** on the Patient List. Don't build on the others: several were written for an older database layout and now fail with `500`, and they are due to be removed.
+**DELETE** `registration/{patientId}` (admin)
+Deletes a patient and everything recorded for them (behind **Delete** on the Patient List). A family left with one member is dissolved, and family members waiting for this patient at a station move on. Returns `404` for an unknown patient.
 
-| Endpoint | Status |
-| --- | --- |
-| `DELETE registration/{patientId}` (admin) | In use: deletes a patient and everything recorded for them. |
-| `POST patients`, `GET patients/today` | Work, but unused. `POST patients` records the `user_id` sent in the body rather than the signed-in account; use `POST visits`. |
-| `POST registration` | Fails (`500`); use `POST visits`. |
-| `PUT registration/{patientId}` | Fails (`500`) when it includes vitals, HEF or a visit; use `PUT patient/{id}` and the visit endpoints. |
-| `POST`/`GET patients/{id}/visual_acuity`, `/presenting_complaint`, `/history`, `/consultations`, `/physiotherapy`; `POST`/`GET consultations/{id}/referrals` | Fail (`500`); use `triage/*` and `visits/*`. |
+The older endpoints from an earlier version (`POST registration`, `PUT registration/{id}`, `POST patients`, `GET patients/today`, `DELETE patients/{id}`, `patients/{id}/visual_acuity` and the like, `consultations/{id}/referrals`, `GET users`, `PATCH users/deactivate`) have been removed. Use `POST visits`, `PUT patient/{id}`, `triage/*`, `visits/*` and `accounts` instead.
 
 ---
 

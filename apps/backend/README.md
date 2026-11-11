@@ -226,7 +226,6 @@ npm run format                             # Prettier
 ```
 
 Files named `*.database.test.js` use temporary tables only and are skipped unless you
-set `RUN_DB_TESTS=1` (PowerShell: `$env:RUN_DB_TESTS='1'`). Three older test files
-(`users`, `locations`, `registration_and_components`) write to the real database, so
-don't run the full suite against a clinic database. See the
-[main README](../../README.md#for-developers).
+set `RUN_DB_TESTS=1` (PowerShell: `$env:RUN_DB_TESTS='1'`); they connect with
+`apps/backend/.env` but never change its data. Every other test mocks the database. See
+the [main README](../../README.md#for-developers).
