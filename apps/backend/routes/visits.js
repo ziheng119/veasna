@@ -4,7 +4,7 @@ const { parseReferralFilter } = require('../utils/referralFilter');
 // routes/visits.js
 const express = require('express');
 const router = express.Router();
-const { integerParams, toPositiveInt, isIsoDate } = require('../utils/validation');
+const { integerParams, toPositiveInt, isIsoDate, isRequestId } = require('../utils/validation');
 // Non-integer IDs in the URL are rejected with 400 before reaching the database.
 integerParams(router, ['id', 'visit_id']);
 const db = require('../config/db');
@@ -21,8 +21,6 @@ const { normalizeStickerColour } = require('../utils/formOptions');
 const { canEditSavedRecords } = require('../utils/permissions');
 
 const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
-// A device's one-off id for a registration (letters, digits, - and _).
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 // What POST /api/visits answers: the queued visit, as the registration desk shows it.
 function registrationResponse(visit, age) {
@@ -145,7 +143,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     // Optional one-off id from the device: a registration sent again with the same id (because the
     // device never got the answer) returns the first one instead of queuing the patient twice.
     const requestId = req.body.request_id ?? null;
-    if (requestId !== null && (typeof requestId !== 'string' || !REQUEST_ID_PATTERN.test(requestId))) {
+    if (requestId !== null && !isRequestId(requestId)) {
         return res.status(400).json({ error: 'request_id must be 8 to 64 letters, digits, - or _.' });
     }
 

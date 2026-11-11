@@ -17,6 +17,13 @@ test('a registration keeps its id after a failure and gets a new one once saved'
   expect(registration.get()).not.toBe(first);
 });
 
+test('a different key (e.g. another drug or quantity) is a different save, with a new id', () => {
+  const dispense = retryableRequestId();
+  const first = dispense.get('1:2');
+  expect(dispense.get('1:2')).toBe(first);
+  expect(dispense.get('1:3')).not.toBe(first);
+});
+
 test('createVisit sends the request id', async () => {
   const originalFetch = global.fetch;
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ visit_id: 1 }) });

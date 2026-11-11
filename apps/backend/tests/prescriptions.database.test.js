@@ -36,7 +36,7 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, queue_no TEXT,
         visit_date DATE DEFAULT CURRENT_DATE, completed_at TIMESTAMP);`);
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8').replace(/\r\n/g, '\n');
-    for (const table of ['pharmacy', 'prescriptions', 'visit_stations']) {
+    for (const table of ['pharmacy', 'pharmacy_dispenses', 'prescriptions', 'visit_stations']) {
       const start = setup.indexOf(`CREATE TABLE ${table} (`);
       await client.query(setup.slice(start, setup.indexOf('\n);', start) + 3).replace('CREATE TABLE', 'CREATE TEMP TABLE'));
     }
@@ -51,7 +51,7 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
   });
 
   beforeEach(() => client.query(`
-    TRUNCATE visit_station_route_history, visit_stations, prescriptions, pharmacy, visits, patients, locations, users RESTART IDENTITY CASCADE;
+    TRUNCATE visit_station_route_history, visit_stations, prescriptions, pharmacy_dispenses, pharmacy, visits, patients, locations, users RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (1, 'doctor');
     INSERT INTO locations VALUES (1), (2);
     INSERT INTO patients VALUES (1, 'Sok', 'សុខ', 'SOK');
@@ -154,6 +154,19 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     expect((await as(request(app).patch('/pharmacy/1')).send({ stock_count: 5 })).status).toBe(409);
     expect((await as(request(app).patch('/pharmacy/1')).send({ stock_count: 8 })).body).toMatchObject({ stock_count: 8, available_count: 2 });
     expect((await as(request(app).delete('/pharmacy/1'))).status).toBe(409);
+  });
+
+  test('each walk-in dispense is recorded; one sent again with its request id takes the stock once', async () => {
+    const dispense = (body) => as(request(app).post('/pharmacy/1/dispense')).send(body);
+    expect((await dispense({ quantity: 2, request_id: 'walkin-0001' })).body).toMatchObject({ stock_count: 8 });
+    // The answer was lost and the device sends it again.
+    expect((await dispense({ quantity: 2, request_id: 'walkin-0001' })).body).toMatchObject({ stock_count: 8, repeated: true });
+    expect((await dispense({ quantity: 1 })).body).toMatchObject({ stock_count: 7 });
+    expect((await dispense({ quantity: 1, request_id: 'bad id' })).status).toBe(400);
+    expect((await client.query('SELECT request_id, drug_name, quantity, dispensed_by FROM pharmacy_dispenses ORDER BY id')).rows).toEqual([
+      { request_id: 'walkin-0001', drug_name: 'Paracetamol', quantity: 2, dispensed_by: 1 },
+      { request_id: null, drug_name: 'Paracetamol', quantity: 1, dispensed_by: 1 },
+    ]);
   });
 
   test('pharmacy lists: pending by location, patients, and one patient\'s history', async () => {

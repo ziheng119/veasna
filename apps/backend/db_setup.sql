@@ -347,6 +347,17 @@ CREATE TABLE pharmacy (
     UNIQUE (location_id, drug_name)
 );
 
+-- Walk-in dispenses (without a prescription); request_id makes a repeated request a no-op.
+CREATE TABLE pharmacy_dispenses (
+    id SERIAL PRIMARY KEY,
+    request_id VARCHAR(64) UNIQUE,
+    drug_id INT REFERENCES pharmacy(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    drug_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    dispensed_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
+    dispensed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Prescriptions linked to pharmacy inventory. A pending prescription reserves its quantity:
 -- available stock = stock_count - pending quantities. Dispensing lowers stock_count;
 -- cancelling releases the reservation.

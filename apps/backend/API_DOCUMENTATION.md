@@ -195,7 +195,7 @@ Body `{ "stock_count": 80 }`. Sets the stock to an exact number (for stock-takin
 **PATCH** `pharmacy/{drugId}/name` (admin) renames a medicine. **DELETE** `pharmacy/{drugId}` (admin) removes it; `409` while it has pending prescriptions.
 
 **POST** `pharmacy/{drugId}/dispense` (admin)
-Body: `{ "quantity": 3 }`. Dispensing without a prescription (e.g. a walk-in). Only available stock can be used: reserved stock is kept for its prescriptions. The medicine row is locked, so dispensing on several devices at once is never lost. Returns the updated medicine, `409` with `stock_count` and `available_count` when there is not enough, or `404` for an unknown medicine.
+Body: `{ "quantity": 3, "request_id": "..." }`. Dispensing without a prescription (e.g. a walk-in). Only available stock can be used: reserved stock is kept for its prescriptions. The medicine row is locked, so dispensing on several devices at once is never lost. Each dispense is recorded in `pharmacy_dispenses` (medicine, quantity, who, when). `request_id` is optional, as for `POST visits`: sent again, it returns the medicine with `"repeated": true` without taking the stock a second time. Returns the updated medicine, `409` with `stock_count` and `available_count` when there is not enough, or `404` for an unknown medicine.
 
 ### Prescriptions
 

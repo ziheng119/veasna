@@ -240,7 +240,18 @@ function ensureRegistrationRequestId() {
   return registrationRequestIdPromise;
 }
 
+// pharmacy_dispenses: a record of each walk-in dispense, sent once even if sent twice.
+let pharmacyDispensesPromise;
+function ensurePharmacyDispenses() {
+  if (!pharmacyDispensesPromise) {
+    pharmacyDispensesPromise = runMigration('025_pharmacy_dispenses.sql')
+      .catch(err => { pharmacyDispensesPromise = null; throw err; });
+  }
+  return pharmacyDispensesPromise;
+}
+
 module.exports = {
+  ensurePharmacyDispenses,
   ensureRegistrationRequestId,
   ensureReferralDoctor,
   ensureSharedUserRetired,

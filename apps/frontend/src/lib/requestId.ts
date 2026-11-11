@@ -10,11 +10,16 @@ export function newRequestId(): string {
 }
 
 // The id for one save: the same id is sent again after a failure (the host may have saved it),
-// and a new one is made once the host confirms.
+// and a new one is made once the host confirms. `key` names what is being saved (e.g. drug and
+// quantity): a different key is a different save, so it gets a new id.
 export function retryableRequestId() {
   let id: string | null = null;
+  let idFor = "";
   return {
-    get: () => (id ??= newRequestId()),
+    get: (key = "") => {
+      if (key !== idFor) { id = null; idFor = key; }
+      return (id ??= newRequestId());
+    },
     saved: () => { id = null; },
   };
 }

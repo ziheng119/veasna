@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { integerParams, toPositiveInt, toCount } = require('../utils/validation');
+const { integerParams, toPositiveInt, toCount, isRequestId } = require('../utils/validation');
 // Non-integer IDs in the URL are rejected with 400 before reaching the database.
 integerParams(router, ['drugId']);
 const db = require('../config/db');
@@ -165,15 +165,26 @@ router.patch('/:drugId', authenticateToken, async (req, res) => {
 
 // POST dispense without a prescription (e.g. a walk-in). Only stock not reserved by pending
 // prescriptions can be used. The drug row is locked, so two devices dispensing at once both count.
+// Each dispense is recorded in pharmacy_dispenses. With the optional request_id (the device's
+// one-off id), a request sent again answers with the drug as it is, without taking the stock twice.
 router.post('/:drugId/dispense', authenticateToken, async (req, res) => {
     const quantity = toPositiveInt(req.body.quantity);
+    const requestId = req.body.request_id ?? null;
     if (!quantity) {
         return res.status(400).json({ error: 'quantity must be a positive integer' });
+    }
+    if (requestId !== null && !isRequestId(requestId)) {
+        return res.status(400).json({ error: 'request_id must be 8 to 64 letters, digits, - or _.' });
     }
 
     await inTransaction(res, 'dispensing drug', async (client) => {
         const drug = await lockDrug(client, req.params.drugId);
         if (!drug) return { status: 404, body: { error: 'Drug not found' } };
+        // Checked under the drug's lock, so a repeat sent at the same moment waits and sees the first.
+        if (requestId) {
+            const earlier = await client.query('SELECT 1 FROM pharmacy_dispenses WHERE request_id = $1', [requestId]);
+            if (earlier.rows.length) return { status: 200, body: { ...drug, repeated: true } };
+        }
         if (drug.available_count < quantity) {
             return {
                 status: 409,
@@ -190,6 +201,10 @@ router.post('/:drugId/dispense', authenticateToken, async (req, res) => {
             `UPDATE pharmacy SET stock_count = stock_count - $1, last_updated_at = NOW(), last_updated_by = $2
              WHERE id = $3 RETURNING *`,
             [quantity, req.user.id, req.params.drugId]
+        );
+        await client.query(
+            'INSERT INTO pharmacy_dispenses (request_id, drug_id, drug_name, quantity, dispensed_by) VALUES ($1, $2, $3, $4, $5)',
+            [requestId, drug.id, drug.drug_name, quantity, req.user.id]
         );
         return {
             status: 200,
