@@ -1,6 +1,7 @@
 // Requests to the host laptop's API. Clinic Wi-Fi drops and stalls, so every request gives up after
 // a while and failures read as messages staff can act on, never "Failed to fetch" or a JSON error.
 import { useUserStore } from "@/stores/useUserStore";
+import { sampleReply } from "@/lib/guide/sample";
 
 export const REQUEST_TIMEOUT_MS = 20_000;
 // A load (GET) whose connection dropped is sent once more after this; Wi-Fi blips are often brief.
@@ -23,9 +24,13 @@ function hasAuthorization(headers: HeadersInit | undefined): boolean {
  *   `retryOnDrop: false` turns this off for callers that retry by themselves;
  * - turns a dropped connection into a NoAnswerError with a readable message;
  * - signs this device out when a signed-in request gets 401 (sign-in expired or account disabled).
+ * During the guided tour, queues and the sample patient's records are answered by the tour
+ *   (lib/guide/sample.ts) instead of the host.
  * Cancelling through `signal` still rejects with the browser's AbortError, as with fetch().
  */
 export async function apiFetch(url: string, init: RequestInit & { timeoutMs?: number; retryOnDrop?: boolean } = {}): Promise<Response> {
+  const sample = sampleReply(url, init.method);
+  if (sample) return sample;
   const { timeoutMs = REQUEST_TIMEOUT_MS, signal, retryOnDrop = true, ...options } = init;
   const controller = new AbortController();
   let timedOut = false;

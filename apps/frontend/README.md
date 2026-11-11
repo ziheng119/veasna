@@ -107,6 +107,16 @@ text, a preferred side, and optionally a registration tab to show first (`tab`).
   turned on, it moves without animating.
 - The tour's pages are prefetched when it starts. With no location chosen, it borrows
   the first location and clears it again when it ends, so the pages aren't empty.
+- A sample patient goes through the stations with the tour (`src/lib/guide/sample.ts`).
+  While the tour runs, `apiFetch` answers queues, patient lists, pending prescriptions
+  and the sample's own records (id `-1`) itself; everything else still goes to the
+  host. Station steps open the sample with `?visit=-1` in their `path`. Saving the
+  sample is refused, so nothing reaches the database, and pages that showed it are
+  opened afresh when the tour ends. To show more of a station, add to its record there.
+
+Pages that show one location's patients call `useLocationReminder()`
+(`src/hooks/useLocationReminder.ts`) to ask for a location. It uses one toast id, so
+moving between pages never stacks reminders, and it stays quiet during the tour.
 
 ```bash
 npm test --workspace apps/frontend

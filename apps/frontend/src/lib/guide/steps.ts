@@ -5,11 +5,16 @@
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { TB_MIN_RED_FLAGS } from "@/constants/tb";
 import type { Side } from "./geometry";
+import { SAMPLE_ID } from "./sampleId";
+
+// A station page with the sample patient open (lib/guide/sample.ts).
+const withSample = (path: string) => `${path}?visit=${SAMPLE_ID}`;
 
 export interface GuideStep {
   // Shown above the title, e.g. the station.
   chapter: string;
-  // The page this step is on; none: whatever page is open.
+  // The page this step is on (may carry ?visit= to open the sample patient); none: whatever
+  // page is open.
   path?: string;
   // data-tour of the part to light up; none: a card in the middle of the screen.
   target?: string;
@@ -25,7 +30,7 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Welcome",
     title: "Welcome to VEASNA",
-    body: "A quick look at one patient's visit, from registration to their last station. Nothing is changed. Esc or ✕ exits.",
+    body: "Follow a sample patient from registration to their last station. Nothing is saved. Esc or ✕ exits at any time.",
   },
   {
     chapter: "Getting started", path: "/", target: "location", side: "bottom",
@@ -75,50 +80,50 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Registration", path: "/", target: "home-queue", side: "right", tab: "patient-info",
     title: "Today's queue",
-    body: "Everyone registered here today, and the station each one is waiting at.",
+    body: "Everyone registered here today, and the station each one is waiting at. The sample patient waits for Triage.",
   },
   {
-    chapter: "Triage", path: "/triage", target: "station-queue", side: "right",
+    chapter: "Triage", path: withSample("/triage"), target: "station-queue", side: "right",
     title: "Each station has its own queue",
-    body: "Patients waiting here, in order. Choose one to open their record. Next sends them on; Send to picks a station.",
+    body: "Patients waiting here, in order; for now, just the sample patient. Choose one to open them. Next sends them on.",
   },
   {
-    chapter: "Triage", path: "/triage", target: "station-search", side: "bottom",
+    chapter: "Triage", path: withSample("/triage"), target: "station-search", side: "bottom",
     title: "Find a patient",
     body: "Search by name or queue number.",
   },
   {
-    chapter: "Triage", path: "/triage", target: "station-work", side: "left",
+    chapter: "Triage", path: withSample("/triage"), target: "station-work", side: "left",
     title: "Triage",
     body: `Vision, complaint and history. Flag suspected TB here, or send a suspected cataract to ${PARTNER_NGO_NAME}. Save & next moves them on.`,
   },
   {
-    chapter: "Dental", path: "/dental", target: "station-work", side: "left",
+    chapter: "Dental", path: withSample("/dental"), target: "station-work", side: "left",
     title: "Dental",
     body: "Note the treatment given, and tick if the doctor should refer them.",
   },
   {
-    chapter: "Consult", path: "/doctors-consultation", target: "station-queue", side: "right",
+    chapter: "Consult", path: withSample("/doctors-consultation"), target: "station-queue", side: "right",
     title: "Consult",
     body: "The doctor's queue. Patients in red may have TB: see them first.",
   },
   {
-    chapter: "Consult", path: "/doctors-consultation", target: "station-work", side: "top",
+    chapter: "Consult", path: withSample("/doctors-consultation"), target: "station-work", side: "top",
     title: "Consultation notes",
     body: "Notes, prescriptions and referrals, including referral letters. Printing needs the admin account.",
   },
   {
-    chapter: "Physiotherapy", path: "/physiotherapy", target: "station-work", side: "left",
+    chapter: "Physiotherapy", path: withSample("/physiotherapy"), target: "station-work", side: "left",
     title: "Physiotherapy",
     body: "Mark where it hurts on the body chart, and note the treatment.",
   },
   {
-    chapter: PARTNER_NGO_NAME, path: "/seva", target: "station-work", side: "left",
+    chapter: PARTNER_NGO_NAME, path: withSample("/seva"), target: "station-work", side: "left",
     title: PARTNER_NGO_NAME,
     body: "Patients with a suspected cataract. Record the eye findings and whether to refer them.",
   },
   {
-    chapter: "Pharmacy", path: "/pharmacy", target: "pharmacy-prescriptions", side: "left",
+    chapter: "Pharmacy", path: withSample("/pharmacy"), target: "pharmacy-prescriptions", side: "left",
     title: "Pharmacy: the last station",
     body: "Prescriptions wait here. The admin account dispenses, as that changes stock. Finish ends the visit.",
   },
@@ -133,3 +138,6 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: "That's a whole visit. Open this guide again any time with the ? button.",
   },
 ];
+
+// A step's page without its query: what usePathname() gives once it is open.
+export const stepPage = (step: GuideStep) => step.path?.split("?")[0];

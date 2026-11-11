@@ -153,7 +153,7 @@
 }
 
 /* Guided tour (components/guide/GuideTour.tsx). The spotlight's hole is cut by a clip-path: on a
-   plain dim layer every frame (cheap), and on the blur layer only once the spotlight has arrived
+   plain dim layer every frame (cheap), and on the blur layer only as the spotlight arrives
    (blurring redraws the whole screen). The ring is a plain outline, so the lit part stays the
    thing to look at. */
 .guide-dim,
@@ -165,7 +165,7 @@
 .guide-dim { background: rgb(2 6 23 / 0.5); }
 .guide-blur {
   opacity: 0;
-  transition: opacity 180ms ease-out;
+  transition: opacity 90ms ease-out;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
