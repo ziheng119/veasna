@@ -92,6 +92,8 @@ export default function AccountsPage() {
   };
 
   const dayAccounts = accounts?.filter(account => account.screening_date) ?? [];
+  // After its day an account can no longer sign in; what it saved stays (backend utils/dayScope.js).
+  const today = hostToday();
   const fixedAccounts = accounts?.filter(account => !account.screening_date && account.is_active) ?? [];
 
   return (
@@ -100,7 +102,8 @@ export default function AccountsPage() {
         <h1 className="text-3xl font-bold text-foreground">Accounts</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Make one account for each screening day and give it to everyone working that day. It shows only the
-          patients queued on that day, with their earlier visits, and can save only on that day.
+          patients queued on that day, with their earlier visits, and can save only on that day. Once the day is
+          over it signs out and can no longer sign in; what it saved stays in the records.
         </p>
       </header>
 
@@ -144,7 +147,9 @@ export default function AccountsPage() {
                 <p className="font-medium">{account.username}</p>
                 <p className="text-sm text-muted-foreground">{formatDayLabel(account.screening_date!)}</p>
               </div>
-              <Badge variant={account.is_active ? "active" : "inactive"}>{account.is_active ? "Can sign in" : "Disabled"}</Badge>
+              <Badge variant={account.is_active && account.screening_date! >= today ? "active" : "inactive"}>
+                {!account.is_active ? "Disabled" : account.screening_date! < today ? "Day ended" : "Can sign in"}
+              </Badge>
               <Button type="button" variant="ghost" size="sm" disabled={busyId === account.id} onClick={() => changeDate(account)}>
                 <CalendarDays className="size-4" /> Date
               </Button>

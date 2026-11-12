@@ -149,3 +149,29 @@ test('a sign-in renewed by the host is stored without remounting the open page',
     global.fetch = originalFetch; log.mockRestore();
   }
 });
+
+test("a screening-day account is signed out at midnight on the host's calendar, even on an idle page", async () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const originalFetch = global.fetch;
+  // Ten seconds before midnight on 13 December (this device's calendar, as the host clock is unknown).
+  jest.useFakeTimers({ now: new Date(2026, 11, 13, 23, 59, 50), doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+  replace.mockClear(); pathname = '/triage';
+  const token = `x.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 86400 })).toString('base64')}.x`;
+  const user = { id: 3, username: 'dec13village', role: 'user', screening_date: '2026-12-13', token };
+  useUserStore.setState({ user });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ ...user, token: undefined }) });
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(AuthWrapper, null, React.createElement('protected-page'))); });
+    expect(renderer.root.findAllByType('protected-page')).toHaveLength(1);
+    // Nobody touches the device: no request is made, the day just ends.
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(useUserStore.getState().user).toBeNull();
+    expect(replace).toHaveBeenCalledWith('/login');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    jest.useRealTimers();
+    global.fetch = originalFetch; log.mockRestore();
+  }
+});

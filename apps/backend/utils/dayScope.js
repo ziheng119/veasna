@@ -53,6 +53,20 @@ function scopeDate(user) {
   return user.screening_date || currentVisitDate();
 }
 
+// A screening-day account stops working once its day is over on the host's calendar: it can no
+// longer sign in, and a device still signed in with it is signed out (middleware/authorizeApi.js
+// answers 401). The account and what it saved stay in the database for the admin and analytics.
+// Before its day it still signs in (to check the password); the admin and accounts without a
+// screening date never end.
+function screeningDayEnded(user) {
+  if (!user || user.role === 'admin' || !user.screening_date) return false;
+  return currentVisitDate() > user.screening_date; // both YYYY-MM-DD
+}
+
+function screeningDayEndedMessage(user) {
+  return `${user.username} was for the screening on ${user.screening_date}, which has ended. Sign in with the account for today.`;
+}
+
 // The visits an account may change, as checkDayScope enforces for saves: every visit for the admin
 // ({ all: true }); otherwise only visits dated its day, and only while it is that day on the host
 // (day is null on any other date, so nothing is editable). Lets Patient Details show earlier visits
@@ -92,4 +106,4 @@ async function checkDayScope(db, req, rawPath) {
     : { status: 403, message: 'This account can only change visits from its screening day.' };
 }
 
-module.exports = { patientOnDaySql, checkDayScope, scopeDate, saveScope };
+module.exports = { patientOnDaySql, checkDayScope, scopeDate, saveScope, screeningDayEnded, screeningDayEndedMessage };

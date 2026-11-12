@@ -218,6 +218,9 @@ These rules are enforced by the server, so they apply on every device:
   account or an expired sign-in gets `401`, which signs the device out.
 - **Permissions:** every account can enter and correct records. A screening-day
   account only reaches its day's patients, and their earlier visits are read-only to it.
+  After its day (the host's date is past its screening date) it can't sign in, and every
+  request with it gets `401`, so devices still signed in with it sign out. The account and
+  its records are kept.
   Deleting records, pharmacy stock changes, Analytics, downloads and settings are
   admin-only. See [accounts and permissions](../../docs/user-roles.md).
 - **Clinic day:** "today" is the host laptop's date, so set its clock and time zone

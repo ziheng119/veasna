@@ -36,9 +36,15 @@ The account then:
 - **Saves only on its screening day, and only to that day's visits.** Earlier visits
   are read-only: Patient Details shows them without **Edit** or **Add**, with a line
   saying only the admin can change them. The patient's own details (name, phone and so
-  on) can still be corrected. On another day it can still sign in and look, but every save is
+  on) can still be corrected. Before its day it can sign in and look, but every save is
   refused with a message naming its date. The host laptop's clock decides what "today"
   is, so check it before the clinic opens.
+- **Stops working once its day is over.** At midnight on the host laptop's calendar,
+  every device still signed in with it is signed out, with a message saying its screening
+  has ended, and it can no longer sign in. Volunteers use the next day's account instead.
+  The account is not deleted: everything it saved stays in the records under its name,
+  for the admin, Analytics and downloads. The Accounts page shows it as **Day ended**;
+  changing its date to today or later lets it sign in again.
 - It enters records and corrects saved ones for that day's visits, but can't print
   referrals, download patient data or delete anything.
 

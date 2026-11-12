@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { comparePassword } = require('../config/db');
 const { normalizeRole } = require('../utils/permissions');
 const { hostClock } = require('../utils/hostClock');
+const { screeningDayEnded, screeningDayEndedMessage } = require('../utils/dayScope');
 
 let ensurePasswordColumnPromise = null;
 
@@ -118,6 +119,11 @@ router.post('/login', async (req, res) => {
     const isMatch = await comparePassword(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid username or password' });
+    }
+
+    // Checked after the password, so the message does not reveal which accounts exist.
+    if (screeningDayEnded(user)) {
+      return res.status(403).json({ message: screeningDayEndedMessage(user) });
     }
 
     const token = signUserToken(user);

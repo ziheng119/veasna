@@ -7,12 +7,18 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { backend_url } from '@/constants/env_variable';
 import { canAccessPage, defaultPage } from '@/lib/permissions';
 import { User } from '@/lib/types/user';
-import { HostClock, useHostClockStore } from '@/stores/useHostClockStore';
+import { HostClock, hostToday, useHostClockStore } from '@/stores/useHostClockStore';
 import { apiFetch } from '@/lib/api/request';
+import { formatDayLabel } from '@/helper/format_date';
+import toast from 'react-hot-toast';
 
 // The permission check on each page change: retried after these delays before an error shows.
 const RETRY_DELAYS_MS = [1000, 3000];
 const CHECK_TIMEOUT_MS = 8000;
+// How often a screening-day account checks whether its day has ended.
+const DAY_END_CHECK_MS = 30_000;
+// One sign-out message, however many checks notice it.
+const SIGNED_OUT_TOAST = "signed-out";
 
 interface Props {
   children: React.ReactNode;
@@ -33,6 +39,22 @@ export default function AuthWrapper({ children }: Props) {
       router.replace("/login");
     }
   }, [hasHydrated, user, removeUser, router]);
+
+  // A screening-day account works only on its day: sign out as soon as the host's calendar moves
+  // past it, even on an idle device. The host refuses the account from then on anyway.
+  useEffect(() => {
+    if (!user?.screening_date || user.role === "admin") return;
+    const day = user.screening_date;
+    const check = () => {
+      if (hostToday() <= day) return;
+      toast.error(`The screening on ${formatDayLabel(day)} has ended. Sign in with the account for today.`, { id: SIGNED_OUT_TOAST });
+      removeUser();
+      router.replace("/login");
+    };
+    check();
+    const timer = setInterval(check, DAY_END_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [user?.screening_date, user?.role, removeUser, router]);
 
   if (!hasHydrated) return <LoadingSpinner />;
 
@@ -68,7 +90,12 @@ function PageAccess({ user, children }: Props & { user: User }) {
         retryOnDrop: false,
       }).then(async response => {
         if (response.status === 401 || response.status === 403) {
-          if (!controller.signal.aborted) { removeUser(); router.replace("/login"); }
+          if (controller.signal.aborted) return;
+          removeUser(); router.replace("/login");
+          // Why, e.g. the screening day this account was for has ended (backend utils/dayScope.js).
+          Promise.resolve().then(() => response.json()).then(body => {
+            if (typeof body?.message === "string" && body.message) toast.error(body.message, { id: SIGNED_OUT_TOAST });
+          }).catch(() => {});
           return;
         }
         if (!response.ok) throw new Error("Permission check failed");
