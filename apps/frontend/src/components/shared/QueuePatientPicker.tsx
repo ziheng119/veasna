@@ -21,8 +21,8 @@ import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
 import { Check, ChevronRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
@@ -50,20 +50,20 @@ export default function QueuePatientPicker({
 }: QueuePatientPickerProps) {
   const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
-  const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
-  // Present on station pages (not Home): Next saves the open form first, and the order is shared.
+  // Next, Send to and Discharge move patients: "Edit today's queue". Without it they are not shown.
+  const canMove = useUserStore((state) => canEditSavedData(state.user));
+  // Present on station pages (not Registration): Next saves the open form first, and the order is shared.
   const flow = useStationFlow();
 
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
-  const locationId = location?.id;
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
-    if (!locationId || !token) return [];
-    return getQueue(locationId, CLINIC_TODAY, token, station, signal);
-  }, [locationId, token, station]);
+    if (!token) return [];
+    return getQueue(CLINIC_TODAY, token, station, signal);
+  }, [token, station]);
   const { data: patients, refresh: loadQueue, loaded } = useLiveList(load);
 
   // Opening this page with ?visit=<id> (e.g. from the queue search) selects that visit once this
@@ -72,12 +72,12 @@ export default function QueuePatientPicker({
   const pathname = usePathname();
   const requestedVisitId = Number(useSearchParams().get("visit")) || null;
   useEffect(() => {
-    if (!requestedVisitId || !loaded || !locationId || !token) return;
+    if (!requestedVisitId || !loaded || !token) return;
     const requested = patients.find((patient) => patient.visit_id === requestedVisitId);
     if (requested) onSelectPatient(requested);
     else toast(`That patient is no longer waiting at ${stationLabel(station)}.`);
     router.replace(pathname, { scroll: false });
-  }, [requestedVisitId, loaded, locationId, token, patients, onSelectPatient, router, pathname, station]);
+  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station]);
 
   // Bring the selected patient into view however they were chosen (queue search, link, click).
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function QueuePatientPicker({
   const seen = useRef<{ key: string; patients: Map<number, QueuedPatient> } | null>(null);
   const openVisit = useRef(selectedVisitId);
   openVisit.current = selectedVisitId;
-  const listKey = `${locationId}:${station}`;
+  const listKey = station;
   useEffect(() => {
     if (!loaded) return;
     const previous = seen.current;
@@ -160,7 +160,7 @@ export default function QueuePatientPicker({
       await loadQueue();
     } catch (err) {
       console.error("Failed to remove patient from queue:", err);
-      toast.error("Failed to remove patient from queue");
+      toast.error(err instanceof Error ? err.message : "Failed to remove patient from queue");
     }
   };
 
@@ -304,6 +304,7 @@ export default function QueuePatientPicker({
                     className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal"
                   />
                 )}
+                {canMove && <>
                 <Button
                     type="button"
                     variant="ghost"
@@ -338,6 +339,7 @@ export default function QueuePatientPicker({
                   <X className="size-3.5" />
                   Discharge
                 </Button>
+                </>}
               </div>
               </div>
               {/* Only for a patient who has been before: their earlier trips and days. */}

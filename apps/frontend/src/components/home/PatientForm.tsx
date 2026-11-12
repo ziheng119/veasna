@@ -17,6 +17,7 @@ import { HEF } from "@/lib/types/hef";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
+import { can } from "@/lib/permissions";
 import { createVisit } from "@/lib/api/visit/createVisit";
 import { retryableRequestId } from "@/lib/requestId";
 import StickerColourSelect from "@/components/shared/StickerColourSelect";
@@ -24,7 +25,6 @@ import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPati
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
 import { calculateAge } from "@/helper/calculate_age";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { useFormOptions } from "@/stores/useFormOptionsStore";
@@ -43,7 +43,6 @@ import { LiveRecordNotice } from "../shared/LiveRecord";
 interface PatientFormProps {
     existingPatients: PatientInfo[];
     onSubmit: (patient: QueuedPatient) => void;
-    locationId?: number;
 }
 
 type FormErrors = {
@@ -96,7 +95,7 @@ const getBMICategory = (bmi: number) : string => {
     return "Severely Obese";
 }
 
-export function PatientForm({ existingPatients, onSubmit, locationId }: PatientFormProps) {
+export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     const token = useUserStore((state) => state.user?.token);
 
     const revision = useRealtimeStore(state => state.revision);
@@ -116,19 +115,19 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       previewRequest.current?.abort();
       const controller = new AbortController();
       previewRequest.current = controller;
-      if (!locationId || !token) {
+      if (!token) {
         setNextQueueNo("");
         return;
       }
       try {
-        const next = await getNextQueueNo(locationId, token, controller.signal);
+        const next = await getNextQueueNo(token, controller.signal);
         if (!controller.signal.aborted) setNextQueueNo(next);
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("Failed to fetch next queue number:", err);
         setNextQueueNo("");
       }
-    }, [locationId, token]);
+    }, [token]);
 
     useEffect(() => {
       refreshNextQueueNo();
@@ -142,24 +141,25 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const [matchPrompt, setMatchPrompt] = useState<{ matches: PatientInfo[]; onSubmit: boolean } | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // A screening-day account's patient list holds only that day's patients, so returning patients
-    // are looked up on the host by the name being typed (debounced) and added to the matches.
-    const screeningDay = useUserStore((state) => state.user?.screening_date);
+    // Without "See past patients" the patient list holds only that day's patients (or none, without
+    // "See today's patients"), so returning patients are looked up on the host by the name being
+    // typed (debounced) and added to the matches.
+    const listHasEveryone = useUserStore((state) => can(state.user, "view_past"));
     const lookupName = (patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim() || "");
     const [lookedUp, setLookedUp] = useState<PatientInfo[]>([]);
     useEffect(() => {
-      if (!screeningDay || !locationId || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
+      if (listHasEveryone || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
         setLookedUp([]);
         return;
       }
       const controller = new AbortController();
       const timer = setTimeout(() => {
-        lookupPatients(locationId, lookupName, token, controller.signal)
+        lookupPatients(lookupName, token, controller.signal)
           .then(setLookedUp)
           .catch((err) => { if (!controller.signal.aborted) console.error("Patient lookup failed:", err); });
       }, 250);
       return () => { clearTimeout(timer); controller.abort(); };
-    }, [screeningDay, locationId, token, lookupName]);
+    }, [listHasEveryone, token, lookupName]);
     const knownPatients = useMemo(() => {
       if (!lookedUp.length) return existingPatients;
       const ids = new Set(existingPatients.map((p) => p.id));
@@ -204,7 +204,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       setTbNotes(values.tbNotes);
       registrationId.current.resume(values.requestId);
     };
-    const draft = useNewFormDraft(userId && locationId ? newRecordDraftKey(userId, "registration", locationId) : null,
+    const draft = useNewFormDraft(userId ? newRecordDraftKey(userId, "registration") : null,
       draftValues, emptyForm, fillForm);
 
     const clearFieldError = (field: keyof FormErrors) => {
@@ -337,8 +337,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     const handleSubmit = () => {
-        if (!locationId || !token) {
-          alert("Location not selected or user not authenticated.");
+        if (!token) {
+          toast.error("You are signed out. Sign in again to register patients.");
           return;
         }
         if (!validateForm()) return;
@@ -354,7 +354,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     const submitVisit = async (patientId?: number) => {
-        if (!locationId || !token) return;
+        if (!token) return;
 
         setMatchPrompt(null);
         setIsSubmitting(true);
@@ -362,7 +362,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         // The queue number is assigned by the server.
         const completePatientInfo = {
           ...patientInfo,
-          location_id: locationId,
           id: patientId,
         };
 

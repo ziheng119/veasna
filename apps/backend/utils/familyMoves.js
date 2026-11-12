@@ -5,16 +5,16 @@
 
 const FAMILY_LOCK_NAMESPACE = 7102;
 
-// Serializes family changes and station moves at a location until the transaction ends. Take it
-// before any visit or patient row lock, so moving a family (which locks every member) can't deadlock.
-function lockFamilies(client, locationId) {
-  return client.query('SELECT pg_advisory_xact_lock($1, $2)', [FAMILY_LOCK_NAMESPACE, locationId]);
+// Serializes family changes and station moves until the transaction ends. Take it before any visit
+// or patient row lock, so moving a family (which locks every member) can't deadlock.
+function lockFamilies(client) {
+  return client.query('SELECT pg_advisory_xact_lock($1, 0)', [FAMILY_LOCK_NAMESPACE]);
 }
 
-// The visit's location, read before taking any lock; null when there is no such visit.
-async function visitLocation(client, visitId) {
-  const { rows } = await client.query('SELECT location_id FROM visits WHERE id = $1', [visitId]);
-  return rows.length ? rows[0].location_id : null;
+// Whether the visit exists, read before taking any lock.
+async function visitExists(client, visitId) {
+  const { rows } = await client.query('SELECT 1 FROM visits WHERE id = $1', [visitId]);
+  return rows.length > 0;
 }
 
 // Finishes the visit's current station: the next one starts, or the visit is complete when there
@@ -44,11 +44,11 @@ async function advanceVisit(client, visitId, userId) {
   return next ? next.station : null;
 }
 
-// The family's open visits at a location on a day, with their current station, locked. The caller
-// holds lockFamilies.
+// The family's open visits on a day, with their current station, locked. The caller holds
+// lockFamilies.
 async function familyMembers(client, place, family) {
-  const params = [place.location_id, place.visit_date, family];
-  const where = `v.location_id = $1 AND v.visit_date = $2::date AND p.family = $3 AND v.completed_at IS NULL`;
+  const params = [place.visit_date, family];
+  const where = `v.visit_date = $1::date AND p.family = $2 AND v.completed_at IS NULL`;
   await client.query(`SELECT v.id FROM visits v JOIN patients p ON p.id = v.patient_id WHERE ${where} ORDER BY v.id FOR UPDATE OF v`, params);
   const { rows } = await client.query(
     `SELECT v.id AS visit_id, v.queue_no, p.english_name, cur.station, cur.family_ready_at IS NOT NULL AS ready
@@ -66,7 +66,7 @@ async function familyMembers(client, place, family) {
 }
 
 // Moves on every group of family members who are all done at the station they wait at.
-// place gives the location and day ({ location_id, visit_date }). Returns
+// place gives the day ({ visit_date }). Returns
 // { moved: [{ visit_id, queue_no, completed_station, next_station }], members } where members are
 // the family's open visits there before the move.
 async function releaseFamily(client, place, family, userId) {
@@ -88,7 +88,7 @@ async function releaseFamily(client, place, family, userId) {
 // visits move on if no one is left to wait for: with the family's other members, or alone.
 async function releasePatient(client, patientId, userId) {
   const { rows } = await client.query(
-    `SELECT v.id, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
+    `SELECT v.id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
      FROM visits v JOIN patients p ON p.id = v.patient_id
      WHERE v.patient_id = $1 AND v.completed_at IS NULL`,
     [patientId]
@@ -110,11 +110,11 @@ async function releasePatient(client, patientId, userId) {
 // the members waiting there move on. The caller holds lockFamilies.
 async function releaseVisitFamily(client, visitId, userId) {
   const { rows } = await client.query(
-    `SELECT v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
+    `SELECT TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family
      FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1`,
     [visitId]
   );
   if (rows.length) await releaseFamily(client, rows[0], rows[0].family, userId);
 }
 
-module.exports = { lockFamilies, visitLocation, advanceVisit, releaseFamily, releasePatient, releaseVisitFamily };
+module.exports = { lockFamilies, visitExists, advanceVisit, releaseFamily, releasePatient, releaseVisitFamily };

@@ -5,7 +5,6 @@ import { TbStatus } from "@/constants/tb";
 export type PatientInfo = {
     id: number;
     face_id: string | null;  // generated from names and date of birth
-    location_id: number;
     english_name?: string;
     khmer_name?: string;
     date_of_birth: string;
@@ -82,7 +81,6 @@ export interface PatientWithVisits {
     patient: {
       id: number;
       face_id: string | null;  // generated from names and date of birth
-      location_id: number;
       english_name: string;
       khmer_name: string;
       date_of_birth: string;
@@ -91,7 +89,6 @@ export interface PatientWithVisits {
       phone_number?: string;
       last_updated_at: string;
       created_at: string;
-      location_name: string;
     };
     visits: VisitSummary[];
   }

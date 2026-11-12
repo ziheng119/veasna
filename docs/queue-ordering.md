@@ -6,11 +6,11 @@ Each queue has a **Sort queue by** switch above its search box:
   number: `2, 2A, 2AA, 2B, 10`. Numbers that start with a letter come after the plain
   numbers, in their own series: `A1, A2, A12, B1`. Letter case is ignored. Patients with
   the same number stay in arrival order.
-- **Arrival time:** whoever has waited longest comes first. On Home this is when the
+- **Arrival time:** whoever has waited longest comes first. On Registration this is when the
   patient registered; at a station, it is when they arrived at that station. A patient
   sent back to a station joins behind those already waiting there.
 
-Home starts on **Queue number** and station queues start on **Arrival time**. Your
+Registration starts on **Queue number** and station queues start on **Arrival time**. Your
 choice is remembered on this browser, for your account and that queue only. It
 doesn't change anyone else's view or the patient's route.
 
@@ -22,7 +22,7 @@ have waited longer.
 
 - Click anywhere on a patient card in a station queue to select the patient. The
   buttons on the card (**Next/Finish**, **Send to**, **Discharge**) work separately.
-- On **Home**, clicking a patient in **Today's Queue** opens the station they are
+- On **Registration**, clicking a patient in **Today's Queue** opens the station they are
   waiting at, with them already selected.
 - Suspected TB patients' cards are red. When hovered or selected they turn a darker
   red, instead of the blue other cards use.
@@ -35,7 +35,7 @@ have waited longer.
 
 ## Queue numbers and families
 
-Queue numbers are given automatically: 1, 2, 3... per location each day. The
+Queue numbers are given automatically: 1, 2, 3... each day. The
 registration form shows the number the next patient will get. It updates by itself
 when someone registers a patient on another device, and the number actually given is
 shown once you submit.
@@ -64,7 +64,7 @@ Things to know:
 - Moving a patient to another family, or pressing **Remove from family**, leaves the
   rest of their old family together. A family left with one person is no longer a
   family: that person loses the letter and is shown like everyone else.
-- A new family takes the first free letter at the location. If family B lost its
+- A new family takes the first free letter. If family B lost its
   second member, the next new family is B again; families that still exist keep
   their letters.
 - The list reloads by itself after a change, on every device.
@@ -93,11 +93,11 @@ Families move between stations together: see
   time, the server falls back to when the visit was created. Older servers without
   this field make cards show **Registered** instead of **Arrived**.
 - Arrival order never depends on device clocks.
-- Registration takes the location's queue lock (`lockQueue`) before reading the next
+- Registration takes the queue lock (`lockQueue`) before reading the next
   number, so two devices registering at once never get the same number. A
   `visit.queue_no` sent by an older app is ignored.
-- Families are kept in `patients.family` (migration `019_families.sql`), per location.
-  Grouping and moving families take the location's family lock (`lockFamilies` in
+- Families are kept in `patients.family` (migration `019_families.sql`).
+  Grouping and moving families take the family lock (`lockFamilies` in
   `utils/familyMoves.js`), so two devices can't start two families with the same letter.
 - `groupFamilies` in `apps/frontend/src/lib/family.ts` keeps families together in queues
   and on Patient List.

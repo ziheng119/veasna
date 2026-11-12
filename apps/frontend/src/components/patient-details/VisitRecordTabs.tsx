@@ -16,7 +16,6 @@ import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
 import { TB_MIN_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import type { FormOption } from "@/lib/types/formOptions";
 import { updateVisitDetails, updateVisitTb, updateVisitVitals } from "@/lib/api/visit/adminEdits";
@@ -32,7 +31,7 @@ import StickerColourSelect from "@/components/shared/StickerColourSelect";
 import { StickerColourValue } from "@/components/shared/StickerTag";
 
 // Edit-form shapes. Numbers are kept as the text typed so partially entered values survive.
-type VisitInfoDraft = { queue_no: string; visit_date: string; location_id: string; sticker_colour: string };
+type VisitInfoDraft = { queue_no: string; visit_date: string; sticker_colour: string };
 type VitalsDraft = {
   height: string; weight: string; bmi: string; below_3rd_percentile: boolean;
   bp_systolic: string; bp_diastolic: string; temperature: string; notes: string;
@@ -247,7 +246,6 @@ interface Props {
 
 /** Every record of one visit, grouped by station. Each section can be corrected or added. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
-  const locations = useLocationStore((state) => state.locations);
   // A visit flagged for suspected TB opens on its TB record.
   const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
@@ -266,7 +264,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     const { vitals, hef, visual_acuity: va, presenting_complaint: pc, history, seva, physiotherapy, dental, consultation, tb } = visit;
     const referral = visit.referrals[0] ?? null;
     return {
-      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, location_id: text(visit.location_id), sticker_colour: text(visit.sticker_colour) } as VisitInfoDraft,
+      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, sticker_colour: text(visit.sticker_colour) } as VisitInfoDraft,
       vitals: vitals && ({
         height: text(vitals.height), weight: text(vitals.weight), bmi: text(vitals.bmi),
         below_3rd_percentile: vitals.below_3rd_percentile, bp_systolic: text(vitals.bp_systolic),
@@ -306,19 +304,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
     };
   }, [visit]);
 
-  const locationOptions: FieldOption[] = useMemo(() => {
-    const options = locations.map((l) => ({ value: String(l.id), label: l.name }));
-    // Keep an inactive or not-yet-loaded location selectable so saving does not change it.
-    if (visit.location_id && !options.some((o) => o.value === String(visit.location_id))) {
-      options.unshift({ value: String(visit.location_id), label: visit.location_name ?? `Location ${visit.location_id}` });
-    }
-    return options;
-  }, [locations, visit.location_id, visit.location_name]);
-
   const visitInfoFields: FieldSpec<VisitInfoDraft>[] = [
     { key: "queue_no", label: "Queue Number", kind: "text" },
     { key: "visit_date", label: "Visit Date", kind: "date" },
-    { key: "location_id", label: "Location", kind: "select", options: locationOptions },
     {
       key: "sticker_colour",
       label: "Sticker colour",
@@ -395,17 +383,15 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           record={drafts.info}
           fields={visitInfoFields}
           canEdit={canEdit}
-          editHint="Queue numbers must be unique for the location and date."
+          editHint="Queue numbers must be unique for the date."
           validate={(d) => {
             if (!isValidQueueNo(d.queue_no)) return QUEUE_NO_ERROR;
             if (!d.visit_date) return "Visit date is required.";
-            if (!d.location_id) return "Location is required.";
             return null;
           }}
           onSave={saved((d: VisitInfoDraft) => updateVisitDetails(visitId, {
             queue_no: d.queue_no.trim().toUpperCase(),
             visit_date: d.visit_date,
-            location_id: Number(d.location_id),
             sticker_colour: d.sticker_colour || null,
           }))}
         />

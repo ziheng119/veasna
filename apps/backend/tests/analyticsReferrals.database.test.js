@@ -43,7 +43,7 @@ describe('groupReferralLists', () => {
   let client, app, previousSecret;
   const secret = 'analytics-referrals-test-secret';
   const token = (id = 1, role = 'admin') => jwt.sign({ id, role }, secret);
-  const get = (auth = token(), query = { location_id: 1, date: '2026-10-21' }) => {
+  const get = (auth = token(), query = { date: '2026-10-21' }) => {
     const call = request(app).get('/referrals').query(query);
     return auth ? call.set('Authorization', `Bearer ${auth}`) : call;
   };
@@ -55,20 +55,18 @@ describe('groupReferralLists', () => {
       user: process.env.DB_USER, password: process.env.DB_PASSWORD, connectionTimeoutMillis: 3000 });
     await client.connect();
     await client.query(`SET search_path TO pg_temp;
-      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE);
-      INSERT INTO users VALUES (1,'admin',TRUE),(2,'user',TRUE);
-      CREATE TEMP TABLE locations (id INT, name TEXT);
-      INSERT INTO locations VALUES (1,'Village A'),(2,'Village B');
+      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
+      INSERT INTO users (id, role, is_active) VALUES (1,'admin',TRUE),(2,'user',TRUE);
       CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, phone_number TEXT, address TEXT);
       INSERT INTO patients VALUES
         (1,'Ben','បេន','M','1990-10-22','012 345 678','Village A'),
         (2,'Bob',NULL,'M',NULL,NULL,NULL),
         (3,'Beb',NULL,'F','2030-01-01',NULL,NULL),
         (4,'Other day',NULL,'F',NULL,NULL,NULL);
-      CREATE TEMP TABLE visits (id INT, patient_id INT, location_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT, patient_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP);
       INSERT INTO visits VALUES
-        (1,1,1,'3','2026-10-21','2026-10-21 09:00'),(2,2,1,'1','2026-10-21','2026-10-21 08:00'),
-        (3,3,2,'7','2026-10-21','2026-10-21 08:30'),(4,4,1,'2','2026-10-19','2026-10-19 08:00');
+        (1,1,'3','2026-10-21','2026-10-21 09:00'),(2,2,'1','2026-10-21','2026-10-21 08:00'),
+        (3,3,'7','2026-10-21','2026-10-21 08:30'),(4,4,'2','2026-10-19','2026-10-19 08:00');
       CREATE TEMP TABLE referral (visit_id INT, referral_type TEXT, referral_date DATE, illness TEXT, reason TEXT, signature JSONB);
       INSERT INTO referral VALUES
         (1,E'PREAH ANG DUONG HOSPITAL\\nOptician\\nOptician','2026-10-21','Cataract','Needs surgery','[]'),
@@ -85,7 +83,7 @@ describe('groupReferralLists', () => {
     else process.env.JWT_SECRET = previousSecret;
   });
 
-  test('is admin only and never cached', async () => {
+  test('needs the analytics permission and is never cached', async () => {
     expect((await get(null)).status).toBe(401);
     expect((await get(token(2, 'user'))).status).toBe(403);
     const response = await get();
@@ -102,24 +100,23 @@ describe('groupReferralLists', () => {
     expect(listed).toEqual(DEFAULT_DESTINATIONS);
     expect(body.destinations.slice(0, listed.length).every(group => group.listed)).toBe(true);
     expect(byLabel['Preah Ang Duong Hospital'].map(p => p.englishName)).toEqual(['Bob', 'Ben']);
-    // Optician is written twice on Ben's referral but listed once; Beb is at another location.
-    expect(byLabel.Optician.map(p => p.englishName)).toEqual(['Ben']);
-    expect(byLabel.Optician[0]).toMatchObject({
-      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', locationName: 'Village A', khmerName: 'បេន',
+    // Optician is written twice on Ben's referral but listed once.
+    expect(byLabel.Optician.map(p => p.englishName)).toEqual(['Beb', 'Ben']);
+    // Beb's date of birth is after the visit, so no age is shown.
+    expect(byLabel.Optician[0].age).toBeNull();
+    expect(byLabel.Optician[1]).not.toHaveProperty('locationName');
+    expect(byLabel.Optician[1]).toMatchObject({
+      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', khmerName: 'បេន',
       sex: 'M', age: 35, phone: '012 345 678', address: 'Village A', referralDate: '2026-10-21',
       condition: 'Cataract', reason: 'Needs surgery', signed: true,
     });
     expect(byLabel['Preah Ang Duong Hospital'][0]).toMatchObject({ signed: false, age: null });
   });
 
-  test('every location and longer periods include more visits; bad filters are refused', async () => {
-    const all = await get(token(), { location_id: 'all', date: '2026-10-21' });
-    expect(all.body.destinations.find(group => group.label === 'Optician').patients.map(p => p.englishName)).toEqual(['Beb', 'Ben']);
-    // Beb's date of birth is after the visit, so no age is shown.
-    expect(all.body.destinations.find(group => group.label === 'Optician').patients[0].age).toBeNull();
-    const week = await get(token(), { location_id: 1, date: '2026-10-21', period: 'week' });
-    expect(week.body.destinations.find(group => group.label === 'Optician').patients.map(p => p.englishName)).toEqual(['Other day', 'Ben']);
-    expect((await get(token(), { location_id: 1, date: '2026-10-21', period: 'year' })).status).toBe(400);
-    expect((await get(token(), { location_id: 1 })).status).toBe(400);
+  test('longer periods include more visits; bad filters are refused', async () => {
+    const week = await get(token(), { date: '2026-10-21', period: 'week' });
+    expect(week.body.destinations.find(group => group.label === 'Optician').patients.map(p => p.englishName)).toEqual(['Other day', 'Beb', 'Ben']);
+    expect((await get(token(), { date: '2026-10-21', period: 'year' })).status).toBe(400);
+    expect((await get(token(), {})).status).toBe(400);
   });
 });

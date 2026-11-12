@@ -42,8 +42,6 @@ export function rangeText(range: ReferralRange, today = hostToday()): string {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // A location id, or "all" for every location.
-  locationId?: number | "all";
   // Which ranges to offer, in order; the first is chosen when the pop-up opens.
   choices?: ReferralChoice[];
   // The date the "A date" choice starts on (today by default).
@@ -66,7 +64,7 @@ export default function PrintReferralsDialog({ open, onOpenChange, ...form }: Pr
   );
 }
 
-function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDate, busy, setBusy, onDone }:
+function PrintReferralsForm({ choices = ["today", "date"], initialDate, busy, setBusy, onDone }:
   Omit<Props, "open" | "onOpenChange"> & { busy: boolean; setBusy: (busy: boolean) => void; onDone: () => void }) {
   const today = hostToday();
   const [choice, setChoice] = useState<ReferralChoice>(choices[0]);
@@ -83,7 +81,7 @@ function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDa
   const problem = choice === "period" && from && to && from > to ? "The period must start on or before the day it ends." : "";
 
   const print = async () => {
-    if (!locationId || !range || pending.current) return;
+    if (!range || pending.current) return;
     // Opened straight from the click, so the browser doesn't block it as an unwanted pop-up.
     const popup = window.open("", "_blank");
     if (!popup) { toast.error("Allow pop-ups to print referrals."); return; }
@@ -92,11 +90,11 @@ function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDa
     pending.current = true;
     setBusy(true);
     try {
-      const referrals = await getReferrals(locationId, range);
+      const referrals = await getReferrals(range);
       if (popup.closed) return;
       if (!referrals.length) {
         popup.close();
-        toast(`No saved referrals ${rangeText(range, today)}${locationId === "all" ? "" : " at this location"}.`);
+        toast(`No saved referrals ${rangeText(range, today)}.`);
         return;
       }
       writeAndPrint(popup, referralBatchDocumentHtml(referrals, { logoUrl: letterheadLogoUrl() }));
@@ -104,7 +102,7 @@ function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDa
     } catch (error) {
       popup.close();
       console.error("Referral printing failed:", error);
-      toast.error("Unable to prepare referrals. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Unable to prepare referrals. Please try again.");
     } finally {
       pending.current = false;
       setBusy(false);
@@ -118,7 +116,7 @@ function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDa
         <DialogHeader>
           <DialogTitle>Print referrals</DialogTitle>
           <DialogDescription>
-            Saved referrals, signed or not, {locationId === "all" ? "at every location" : "at this location"}. Each prints on its own page.
+            Saved referrals, signed or not. Each prints on its own page.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,7 +163,7 @@ function PrintReferralsForm({ locationId, choices = ["today", "date"], initialDa
 
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" disabled={busy} onClick={onDone}>Cancel</Button>
-          <Button type="button" disabled={busy || !range || !locationId} onClick={() => void print()}>
+          <Button type="button" disabled={busy || !range} onClick={() => void print()}>
             <Printer className="size-4" aria-hidden="true" />
             {busy ? "Preparing..." : "Print"}
           </Button>

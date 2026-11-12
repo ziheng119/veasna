@@ -1,7 +1,5 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-const db = require('./config/db');
-const { toPositiveInt } = require('./utils/validation');
 
 // Notifications invalidate lists and open forms; patient data stays behind the existing REST API.
 // `origins` is either an exact list or the (origin) => boolean check used for REST CORS.
@@ -18,8 +16,6 @@ function attachRealtime(server, { origins, secret }) {
       const user = jwt.verify(socket.handshake.auth.token, secret, { algorithms: ['HS256'] });
       if (!user || typeof user !== 'object' || !user.id || !user.exp) throw new Error('Invalid token');
       socket.data.expiresAt = user.exp * 1000;
-      // The location the device works at: it is told only about changes there (null: all).
-      socket.data.locationId = toPositiveInt(socket.handshake.auth.locationId);
       next();
     } catch {
       next(new Error('Authentication required'));
@@ -61,20 +57,6 @@ function changedVisitId(req) {
   return null;
 }
 
-// The location a write changed: the visit's, or a location_id in the body (registration sends
-// patientInfo.location_id). null when it can't be told, and then every device is told.
-async function changedLocationId(req, visitId) {
-  if (visitId) {
-    try {
-      const { rows } = await db.query('SELECT location_id FROM visits WHERE id = $1', [visitId]);
-      return toPositiveInt(rows[0]?.location_id);
-    } catch {
-      return null;
-    }
-  }
-  return toPositiveInt(req.body?.location_id ?? req.body?.patientInfo?.location_id);
-}
-
 function notifyListChanges(io) {
   return (req, res, next) => {
     const writes = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -82,12 +64,10 @@ function notifyListChanges(io) {
     if (writes.includes(req.method) && affectsLists) {
       // Routes send success only after their database writes/transactions complete.
       const visitId = changedVisitId(req);
-      res.once('finish', async () => {
+      res.once('finish', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) return;
-        const locationId = await changedLocationId(req, visitId);
         for (const socket of io.sockets.sockets.values()) {
-          const there = !locationId || !socket.data.locationId || socket.data.locationId === locationId;
-          if (there && Date.now() < socket.data.expiresAt) socket.emit('lists:changed', { visitId });
+          if (Date.now() < socket.data.expiresAt) socket.emit('lists:changed', { visitId });
         }
       });
     }

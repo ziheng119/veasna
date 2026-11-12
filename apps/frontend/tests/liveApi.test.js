@@ -1,8 +1,8 @@
 const { getQueue, clearQueueCache } = require('../src/lib/api/queue/getQueue');
-const { getPatientsByLocation, clearPatientsByLocationCache } = require('../src/lib/api/patients/getPatientsByLocation');
+const { getPatientList, clearPatientListCache } = require('../src/lib/api/patients/getPatientList');
 const loaders = [
-  ['queue', signal => getQueue(1, '2026-10-19', 'token', 'triage', signal), clearQueueCache],
-  ['patients', signal => getPatientsByLocation(1, 'token', '2026-10-19', signal), clearPatientsByLocationCache],
+  ['queue', signal => getQueue('2026-10-19', 'token', 'triage', signal), clearQueueCache],
+  ['patients', signal => getPatientList('token', '2026-10-19', signal), clearPatientListCache],
 ];
 
 describe.each(loaders)('Live %s API reads', (_name, load, clear) => {
@@ -18,7 +18,8 @@ describe.each(loaders)('Live %s API reads', (_name, load, clear) => {
     fetch.mockResolvedValue({ ok: true, status: 200, json: async () => [{ id: 1 }], headers: new Headers() });
     expect(await load(signal)).toEqual([{ id: 1 }]);
     const [url, options] = fetch.mock.calls[0];
-    expect(url).toContain('location_id=1');
+    // One clinic: no location is sent.
+    expect(url).not.toContain('location_id');
     expect(url).toContain('2026-10-19');
     // Cancelling the caller's signal cancels the request (lib/api/request.ts adds a timeout of its own).
     expect(options.signal.aborted).toBe(false);
@@ -41,10 +42,10 @@ test('CLINIC_TODAY lets the backend choose today, so device clocks cannot split 
   clearQueueCache();
   global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [], headers: new Headers() });
   try {
-    await getQueue(1, CLINIC_TODAY, 'token', 'triage', new AbortController().signal);
+    await getQueue(CLINIC_TODAY, 'token', 'triage', new AbortController().signal);
     const url = new URL(fetch.mock.calls[0][0]);
     expect(url.searchParams.has('date')).toBe(false);
-    expect(url.searchParams.get('location_id')).toBe('1');
+    expect(url.searchParams.has('location_id')).toBe(false);
     expect(url.searchParams.get('station')).toBe('triage');
   } finally {
     global.fetch = originalFetch;

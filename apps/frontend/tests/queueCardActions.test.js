@@ -1,4 +1,4 @@
-// Queue cards for a non-admin user: moving patients is open to everyone, a suspected TB patient's
+// Queue cards for a non-admin user: moving patients needs "Edit today's queue" (a default), a suspected TB patient's
 // card stays red when selected and offers Clear TB only at Consult (with an in-app confirmation),
 // and Home cards open the patient's station.
 const React = require('react');
@@ -15,7 +15,6 @@ jest.mock('../src/components/ui/input', () => ({ Input: props => React.createEle
 const refresh = jest.fn();
 let stationPatients = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: stationPatients, refresh }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/lib/api/tb/tb', () => ({ setTbFlag: jest.fn(async () => ({ flagged: false, status: 'cleared', current_station: 'consultation' })) }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
@@ -55,6 +54,22 @@ test('a user can use Next, Send to and Discharge on a station queue card', async
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
   for (const text of ['Next', 'Send to', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
   expect(button(renderer, 'Clear TB')).toBeUndefined();
+});
+
+test("without 'Edit today's queue' the queue is view-only: Next, Send to and Discharge are not shown", async () => {
+  const { useUserStore } = require('../src/stores/useUserStore');
+  useUserStore.setState({ user: { id: 2, role: 'user', token: 't', permissions: ['view_today'] } });
+  try {
+    stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null }];
+    await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+    const actions = renderer.root.findAllByType('button').filter(node =>
+      /^Done here|^Discharge/.test(node.props.title ?? '') || /to another station$/.test(node.props['aria-label'] ?? ''));
+    expect(actions).toHaveLength(0);
+    // Still listed, so the patient can be opened.
+    expect(renderer.root.findAll(node => node.props['data-visit-id'] === 5)).toHaveLength(1);
+  } finally {
+    useUserStore.setState({ user: { id: 2, role: 'user', token: 't' } });
+  }
 });
 
 test.each(['suspected', 'cleared'])('a TB patient (%s) can be finished or discharged, but not sent to other stations', async status => {

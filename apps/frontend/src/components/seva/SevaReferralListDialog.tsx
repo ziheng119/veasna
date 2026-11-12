@@ -14,25 +14,22 @@ import {
 } from "@/components/ui/dialog";
 import { SEVA_REFERRALS } from "@/constants/sevaReferral";
 import { getSevaReferrals, SevaReferralRow } from "@/lib/api/visit/seva/getSevaReferrals";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { ClipboardList } from "lucide-react";
 
-// Button that opens the list of patients the partner NGO station has marked for referral at the
-// current location.
+// Button that opens the list of patients the partner NGO station has marked for referral.
 export default function SevaReferralListDialog() {
-  const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<SevaReferralRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!open || !location || !token) return;
+    if (!open || !token) return;
 
     let cancelled = false;
     setIsLoading(true);
-    getSevaReferrals(location.id, token)
+    getSevaReferrals(token)
       .then((data) => {
         if (!cancelled) setRows(data);
       })
@@ -47,19 +44,19 @@ export default function SevaReferralListDialog() {
     return () => {
       cancelled = true;
     };
-  }, [open, location, token]);
+  }, [open, token]);
 
   return (
     <>
       {/* Same pill as the other buttons in a station page's search row. */}
-      <GlassButton type="button" className="h-10 shrink-0 px-4" onClick={() => setOpen(true)} disabled={!location}>
+      <GlassButton type="button" className="h-10 shrink-0 px-4" onClick={() => setOpen(true)}>
         <ClipboardList className="size-4" />
         Referral list
       </GlassButton>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{PARTNER_NGO_NAME} referrals{location ? `: ${location.name}` : ""}</DialogTitle>
+            <DialogTitle>{PARTNER_NGO_NAME} referrals</DialogTitle>
             <DialogDescription>
               Patients marked for referral on the {PARTNER_NGO_NAME} form, newest visit first.
             </DialogDescription>

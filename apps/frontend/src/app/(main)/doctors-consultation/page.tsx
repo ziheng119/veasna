@@ -7,8 +7,6 @@ import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import { useLocationReminder } from "@/hooks/useLocationReminder";
-import { useLocationStore } from "@/stores/useLocationStore";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
@@ -19,10 +17,8 @@ import StationDataButton from "@/components/shared/StationDataButton";
 const TOP_ROW = "grid grid-cols-1 gap-6 xl:h-[30rem] xl:grid-cols-12 xl:grid-rows-1";
 
 export default function DoctorsConsultation() {
-  const location = useLocationStore((state) => state.currentLocation);
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-  useLocationReminder();
 
   return (
     <StationFlowProvider station="consultation" onSelectPatient={setSelectedPatient}>
@@ -30,7 +26,7 @@ export default function DoctorsConsultation() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
           <div className="flex items-center gap-3">
-            <PrintReferrals locationId={location?.id} />
+            <PrintReferrals />
             <StationDataButton station="consultation" />
           </div>
         </div>

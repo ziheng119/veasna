@@ -19,7 +19,7 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
   const secret = 'temporary-prescription-tests';
   const token = jwt.sign({ id: 1, role: 'admin' }, secret, { expiresIn: '1h' });
   const as = (req) => req.set('Authorization', `Bearer ${token}`);
-  const drug = async (id = 1) => (await as(request(app).get('/pharmacy?location_id=1'))).body.find(d => d.id === id);
+  const drug = async (id = 1) => (await as(request(app).get('/pharmacy'))).body.find(d => d.id === id);
   const prescribe = (body) => as(request(app).post('/prescriptions')).send({ visit_id: 1, drug_id: 1, ...body });
 
   beforeAll(async () => {
@@ -31,9 +31,8 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     await client.query('SET search_path TO pg_temp');
     await client.query(`
       CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT);
-      CREATE TEMP TABLE locations (id INT PRIMARY KEY);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, face_id TEXT);
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, queue_no TEXT,
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, queue_no TEXT,
         visit_date DATE DEFAULT CURRENT_DATE, completed_at TIMESTAMP);`);
     const setup = fs.readFileSync(path.join(__dirname, '../db_setup.sql'), 'utf8').replace(/\r\n/g, '\n');
     for (const table of ['pharmacy', 'pharmacy_dispenses', 'prescriptions', 'visit_stations']) {
@@ -51,16 +50,15 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
   });
 
   beforeEach(() => client.query(`
-    TRUNCATE visit_station_route_history, visit_stations, prescriptions, pharmacy_dispenses, pharmacy, visits, patients, locations, users RESTART IDENTITY CASCADE;
+    TRUNCATE visit_station_route_history, visit_stations, prescriptions, pharmacy_dispenses, pharmacy, visits, patients, users RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (1, 'doctor');
-    INSERT INTO locations VALUES (1), (2);
     INSERT INTO patients VALUES (1, 'Sok', 'សុខ', 'SOK');
-    INSERT INTO visits (id, patient_id, location_id, queue_no) VALUES (1, 1, 1, 'A12');
+    INSERT INTO visits (id, patient_id, queue_no) VALUES (1, 1, 'A12');
     -- Waiting at Consultation, with Dental to come.
     INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES
       (1, 'consultation', 1, NOW(), 1), (1, 'dental', 2, NULL, 1);
-    INSERT INTO pharmacy (id, location_id, drug_name, stock_count, last_updated_by) VALUES
-      (1, 1, 'Paracetamol', 10, 1), (2, 2, 'Ibuprofen', 10, 1);`));
+    INSERT INTO pharmacy (id, drug_name, stock_count, last_updated_by) VALUES
+      (1, 'Paracetamol', 10, 1), (2, 'Ibuprofen', 10, 1);`));
 
   afterAll(async () => {
     if (client) await client.end();
@@ -104,7 +102,7 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     expect(tooMany.status).toBe(409);
     expect(tooMany.body.available_count).toBe(4);
     expect((await prescribe({ quantity: 0 })).status).toBe(400);
-    expect((await prescribe({ drug_id: 2, quantity: 1 })).status).toBe(400); // other location's pharmacy
+    expect((await prescribe({ drug_id: 99, quantity: 1 })).status).toBe(404); // not in the pharmacy
   });
 
   test('dispensing lowers stock and ends the reservation; it cannot happen twice', async () => {
@@ -169,16 +167,17 @@ describeDatabase('Prescriptions reserve and release pharmacy stock', () => {
     ]);
   });
 
-  test('pharmacy lists: pending by location, patients, and one patient\'s history', async () => {
+  test('pharmacy lists: pending, patients, and one patient\'s history', async () => {
     const first = (await prescribe({ quantity: 2 })).body;
     await prescribe({ quantity: 1 });
     await as(request(app).post(`/prescriptions/${first.id}/dispense`));
-    const pending = await as(request(app).get('/prescriptions?location_id=1&status=pending'));
+    const pending = await as(request(app).get('/prescriptions?status=pending'));
     expect(pending.body.map(p => p.quantity)).toEqual([1]);
-    const patients = await as(request(app).get('/prescriptions/patients?location_id=1'));
+    const patients = await as(request(app).get('/prescriptions/patients'));
     expect(patients.body).toEqual([expect.objectContaining({ patient_id: 1, pending_count: 1, dispensed_count: 1, cancelled_count: 0 })]);
     const history = await as(request(app).get('/prescriptions/patient/1'));
     expect(history.body.map(p => p.status).sort()).toEqual(['dispensed', 'pending']);
-    expect((await as(request(app).get('/prescriptions'))).status).toBe(400);
+    expect((await as(request(app).get('/prescriptions'))).body).toHaveLength(2);
+    expect((await as(request(app).get('/prescriptions?visit_id=x'))).status).toBe(400);
   });
 });

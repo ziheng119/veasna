@@ -17,7 +17,6 @@ const { GUIDE_STEPS, stepPage } = require('../src/lib/guide/steps');
 const { sampleReply } = require('../src/lib/guide/sample');
 const { padRect, placePopover, spotlightPath, approach, intersect, EDGE, GAP } = require('../src/lib/guide/geometry');
 const { useGuideStore } = require('../src/stores/useGuideStore');
-const { useLocationStore } = require('../src/stores/useLocationStore');
 const { canAccessPage } = require('../src/lib/permissions');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,7 +35,7 @@ describe('steps', () => {
     expect(chapters.indexOf('Registration')).toBeLessThan(chapters.indexOf('Triage'));
     expect(chapters.indexOf('Triage')).toBeLessThan(chapters.indexOf('Consult'));
     expect(chapters.indexOf('Consult')).toBeLessThan(chapters.indexOf('Pharmacy'));
-    for (const step of GUIDE_STEPS.slice(1)) expect(canAccessPage('user', stepPage(step))).toBe(true);
+    for (const step of GUIDE_STEPS.slice(1)) expect(canAccessPage({ role: 'user', permissions: ['view_today', 'edit_today'] }, stepPage(step))).toBe(true);
     // Every station step opens the sample patient there.
     for (const step of GUIDE_STEPS.filter((s) => ['Triage', 'Dental', 'Consult', 'Physiotherapy', 'Pharmacy'].includes(s.chapter))) {
       expect(step.path).toMatch(/\?visit=-1$/);
@@ -138,7 +137,6 @@ describe('the tour on screen', () => {
     target = { getBoundingClientRect: () => box, scrollIntoView: jest.fn(), isConnected: true, parentElement: null };
     const stored = new Map();
     global.localStorage = { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: (key) => stored.delete(key) };
-    useLocationStore.setState({ currentLocation: { id: 3, name: 'Kampong' }, locations: [{ id: 3, name: 'Kampong' }] });
     Object.assign(global, {
       window: global, innerWidth: 1280, innerHeight: 800, location: { pathname: '/', search: '' },
       matchMedia: () => ({ matches: true }), // reduced motion: positions settle in one frame
@@ -148,7 +146,7 @@ describe('the tour on screen', () => {
       getComputedStyle: () => ({ overflowX: 'visible', overflowY: 'visible', borderTopLeftRadius: '6px' }),
       document: {
         querySelector: () => null,
-        querySelectorAll: (selector) => (selector.includes('"location"') ? [target] : []),
+        querySelectorAll: (selector) => (selector.includes('"nav"') ? [target] : []),
         elementsFromPoint: () => [], activeElement: null,
       },
     });
@@ -183,9 +181,9 @@ describe('the tour on screen', () => {
     expect(tree.root.findByProps({ role: 'dialog' }).props['aria-modal']).toBe('true');
 
     press('ArrowRight');
-    expect(text(tree)).toContain('Choose your location');
+    expect(text(tree)).toContain('Stations in clinic order');
     runFrame();
-    // The spotlight's hole is cut where the location picker is, with the ring and a ripple on it,
+    // The spotlight's hole is cut where the page tabs are, with the ring and a ripple on it,
     // and once it is there the blur is cut the same way.
     const cut = nodes.filter((n) => n.style.clipPath);
     expect(cut).toHaveLength(2);
@@ -222,21 +220,10 @@ describe('the tour on screen', () => {
     expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
   });
 
-  test('with no location chosen, the tour borrows one and clears it after', () => {
-    useLocationStore.setState({ currentLocation: null });
-    const tree = mount();
-    expect(useLocationStore.getState().currentLocation).toMatchObject({ id: 3 });
-    press('ArrowRight');
-    expect(text(tree)).toContain('Kampong');
-    press('Escape');
-    act(() => { jest.advanceTimersByTime(300); });
-    expect(useLocationStore.getState().currentLocation).toBeNull();
-  });
-
   test('pages that showed the sample patient open afresh once the tour ends', () => {
     const tree = mount();
     const round = useGuideStore.getState().pageRound;
-    sampleReply('http://h/api/queue?location_id=3&station=triage');
+    sampleReply('http://h/api/queue?station=triage');
     press('Escape');
     expect(useGuideStore.getState().pageRound).toBe(round + 1);
     // A tour that never showed it leaves the pages as they are.
@@ -244,14 +231,6 @@ describe('the tour on screen', () => {
     act(() => useGuideStore.getState().stop());
     expect(useGuideStore.getState().pageRound).toBe(round + 1);
     expect(tree).toBeTruthy();
-  });
-
-  test("a location already chosen is left alone", () => {
-    useLocationStore.setState({ currentLocation: { id: 9, name: 'Clinic' } });
-    mount();
-    press('Escape');
-    act(() => { jest.advanceTimersByTime(300); });
-    expect(useLocationStore.getState().currentLocation).toMatchObject({ id: 9 });
   });
 
   test("opens each step's page, and says so while that page loads", () => {
@@ -267,7 +246,7 @@ describe('the tour on screen', () => {
     global.location = { pathname: '/triage', search: '?visit=12' };
     const tree = mount();
     expect(push).not.toHaveBeenCalled();
-    press('ArrowRight'); // the location step, on Home
+    press('ArrowRight'); // the page tabs step, on Registration
     expect(push).toHaveBeenLastCalledWith('/');
     global.location = { pathname: '/', search: '' };
     act(() => tree.root.findByProps({ 'aria-label': 'Exit the guide' }).props.onClick());

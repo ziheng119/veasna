@@ -11,7 +11,6 @@ async function seedDemoData() {
 
   const summary = await db.query(`
     SELECT
-      (SELECT COUNT(*)::int FROM locations) AS locations,
       (SELECT COUNT(*)::int FROM patients) AS patients,
       (SELECT COUNT(*)::int FROM visits WHERE visit_date = CURRENT_DATE) AS todays_visits,
       (SELECT COUNT(*)::int FROM pharmacy) AS pharmacy_items
@@ -24,7 +23,6 @@ if (require.main === module) {
   seedDemoData()
     .then((counts) => {
       console.log('Demo data ready:');
-      console.log(`  Locations: ${counts.locations}`);
       console.log(`  Patients: ${counts.patients}`);
       console.log(`  Today's visits: ${counts.todays_visits}`);
       console.log(`  Pharmacy items: ${counts.pharmacy_items}`);

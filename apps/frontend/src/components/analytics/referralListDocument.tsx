@@ -4,8 +4,6 @@ import { LETTERHEAD } from "@/constants/letterhead";
 import type { ReferralList, ReferredPatient } from "@/lib/api/analytics";
 
 export interface ReferralListPrintOptions {
-  // e.g. "Village A" or "All locations".
-  locationName: string;
   // e.g. "21 Oct 2026" or "15 Oct – 21 Oct 2026".
   dateRange: string;
   // Absolute URL of the letterhead logo; omitted, the letterhead shows the name only.
@@ -19,7 +17,7 @@ export function ageSex(patient: Pick<ReferredPatient, "age" | "sex">): string {
   return [patient.age ?? null, patient.sex || null].filter(part => part !== null).join(" · ") || "–";
 }
 
-function ListPage({ list, locationName, dateRange, logoUrl }: { list: ReferralList } & ReferralListPrintOptions) {
+function ListPage({ list, dateRange, logoUrl }: { list: ReferralList } & ReferralListPrintOptions) {
   return <article>
     <header className="letterhead">
       {logoUrl && <img className="logo" src={logoUrl} alt={`${LETTERHEAD.organisation} logo`} />}
@@ -27,7 +25,7 @@ function ListPage({ list, locationName, dateRange, logoUrl }: { list: ReferralLi
         <h1>{LETTERHEAD.organisation}</h1>
         <div>{LETTERHEAD.subtitle} · Referral list</div>
       </div>
-      <div className="meta"><div>{locationName}</div><div>{dateRange}</div></div>
+      <div className="meta"><div>{dateRange}</div></div>
     </header>
     <h2>{list.label}</h2>
     <p className="count">{list.patients.length} {list.patients.length === 1 ? "patient" : "patients"}</p>

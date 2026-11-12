@@ -3,7 +3,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import type { PrintableReferral } from "@/components/doctors-consultation/ReferralDocument";
 import type { Signature } from "@/lib/types/consultation";
 import type { PatientInfo } from "@/lib/types/patient";
-import { apiFetch } from "@/lib/api/request";
+import { apiFetch, readError } from "@/lib/api/request";
 
 // Which saved referrals to print: one day, a period (both days included) or every date.
 export type ReferralRange =
@@ -14,7 +14,6 @@ export type ReferralRange =
 interface ReferralRow {
   visit_id: number;
   patient_id: number;
-  location_id: number;
   english_name?: string;
   khmer_name?: string;
   sex: PatientInfo["sex"];
@@ -32,23 +31,23 @@ interface ReferralRow {
   doctor_name?: string | null;
 }
 
-// Saved referrals at a location (or "all" locations) in the range, oldest first, ready to print.
-export async function getReferrals(locationId: number | "all", range: ReferralRange): Promise<PrintableReferral[]> {
+// Saved referrals in the range, oldest first, ready to print.
+export async function getReferrals(range: ReferralRange): Promise<PrintableReferral[]> {
   const token = useUserStore.getState().user?.token;
   if (!token) throw new Error("User not authenticated");
-  const params = new URLSearchParams({ location_id: String(locationId) });
+  const params = new URLSearchParams();
   if (range.kind === "date") params.set("date", range.date);
   else if (range.kind === "period") { params.set("from", range.from); params.set("to", range.to); }
   else params.set("all", "true");
   const response = await apiFetch(`${backend_url}/api/visits/referrals?${params}`, {
     headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
   });
-  if (!response.ok) throw new Error("Unable to load referrals. Please try again.");
+  if (!response.ok) throw new Error(await readError(response, "Unable to load referrals. Please try again."));
   const rows: ReferralRow[] = await response.json();
   return rows.map(row => ({
     visitId: row.visit_id,
     patient: {
-      id: row.patient_id, location_id: row.location_id, face_id: null, lastUpdated: "",
+      id: row.patient_id, face_id: null, lastUpdated: "",
       english_name: row.english_name, khmer_name: row.khmer_name, sex: row.sex,
       address: row.address, date_of_birth: row.date_of_birth ?? "",
     },

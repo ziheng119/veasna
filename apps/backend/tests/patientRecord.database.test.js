@@ -11,7 +11,7 @@ jest.mock('../config/db', () => ({ query: jest.fn(), pool: { connect: jest.fn() 
 const db = require('../config/db');
 const { currentVisitDate } = require('../utils/queueNumber');
 
-const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 'tb_screening', 'vitals', 'hef',
+const TABLES = ['users', 'patients', 'visits', 'visit_stations', 'tb_screening', 'vitals', 'hef',
   'visual_acuity', 'presenting_complaint', 'history', 'seva', 'dental', 'physiotherapy', 'consultation',
   'painpoints', 'referral', 'pharmacy', 'prescriptions'];
 
@@ -40,13 +40,12 @@ const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 't
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS screening_date DATE;
       INSERT INTO users (id, username, role, is_active, screening_date) VALUES
         (1, 'admin', 'admin', TRUE, NULL), (2, 'dayaccount', 'user', TRUE, '${today}'), (3, 'plainuser', 'user', TRUE, NULL);
-      INSERT INTO locations (id, name) VALUES (1, 'Village');
-      INSERT INTO patients (id, location_id, english_name, family, last_updated_by) VALUES
-        (1, 1, 'Returning Patient', 'A', 1), (2, 1, 'Only Earlier', NULL, 1);
-      INSERT INTO visits (id, patient_id, location_id, queue_no, visit_date, completed_at, last_updated_by, created_at) VALUES
-        (10, 1, 1, '4', '2025-06-01', '2025-06-01 15:00', 1, '2025-06-01 08:00'),
-        (11, 1, 1, '7', '${today}', NULL, 1, NOW()),
-        (20, 2, 1, '2', '2025-06-01', '2025-06-01 15:00', 1, '2025-06-01 08:00');
+      INSERT INTO patients (id, english_name, family, last_updated_by) VALUES
+        (1, 'Returning Patient', 'A', 1), (2, 'Only Earlier', NULL, 1);
+      INSERT INTO visits (id, patient_id, queue_no, visit_date, completed_at, last_updated_by, created_at) VALUES
+        (10, 1, '4', '2025-06-01', '2025-06-01 15:00', 1, '2025-06-01 08:00'),
+        (11, 1, '7', '${today}', NULL, 1, NOW()),
+        (20, 2, '2', '2025-06-01', '2025-06-01 15:00', 1, '2025-06-01 08:00');
       INSERT INTO visit_stations (visit_id, station, position, entered_at, completed_at, last_updated_by) VALUES
         (10, 'triage', 1, '2025-06-01 08:00', '2025-06-01 09:00', 1),
         (10, 'consultation', 2, '2025-06-01 09:00', '2025-06-01 10:00', 1),
@@ -56,7 +55,7 @@ const TABLES = ['users', 'locations', 'patients', 'visits', 'visit_stations', 't
       INSERT INTO consultation (visit_id, notes, prescription, require_referral, last_updated_by) VALUES (10, 'Seen', '', TRUE, 1);
       INSERT INTO referral (visit_id, referral_type, illness, duration, reason, doctor_name, last_updated_by) VALUES
         (10, 'Optician', '', '', 'Glasses', 'Dr Ellie Choi', 1);
-      INSERT INTO pharmacy (id, location_id, drug_name, stock_count, last_updated_by) VALUES (1, 1, 'Paracetamol', 10, 1);
+      INSERT INTO pharmacy (id, drug_name, stock_count, last_updated_by) VALUES (1, 'Paracetamol', 10, 1);
       INSERT INTO prescriptions (visit_id, drug_id, drug_name, quantity, instructions, status, prescribed_by, prescribed_at, dispensed_by, dispensed_at, last_updated_by) VALUES
         (10, 1, 'Paracetamol', 6, '1 tablet twice a day', 'dispensed', 1, '2025-06-01 10:00', 1, '2025-06-01 10:30', 1);
       INSERT INTO prescriptions (visit_id, drug_id, drug_name, quantity, status, prescribed_by, prescribed_at, cancelled_by, cancelled_at, last_updated_by) VALUES

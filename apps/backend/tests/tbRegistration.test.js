@@ -35,7 +35,7 @@ describe('Registering a suspected TB patient', () => {
   const register = body => request(app).post('/api/visits')
     .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`)
     .send({
-      patientInfo: { english_name: 'Test Only', location_id: 1, sex: 'F' }, visit: {}, hef: {},
+      patientInfo: { english_name: 'Test Only', sex: 'F' }, visit: {}, hef: {},
       vitals: { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diastolic: 70, temperature: 37, below_3rd_percentile: false },
       ...body,
     });
@@ -80,7 +80,7 @@ describe('Registering a suspected TB patient', () => {
     const res = await register({ sticker_colour: 'light_blue' });
     expect(res.status).toBe(201);
     expect(res.body.sticker_colour).toBe('light_blue');
-    expect(visitInsert()[1][5]).toBe('light_blue');
+    expect(visitInsert()[1][4]).toBe('light_blue');
 
     jest.clearAllMocks();
     db.pool.connect.mockResolvedValue(client);

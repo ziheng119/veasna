@@ -46,7 +46,7 @@ You need **Node.js 18 or newer** and **PostgreSQL 12 or newer** on the host lapt
    npm run setup:backend
    ```
 
-5. Optional: load sample locations, patients and pharmacy stock for practice:
+5. Optional: load sample patients and pharmacy stock for practice:
 
    ```bash
    npm run seed:demo
@@ -72,8 +72,6 @@ Before the clinic opens:
   own clock, and the clinic day (which patients appear in today's queue) comes from
   the host's clock. Other devices use the host's date too, and show a yellow warning
   bar when their own clock is more than 5 minutes off; correct that device's clock.
-  Each device's chosen location is forgotten at 6 am on the host's clock, so every
-  clinic day starts with choosing it again, even on a device whose clock is wrong.
 - From another device, open `http://<host-IP>:3000/health`. It should show
   `"database": "ok"`.
 
@@ -97,15 +95,18 @@ the admin creates on the **Accounts** page for everyone else.
 
 | Account | Password | Can do |
 | --- | --- | --- |
-| `admin` | `admin12345` | Everything, including deleting records, Analytics, printing referrals, downloading all patient data, Station data, Accounts |
-| e.g. `dec13village` | set by the admin | Sees patients queued on its screening day (with their earlier visits, from **Past visits** on the queue card), enters and corrects their records, and saves only on that day. Once the day is over it is signed out and can't sign in again; its records stay |
+| `admin` | `admin12345` | Everything, including deleting records, Station data and Accounts |
+| e.g. `dec13village` | set by the admin | What the admin ticked when making it. By default: sees everyone queued on its screening day (with their earlier visits, from **Past visits** on the queue card), registers patients and enters and corrects their records, saving only on that day. Seeing or editing earlier days, pharmacy stock, printing and downloads, and Analytics can be ticked too. Once the day is over it is signed out and can't sign in again; its records stay |
 
-See [accounts and permissions](docs/user-roles.md) for exactly what each can change.
+There is one clinic: every device sees the same queues, Patient List and pharmacy. The
+village a screening is in goes in its account's username.
+
+See [accounts and permissions](docs/user-roles.md) for exactly what each permission allows.
 
 ## Feature guides
 
 - [Accounts and permissions](docs/user-roles.md): what the admin and screening-day
-  accounts can do.
+  accounts can do, and choosing each account's permissions.
 - [Station data](docs/station-data.md): changing the dropdown and checkbox choices in
   station forms.
 - [Queue ordering](docs/queue-ordering.md): sorting queues by number or arrival time.
@@ -123,7 +124,7 @@ A few things worth knowing:
   can do. The page is paused during the tour, so nothing is changed; use **Next** /
   **Back** or the arrow keys, and **Esc** or **✕** to leave at any time, which goes back to
   the page you were on. The **?** pulses until the guide has been opened once on that device.
-- Register patients on **Home**. The **+ (Add patient)** button on Patient List opens
+- Register patients on **Registration**. The **+ (Add patient)** button on Patient List opens
   the same form. The form shows the queue number the patient will get; it is assigned
   automatically. To group a family, register each member, then use **Add to family** on
   Patient List: they share a family letter, keep their numbers, sit together in every
@@ -147,14 +148,16 @@ A few things worth knowing:
 - **Prescriptions:** doctors prescribe from the pharmacy's stock on the Consult page.
   The stock is reserved at once. The pharmacy hands it over from **Pharmacy →
   Prescriptions to dispense**, or cancels it to release the stock. Dispensing needs
-  the admin account.
+  the admin account or the **Pharmacy stock** permission.
 - **Referral letters** print with the logo saved at
   `apps/frontend/public/btb-logo.png`, if there is one.
-- Queues, patient lists and open forms update automatically on every device at the
-  same location when someone saves (a device with no location chosen hears about
-  every location). A patient sent on from another device closes on yours, with a note
+- Queues, patient lists and open forms update automatically on every device when
+  someone saves. A patient sent on from another device closes on yours, with a note
   saying where they went.
-- **Patient List** opens sorted by **Last Seen**, most recent first: today's patients
+- The **account menu** (your username, top right) opens out of the button itself.
+  Point at an option to see what it does. It holds Analytics (when allowed), Station
+  data and Accounts (admin), and Logout.
+- **Patient List** (the first tab) opens sorted by **Last Seen**, most recent first: today's patients
   on top, the most recently registered first. Click any column header to sort by it
   (the sorted header is raised and bold, with a coloured arrow); click again to
   reverse.

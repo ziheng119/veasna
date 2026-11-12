@@ -1,19 +1,21 @@
 // routes/export.js
-// GET /api/export/patients - admin only (utils/permissions.js). Every patient with every visit, one
+// GET /api/export/patients - the print permission (utils/permissions.js). Every patient with every
+// visit (an account without view_past: the patients queued on its day), one
 // row per visit (a patient with no visits gets one row with blank visit columns), for the "Download
 // all patient data" spreadsheet on Patient List. Columns are flat text/number values in a fixed order.
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { authenticateToken, requireRole } = require('./auth');
+const { authenticateToken } = require('./auth');
+const { patientOnDaySql } = require('../utils/dayScope');
 
-router.get('/patients', authenticateToken, requireRole(['admin']), async (_req, res) => {
+router.get('/patients', authenticateToken, async (req, res) => {
   const { rows } = await db.query(`
     SELECT
-      p.id AS patient_id, p.face_id, pl.name AS patient_location, p.family,
+      p.id AS patient_id, p.face_id, p.family,
       p.english_name, p.khmer_name, TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth, p.sex,
       p.address, p.phone_number,
-      v.id AS visit_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, vl.name AS visit_location, v.queue_no,
+      v.id AS visit_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, v.queue_no,
       v.sticker_colour,
       TO_CHAR(v.completed_at, 'YYYY-MM-DD HH24:MI') AS discharged_at,
       (SELECT string_agg(s.station, ' > ' ORDER BY s.position, s.id) FROM visit_stations s WHERE s.visit_id = v.id) AS stations,
@@ -43,9 +45,7 @@ router.get('/patients', authenticateToken, requireRole(['admin']), async (_req, 
          FROM prescriptions pr WHERE pr.visit_id = v.id) AS prescriptions,
       TO_CHAR(GREATEST(p.last_updated_at, v.last_updated_at), 'YYYY-MM-DD HH24:MI') AS last_updated_at
     FROM patients p
-    LEFT JOIN locations pl ON pl.id = p.location_id
     LEFT JOIN visits v ON v.patient_id = p.id
-    LEFT JOIN locations vl ON vl.id = v.location_id
     LEFT JOIN vitals vt ON vt.visit_id = v.id
     LEFT JOIN hef h ON h.visit_id = v.id
     LEFT JOIN visual_acuity va ON va.visit_id = v.id
@@ -57,8 +57,9 @@ router.get('/patients', authenticateToken, requireRole(['admin']), async (_req, 
     LEFT JOIN physiotherapy pt ON pt.visit_id = v.id
     LEFT JOIN dental d ON d.visit_id = v.id
     LEFT JOIN seva s ON s.visit_id = v.id
+    WHERE ${patientOnDaySql('p.id', '$1')}
     ORDER BY p.english_name, p.id, v.visit_date, v.id
-  `);
+  `, [req.user.scope_date ?? null]);
   res.setHeader('Cache-Control', 'no-store');
   res.json(rows);
 });

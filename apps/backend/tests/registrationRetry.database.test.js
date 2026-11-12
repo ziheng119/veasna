@@ -19,7 +19,7 @@ const VITALS = { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diasto
   const today = localDate();
   const register = (patientInfo, extra = {}) => request(app).post('/api/visits')
     .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`)
-    .send({ patientInfo: { location_id: 1, ...patientInfo }, vitals: VITALS, hef: {}, ...extra });
+    .send({ patientInfo, vitals: VITALS, hef: {}, ...extra });
   const count = async table => Number((await client.query(`SELECT COUNT(*) FROM ${table}`)).rows[0].count);
 
   beforeAll(async () => {
@@ -31,10 +31,10 @@ const VITALS = { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diasto
     await client.query(`SET search_path TO pg_temp;
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
       INSERT INTO users VALUES (1);
-      CREATE TEMP TABLE patients (id SERIAL PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, date_of_birth DATE,
+      CREATE TEMP TABLE patients (id SERIAL PRIMARY KEY, english_name TEXT, khmer_name TEXT, date_of_birth DATE,
         sex TEXT, address TEXT, phone_number TEXT, last_updated_by INT REFERENCES users(id));
-      INSERT INTO patients (id, location_id, english_name, sex, last_updated_by) VALUES (500, 1, 'Returning Rith', 'M', 1);
-      CREATE TEMP TABLE visits (id SERIAL PRIMARY KEY, patient_id INT REFERENCES patients(id), location_id INT, queue_no TEXT,
+      INSERT INTO patients (id, english_name, sex, last_updated_by) VALUES (500, 'Returning Rith', 'M', 1);
+      CREATE TEMP TABLE visits (id SERIAL PRIMARY KEY, patient_id INT REFERENCES patients(id), queue_no TEXT,
         visit_date DATE, sticker_colour TEXT, completed_at TIMESTAMP, last_updated_by INT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, position INT, entered_at TIMESTAMP, completed_at TIMESTAMP,
         last_updated_by INT);

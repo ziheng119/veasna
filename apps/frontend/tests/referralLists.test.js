@@ -15,11 +15,11 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const text = node => (node.children ?? []).flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
 const patient = (visitId, englishName, extra = {}) => ({
-  visitId, patientId: visitId + 100, queueNo: String(visitId), visitDate: '2026-10-21', locationName: 'Village A',
+  visitId, patientId: visitId + 100, queueNo: String(visitId), visitDate: '2026-10-21',
   englishName, khmerName: null, sex: 'F', dateOfBirth: null, age: 40, phone: null, address: null,
   referralDate: null, condition: '', reason: '', signed: true, ...extra,
 });
-const lists = destinations => ({ locationId: 1, date: '2026-10-21', period: 'day', generatedAt: '2026-10-21T01:00:00Z', destinations });
+const lists = destinations => ({ date: '2026-10-21', period: 'day', generatedAt: '2026-10-21T01:00:00Z', destinations });
 const SAMPLE = [
   { label: 'Preah Ang Duong Hospital', listed: true, patients: [] },
   { label: 'Samdech Ov Referral Hospital', listed: true, patients: [
@@ -29,7 +29,7 @@ const SAMPLE = [
   { label: 'Optician', listed: true, patients: [patient(3, 'Beb')] },
   { label: 'Bong Bondol', listed: false, patients: [patient(4, 'Old')] },
 ];
-const props = { icon: () => null, tone: '', locationId: 1, locationName: 'Village A', date: '2026-10-21', period: 'day', dateRange: '21 Oct 2026', token: 't', refresh: 0 };
+const props = { icon: () => null, tone: '', date: '2026-10-21', period: 'day', dateRange: '21 Oct 2026', token: 't', refresh: 0 };
 
 let renderer, log, popup;
 beforeEach(() => {
@@ -54,7 +54,7 @@ const shownPatients = () => renderer.root.findAllByType('ol').flatMap(list => li
 test('opens on the first destination with patients, numbered in order, and switches on click', async () => {
   getAnalyticsReferrals.mockResolvedValue(lists(SAMPLE));
   await render();
-  expect(getAnalyticsReferrals).toHaveBeenCalledWith(1, '2026-10-21', 'day', 't', expect.any(Object));
+  expect(getAnalyticsReferrals).toHaveBeenCalledWith('2026-10-21', 'day', 't', expect.any(Object));
   expect(shownPatients()).toEqual(['Ben', 'Bob']);
   const all = text(renderer.root);
   expect(all).toContain('2 patients');
@@ -100,26 +100,26 @@ test('prints one list or every list, and says when there is nothing to print', a
 test('no referrals in the period: a clear message and printing is off', async () => {
   getAnalyticsReferrals.mockResolvedValue(lists(SAMPLE.slice(0, 1)));
   await render();
-  expect(text(renderer.root)).toContain('No referrals saved for this location and period.');
+  expect(text(renderer.root)).toContain('No referrals saved for this period.');
   expect(button('Print all lists').props.disabled).toBe(true);
 });
 
-test('a failed load says so and can be retried; other locations show the location', async () => {
+test('a failed load says so and can be retried', async () => {
   getAnalyticsReferrals.mockRejectedValueOnce(new Error('Unable to load referral lists. Please try again.'));
-  await render({ locationId: 'all' });
+  await render();
   const alert = renderer.root.findByProps({ role: 'alert' });
   expect(text(alert)).toContain('Unable to load referral lists.');
-  getAnalyticsReferrals.mockResolvedValueOnce({ ...lists(SAMPLE), locationId: 'all' });
+  getAnalyticsReferrals.mockResolvedValueOnce(lists(SAMPLE));
   await act(async () => button('Try again').props.onClick());
   expect(renderer.root.findAllByProps({ role: 'alert' })).toHaveLength(0);
-  expect(text(renderer.root)).toContain('21 Oct 2026 · Village A');
+  expect(shownPatients()).toEqual(['Ben', 'Bob']);
 });
 
 test('the printout escapes patient text and shows one page per destination', () => {
   const html = referralListDocumentHtml([
     { label: 'Optician', listed: true, patients: [patient(1, '<script>x</script>', { reason: 'Blurred' })] },
     { label: 'Empty', listed: true, patients: [] },
-  ], { locationName: 'Village A', dateRange: '21 Oct 2026', logoUrl: 'http://host/btb-logo.png' });
+  ], { dateRange: '21 Oct 2026', logoUrl: 'http://host/btb-logo.png' });
   expect(html).not.toContain('<script>x');
   expect(html).toContain('&lt;script&gt;');
   expect(html).toContain('http://host/btb-logo.png');

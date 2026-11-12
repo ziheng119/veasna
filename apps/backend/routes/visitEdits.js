@@ -5,7 +5,7 @@
 // Station notes (triage, SEVA, physiotherapy, consultation, referral) are edited through their
 // existing upsert endpoints, which also overwrite a saved row. This router covers
 // the parts of a visit that have no such endpoint:
-//   PUT /api/visits/:visitId         visit details: queue number, visit date, location, sticker
+//   PUT /api/visits/:visitId         visit details: queue number, visit date, sticker
 //   PUT /api/visits/:visitId/vitals  vitals and HEF captured at registration
 //   PUT /api/visits/:visitId/tb      TB screening record (red flags, notes, flag status)
 //   DELETE /api/visits/:visitId      the whole visit and every record of it (e.g. entered in error)
@@ -23,6 +23,8 @@ const { normalizeVitals } = require('../utils/vitals');
 const { TB_STATUSES, TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags } = require('../utils/tb');
 const { lockFamilies, releaseFamily } = require('../utils/familyMoves');
 const { normalizeStickerColour } = require('../utils/formOptions');
+const { workingDay } = require('../utils/dayScope');
+const { hasPermission } = require('../utils/permissions');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -66,13 +68,13 @@ async function inTransaction(res, label, work) {
 }
 
 // PUT /api/visits/:visitId
-// Body: { queue_no?, visit_date? (YYYY-MM-DD), location_id?, sticker_colour? (blank = none) }.
+// Body: { queue_no?, visit_date? (YYYY-MM-DD), sticker_colour? (blank = none) }.
 // Omitted fields keep their value.
 router.put('/:visitId', ...editors, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
 
-  const { queue_no, visit_date, location_id } = req.body;
+  const { queue_no, visit_date } = req.body;
   const queueNo = queue_no === undefined ? undefined : normalizeQueueNo(queue_no);
   if (queueNo !== undefined && !isValidQueueNo(queueNo)) {
     return res.status(400).json({ error: QUEUE_NO_ERROR });
@@ -80,14 +82,12 @@ router.put('/:visitId', ...editors, async (req, res) => {
   if (visit_date !== undefined && !isValidDate(visit_date)) {
     return res.status(400).json({ error: 'visit_date must be a valid date (YYYY-MM-DD)' });
   }
-  // A screening-day account may only change its own day's visits (utils/dayScope.js), so it can't
-  // move one to another date either.
-  const day = req.user.scope_date;
-  if (day && visit_date !== undefined && visit_date !== day) {
+  // Without edit_past an account may only change its own day's visits (utils/dayScope.js), so it
+  // can't move one to another date either.
+  const day = workingDay(req.user);
+  if (day && !hasPermission(req.user, 'edit_past') && visit_date !== undefined && visit_date !== day) {
     return res.status(403).json({ error: `This account can only keep visits on its screening day, ${day}.` });
   }
-  const locationId = location_id === undefined ? undefined : parsePositiveInt(location_id);
-  if (locationId === null) return res.status(400).json({ error: 'location_id must be a positive integer' });
   let stickerColour;
   if (req.body.sticker_colour !== undefined) {
     try {
@@ -98,13 +98,13 @@ router.put('/:visitId', ...editors, async (req, res) => {
     }
     if (stickerColour.error) return res.status(400).json({ error: stickerColour.error });
   }
-  if (queueNo === undefined && visit_date === undefined && locationId === undefined && stickerColour === undefined) {
-    return res.status(400).json({ error: 'Provide at least one of queue_no, visit_date, location_id or sticker_colour' });
+  if (queueNo === undefined && visit_date === undefined && stickerColour === undefined) {
+    return res.status(400).json({ error: 'Provide at least one of queue_no, visit_date or sticker_colour' });
   }
 
   await inTransaction(res, 'visit details', async (client) => {
     const current = await client.query(
-      `SELECT id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date, location_id, sticker_colour FROM visits WHERE id = $1 FOR UPDATE`,
+      `SELECT id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date, sticker_colour FROM visits WHERE id = $1 FOR UPDATE`,
       [visitId]
     );
     if (!current.rows.length) return { status: 404, body: { error: 'Visit not found' } };
@@ -113,37 +113,32 @@ router.put('/:visitId', ...editors, async (req, res) => {
     const next = {
       queue_no: queueNo ?? saved.queue_no,
       visit_date: visit_date ?? saved.visit_date,
-      location_id: locationId ?? saved.location_id,
       sticker_colour: stickerColour === undefined ? saved.sticker_colour : stickerColour.value,
     };
-    if (next.location_id) {
-      const location = await client.query('SELECT 1 FROM locations WHERE id = $1', [next.location_id]);
-      if (!location.rows.length) return { status: 400, body: { error: 'Location not found' } };
-      // Same lock as registration, so a new patient cannot take this number concurrently.
-      await lockQueue(client, next.location_id);
-    }
+    // Same lock as registration, so a new patient cannot take this number concurrently.
+    await lockQueue(client);
     // Only a changed number or move is checked, so older numbers can be kept as they are.
-    const moved = next.queue_no !== saved.queue_no || next.visit_date !== saved.visit_date || next.location_id !== saved.location_id;
-    if (moved && next.location_id) {
-      const jumpError = queueNoJumpError(next.queue_no, await getNextQueueNo(client, next.location_id, next.visit_date, visitId));
+    const moved = next.queue_no !== saved.queue_no || next.visit_date !== saved.visit_date;
+    if (moved) {
+      const jumpError = queueNoJumpError(next.queue_no, await getNextQueueNo(client, next.visit_date, visitId));
       if (jumpError) return { status: 400, body: { error: jumpError } };
     }
     const duplicate = await client.query(
       `SELECT 1 FROM visits
-       WHERE id <> $1 AND location_id IS NOT DISTINCT FROM $2 AND visit_date = $3::date AND UPPER(queue_no) = $4`,
-      [visitId, next.location_id, next.visit_date, next.queue_no]
+       WHERE id <> $1 AND visit_date = $2::date AND UPPER(queue_no) = $3`,
+      [visitId, next.visit_date, next.queue_no]
     );
     if (duplicate.rows.length) {
-      return { status: 409, body: { error: `Queue number ${next.queue_no} is already used at this location on ${next.visit_date}` } };
+      return { status: 409, body: { error: `Queue number ${next.queue_no} is already used on ${next.visit_date}` } };
     }
 
     const { rows } = await client.query(
       `UPDATE visits
-       SET queue_no = $2, visit_date = $3::date, location_id = $4, sticker_colour = $6, last_updated_by = $5, last_updated_at = NOW()
+       SET queue_no = $2, visit_date = $3::date, sticker_colour = $5, last_updated_by = $4, last_updated_at = NOW()
        WHERE id = $1
        RETURNING id AS visit_id, patient_id, queue_no, TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date,
-         location_id, sticker_colour, last_updated_at, last_updated_by`,
-      [visitId, next.queue_no, next.visit_date, next.location_id, req.user.id, next.sticker_colour]
+         sticker_colour, last_updated_at, last_updated_by`,
+      [visitId, next.queue_no, next.visit_date, req.user.id, next.sticker_colour]
     );
     return { status: 200, body: rows[0] };
   });
@@ -270,17 +265,15 @@ router.put('/:visitId/tb', ...editors, async (req, res) => {
 router.delete('/:visitId', ...adminOnly, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   await inTransaction(res, 'visit', async (client) => {
-    const { rows: found } = await client.query('SELECT location_id FROM visits WHERE id = $1', [visitId]);
-    if (!found.length) return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
-    if (found[0].location_id) await lockFamilies(client, found[0].location_id);
+    await lockFamilies(client);
     const { rows } = await client.query(
       `DELETE FROM visits v USING patients p WHERE v.id = $1 AND p.id = v.patient_id
-       RETURNING v.id AS visit_id, v.patient_id, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family`,
+       RETURNING v.id AS visit_id, v.patient_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, p.family`,
       [visitId]
     );
     if (!rows.length) return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
     const deleted = rows[0];
-    if (deleted.family && deleted.location_id) await releaseFamily(client, deleted, deleted.family, req.user.id);
+    if (deleted.family) await releaseFamily(client, deleted, deleted.family, req.user.id);
     return { status: 200, body: { visit_id: deleted.visit_id, patient_id: deleted.patient_id } };
   });
 });

@@ -7,13 +7,11 @@ import { ComponentType, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Activity, ArrowLeft, BarChart3, CalendarDays, CalendarX2, CheckCircle2, ClipboardCheck, FileWarning, HeartPulse, Info,
-  Lightbulb, MapPin, PieChart, Printer, RefreshCw, Send, Stethoscope, Users, X,
+  Lightbulb, PieChart, Printer, RefreshCw, Send, Stethoscope, Users, X,
 } from "lucide-react";
 import { useUserStore } from "@/stores/useUserStore";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { getLocations } from "@/lib/api/location";
-import { getAnalytics, Analytics, AnalyticsLocation, AnalyticsPeriod, AnalyticsTrend } from "@/lib/api/analytics";
-import { Location } from "@/lib/types/location";
+import { getAnalytics, Analytics, AnalyticsPeriod, AnalyticsTrend } from "@/lib/api/analytics";
+import { can } from "@/lib/permissions";
 import { STATIONS } from "@/constants/stations";
 import { cn } from "@/lib/utils";
 import GlassButton from "@/components/shared/GlassButton";
@@ -79,9 +77,8 @@ function StatCard({ icon: Icon, label, value, detail, info, tone, delay, action 
 
 export default function AnalyticsDashboard() {
   const token = useUserStore(state => state.user?.token);
-  const currentLocation = useLocationStore(state => state.currentLocation);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [locationId, setLocationId] = useState<AnalyticsLocation>(currentLocation?.id ?? 0);
+  // Printing referrals from here also needs "Print and download"; without it the button is not shown.
+  const canPrint = useUserStore(state => can(state.user, "print"));
   const [date, setDate] = useState(() => hostToday());
   const conditions = useFormOptions("consultation_conditions");
   const [chosenCondition, setCondition] = useState("diabetes");
@@ -93,21 +90,9 @@ export default function AnalyticsDashboard() {
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
   const [printingReferrals, setPrintingReferrals] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    getLocations().then(items => {
-      if (!active) return;
-      setLocations(items);
-      setLocationsLoaded(true);
-      setLocationId(id => id === "all" || items.some(item => item.id === id) ? id : items[0]?.id ?? 0);
-    });
-    return () => { active = false; };
-  }, []);
 
   // Storage can be unavailable (private windows, blocked site data); the guide then just shows.
   useEffect(() => {
@@ -122,25 +107,23 @@ export default function AnalyticsDashboard() {
     const controller = new AbortController();
     setData(null);
     setError("");
-    if (!locationId || !date || !token) { setLoading(false); return; }
+    if (!date || !token) { setLoading(false); return; }
     setLoading(true);
-    getAnalytics(locationId, date, token, controller.signal, period)
+    getAnalytics(date, token, controller.signal, period)
       .then(result => { if (!controller.signal.aborted) setData(result); })
       .catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Unable to load analytics."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [locationId, date, token, refresh, period]);
+  }, [date, token, refresh, period]);
 
-  const visible = data?.date === date && (data.period ?? "day") === period && data.locationId === locationId ? data : null;
+  const visible = data?.date === date && (data.period ?? "day") === period ? data : null;
   const conditionTotal = visible?.conditions?.reduce((sum, item) => sum + item.count, 0) ?? 0;
-  const locationName = locationId === "all" ? "All locations" : locations.find(item => item.id === locationId)?.name ?? "Clinic";
   // Each section keeps one accent colour in the nav, its icon badge and its heading.
   const sections = [
     { id: "overview", label: "Summary", ...TONES.slate },
     { id: "trends", label: "Trends", ...TONES.blue },
     { id: "conditions", label: "Conditions", ...TONES.rose },
     { id: "referrals", label: "Referrals", ...TONES.indigo },
-    ...(locationId === "all" ? [{ id: "locations", label: "Locations", ...TONES.violet }] : []),
     { id: "operations", label: "Clinic operations", ...TONES.teal },
   ];
   const sectionKey = sections.map(section => section.id).join();
@@ -165,8 +148,7 @@ export default function AnalyticsDashboard() {
   const onTrendLoaded = useCallback((result: AnalyticsTrend | null) => setTrend(result), []);
   const exportCsv = () => {
     if (!visible) return;
-    const slug = locationName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    downloadFile(buildAnalyticsCsv(visible, trend, { location: locationName, period: PERIOD_NAMES[period] }, conditions), `veasna-analytics-${slug}-${period}-${date}.csv`);
+    downloadFile(buildAnalyticsCsv(visible, trend, { period: PERIOD_NAMES[period] }, conditions), `veasna-analytics-${period}-${date}.csv`);
     toast.success("Spreadsheet downloaded");
   };
 
@@ -178,7 +160,7 @@ export default function AnalyticsDashboard() {
       info: "Different people whose Consult station was marked complete. Saving notes alone does not count." },
     { icon: Send, label: "Visits with referrals", value: visible.summary.referralVisits, tone: "bg-violet-50 text-violet-700 border-t-violet-500",
       detail: "Saved referrals, including unsigned drafts", info: "Visits with a saved referral form, signed or not. It does not confirm the patient attended.",
-      action: { label: "Print referrals", icon: Printer, onClick: () => setPrintingReferrals(true) } },
+      action: canPrint ? { label: "Print referrals", icon: Printer, onClick: () => setPrintingReferrals(true) } : undefined },
     { icon: CheckCircle2, label: "Visits discharged", value: visible.summary.dischargedVisits, tone: "bg-emerald-50 text-emerald-700 border-t-emerald-500",
       detail: `${visible.summary.visits - visible.summary.dischargedVisits} still in the clinic queue`, info: "Visits marked discharged from the queue. Not every assigned station is necessarily complete." },
   ] : [];
@@ -196,7 +178,7 @@ export default function AnalyticsDashboard() {
           <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm" aria-hidden="true"><BarChart3 className="size-4" /></span>
           <span className="truncate">Clinic analytics</span>
         </h1>
-        <GlassButton type="button" size="icon" aria-label="Refresh data" title="Reload the latest saved data" className="group size-10 print:hidden" disabled={loading || !locationId || !date} onClick={() => setRefresh(value => value + 1)}>
+        <GlassButton type="button" size="icon" aria-label="Refresh data" title="Reload the latest saved data" className="group size-10 print:hidden" disabled={loading || !date} onClick={() => setRefresh(value => value + 1)}>
           <RefreshCw className={cn("size-4 transition-transform duration-500", loading ? "animate-spin motion-reduce:animate-none" : "group-hover:rotate-90")} aria-hidden="true" />
         </GlassButton>
         <div className="print:hidden"><ExportMenu disabled={!visible} onCsv={exportCsv} onPrint={() => window.print()} /></div>
@@ -219,25 +201,18 @@ export default function AnalyticsDashboard() {
       {showGuide && <aside aria-label="How to use this page" className={cn(enter, "flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950 print:hidden")}>
         <Lightbulb className="mt-0.5 size-4 shrink-0 text-blue-600" aria-hidden="true" />
         <p className="flex-1 leading-6"><span className="font-semibold">How to use this page: </span>
-          pick a location, period and date below, tap <Info className="inline size-3.5 align-[-2px]" aria-label="info" /> on any card to see what it means, and use the links above to jump between sections.</p>
+          pick a period and date below, tap <Info className="inline size-3.5 align-[-2px]" aria-label="info" /> on any card to see what it means, and use the links above to jump between sections.</p>
         <button type="button" aria-label="Hide guide" onClick={dismissGuide} className="grid size-7 shrink-0 place-items-center rounded-full text-blue-700 transition hover:rotate-90 hover:bg-blue-100 active:scale-90 motion-reduce:transform-none">
           <X className="size-4" aria-hidden="true" />
         </button>
       </aside>}
 
       <section aria-label="Analytics filters" className={cn(panel, enter, "p-4 sm:p-5 print:hidden")}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)] lg:items-end">
-          <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">Clinic location
-            <select aria-label="Clinic location" value={locationId} onChange={event => setLocationId(event.target.value === "all" ? "all" : Number(event.target.value))} className={cn(fieldClass, "text-foreground")}>
-              {!locations.length && <option value={0}>{locationsLoaded ? "No locations available" : "Loading locations..."}</option>}
-              {locations.length > 0 && <option value="all">All locations (overall)</option>}
-              {locations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}
-            </select>
-          </label>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-end">
           <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">Time period
             <Segmented label="Time period" value={period} onChange={setPeriod} options={PERIODS} className="w-full sm:w-auto" />
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-1">
+          <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-muted-foreground">
             <label htmlFor="analytics-date">{period === "day" ? "Date" : "Up to date"}</label>
             <div className="flex gap-2">
               <input id="analytics-date" type="date" value={date} max={hostToday()} onChange={event => setDate(event.target.value)} className={cn(fieldClass, "min-w-0 flex-1 text-foreground")} />
@@ -247,7 +222,6 @@ export default function AnalyticsDashboard() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
           <span>Showing</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-800"><MapPin className="size-3" aria-hidden="true" />{locationName}</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-800"><CalendarDays className="size-3" aria-hidden="true" />{dateRangeText(period, date)}</span>
           <InfoTip label="filters">Every chart on this page uses these filters. Counts are based on the date each visit was registered, not population prevalence.</InfoTip>
           {visible && <span className="ml-auto">Updated {new Date(visible.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
@@ -259,7 +233,6 @@ export default function AnalyticsDashboard() {
           <span>{error}</span>
           <button type="button" onClick={() => setRefresh(value => value + 1)} className="rounded-full border border-destructive/30 px-3 py-1 font-medium transition hover:bg-destructive/10 active:scale-95">Try again</button>
         </div>}
-        {!locationId && locationsLoaded && <p className="text-sm text-muted-foreground">No clinic locations could be loaded. Return to the clinic page to check the connection and location setup.</p>}
         {loading && !visible && <div role="status" aria-label="Loading clinic activity" className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" style={{ animationDelay: `${i * 100}ms` }} />)}</div>
           <div className="h-80 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
@@ -269,11 +242,11 @@ export default function AnalyticsDashboard() {
       {visible && <>
         {!visible.summary.visits && <div className={cn(enter, "flex flex-wrap items-center gap-4 rounded-2xl border border-dashed border-border bg-card/60 p-5")}>
           <CalendarX2 className="size-6 text-muted-foreground" aria-hidden="true" />
-          <div className="min-w-0 flex-1"><p className="text-sm font-medium">No visits are recorded for this location and period.</p>
-            <p className="text-xs text-muted-foreground">Try a longer period or look across every location.</p></div>
+          <div className="min-w-0 flex-1"><p className="text-sm font-medium">No visits are recorded for this period.</p>
+            <p className="text-xs text-muted-foreground">Try a longer period or another date.</p></div>
           <div className="flex flex-wrap gap-2">
             {period !== "month" && period !== "all" && <button type="button" onClick={() => setPeriod("month")} className="rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-muted active:scale-95">Try past 30 days</button>}
-            {locationId !== "all" && <button type="button" onClick={() => setLocationId("all")} className="rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-muted active:scale-95">Try all locations</button>}
+            {period !== "all" && <button type="button" onClick={() => setPeriod("all")} className="rounded-full border border-border px-3 py-1.5 text-sm transition hover:bg-muted active:scale-95">Try all time</button>}
           </div>
         </div>}
 
@@ -281,12 +254,12 @@ export default function AnalyticsDashboard() {
           <h2 className="sr-only">Summary</h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {cards.map((card, i) => <StatCard key={card.label} {...card} delay={i * 70} />)}
-            <PrintReferralsDialog open={printingReferrals} onOpenChange={setPrintingReferrals}
-              locationId={locationId || undefined} choices={["today", "date", "period", "all"]} initialDate={date} />
+            {canPrint && <PrintReferralsDialog open={printingReferrals} onOpenChange={setPrintingReferrals}
+              choices={["today", "date", "period", "all"]} initialDate={date} />}
           </div>
         </section>
 
-        {token && <TrendSection id="trends" locationId={locationId} date={date} token={token} refresh={refresh} onLoaded={onTrendLoaded} delay={150} />}
+        {token && <TrendSection id="trends" date={date} token={token} refresh={refresh} onLoaded={onTrendLoaded} delay={150} />}
 
         <SectionCard id="conditions" icon={HeartPulse} tone={TONES.rose.badge} title="Conditions seen in consultation" label="Condition analytics" delay={200}
           description="Based on the condition categories doctors tick at the Consult station."
@@ -328,19 +301,9 @@ export default function AnalyticsDashboard() {
           </div>
         </SectionCard>
 
-        {token && <ReferralListsSection id="referrals" icon={Send} tone={TONES.indigo.badge} locationId={locationId} locationName={locationName}
+        {token && <ReferralListsSection id="referrals" icon={Send} tone={TONES.indigo.badge}
           date={date} period={period} dateRange={dateRangeText(period, date)} token={token} refresh={refresh} delay={225} />}
 
-        {locationId === "all" && <SectionCard id="locations" icon={MapPin} tone={TONES.violet.badge} title="Patients reached by location" label="Location comparison" delay={250}
-          description="Compare how many different patients each clinic location saw."
-          info="A patient seen at two locations counts at both, so these can add up to more than Patients reached.">
-          {visible.locations.length
-            ? <BarList color={PRIMARY_SERIES_COLOR} unit="patients" items={visible.locations.map(row => ({
-                id: String(row.locationId), label: locations.find(item => item.id === row.locationId)?.name ?? `Location ${row.locationId}`,
-                value: row.people, detail: `${row.visits} visits`,
-              }))} />
-            : <p className="text-sm text-muted-foreground">No visits recorded at any location.</p>}
-        </SectionCard>}
 
         <section id="operations" aria-label="Clinic operations" className="scroll-mt-36 space-y-4">
           <div className={cn(enter, "flex items-center gap-2 pt-2")} style={{ animationDelay: "250ms" }}>

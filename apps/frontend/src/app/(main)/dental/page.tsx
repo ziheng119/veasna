@@ -6,7 +6,6 @@ import PatientContainer from "@/components/shared/read-only/patient-container/Pa
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
 import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
@@ -16,7 +15,6 @@ export default function Dental() {
 
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-  useLocationReminder();
 
   return (
     <StationFlowProvider station="dental" onSelectPatient={setSelectedPatient}>

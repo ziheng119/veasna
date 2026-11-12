@@ -44,20 +44,14 @@ router.use(async (req, res, next) => {
     }
 });
 
-// GET all drugs for a specific location
+// GET every drug in the pharmacy
 router.get('/', authenticateToken, async (req, res) => {
-    const location_id = toPositiveInt(req.query.location_id);
-
-    if (!location_id) {
-        return res.status(400).json({ error: 'location_id must be a positive integer' });
-    }
-
     try {
         // reserved_count: held by pending prescriptions; available_count: what can still be used.
         const query = `
             SELECT p.*, ${RESERVED_SQL} AS reserved_count, p.stock_count - ${RESERVED_SQL} AS available_count
-            FROM pharmacy p WHERE p.location_id = $1 ORDER BY p.drug_name ASC`;
-        const { rows } = await db.query(query, [location_id]);
+            FROM pharmacy p ORDER BY p.drug_name ASC`;
+        const { rows } = await db.query(query);
         res.status(200).json(rows);
     } catch (err) {
         console.error('Error fetching pharmacy stock:', err);
@@ -65,14 +59,8 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
-// GET pharmacy stats for a specific location
+// GET pharmacy stats
 router.get('/stats', authenticateToken, async (req, res) => {
-    const location_id = toPositiveInt(req.query.location_id);
-
-    if (!location_id) {
-        return res.status(400).json({ error: 'location_id must be a positive integer' });
-    }
-
     try {
         const query = `
             SELECT
@@ -81,9 +69,9 @@ router.get('/stats', authenticateToken, async (req, res) => {
                 COALESCE(SUM(reserved), 0)::int AS total_reserved,
                 COUNT(*) FILTER (WHERE stock_count - reserved <= 0)::int AS out_of_stock,
                 COUNT(*) FILTER (WHERE stock_count - reserved > 0 AND stock_count - reserved <= 20)::int AS low_stock
-            FROM (SELECT p.stock_count, ${RESERVED_SQL} AS reserved FROM pharmacy p WHERE p.location_id = $1) s;
+            FROM (SELECT p.stock_count, ${RESERVED_SQL} AS reserved FROM pharmacy p) s;
         `;
-        const { rows } = await db.query(query, [location_id]);
+        const { rows } = await db.query(query);
         res.status(200).json(rows[0]);
     } catch (err) {
         console.error('Error fetching pharmacy stats:', err);
@@ -94,11 +82,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
 // POST a new drug to the pharmacy
 router.post('/', authenticateToken, async (req, res) => {
     const { drug_name, stock_count } = req.body;
-    const location_id = toPositiveInt(req.body.location_id);
     const last_updated_by = req.user.id;
 
-    if (!location_id || typeof drug_name !== 'string' || !drug_name.trim() || stock_count === undefined || stock_count === null) {
-        return res.status(400).json({ error: 'location_id, drug_name, and stock_count are required' });
+    if (typeof drug_name !== 'string' || !drug_name.trim() || stock_count === undefined || stock_count === null) {
+        return res.status(400).json({ error: 'drug_name and stock_count are required' });
     }
 
     const count = toCount(stock_count);
@@ -108,18 +95,15 @@ router.post('/', authenticateToken, async (req, res) => {
 
     try {
         const query = `
-            INSERT INTO pharmacy (location_id, drug_name, stock_count, last_updated_by)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO pharmacy (drug_name, stock_count, last_updated_by)
+            VALUES ($1, $2, $3)
             RETURNING *;
         `;
-        const { rows } = await db.query(query, [location_id, drug_name.trim(), count, last_updated_by]);
+        const { rows } = await db.query(query, [drug_name.trim(), count, last_updated_by]);
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') {
-            return res.status(409).json({ error: 'This drug already exists at this location.' });
-        }
-        if (err.code === '23503') {
-            return res.status(400).json({ error: 'Location not found' });
+            return res.status(409).json({ error: 'This drug is already in the pharmacy.' });
         }
         console.error('Error adding drug:', err);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -239,7 +223,7 @@ router.patch('/:drugId/name', authenticateToken, async (req, res) => {
         res.status(200).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') {
-            return res.status(409).json({ error: 'A drug with this name already exists at this location.' });
+            return res.status(409).json({ error: 'A drug with this name is already in the pharmacy.' });
         }
         console.error('Error updating drug name:', err);
         res.status(500).json({ error: 'Internal Server Error' });

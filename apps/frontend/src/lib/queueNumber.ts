@@ -1,4 +1,4 @@
-// Queue numbers are text: issued automatically as 1, 2, 3... per location per day (families have
+// Queue numbers are text: issued automatically as 1, 2, 3... per day (families have
 // their own letter, see lib/family.ts). Older visits may have typed numbers such as "12A" or "A12". Admins can correct a number on Patient Details. Must match apps/backend/utils/queueNumber.js.
 
 // 1-10 letters and digits, at least one of them a digit.

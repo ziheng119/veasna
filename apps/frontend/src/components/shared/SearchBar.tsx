@@ -10,9 +10,7 @@ import StationBadge from "./StationBadge"
 import TbBadge from "./TbBadge"
 import FamilyBadge from "./FamilyBadge";
 import { QueuedPatient } from "@/lib/types/patient"
-import { Location } from "@/lib/types/location"
 import { StationId, stationLabel, stationPageHref } from "@/constants/stations"
-import { useLocationStore } from "@/stores/useLocationStore"
 import { useLiveList } from "@/hooks/useLiveList"
 import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue"
 import { sortQueuePatients } from "@/lib/queueSort"
@@ -51,13 +49,11 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
   const searchId = useId()
   const listId = `${searchId}-list`
   const token = useUserStore((state) => state.user?.token)
-  const location: Location | null = useLocationStore(state => state.currentLocation)
 
-  const locationId = location?.id
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
-    if (!locationId || !token) return []
-    return getQueue(locationId, CLINIC_TODAY, token, undefined, signal)
-  }, [locationId, token])
+    if (!token) return []
+    return getQueue(CLINIC_TODAY, token, undefined, signal)
+  }, [token])
   const { data: patients } = useLiveList(load)
 
   const trimmed = query.trim().toLowerCase()
@@ -128,9 +124,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
     }
   }
 
-  const emptyMessage = !locationId
-    ? "Select a location to search its queue."
-    : trimmed
+  const emptyMessage = trimmed
       ? `No patient in today's queue matches "${query.trim()}".`
       : "No patients in today's queue yet."
 

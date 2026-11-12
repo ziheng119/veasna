@@ -33,11 +33,6 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: "Follow a sample patient from registration to their last station. Nothing is saved. Esc or ✕ exits at any time.",
   },
   {
-    chapter: "Getting started", path: "/", target: "location", side: "bottom",
-    title: "Choose your location",
-    body: "Choose where you're working. Queues and patient lists on this device show that location.",
-  },
-  {
     chapter: "Getting started", path: "/", target: "nav", side: "bottom",
     title: "Stations in clinic order",
     body: `One page per station, in clinic order: Triage, Dental, Consult, then Physiotherapy, ${PARTNER_NGO_NAME} or Pharmacy.`,

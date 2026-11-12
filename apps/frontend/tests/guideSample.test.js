@@ -15,7 +15,7 @@ const { getConsultation } = require('../src/lib/api/visit/doctors-consultation/g
 const { getPhysiotherapy } = require('../src/lib/api/visit/physiotherapy/getPhysiotherapy');
 const { getSeva } = require('../src/lib/api/visit/seva/getSeva');
 const { getTbScreening } = require('../src/lib/api/tb/tb');
-const { getVisitPrescriptions, getLocationPrescriptions } = require('../src/lib/api/pharmacy/prescriptions');
+const { getVisitPrescriptions, getAllPrescriptions } = require('../src/lib/api/pharmacy/prescriptions');
 
 let originalFetch;
 beforeEach(() => {
@@ -28,11 +28,11 @@ beforeEach(() => {
 afterEach(() => { global.fetch = originalFetch; useGuideStore.setState({ active: false }); });
 
 test('each station queue holds only the sample, waiting there with the stations before it done', async () => {
-  const [dental] = await getQueue(3, CLINIC_TODAY, 't', 'dental');
+  const [dental] = await getQueue(CLINIC_TODAY, 't', 'dental');
   expect(dental).toMatchObject({ visit_id: SAMPLE_ID, current_station: 'dental', english_name: expect.stringContaining('sample') });
   expect(dental.stations.slice(0, 2)).toEqual([{ station: 'triage', completed: true }, { station: 'dental', completed: false }]);
   // Home's queue: the sample waits for Triage.
-  expect((await getQueue(3, CLINIC_TODAY, 't'))[0].current_station).toBe('triage');
+  expect((await getQueue(CLINIC_TODAY, 't'))[0].current_station).toBe('triage');
   expect(global.fetch).not.toHaveBeenCalled();
   expect(sampleWasShown()).toBe(true);
 });
@@ -50,7 +50,7 @@ test("every station's records for the sample load, filled in", async () => {
   expect(await getSeva(SAMPLE_ID)).toMatchObject({ diagnosis: 'Early cataract, left eye', dateOfReferral: null });
   // Pharmacy: the sample's prescription waits to be dispensed.
   expect(await getVisitPrescriptions(SAMPLE_ID)).toEqual([expect.objectContaining({ visit_id: SAMPLE_ID, status: 'pending' })]);
-  expect(await getLocationPrescriptions(3, 'pending')).toEqual([expect.objectContaining({ drug_name: 'Paracetamol 500 mg', location_id: 3 })]);
+  expect(await getAllPrescriptions('pending')).toEqual([expect.objectContaining({ drug_name: 'Paracetamol 500 mg' })]);
   expect(global.fetch).not.toHaveBeenCalled();
 });
 
@@ -60,13 +60,13 @@ test('saving the sample is refused without reaching the host', async () => {
 });
 
 test('everything else goes to the host as usual, and so does everything once the tour ends', async () => {
-  expect(sampleReply('http://192.168.1.10:4000/api/pharmacy?location_id=3')).toBeNull();
+  expect(sampleReply('http://192.168.1.10:4000/api/pharmacy')).toBeNull();
   expect(sampleReply('http://192.168.1.10:4000/api/visits/dental/12', 'POST')).toBeNull();
   // A sample record the tour doesn't have: not found, rather than a real visit.
   expect(sampleReply(`http://h/api/patient/visit/${SAMPLE_ID}`).status).toBe(404);
 
   useGuideStore.setState({ active: false });
-  await apiFetch('http://h/api/queue?location_id=3');
+  await apiFetch('http://h/api/queue');
   expect(global.fetch).toHaveBeenCalledTimes(1);
   expect(sampleWasShown()).toBe(false);
 });

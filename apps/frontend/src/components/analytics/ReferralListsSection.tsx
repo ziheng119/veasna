@@ -7,7 +7,7 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PRIMARY_SERIES_COLOR } from "@/constants/consultationConditions";
 import { letterheadLogoUrl } from "@/constants/letterhead";
-import { AnalyticsLocation, AnalyticsPeriod, AnalyticsReferralLists, getAnalyticsReferrals, ReferralList } from "@/lib/api/analytics";
+import { AnalyticsPeriod, AnalyticsReferralLists, getAnalyticsReferrals, ReferralList } from "@/lib/api/analytics";
 import { writeAndPrint } from "@/lib/printDocument";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -25,8 +25,6 @@ interface Props {
   id?: string;
   icon: ComponentType<{ className?: string }>;
   tone: string;
-  locationId: AnalyticsLocation;
-  locationName: string;
   date: string;
   period: AnalyticsPeriod;
   // How the period reads on the printout, e.g. "15 Oct – 21 Oct 2026".
@@ -42,7 +40,7 @@ interface Props {
  * destination to list its patients; print one list or every list to take on referral days.
  * Admin only, like the rest of Analytics.
  */
-export default function ReferralListsSection({ id, icon, tone, locationId, locationName, date, period, dateRange, token, refresh, delay }: Props) {
+export default function ReferralListsSection({ id, icon, tone, date, period, dateRange, token, refresh, delay }: Props) {
   const [data, setData] = useState<AnalyticsReferralLists | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -51,14 +49,14 @@ export default function ReferralListsSection({ id, icon, tone, locationId, locat
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    getAnalyticsReferrals(locationId, date, period, token, controller.signal)
+    getAnalyticsReferrals(date, period, token, controller.signal)
       .then(result => { if (!controller.signal.aborted) setData(result); })
       .catch(err => { if (!controller.signal.aborted) { setData(null); setError(err instanceof Error ? err.message : "Unable to load referral lists."); } });
     return () => controller.abort();
-  }, [locationId, date, period, token, refresh, retry]);
+  }, [date, period, token, refresh, retry]);
 
   // Keep showing the previous lists (dimmed) while new filters load, instead of flashing empty.
-  const current = data?.date === date && data.period === period && data.locationId === locationId;
+  const current = data?.date === date && data.period === period;
   const lists = data?.destinations ?? [];
   const total = lists.reduce((sum, list) => sum + list.patients.length, 0);
   const max = Math.max(1, ...lists.map(list => list.patients.length));
@@ -69,7 +67,7 @@ export default function ReferralListsSection({ id, icon, tone, locationId, locat
     if (!printed.some(list => list.patients.length > 0)) { toast("No referred patients to print."); return; }
     const popup = window.open("", "_blank");
     if (!popup) { toast.error("Allow pop-ups to print referral lists."); return; }
-    writeAndPrint(popup, referralListDocumentHtml(printed, { locationName, dateRange, logoUrl: letterheadLogoUrl() }));
+    writeAndPrint(popup, referralListDocumentHtml(printed, { dateRange, logoUrl: letterheadLogoUrl() }));
   };
 
   return <SectionCard id={id} icon={icon} tone={tone} title="Patients by referral destination" label="Referral lists" delay={delay}
@@ -114,7 +112,7 @@ export default function ReferralListsSection({ id, icon, tone, locationId, locat
 
       <div className="min-w-0 rounded-xl border border-border">
         {total === 0 || !selected ? (
-          <p className="grid h-full min-h-48 place-items-center px-4 text-center text-sm text-muted-foreground">No referrals saved for this location and period.</p>
+          <p className="grid h-full min-h-48 place-items-center px-4 text-center text-sm text-muted-foreground">No referrals saved for this period.</p>
         ) : <>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
@@ -142,7 +140,7 @@ export default function ReferralListsSection({ id, icon, tone, locationId, locat
                       {patient.khmerName && <span className="text-muted-foreground">{patient.khmerName}</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {[who === "–" ? null : who, `Queue ${patient.queueNo}`, readable(patient.visitDate), locationId === "all" ? patient.locationName : null, patient.signed ? null : "Unsigned draft"].filter(Boolean).join(" · ")}
+                      {[who === "–" ? null : who, `Queue ${patient.queueNo}`, readable(patient.visitDate), patient.signed ? null : "Unsigned draft"].filter(Boolean).join(" · ")}
                     </p>
                     {(patient.phone || patient.address) && <p className="text-xs text-muted-foreground">{[patient.phone, patient.address].filter(Boolean).join(" · ")}</p>}
                     {reason && <p className="pt-1 leading-5">{reason}</p>}

@@ -81,14 +81,29 @@ again.
 npm run seed:demo
 ```
 
-This adds sample locations (Poipet, Mongkol Borey, Sisophon), patients, a queue for
-today and pharmacy stock. Running it again skips anything already added.
+This adds sample patients, a queue for today and pharmacy stock. Running it again skips
+anything already added.
 
 ### Updating an existing database
 
 You do not need to run any update scripts by hand. When the server starts, it adds
 any new tables and columns automatically, without touching existing records. The SQL
 files in `migrations/` are kept as a record of each change.
+
+**Locations were removed** (`migrations/027_remove_locations.sql`): there is one clinic,
+so the `locations` table and every `location_id` column go the first time an updated
+server starts. **Take a backup first** (`npm run backup`): which location each patient,
+visit and drug belonged to is not kept. The migration also:
+
+- merges a drug kept at more than one location into one row holding the stock of all of
+  them; its prescriptions and dispenses point at that row;
+- gives a family whose letter was also used at another location the first free letter,
+  so families never merge;
+- refuses a repeated queue number on the same day from then on. Past days where two
+  locations both issued a number keep both (the server logs this once at start-up).
+
+`migrations/028_account_permissions.sql` adds `users.permissions`; existing accounts get
+**See today's patients** and **Edit today's queue**, which is what they could do before.
 
 ## Running the server
 
@@ -110,9 +125,8 @@ To check that it is working, open `/health` in a browser:
 - `"database": "ok"` means everything is connected.
 - `lastBackup` is the latest automatic backup: when (`at`) and where (`file`), plus
   `error` and `failed_at` when the latest attempt failed. `null` until the first.
-- `realtimeClients` is the number of devices currently receiving live updates. Each
-  device is told only about changes at the location it chose (`realtime.js`); a change
-  whose location can't be told goes to every device.
+- `realtimeClients` is the number of devices currently receiving live updates. Every
+  device is told about every change (`realtime.js`).
 - `server_time`, `server_date` and `utc_offset_minutes` are the host's clock, which
   every device uses for "today".
 
@@ -201,7 +215,7 @@ router setup with several devices.
 | `database "veasna_screening" does not exist` | Go back to step 2. |
 | `relation "..." does not exist` | The tables are missing. Go back to step 4. |
 | `/health` shows HTTP 503 | The server is running but can't reach PostgreSQL. Start PostgreSQL, then restart the server. |
-| Start-up warns that some visits share a queue number | Older data has two visits with the same number at one location and date, so the database can't refuse duplicates yet (`migrations/026_visit_indexes.sql`). Run the query in the warning, change one number in each pair on **Patient Details**, then restart. Everything else works meanwhile. |
+| Start-up says queue numbers repeat on some past days | Before locations were removed, two locations could issue the same number on one day. Those days keep both; the database refuses a repeated number only on later days (`migrations/027_remove_locations.sql`). Nothing needs doing. |
 | `Backup failed: pg_dump was not found` (or `createdb`, `pg_restore`) | Set `PG_BIN` in `.env` to PostgreSQL's `bin` folder. |
 | `Restore failed: permission denied to create database` | In psql, run `ALTER USER veasna_app CREATEDB;`, then try again. |
 | `Backup failed: ... server version mismatch` | `pg_dump` is older than the database. Install the matching PostgreSQL version, or point `PG_BIN` at its `bin` folder. |
@@ -242,16 +256,16 @@ These rules are enforced by the server, so they apply on every device:
   (`sendToConsultation`). Finishing Consultation ends their stations, and
   their prescriptions wait at Pharmacy. Only an admin can change an existing flag's red
   flags or notes.
-- **Queue numbers** are text, always issued automatically: 1, 2, 3... per location and
-  day, under the location's queue lock. Families have their own letter (`patients.family`),
-  set with `POST /api/family` (`routes/family.js`, `utils/family.js`), and move between
-  stations together (`utils/familyMoves.js`). Queue numbers are unique per location and day,
-  kept so by the app (there is no database constraint). Admin corrections can't run
+- **Queue numbers** are text, always issued automatically: 1, 2, 3... per day, under the
+  queue lock. Families have their own letter (`patients.family`), set with
+  `POST /api/family` (`routes/family.js`, `utils/family.js`), and move between stations
+  together (`utils/familyMoves.js`). Queue numbers are unique per day, kept so by the app
+  and by the `visits_day_queue_no_key` index. Admin corrections can't run
   ahead of the next number (`queueNoJumpError` in `utils/queueNumber.js`).
 - **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
   when a cataract is suspected. The station is still `seva` in the database and API; its
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.
-- **Prescriptions** are chosen from the location's pharmacy. Prescribing reserves stock
+- **Prescriptions** are chosen from the pharmacy. Prescribing reserves stock
   at once; the pharmacy dispenses (stock goes down) or cancels (stock is released).
 - **Visual acuity** is recorded as a Snellen fraction such as `20/20` or `20/40`.
 - **Unique ID** is made automatically from the first 3 letters of the English and

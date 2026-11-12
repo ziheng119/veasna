@@ -7,10 +7,10 @@ import { PageHeader } from "@/components/pharmacy/PageHeader"
 import { PlusIcon } from "@/assets/icons"
 import { AddDrugSidebar } from "@/components/pharmacy/AddDrugSidebar"
 import { FullSearchBar } from "@/components/patient-list/FullSearchBar"
-import { getDrugsByLocation, addDrug, updateDrugCount, updateDrugName, deleteDrug } from "@/lib/api/pharmacy/pharmacy"
-import { useLocationStore } from "@/stores/useLocationStore"
+import { getDrugs, addDrug, updateDrugCount, updateDrugName, deleteDrug } from "@/lib/api/pharmacy/pharmacy"
+import { useUserStore } from "@/stores/useUserStore"
+import { can } from "@/lib/permissions"
 import toast from "react-hot-toast"
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { Button } from "@/components/ui/button"
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -23,22 +23,22 @@ export default function PharmacyDashboard() {
     const [searchTerm, setSearchTerm] = useState<string>("")
     const [showAddTab, setShowAddTab] = useState<boolean>(false)
 
-    const location = useLocationStore((state) => state.currentLocation)
-
-    useLocationReminder();
+    // Adding drugs and changing stock: the "Pharmacy stock" permission. Without it the list is read-only.
+    const canManage = useUserStore((state) => can(state.user, "pharmacy"))
 
     async function refreshDrugs() {
-      if (location) {
-        const db_drugs = await getDrugsByLocation(location.id);
-        setDrugs(db_drugs)
+      try {
+        setDrugs(await getDrugs())
+      } catch {
+        toast.error("Failed to load pharmacy stock.")
+      } finally {
         setIsLoading(false)
       }
     }
 
     useEffect(() => {
       refreshDrugs()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location]);
+    }, []);
 
     const filteredDrugs = useMemo(() => {
         if (!searchTerm.trim()) {
@@ -64,7 +64,7 @@ export default function PharmacyDashboard() {
           )
         );
       } catch (error) {
-        toast.error("Failed to update stock count.");
+        toast.error(error instanceof Error ? error.message : "Failed to update stock count.");
       }
     }
 
@@ -86,7 +86,7 @@ export default function PharmacyDashboard() {
         const name = drugs.find(drug => drug.id === drugId)?.drug_name ?? "this medicine";
         if (await confirm({
           title: `Delete ${name}?`,
-          description: "It is removed from this location's stock. Earlier prescriptions keep its name.",
+          description: "It is removed from the pharmacy's stock. Earlier prescriptions keep its name.",
           confirmLabel: "Delete medicine",
         })) {
           try {
@@ -94,23 +94,18 @@ export default function PharmacyDashboard() {
             setDrugs(prevDrugs => prevDrugs.filter(drug => drug.id !== drugId));
             toast.success("Drug deleted successfully.");
           } catch (error) {
-            toast.error("Failed to delete drug.");
+            toast.error(error instanceof Error ? error.message : "Failed to delete drug.");
           }
         }
     }
 
     const handleAddDrug = async (newDrugData: { drug_name: string; stock_count: number }) => {
-      if (!location) {
-        toast.error("No Location Selected !");
-        return;
-      }
       try {
-        const payload = { ...newDrugData, location_id: location.id };
-        const newDrug = await addDrug(payload);
+        const newDrug = await addDrug(newDrugData);
         setDrugs(prevDrugs => [...prevDrugs, newDrug]);
         toast.success(`${newDrug.drug_name} added to inventory.`);
       } catch (error) {
-        toast.error("Failed to add new drug.");
+        toast.error(error instanceof Error ? error.message : "Failed to add new drug.");
       }
     }
 
@@ -125,13 +120,17 @@ export default function PharmacyDashboard() {
                placeholder={"Search drugs..."}
               />
 
-              <Button
-                onClick={() => setShowAddTab(!showAddTab)}
-                size="icon"
-                className="ml-4 rounded-full"
-              >
-                <PlusIcon className='w-5 h-5'/>
-              </Button>
+              {canManage
+                ? <Button
+                    onClick={() => setShowAddTab(!showAddTab)}
+                    size="icon"
+                    className="ml-4 rounded-full"
+                    aria-label="Add a drug"
+                    title="Add a drug"
+                  >
+                    <PlusIcon className='w-5 h-5'/>
+                  </Button>
+                : <p className="ml-4 shrink-0 text-sm text-muted-foreground">Read only: changing stock needs the &quot;Pharmacy stock&quot; permission.</p>}
             </div>
           </div>
 
@@ -145,7 +144,7 @@ export default function PharmacyDashboard() {
               />
             </div>
 
-            {showAddTab && (
+            {showAddTab && canManage && (
               <div className={`${PANEL_WRAPPER} xl:col-span-4`}>
               <AddDrugSidebar
                 onSubmit={handleAddDrug}

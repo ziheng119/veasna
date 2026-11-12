@@ -7,7 +7,6 @@
 // - Each part is scrolled fully into view first; the spotlight and pop-up then glide to it and
 //   follow the page as it scrolls or resizes (one animation frame loop writing styles directly,
 //   no re-render per frame).
-// - With no location chosen, the tour borrows one and clears it again at the end.
 // - Next/Back, the arrow keys, Esc and ✕ work at any time; focus stays in the pop-up.
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -17,11 +16,10 @@ import { Button } from "@/components/ui/button";
 import { GUIDE_STEPS, stepPage } from "@/lib/guide/steps";
 import { forgetSample, sampleWasShown } from "@/lib/guide/sample";
 import { clearQueueCache } from "@/lib/api/queue/getQueue";
-import { clearPatientsByLocationCache } from "@/lib/api/patients/getPatientsByLocation";
+import { clearPatientListCache } from "@/lib/api/patients/getPatientList";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { approach, intersect, padRect, placePopover, spotlightPath, type Rect, type Side } from "@/lib/guide/geometry";
 import { useGuideStore } from "@/stores/useGuideStore";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { ENTER_FAST, PRESS } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +55,7 @@ export default function GuideTour() {
     if (active !== wasActive.current) {
       wasActive.current = active;
       clearQueueCache();
-      clearPatientsByLocationCache();
+      clearPatientListCache();
       useRealtimeStore.getState().invalidate();
       if (!active && sampleWasShown()) {
         forgetSample();
@@ -153,21 +151,6 @@ function Tour({ closing }: { closing: boolean }) {
   useEffect(() => {
     if (closing && startedOn.current && startedOn.current !== location.pathname + location.search) router.push(startedOn.current);
   }, [closing, router]);
-
-  // With no location chosen, the pages would be empty and keep asking for one: the tour borrows
-  // the first location and puts back "none" when it ends.
-  const [borrowed, setBorrowed] = useState(false);
-  const locationName = useLocationStore((state) => state.currentLocation?.name);
-  useEffect(() => {
-    const { currentLocation, locations, setCurrentLocation } = useLocationStore.getState();
-    if (currentLocation || !locations.length) return;
-    const lent = locations[0];
-    setCurrentLocation(lent);
-    setBorrowed(true);
-    return () => {
-      if (useLocationStore.getState().currentLocation?.id === lent.id) useLocationStore.setState({ currentLocation: null });
-    };
-  }, []);
 
   // Focus moves into the pop-up, and back to the ? button afterwards.
   useEffect(() => {
@@ -382,9 +365,6 @@ function Tour({ closing }: { closing: boolean }) {
             <div key={index} className={ENTER_FAST} aria-live="polite">
               <h2 id={titleId} className="mt-1.5 text-base font-semibold leading-snug">{step.title}</h2>
               <p id={bodyId} className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
-              {borrowed && step.target === "location" && (
-                <p className="mt-2 text-xs text-muted-foreground">For the tour, {locationName} is chosen. It&apos;s cleared when you exit.</p>
-              )}
               {status === "finding" && step.target && (
                 // Shown only if finding takes a moment, so a quick step doesn't flash it.
                 <p className="guide-later mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">

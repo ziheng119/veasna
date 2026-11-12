@@ -250,25 +250,52 @@ function ensurePharmacyDispenses() {
   return pharmacyDispensesPromise;
 }
 
-// Visit indexes and the one-queue-number rule, which is left out while duplicates exist.
+// Visit indexes. On a database that still has locations, also the one-queue-number rule per
+// location, which 027 replaces.
 let visitIndexesPromise;
 function ensureVisitIndexes() {
   if (!visitIndexesPromise) {
     visitIndexesPromise = runMigration('026_visit_indexes.sql')
-      .then(async () => {
-        const { rows } = await db.query("SELECT to_regclass('visits_queue_no_key') IS NOT NULL AS present");
-        if (!rows[0].present) {
-          console.warn('Some visits share a queue number at the same location and date, so the database cannot ' +
-            'refuse duplicates yet. Find them with: SELECT location_id, visit_date, UPPER(queue_no), COUNT(*) FROM visits ' +
-            'GROUP BY 1, 2, 3 HAVING COUNT(*) > 1; change one number in each pair on Patient Details, then restart.');
-        }
-      })
       .catch(err => { visitIndexesPromise = null; throw err; });
   }
   return visitIndexesPromise;
 }
 
+// One clinic, no locations: merges each drug's stock, keeps families apart and makes queue numbers
+// one series per day. Runs after every migration that used location_id.
+let removeLocationsPromise;
+function ensureLocationsRemoved() {
+  if (!removeLocationsPromise) {
+    removeLocationsPromise = Promise.all([ensurePrescriptions(), ensureFamilies(), ensurePharmacyDispenses(), ensureVisitIndexes()])
+      .then(() => runMigration('027_remove_locations.sql'))
+      .then(async () => {
+        const { rows } = await db.query(
+          `SELECT pg_get_expr(i.indpred, i.indrelid) AS since FROM pg_index i
+           WHERE i.indexrelid = to_regclass('visits_day_queue_no_key')`);
+        if (rows[0]?.since) {
+          console.warn(`Queue numbers repeat on some past days (from before locations were removed); ` +
+            `the database refuses a repeated number only for days after them (${rows[0].since}).`);
+        }
+      })
+      .catch(err => { removeLocationsPromise = null; throw err; });
+  }
+  return removeLocationsPromise;
+}
+
+// users.permissions: what each non-admin account may do (utils/permissions.js).
+let accountPermissionsPromise;
+function ensureAccountPermissions() {
+  if (!accountPermissionsPromise) {
+    accountPermissionsPromise = ensureDayAccountsAndFormOptions()
+      .then(() => runMigration('028_account_permissions.sql'))
+      .catch(err => { accountPermissionsPromise = null; throw err; });
+  }
+  return accountPermissionsPromise;
+}
+
 module.exports = {
+  ensureAccountPermissions,
+  ensureLocationsRemoved,
   ensureVisitIndexes,
   ensurePharmacyDispenses,
   ensureRegistrationRequestId,

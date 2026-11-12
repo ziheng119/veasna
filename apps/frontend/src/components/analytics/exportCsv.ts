@@ -6,12 +6,11 @@ export type Cell = string | number | boolean | null | undefined;
 
 // Long format (one value per row) so the file filters and pivots cleanly in a spreadsheet.
 // `conditions`: the Consult form's current list, for the trend columns.
-export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { location: string; period: string },
+export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { period: string },
   conditions: readonly { id: string; label: string }[] = CONSULTATION_CONDITIONS) {
   const rows: Cell[][] = [["Section", "Item", "Measure", "Value"]];
   const add = (section: string, item: string, measure: string, value: Cell) => rows.push([section, item, measure, value]);
 
-  add("Filters", "Location", "", scope.location);
   add("Filters", "Period", "", scope.period);
   add("Filters", "Start date", "", data.startDate ?? "All recorded dates");
   add("Filters", "End date", "", data.endDate ?? data.date);

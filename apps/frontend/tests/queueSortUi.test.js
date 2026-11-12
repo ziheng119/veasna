@@ -10,7 +10,6 @@ jest.mock('../src/components/ui/button', () => ({ Button: props => React.createE
 jest.mock('../src/components/ui/input', () => ({ Input: props => React.createElement('input', props) }));
 let stationPatients = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: stationPatients, refresh: jest.fn() }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 const QueuePatientPicker = require('../src/components/shared/QueuePatientPicker').default;
 const { PatientQueue } = require('../src/components/home/PatientQueue');

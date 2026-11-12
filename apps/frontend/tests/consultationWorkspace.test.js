@@ -1,6 +1,5 @@
 const React = require('react');
 const { act, create } = require('react-test-renderer');
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/QueuePatientPicker', () => ({ __esModule: true, default: props => React.createElement('queue-picker', props) }));
 jest.mock('../src/components/shared/SearchBar', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/components/shared/read-only/patient-container/PatientContainer', () => ({ __esModule: true, default: props => React.createElement('patient-snapshot', { visit: props.selectedPatient.visit_id }) }));

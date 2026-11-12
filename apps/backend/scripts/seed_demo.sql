@@ -1,5 +1,5 @@
 -- Demo clinic data for local/LAN testing.
--- Safe to re-run: existing locations, patients, visits, and stock rows are skipped.
+-- Safe to re-run: existing patients, visits, and stock rows are skipped.
 -- Prerequisite: at least one user exists (run `npm run setup` first).
 
 BEGIN;
@@ -11,41 +11,32 @@ BEGIN
     END IF;
 END $$;
 
--- Locations (names expected by locations tests)
-INSERT INTO locations (name, is_active)
-VALUES
-    ('Poipet', TRUE),
-    ('Mongkol Borey', TRUE),
-    ('Sisophon', TRUE)
-ON CONFLICT (name) DO NOTHING;
-
 -- Patients
 INSERT INTO patients (
-    location_id, english_name, khmer_name, date_of_birth, sex,
+    english_name, khmer_name, date_of_birth, sex,
     address, phone_number, last_updated_by
 )
-SELECT loc.id, seed.english_name, seed.khmer_name, seed.date_of_birth::date, seed.sex::sex_type,
+SELECT seed.english_name, seed.khmer_name, seed.date_of_birth::date, seed.sex::sex_type,
        seed.address, seed.phone_number, (SELECT id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1)
 FROM (
     VALUES
-        ('Poipet',         'Sophea Chan',   'សុភា ចាន់',   '1985-03-14', 'F', 'Thma Koul, Poipet',        '+85510100001'),
-        ('Poipet',         'Vuthy Sorn',    'វុទ្ធី សូន',   '1979-08-22', 'M', 'Kbal Spean, Poipet',       '+85510100002'),
-        ('Poipet',         'Sareth Kim',    'សារ៉េត គីម',  '1992-12-05', 'M', 'O''Russey, Poipet',        '+85510100003'),
-        ('Poipet',         'Chenda Prak',   'ចិន្តា ប្រាក់', '2018-06-20', 'F', 'Boeung Tumpun, Poipet',    '+85510100004'),
-        ('Poipet',         'Rithy Keo',     'រីទី កែវ',    '1968-11-02', 'M', 'Phsar Kandal, Poipet',     '+85510100005'),
-        ('Mongkol Borey',  'Dara Long',     'ដារ៉ា លង',    '1990-01-11', 'M', 'Kouk Ballang, Mongkol Borey', '+85510100006'),
-        ('Mongkol Borey',  'Sreyneang Im',  'ស្រីណាង អ៊ីម', '1988-06-09', 'F', 'Prey Chhor, Mongkol Borey',  '+85510100007'),
-        ('Sisophon',       'Piseth Mean',   'ពីសេធ មៀន',  '1995-05-17', 'M', 'Svay Dangkum, Sisophon',   '+85510100008'),
-        ('Sisophon',       'Sokunthea Ty',  'សុខន្ធា ទី',  '1982-10-03', 'F', 'Phsar Ler, Sisophon',      '+85510100009')
-) AS seed(location_name, english_name, khmer_name, date_of_birth, sex, address, phone_number)
-JOIN locations loc ON loc.name = seed.location_name
+        ('Sophea Chan',   'សុភា ចាន់',   '1985-03-14', 'F', 'Thma Koul, Poipet',        '+85510100001'),
+        ('Vuthy Sorn',    'វុទ្ធី សូន',   '1979-08-22', 'M', 'Kbal Spean, Poipet',       '+85510100002'),
+        ('Sareth Kim',    'សារ៉េត គីម',  '1992-12-05', 'M', 'O''Russey, Poipet',        '+85510100003'),
+        ('Chenda Prak',   'ចិន្តា ប្រាក់', '2018-06-20', 'F', 'Boeung Tumpun, Poipet',    '+85510100004'),
+        ('Rithy Keo',     'រីទី កែវ',    '1968-11-02', 'M', 'Phsar Kandal, Poipet',     '+85510100005'),
+        ('Dara Long',     'ដារ៉ា លង',    '1990-01-11', 'M', 'Kouk Ballang, Mongkol Borey', '+85510100006'),
+        ('Sreyneang Im',  'ស្រីណាង អ៊ីម', '1988-06-09', 'F', 'Prey Chhor, Mongkol Borey',  '+85510100007'),
+        ('Piseth Mean',   'ពីសេធ មៀន',  '1995-05-17', 'M', 'Svay Dangkum, Sisophon',   '+85510100008'),
+        ('Sokunthea Ty',  'សុខន្ធា ទី',  '1982-10-03', 'F', 'Phsar Ler, Sisophon',      '+85510100009')
+) AS seed(english_name, khmer_name, date_of_birth, sex, address, phone_number)
 WHERE NOT EXISTS (
     SELECT 1 FROM patients p WHERE p.phone_number = seed.phone_number
 );
 
 -- Today's visits (appear in the queue)
-INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-SELECT p.id, p.location_id, seed.queue_no, CURRENT_DATE,
+INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by)
+SELECT p.id, seed.queue_no, CURRENT_DATE,
        (SELECT id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1)
 FROM (
     VALUES
@@ -53,9 +44,9 @@ FROM (
         ('+85510100002', '2'),
         ('+85510100003', '3'),
         ('+85510100004', '4'),
-        ('+85510100006', '1'),
-        ('+85510100007', '2'),
-        ('+85510100008', '1')
+        ('+85510100006', '5'),
+        ('+85510100007', '6'),
+        ('+85510100008', '7')
 ) AS seed(phone_number, queue_no)
 JOIN patients p ON p.phone_number = seed.phone_number
 WHERE NOT EXISTS (
@@ -64,8 +55,8 @@ WHERE NOT EXISTS (
 );
 
 -- Prior visit for a returning patient (patient list, not today's queue)
-INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-SELECT p.id, p.location_id, '12', CURRENT_DATE - 14,
+INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by)
+SELECT p.id, '12', CURRENT_DATE - 14,
        (SELECT id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1)
 FROM patients p
 WHERE p.phone_number = '+85510100005'
@@ -220,61 +211,23 @@ WHERE p.phone_number = '+85510100003'
 DO $$
 DECLARE
     updater_id int;
-    has_stock_count boolean;
 BEGIN
     SELECT id INTO updater_id FROM users WHERE is_active IS TRUE ORDER BY id LIMIT 1;
-    SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'pharmacy' AND column_name = 'stock_count'
-    ) INTO has_stock_count;
-
-    CREATE TEMP TABLE seed_pharmacy (
-        location_name text,
-        drug_name text,
-        stock_count int
-    ) ON COMMIT DROP;
-
-    INSERT INTO seed_pharmacy (location_name, drug_name, stock_count) VALUES
-        ('Poipet', 'Paracetamol 500mg', 120),
-        ('Poipet', 'Amoxicillin 250mg', 45),
-        ('Poipet', 'Ibuprofen 400mg', 15),
-        ('Poipet', 'Oral Rehydration Salts', 80),
-        ('Poipet', 'Albendazole 400mg', 25),
-        ('Poipet', 'Metronidazole 250mg', 8),
-        ('Poipet', 'Zinc sulfate 20mg', 60),
-        ('Poipet', 'Vitamin A 200,000 IU', 0),
-        ('Poipet', 'Cetirizine 10mg', 40),
-        ('Mongkol Borey', 'Paracetamol 500mg', 90),
-        ('Mongkol Borey', 'Amoxicillin 250mg', 12),
-        ('Mongkol Borey', 'Ibuprofen 400mg', 30),
-        ('Mongkol Borey', 'Oral Rehydration Salts', 18),
-        ('Mongkol Borey', 'Vitamin A 200,000 IU', 0),
-        ('Sisophon', 'Paracetamol 500mg', 70),
-        ('Sisophon', 'Amoxicillin 250mg', 22),
-        ('Sisophon', 'Albendazole 400mg', 5),
-        ('Sisophon', 'Oral Rehydration Salts', 40);
-
-    IF has_stock_count THEN
-        INSERT INTO pharmacy (location_id, drug_name, stock_count, last_updated_by)
-        SELECT loc.id, seed.drug_name, seed.stock_count, updater_id
-        FROM seed_pharmacy seed
-        JOIN locations loc ON loc.name = seed.location_name
-        ON CONFLICT (location_id, drug_name) DO NOTHING;
-    ELSE
-        INSERT INTO pharmacy (location_id, drug_name, stock_level, last_updated_by)
-        SELECT loc.id,
-               seed.drug_name,
-               CASE
-                   WHEN seed.stock_count = 0 THEN 'no stock'
-                   WHEN seed.stock_count <= 20 THEN 'low'
-                   WHEN seed.stock_count <= 50 THEN 'medium'
-                   ELSE 'high'
-               END,
-               updater_id
-        FROM seed_pharmacy seed
-        JOIN locations loc ON loc.name = seed.location_name
-        ON CONFLICT (location_id, drug_name) DO NOTHING;
-    END IF;
+    INSERT INTO pharmacy (drug_name, stock_count, last_updated_by)
+    SELECT seed.drug_name, seed.stock_count, updater_id
+    FROM (
+        VALUES
+            ('Paracetamol 500mg', 120),
+            ('Amoxicillin 250mg', 45),
+            ('Ibuprofen 400mg', 15),
+            ('Oral Rehydration Salts', 80),
+            ('Albendazole 400mg', 25),
+            ('Metronidazole 250mg', 8),
+            ('Zinc sulfate 20mg', 60),
+            ('Vitamin A 200,000 IU', 0),
+            ('Cetirizine 10mg', 40)
+    ) AS seed(drug_name, stock_count)
+    ON CONFLICT (drug_name) DO NOTHING;
 END $$;
 
 COMMIT;

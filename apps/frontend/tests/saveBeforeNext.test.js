@@ -14,7 +14,6 @@ jest.mock('../src/components/ui/button', () => ({ Button: props => React.createE
 jest.mock('../src/components/ui/input', () => ({ Input: props => React.createElement('input', props) }));
 let queue = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: queue, refresh: jest.fn() }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/lib/api/queue/stations', () => ({ completeStation: jest.fn(async () => ({ held: false, next_station: 'consultation', family_moved: [], waiting_for: [] })) }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));

@@ -4,10 +4,9 @@ import { useEffect } from "react";
 import { io } from "socket.io-client";
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { clearQueueCache } from "@/lib/api/queue/getQueue";
-import { clearPatientsByLocationCache } from "@/lib/api/patients/getPatientsByLocation";
+import { clearPatientListCache } from "@/lib/api/patients/getPatientList";
 
 // Lists reload this long after a change, plus a random part of the spread, so devices told at the
 // same moment don't all ask the host at once.
@@ -16,8 +15,6 @@ const REFRESH_SPREAD_MS = 400;
 
 export default function RealtimeConnection() {
   const token = useUserStore(state => state.user?.token);
-  // The host tells this device only about changes at its location (none chosen: everywhere).
-  const locationId = useLocationStore(state => state.currentLocation?.id ?? null);
   const status = useRealtimeStore(state => state.status);
   const offlineSince = useRealtimeStore(state => state.offlineSince);
 
@@ -25,7 +22,7 @@ export default function RealtimeConnection() {
     if (!token) return;
     const { invalidate, noteVisitChanges, setStatus } = useRealtimeStore.getState();
     setStatus("connecting");
-    const socket = io(backend_url, { auth: { token, locationId }, transports: ["websocket", "polling"], tryAllTransports: true });
+    const socket = io(backend_url, { auth: { token }, transports: ["websocket", "polling"], tryAllTransports: true });
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Visits saved since the last refresh; null once any visit may have changed.
     let changed: Set<number> | null = new Set();
@@ -39,7 +36,7 @@ export default function RealtimeConnection() {
       timer = setTimeout(() => {
         timer = undefined;
         clearQueueCache();
-        clearPatientsByLocationCache();
+        clearPatientListCache();
         invalidate();
         noteVisitChanges(changed && Array.from(changed));
         changed = new Set();
@@ -75,7 +72,7 @@ export default function RealtimeConnection() {
       socket.disconnect();
       setStatus("offline");
     };
-  }, [token, locationId]);
+  }, [token]);
 
   if (status !== "offline") {
     return (

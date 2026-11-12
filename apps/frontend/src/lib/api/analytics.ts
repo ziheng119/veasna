@@ -1,8 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
-import { apiFetch } from "@/lib/api/request";
+import { apiFetch, readError } from "@/lib/api/request";
 
 export type AnalyticsPeriod = "day" | "week" | "month" | "all";
-export type AnalyticsLocation = number | "all";
 export type TrendRange = "7d" | "30d" | "12w" | "12m";
 
 export interface Analytics {
@@ -10,7 +9,6 @@ export interface Analytics {
   startDate: string | null;
   endDate: string;
   date: string;
-  locationId: AnalyticsLocation;
   generatedAt: string;
   conditions: { id: string; label: string; count: number }[];
   summary: {
@@ -21,7 +19,6 @@ export interface Analytics {
   stations: { station: string; assigned: number; completed: number; waiting: number }[];
   ages: { label: string; count: number }[];
   destinations: { label: string; count: number }[];
-  locations: { locationId: number; people: number; visits: number }[];
 }
 
 export interface TrendBucket {
@@ -36,7 +33,6 @@ export interface TrendBucket {
 export interface AnalyticsTrend {
   range: TrendRange;
   date: string;
-  locationId: AnalyticsLocation;
   generatedAt: string;
   buckets: TrendBucket[];
 }
@@ -45,17 +41,18 @@ async function request<T>(path: string, params: Record<string, string>, token: s
   const response = await apiFetch(`${backend_url}/api/analytics${path}?${new URLSearchParams(params)}`, {
     headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal,
   });
-  if (response.status === 401 || response.status === 403) throw new Error("Access unavailable. Please sign in again.");
-  if (!response.ok) throw new Error(failure);
+  if (response.status === 401) throw new Error("Access unavailable. Please sign in again.");
+  // 403: the account lost the Analytics permission; the host says so.
+  if (!response.ok) throw new Error(await readError(response, failure));
   return response.json();
 }
 
-export function getAnalytics(locationId: AnalyticsLocation, date: string, token: string, signal: AbortSignal, period: AnalyticsPeriod = "day"): Promise<Analytics> {
-  return request("", { location_id: String(locationId), date, period }, token, signal, "Unable to load analytics. Please try again.");
+export function getAnalytics(date: string, token: string, signal: AbortSignal, period: AnalyticsPeriod = "day"): Promise<Analytics> {
+  return request("", { date, period }, token, signal, "Unable to load analytics. Please try again.");
 }
 
-export function getAnalyticsTrend(locationId: AnalyticsLocation, date: string, range: TrendRange, token: string, signal: AbortSignal): Promise<AnalyticsTrend> {
-  return request("/trend", { location_id: String(locationId), date, range }, token, signal, "Unable to load trends. Please try again.");
+export function getAnalyticsTrend(date: string, range: TrendRange, token: string, signal: AbortSignal): Promise<AnalyticsTrend> {
+  return request("/trend", { date, range }, token, signal, "Unable to load trends. Please try again.");
 }
 
 /** A patient on a referral list: one referred visit. Ages are at the visit date (null if unknown). */
@@ -64,7 +61,6 @@ export interface ReferredPatient {
   patientId: number;
   queueNo: string;
   visitDate: string;
-  locationName: string | null;
   englishName: string | null;
   khmerName: string | null;
   sex: string | null;
@@ -88,11 +84,10 @@ export interface ReferralList {
 export interface AnalyticsReferralLists {
   period: AnalyticsPeriod;
   date: string;
-  locationId: AnalyticsLocation;
   generatedAt: string;
   destinations: ReferralList[];
 }
 
-export function getAnalyticsReferrals(locationId: AnalyticsLocation, date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsReferralLists> {
-  return request("/referrals", { location_id: String(locationId), date, period }, token, signal, "Unable to load referral lists. Please try again.");
+export function getAnalyticsReferrals(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsReferralLists> {
+  return request("/referrals", { date, period }, token, signal, "Unable to load referral lists. Please try again.");
 }

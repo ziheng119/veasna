@@ -27,7 +27,6 @@ async function adminPut<T>(path: string, body: unknown): Promise<T> {
 export interface VisitDetailsUpdate {
   queue_no: string;
   visit_date: string; // YYYY-MM-DD
-  location_id: number;
   // Id from the sticker_colours list; null for no sticker.
   sticker_colour?: string | null;
 }

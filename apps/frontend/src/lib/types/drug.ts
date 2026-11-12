@@ -1,6 +1,5 @@
 export interface Drug {
     id: number;
-    location_id: number;
     drug_name: string;
     // On the shelf. Pending prescriptions reserve part of it.
     stock_count: number;

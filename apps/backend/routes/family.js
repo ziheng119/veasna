@@ -36,13 +36,11 @@ async function inTransaction(res, what, work) {
     }
 }
 
-// Locks the patients (in id order, after the location's family lock) and returns them.
+// Locks the patients (in id order, after the family lock) and returns them.
 async function lockPatients(client, ids) {
-    const { rows: first } = await client.query('SELECT location_id FROM patients WHERE id = $1', [ids[0]]);
-    if (!first.length) return [];
-    await lockFamilies(client, first[0].location_id);
+    await lockFamilies(client);
     const { rows } = await client.query(
-        'SELECT id, english_name, family, location_id FROM patients WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
+        'SELECT id, english_name, family FROM patients WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
         [ids]
     );
     return rows;
@@ -57,10 +55,10 @@ async function setFamily(client, patientId, family, userId) {
 
 // A family left with one member is no longer a family: that patient's letter is taken off, and the
 // letter is free for the next family. Returns the remaining patients' ids, for releasePatient.
-async function tidyFamily(client, locationId, family, userId) {
+async function tidyFamily(client, family, userId) {
     const { rows } = await client.query(
-        'SELECT id FROM patients WHERE location_id = $1 AND family = $2 ORDER BY id FOR UPDATE',
-        [locationId, family]
+        'SELECT id FROM patients WHERE family = $1 ORDER BY id FOR UPDATE',
+        [family]
     );
     if (rows.length === 1) await setFamily(client, rows[0].id, null, userId);
     return rows.map((row) => row.id);
@@ -71,15 +69,14 @@ async function tidyFamily(client, locationId, family, userId) {
 async function leaveFamily(client, patient, userId) {
     if (!patient.family) return;
     await setFamily(client, patient.id, null, userId);
-    const leftBehind = await tidyFamily(client, patient.location_id, patient.family, userId);
+    const leftBehind = await tidyFamily(client, patient.family, userId);
     for (const id of [patient.id, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, userId);
 }
 
 // POST /api/family - Body: { patient_id, with_patient_id }
 // Puts patient_id in with_patient_id's family, or, when that patient has none, starts a new family
-// of the two with the first free letter at the location. A patient leaving another family for it
-// leaves that family behind (dissolved if only one member is left). Both patients must belong to the
-// same location. Returns { family, patients: [{ patient_id, family }] }.
+// of the two with the first free letter. A patient leaving another family for it leaves that family
+// behind (dissolved if only one member is left). Returns { family, patients: [{ patient_id, family }] }.
 router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const patientId = toPositiveInt(req.body.patient_id);
     const withPatientId = toPositiveInt(req.body.with_patient_id);
@@ -91,9 +88,6 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const patient = rows.find((row) => row.id === patientId);
         const other = rows.find((row) => row.id === withPatientId);
         if (!patient || !other) return PATIENT_NOT_FOUND;
-        if (patient.location_id !== other.location_id) {
-            return { status: 400, body: { error: 'Both patients must belong to the same location.' } };
-        }
         if (other.family && other.family === patient.family) {
             return { status: 200, body: { family: other.family, patients: [{ patient_id: patientId, family: other.family }, { patient_id: withPatientId, family: other.family }] } };
         }
@@ -106,14 +100,13 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         let family = other.family;
         if (!family) {
             const { rows: used } = await client.query(
-                'SELECT DISTINCT family FROM patients WHERE location_id = $1 AND family IS NOT NULL',
-                [patient.location_id]
+                'SELECT DISTINCT family FROM patients WHERE family IS NOT NULL'
             );
             family = nextFamilyLetters(used.map((row) => row.family));
             await setFamily(client, withPatientId, family, userId);
         }
         await setFamily(client, patientId, family, userId);
-        const leftBehind = old ? await tidyFamily(client, patient.location_id, old, userId) : [];
+        const leftBehind = old ? await tidyFamily(client, old, userId) : [];
 
         // Whoever was waiting at a station for a member who changed family may now move on.
         for (const id of [patientId, withPatientId, ...leftBehind.slice(0, 1)]) await releasePatient(client, id, userId);

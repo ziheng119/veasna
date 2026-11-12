@@ -34,7 +34,7 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, family TEXT);
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, completed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW(),
-        patient_id INT DEFAULT 1, location_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
+        patient_id INT DEFAULT 1, visit_date DATE DEFAULT CURRENT_DATE, queue_no TEXT DEFAULT '1', sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (
         id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id), station TEXT, position INT,
         entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
@@ -76,7 +76,7 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
       UPDATE visit_stations SET entered_at='2026-10-20 10:00' WHERE station='seva';
       INSERT INTO visits (id, created_at, visit_date, queue_no) VALUES (2, '2026-10-20 09:00', '2026-10-20', '99');
       INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (2,'seva',1,'2026-10-20 09:00',1);`);
-    const get = station => request(app).get('/api/queue').query({ location_id: 1, date: '2026-10-20', ...(station ? { station } : {}) })
+    const get = station => request(app).get('/api/queue').query({ date: '2026-10-20', ...(station ? { station } : {}) })
       .set('Authorization', `Bearer ${token}`);
     const home = await get(); const station = await get('seva');
     expect(home.status).toBe(200); expect(station.status).toBe(200);
@@ -184,7 +184,7 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
       await client.query('UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 1 AND completed_at IS NULL');
       await client.query(`INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (1, '${station}', 9, NOW(), 1)
         ON CONFLICT (visit_id, station) DO UPDATE SET completed_at = NULL, position = 9`);
-      const res = await request(app).get('/api/queue').query({ location_id: 1, station }).set('Authorization', `Bearer ${token}`);
+      const res = await request(app).get('/api/queue').query({ station }).set('Authorization', `Bearer ${token}`);
       return res.body.find(row => row.visit_id === 1).station_done;
     };
     expect(await done('seva')).toBe(false);

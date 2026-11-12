@@ -11,7 +11,7 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 const { TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
 const { textOrEmpty } = require('../utils/partialFields');
 const { canEditSavedRecords } = require('../utils/permissions');
-const { lockFamilies, visitLocation, releaseVisitFamily } = require('../utils/familyMoves');
+const { lockFamilies, releaseVisitFamily } = require('../utils/familyMoves');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
 router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -78,8 +78,7 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
     try {
         await client.query('BEGIN');
         // Before the visit's row lock, as in every family move (utils/familyMoves.js).
-        const locationId = await visitLocation(client, visitId);
-        if (locationId !== null) await lockFamilies(client, locationId);
+        await lockFamilies(client);
         const visit = await client.query('SELECT id, completed_at FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
         if (!visit.rows.length) {
             await client.query('ROLLBACK');

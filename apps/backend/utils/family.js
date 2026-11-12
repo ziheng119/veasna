@@ -1,5 +1,5 @@
 // utils/family.js
-// Families: patients who come together share a letter (patients.family), given per location in
+// Families: patients who come together share a letter (patients.family), given in
 // order A, B, ... Z, AA, AB, ...; a freed letter is used again. Queue numbers stay plain (3, 4, 5).
 // Members waiting at the same station move on together (utils/familyMoves.js).
 
@@ -12,7 +12,7 @@ function familyLetters(index) {
   return letters;
 }
 
-// The first letters not already used by a family at the location.
+// The first letters not already used by a family.
 function nextFamilyLetters(usedFamilies) {
   const used = new Set(usedFamilies.filter(Boolean));
   let index = 0;
