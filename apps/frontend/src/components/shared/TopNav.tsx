@@ -1,45 +1,23 @@
 'use client';
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import LocationDropdown from "./LocationDropdown";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
-import { ChevronDown, RefreshCw } from "lucide-react";
-import { getLocations } from "@/lib/api/location";
+import { BarChart3, LogOut, RefreshCw, SlidersHorizontal, UserCog } from "lucide-react";
 import { useUserStore } from "@/stores/useUserStore";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { NAVIGATION, canAccessPage, isAdmin } from "@/lib/permissions";
+import { NAVIGATION, can, canAccessPage, isAdmin, permissionLabel, permissionsOf } from "@/lib/permissions";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import { formatDayLabel } from "@/helper/format_date";
-import { MENU_CHEVRON, MENU_TRIGGER } from "@/lib/motion";
+import { MENU_TRIGGER } from "@/lib/motion";
 import GuideButton from "@/components/guide/GuideButton";
+import AccountMenu, { AccountMenuItem } from "./AccountMenu";
 
 export default function TopNav() {
-
-  const setLocations = useLocationStore((state) => state.setLocations);
-  const fetchData = useLocationDataStore((state) => state.fetchData);
   const user = useUserStore((state) => state.user);
   const removeUser = useUserStore((state) => state.removeUser);
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  async function refreshLocations() {
-    const locations = await getLocations();
-    setLocations(locations)
-  }
-
-  useEffect(() => {
-    refreshLocations();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const pathname = usePathname();
   // Form choices change rarely (Station data page), so reload them on each page change.
@@ -47,11 +25,12 @@ export default function TopNav() {
     void useFormOptionsStore.getState().load();
   }, [pathname]);
 
+  // Every open list reloads (live updates), along with the form choices.
   const handleRefresh = async () => {
     setIsRefreshing(true);
     useRealtimeStore.getState().invalidate();
     try {
-      await Promise.all([fetchData(), useFormOptionsStore.getState().load()]);
+      await useFormOptionsStore.getState().load();
     } finally {
       setIsRefreshing(false);
     }
@@ -74,12 +53,29 @@ export default function TopNav() {
   const activeLinkClass = "bg-primary/10 text-primary";
   const inactiveLinkClass = "text-muted-foreground hover:bg-accent hover:text-foreground";
 
+  // Only what this account can open; the rest is not shown at all.
+  const menuItems: AccountMenuItem[] = [
+    ...(can(user, "analytics") ? [{ label: "Analytics", icon: BarChart3, onSelect: () => router.push("/analytics"),
+      description: "Totals, trends and referral lists for a day or a period." }] : []),
+    ...(isAdmin(user?.role) ? [
+      { label: "Station data", icon: SlidersHorizontal, onSelect: () => router.push("/station-data"),
+        description: "Change the choices offered in each station's forms, such as conditions and referral destinations." },
+      { label: "Accounts", icon: UserCog, onSelect: () => router.push("/accounts"),
+        description: "Make an account for each screening day and choose what it may do." },
+    ] : []),
+    { label: "Logout", icon: LogOut, onSelect: handleLogout, separated: true,
+      description: "Sign out on this device. Anything typed but not saved stays here as a draft for a day." },
+  ];
+
+  // What a non-admin account may do, so staff know why something isn't there.
+  const allowed = permissionsOf(user).map(permissionLabel);
+
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-3">
         {/* Navigation Links */}
         <div className="flex flex-wrap items-center gap-1" data-tour="nav">
-          {NAVIGATION.filter(item => canAccessPage(user?.role, item.href)).map(item => (
+          {NAVIGATION.filter(item => canAccessPage(user, item.href)).map(item => (
             <Link key={item.href} href={item.href}
               className={`${linkBaseClass} ${isActive(item.href) || (item.href === "/pharmacy" && pathname.startsWith("/pharmacy/")) ? activeLinkClass : inactiveLinkClass}`}>
               {item.label}
@@ -101,32 +97,8 @@ export default function TopNav() {
             className={`size-4 transition-transform duration-500 group-hover:rotate-90 motion-reduce:transition-none ${isRefreshing ? 'animate-spin' : ''}`}
             />
           </Button>
-          <div data-tour="location"><LocationDropdown /></div>
           {user?.token ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className={MENU_TRIGGER}>
-                  {user.username}
-                  <ChevronDown className={MENU_CHEVRON} aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-44">
-                {isAdmin(user.role) && <>
-                  <DropdownMenuItem onClick={() => router.push("/analytics")}>
-                    Analytics
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/station-data")}>
-                    Station data
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/accounts")}>
-                    Accounts
-                  </DropdownMenuItem>
-                </>}
-                <DropdownMenuItem onClick={handleLogout}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AccountMenu username={user.username} items={menuItems} />
           ) : (
             <Button onClick={handleLoginClick} variant="outline" className={MENU_TRIGGER}>
               Login
@@ -136,11 +108,15 @@ export default function TopNav() {
           {user?.token && <GuideButton />}
         </div>
       </div>
-      {user?.role === "user" && (user.screening_date
-        ? <p className="px-6 pb-2 text-xs text-muted-foreground">
-            Screening day {formatDayLabel(user.screening_date)}: you see the patients queued that day and their earlier visits. Enter and correct their records; printing and downloads need the admin account.
-          </p>
-        : <p className="px-6 pb-2 text-xs text-muted-foreground">User access: view all pages, enter and correct records. Printing and downloads need the admin account.</p>)}
+      {user?.role === "user" && (
+        <p className="px-6 pb-2 text-xs text-muted-foreground">
+          {user.screening_date ? `Screening day ${formatDayLabel(user.screening_date)}. ` : ""}
+          {allowed.length
+            ? <>This account can: {allowed.join(" · ")}.</>
+            : <>This account can view the station queues only.</>}
+          {" "}Anything else needs the admin to change this account in Accounts.
+        </p>
+      )}
     </nav>
   );
 }
