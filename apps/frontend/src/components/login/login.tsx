@@ -30,7 +30,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user?.token) {
-      router.replace(defaultPage(user.role));
+      router.replace(defaultPage(user));
     }
   }, [user, router]);
 
@@ -52,7 +52,7 @@ export default function Login() {
       setUser(loggedInUser);
 
       toast.success(`Welcome, ${loggedInUser.username}!`);
-      router.push(defaultPage(loggedInUser.role));
+      router.push(defaultPage(loggedInUser));
     } catch (error) {
       console.error(error);
       const message =

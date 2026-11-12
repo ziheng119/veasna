@@ -1,6 +1,6 @@
 require('../config/env').loadEnv();
 const db = require('../config/db');
-const { ensureDayAccountsAndFormOptions } = require('../utils/ensureSchema');
+const { ensureAccountPermissions } = require('../utils/ensureSchema');
 const { ensurePasswordColumn } = require('../routes/session');
 
 // Explicit operator command, never run automatically: resets the admin sign-in.
@@ -10,7 +10,8 @@ const { ensurePasswordColumn } = require('../routes/session');
 const FIXED_ACCOUNTS = [{ username: 'admin', password: 'admin12345', role: 'admin' }];
 
 async function setupAccounts() {
-  await ensureDayAccountsAndFormOptions();
+  // Screening dates and permissions, which sign-in reads.
+  await ensureAccountPermissions();
   await ensurePasswordColumn();
   const hashes = await Promise.all(FIXED_ACCOUNTS.map(account => db.hashPassword(account.password)));
   const client = await db.pool.connect();

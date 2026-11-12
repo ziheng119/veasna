@@ -16,7 +16,7 @@ import { writeAndPrint } from "@/lib/printDocument";
 import { LETTERHEAD, letterheadLogoUrl } from "@/constants/letterhead";
 import { deleteReferral } from "@/lib/api/visit/deleteReferral";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
-import { canEditSavedData, isAdmin } from "@/lib/permissions";
+import { can, canEditSavedData, isAdmin } from "@/lib/permissions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
 import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
@@ -66,9 +66,11 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
 
   const user = useUserStore((state) => state.user)
 
-  // Every account can change a saved referral; printing it and deleting it are admin-only.
-  const readOnly = !canEditSavedData(user?.role) && retrievedReferral !== null;
+  // Accounts with "Edit today's queue" change a saved referral; printing it needs "Print and
+  // download"; deleting it is admin-only.
+  const readOnly = !canEditSavedData(user);
   const admin = isAdmin(user?.role);
+  const canPrint = can(user, "print");
   // A signature this user saved earlier in the session fills in on each new referral.
   const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
   const saveSignature = useSavedSignatureStore((state) => state.save);
@@ -120,7 +122,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   };
   // Keep saved strokes editable; only explicit clearing removes the signature.
   const handleSave = async (print = false) => {
-    if (saving || readOnly || (print && !admin)) return;
+    if (saving || readOnly || (print && !canPrint)) return;
     if (print && !doctorName) { toast.error("Choose the doctor's name before printing."); return; }
     if (print && !signature) { toast.error("Please sign this referral before printing."); return; }
     const printWindow = print ? window.open("", "_blank") : null;
@@ -167,7 +169,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       {live.notice && <div className="px-6 pt-4 sm:px-8"><LiveRecordNotice live={live} label="Referral details" /></div>}
       {readOnly && <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-8">
         <p className="text-muted-foreground">Read-only. This account can&apos;t change a saved referral.</p>
-        {admin && <GlassButton type="button" onClick={() => {
+        {canPrint && retrievedReferral && <GlassButton type="button" onClick={() => {
           const popup = window.open("", "_blank");
           if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
           writeAndPrint(popup, referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
@@ -281,8 +283,8 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
               </DialogContent>
             </Dialog>}
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving..." : "Save referral"}</GlassButton>
-            {/* Printing referrals is for the admin account only. */}
-            {admin && <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>}
+            {/* Printing referrals needs the "Print and download" permission. */}
+            {canPrint && <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>}
           </div>
         </fieldset>
       </form>

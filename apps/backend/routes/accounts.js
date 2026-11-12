@@ -2,8 +2,9 @@
 // Admin-only (utils/permissions.js): the sign-in accounts, and screening-day accounts such as
 // dec13village, which every volunteer shares on that day (utils/dayScope.js).
 //   GET    /api/accounts      every account
-//   POST   /api/accounts      { username, password, screening_date } creates a screening-day account
-//   PUT    /api/accounts/:id  { password?, screening_date?, is_active? } changes a screening-day account
+//   POST   /api/accounts      { username, password, screening_date, permissions? } creates a screening-day
+//                              account; permissions defaults to see today's patients and edit the queue
+//   PUT    /api/accounts/:id  { password?, screening_date?, is_active?, permissions? } changes one
 //   DELETE /api/accounts/:id  removes a screening-day account; one that entered records is disabled
 // The admin account is reset with `npm run setup:accounts`, never changed here, so an admin cannot
 // lock everyone out. The old shared "user" account is disabled (migration 022).
@@ -13,11 +14,14 @@ const { integerParams, isIsoDate } = require('../utils/validation');
 integerParams(router, ['id']);
 const db = require('../config/db');
 const { authenticateToken, requireRole } = require('./auth');
+const { DEFAULT_PERMISSIONS, normalizePermissions } = require('../utils/permissions');
 
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,40}$/i;
 const MIN_PASSWORD = 4;
-const SELECT_ACCOUNT = `SELECT id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date,
-  created_at, last_updated_at FROM users`;
+const ACCOUNT_FIELDS = `id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date,
+  permissions, created_at, last_updated_at`;
+const SELECT_ACCOUNT = `SELECT ${ACCOUNT_FIELDS} FROM users`;
+const PERMISSIONS_ERROR = 'permissions must be a list of permission names.';
 
 const adminOnly = [authenticateToken, requireRole(['admin'])];
 
@@ -41,13 +45,15 @@ router.post('/', ...adminOnly, async (req, res) => {
   const badPassword = passwordError(password);
   if (badPassword) return res.status(400).json({ error: badPassword });
   if (!isIsoDate(screeningDate)) return res.status(400).json({ error: 'Choose the screening date.' });
+  const permissions = req.body.permissions === undefined ? DEFAULT_PERMISSIONS : normalizePermissions(req.body.permissions);
+  if (!permissions) return res.status(400).json({ error: PERMISSIONS_ERROR });
   const hash = await db.hashPassword(password);
   try {
     const { rows } = await db.query(
-      `INSERT INTO users (username, password_hash, role, is_active, screening_date, last_updated_by)
-       VALUES ($1, $2, 'user', TRUE, $3, $4)
-       RETURNING id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date, created_at, last_updated_at`,
-      [username, hash, screeningDate, req.user.id]
+      `INSERT INTO users (username, password_hash, role, is_active, screening_date, permissions, last_updated_by)
+       VALUES ($1, $2, 'user', TRUE, $3, $4::text[], $5)
+       RETURNING ${ACCOUNT_FIELDS}`,
+      [username, hash, screeningDate, permissions, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (error) {
@@ -66,6 +72,8 @@ router.put('/:id', ...adminOnly, async (req, res) => {
   const account = await findDayAccount(req.params.id);
   if (!account) return res.status(404).json({ error: 'Screening-day account not found.' });
   const { password, screening_date: screeningDate, is_active: isActive } = req.body;
+  const permissions = req.body.permissions === undefined ? null : normalizePermissions(req.body.permissions);
+  if (req.body.permissions !== undefined && !permissions) return res.status(400).json({ error: PERMISSIONS_ERROR });
   if (password !== undefined && passwordError(password)) return res.status(400).json({ error: passwordError(password) });
   if (screeningDate !== undefined && !isIsoDate(screeningDate)) return res.status(400).json({ error: 'Choose the screening date.' });
   if (isActive !== undefined && typeof isActive !== 'boolean') return res.status(400).json({ error: 'is_active must be true or false.' });
@@ -75,10 +83,11 @@ router.put('/:id', ...adminOnly, async (req, res) => {
        password_hash = COALESCE($2, password_hash),
        screening_date = COALESCE($3::date, screening_date),
        is_active = COALESCE($4, is_active),
+       permissions = COALESCE($6::text[], permissions),
        last_updated_by = $5, last_updated_at = NOW()
      WHERE id = $1
-     RETURNING id, username, role, is_active, TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date, created_at, last_updated_at`,
-    [account.id, hash, screeningDate ?? null, isActive ?? null, req.user.id]
+     RETURNING ${ACCOUNT_FIELDS}`,
+    [account.id, hash, screeningDate ?? null, isActive ?? null, req.user.id, permissions]
   );
   res.json(rows[0]);
 });

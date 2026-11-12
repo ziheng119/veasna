@@ -30,19 +30,23 @@ const { localDate } = require('../utils/validation');
       CREATE TEMP TABLE users (id SERIAL PRIMARY KEY, username TEXT, password_hash TEXT, role TEXT DEFAULT 'user',
         is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
       CREATE UNIQUE INDEX test_username ON users (LOWER(username));
-      CREATE TEMP TABLE locations (id INT PRIMARY KEY, name TEXT);
-      INSERT INTO locations VALUES (1, 'Village');
-      CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, face_id TEXT,
+      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, face_id TEXT,
         date_of_birth DATE, sex TEXT, address TEXT, phone_number TEXT, family TEXT);
-      INSERT INTO patients (id, location_id, english_name) VALUES (1, 1, 'Alice Returning'), (2, 1, 'Bob Earlier');
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
-      INSERT INTO visits VALUES (10, 1, 1, '2025-01-01', NOW()), (11, 1, 1, '${today}', NULL), (20, 2, 1, '2025-01-01', NOW());
+      INSERT INTO patients (id, english_name) VALUES (1, 'Alice Returning'), (2, 'Bob Earlier');
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
+      INSERT INTO visits VALUES (10, 1, '2025-01-01', NOW()), (11, 1, '${today}', NULL), (20, 2, '2025-01-01', NOW());
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);
       CREATE TEMP TABLE audit (author INT REFERENCES users(id));`);
     await client.query(fs.readFileSync(path.join(__dirname, '../migrations/020_day_accounts_form_options.sql'), 'utf8'));
+    await client.query(fs.readFileSync(path.join(__dirname, '../migrations/028_account_permissions.sql'), 'utf8'));
     await client.query(`INSERT INTO users (username, password_hash, role, screening_date) VALUES
       ('admin', $1, 'admin', NULL), ('user', $1, 'user', NULL), ('today_village', $1, 'user', $2), ('jan_village', $1, 'user', '2025-01-01')`,
       [hash, today]);
+    // Same day, other permissions: everything about past patients; nothing ticked; pharmacy and printing.
+    await client.query(`INSERT INTO users (username, password_hash, role, screening_date, permissions) VALUES
+      ('past_village', $1, 'user', $2, '{view_today,edit_today,view_past,edit_past}'),
+      ('readonly_village', $1, 'user', $2, '{}'),
+      ('stock_village', $1, 'user', $2, '{view_today,edit_today,pharmacy,print}')`, [hash, today]);
     db.query.mockImplementation((...args) => client.query(...args));
     db.pool.connect.mockResolvedValue({ query: (...args) => client.query(...args), release() {} });
     app = express(); app.use(express.json());
@@ -53,7 +57,7 @@ const { localDate } = require('../utils/validation');
     app.use('/form-options', require('../routes/formOptions'));
     // Everything else only checks the gate in front of it.
     app.all('*', (_req, res) => res.sendStatus(200));
-    for (const name of ['admin', 'user', 'today_village']) {
+    for (const name of ['admin', 'user', 'today_village', 'past_village', 'readonly_village', 'stock_village']) {
       const login = await request(app).post('/auth/login').send({ username: name, password: 'pw-1234' });
       expect(login.status).toBe(200);
       tokens[name] = login.body.token;
@@ -61,7 +65,7 @@ const { localDate } = require('../utils/validation');
     // jan_village's day is over, so it can't sign in: a token from back then, as a device still signed in has.
     const { rows: [jan] } = await client.query("SELECT id FROM users WHERE username = 'jan_village'");
     tokens.jan_village = require('jsonwebtoken').sign({ id: jan.id, username: 'jan_village', role: 'user' }, process.env.JWT_SECRET, { expiresIn: '1d' });
-  }, 30000); // Hashing and four sign-ins can be slow while the other suites run.
+  }, 30000); // Hashing and several sign-ins can be slow while the other suites run.
   afterAll(async () => {
     if (client) await client.end();
     if (previousSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = previousSecret;
@@ -92,10 +96,14 @@ const { localDate } = require('../utils/validation');
     // The host's clock comes with the profile, so a device with a wrong clock still uses the host's date.
     expect(me).toMatchObject({ server_date: today, utc_offset_minutes: -new Date().getTimezoneOffset() });
     expect(Math.abs(Date.parse(me.server_time) - Date.now())).toBeLessThan(5000);
-    expect((await as('today_village', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
+    expect(me.permissions).toEqual(['view_today', 'edit_today']);
+    expect((await as('today_village', 'get', '/patients')).body.map(p => p.id)).toEqual([1]);
+    // An older device still sends a location; it is ignored.
+    expect((await as('today_village', 'get', '/patients?location_id=3')).body.map(p => p.id)).toEqual([1]);
     // An account without a screening date is limited to the host's clinic day.
-    expect((await as('user', 'get', '/patients?location_id=1')).body.map(p => p.id)).toEqual([1]);
-    expect((await as('admin', 'get', '/patients?location_id=1')).body.map(p => p.id).sort()).toEqual([1, 2]);
+    expect((await as('user', 'get', '/patients')).body.map(p => p.id)).toEqual([1]);
+    expect((await as('admin', 'get', '/patients')).body.map(p => p.id).sort()).toEqual([1, 2]);
+    expect((await as('admin', 'get', '/auth/me')).body.permissions).toContain('analytics');
     expect((await as('today_village', 'get', '/patients/search?q=e')).body.map(p => p.id)).toEqual([1]);
   });
 
@@ -112,10 +120,10 @@ const { localDate } = require('../utils/validation');
   });
 
   test('a returning patient can be found by name to be queued, with identifying details only', async () => {
-    const found = (await as('today_village', 'get', '/patients/lookup?location_id=1&q=Bob')).body;
+    const found = (await as('today_village', 'get', '/patients/lookup?q=Bob')).body;
     expect(found.map(p => p.id)).toEqual([2]);
-    expect(Object.keys(found[0]).sort()).toEqual(['address', 'date_of_birth', 'english_name', 'face_id', 'family', 'id', 'khmer_name', 'location_id', 'phone_number', 'sex']);
-    expect((await as('today_village', 'get', '/patients/lookup?location_id=1&q=Bo')).body).toEqual([]);
+    expect(Object.keys(found[0]).sort()).toEqual(['address', 'date_of_birth', 'english_name', 'face_id', 'family', 'id', 'khmer_name', 'phone_number', 'sex']);
+    expect((await as('today_village', 'get', '/patients/lookup?q=Bo')).body).toEqual([]);
   });
 
   test("a day account saves only to its day's visits, and only on that day", async () => {
@@ -133,7 +141,7 @@ const { localDate } = require('../utils/validation');
     // A wrong password still reads as a wrong password, so the message doesn't confirm the account exists.
     expect((await request(app).post('/auth/login').send({ username: 'jan_village', password: 'nope' })).status).toBe(401);
     // 401, so a device still signed in with it signs out, for reading as well as saving.
-    for (const [method, url] of [['get', '/auth/me'], ['get', '/patients?location_id=1'], ['post', '/registration']]) {
+    for (const [method, url] of [['get', '/auth/me'], ['get', '/patients'], ['post', '/registration']]) {
       const res = await as('jan_village', method, url);
       expect(res.status).toBe(401);
       expect(res.body.message).toContain('has ended');
@@ -157,25 +165,75 @@ const { localDate } = require('../utils/validation');
     expect((await as('today_village', 'delete', '/visits/11')).status).toBe(403); // deleting stays admin-only
   });
 
-  test('analytics, bulk referrals, downloads and accounts are for admins only', async () => {
+  test('analytics, bulk referrals and downloads need their permission; accounts are for the admin only', async () => {
     for (const name of ['user', 'today_village']) {
       for (const url of ['/analytics', '/visits/referrals', '/export/patients', '/accounts']) {
         expect((await as(name, 'get', url)).status).toBe(403);
       }
     }
+    const refused = await as('today_village', 'get', '/analytics');
+    expect(refused.body).toMatchObject({ missing_permission: 'analytics' });
+    expect(refused.body.message).toMatch(/"Analytics" permission/);
+    for (const url of ['/visits/referrals', '/export/patients']) expect((await as('stock_village', 'get', url)).status).toBe(200);
+    expect((await as('stock_village', 'get', '/accounts')).status).toBe(403);
     expect((await as('admin', 'get', '/export/patients')).status).toBe(200);
+  });
+
+  test('"see past patients" opens every patient and visit; "edit past visits" saves to them', async () => {
+    expect((await as('past_village', 'get', '/patients')).body.map(p => p.id).sort()).toEqual([1, 2]);
+    expect((await as('past_village', 'get', '/patient/2')).status).toBe(200);
+    expect((await as('past_village', 'get', '/patient/visit/20')).status).toBe(200);
+    expect((await as('past_village', 'post', '/visits/dental/10')).status).toBe(200);
+    expect((await as('past_village', 'put', '/visits/20/vitals')).status).toBe(200);
+    // Without it, the refusal says which permission is missing.
+    const refused = await as('today_village', 'post', '/visits/dental/10');
+    expect(refused.status).toBe(403);
+    expect(refused.body.message).toMatch(/Edit past visits/);
+    expect((await as('today_village', 'get', '/patient/2')).body.message).toMatch(/See past patients/);
+  });
+
+  test('an account with nothing ticked works from the station queues only and cannot save', async () => {
+    const list = await as('readonly_village', 'get', '/patients');
+    expect(list.status).toBe(403);
+    expect(list.body).toMatchObject({ missing_permission: 'view_today' });
+    expect((await as('readonly_village', 'get', '/queue')).status).toBe(200);
+    expect((await as('readonly_village', 'get', '/patient/1')).status).toBe(200);
+    for (const [method, url] of [['post', '/visits/dental/11'], ['post', '/registration'], ['put', '/visits/11/vitals'], ['post', '/queue/11/complete']]) {
+      const res = await as('readonly_village', method, url);
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ missing_permission: 'edit_today' });
+    }
+  });
+
+  test('pharmacy stock needs the pharmacy permission', async () => {
+    expect((await as('today_village', 'post', '/pharmacy')).status).toBe(403);
+    expect((await as('today_village', 'patch', '/pharmacy/1')).body).toMatchObject({ missing_permission: 'pharmacy' });
+    expect((await as('stock_village', 'post', '/pharmacy')).status).toBe(200);
+    expect((await as('stock_village', 'post', '/pharmacy/1/dispense')).status).toBe(200);
+    expect((await as('stock_village', 'delete', '/pharmacy/1')).status).toBe(403); // deleting stays admin-only
   });
 
   test('an admin creates, changes and removes screening-day accounts', async () => {
     const created = await as('admin', 'post', '/accounts').send({ username: 'dec13village', password: 'ilovebtb', screening_date: '2026-12-13' });
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ username: 'dec13village', role: 'user', screening_date: '2026-12-13', is_active: true });
+    expect(created.body).toMatchObject({ username: 'dec13village', role: 'user', screening_date: '2026-12-13', is_active: true,
+      permissions: ['view_today', 'edit_today'] });
+    // Permissions chosen when making it; what a permission needs is ticked too.
+    const chosen = await as('admin', 'post', '/accounts').send({ username: 'dec14village', password: 'ilovebtb', screening_date: '2026-12-14',
+      permissions: ['edit_past', 'analytics'] });
+    expect(chosen.body.permissions).toEqual(['view_today', 'edit_today', 'view_past', 'edit_past', 'analytics']);
+    expect((await as('admin', 'post', '/accounts').send({ username: 'dec15village', password: 'ilovebtb', screening_date: '2026-12-15',
+      permissions: 'analytics' })).status).toBe(400);
+    expect((await as('admin', 'put', `/accounts/${chosen.body.id}`).send({ permissions: [] })).body.permissions).toEqual([]);
+    expect((await as('admin', 'put', `/accounts/${chosen.body.id}`).send({ permissions: 'all' })).status).toBe(400);
+    expect((await as('admin', 'delete', `/accounts/${chosen.body.id}`)).status).toBe(200);
     expect((await as('admin', 'post', '/accounts').send({ username: 'DEC13village', password: 'ilovebtb', screening_date: '2026-12-13' })).status).toBe(409);
     expect((await as('admin', 'post', '/accounts').send({ username: 'bad name', password: 'ilovebtb', screening_date: '2026-12-13' })).status).toBe(400);
     expect((await as('user', 'post', '/accounts').send({ username: 'sneaky', password: 'ilovebtb', screening_date: '2026-12-13' })).status).toBe(403);
 
     const login = await request(app).post('/auth/login').send({ username: 'dec13village', password: 'ilovebtb' });
     expect(login.body.user.screening_date).toBe('2026-12-13');
+    expect(login.body.user.permissions).toEqual(['view_today', 'edit_today']);
 
     const id = created.body.id;
     expect((await as('admin', 'put', `/accounts/${id}`).send({ screening_date: '2026-12-14' })).body.screening_date).toBe('2026-12-14');

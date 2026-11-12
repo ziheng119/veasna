@@ -99,17 +99,21 @@ function PageAccess({ user, children }: Props & { user: User }) {
           return;
         }
         if (!response.ok) throw new Error("Permission check failed");
-        const profile: Pick<User, "id" | "username" | "role" | "screening_date"> & HostClock & { token?: string } = await response.json();
+        const profile: Pick<User, "id" | "username" | "role" | "screening_date" | "permissions"> & HostClock & { token?: string } = await response.json();
         if (controller.signal.aborted) return;
         useHostClockStore.getState().sync(profile, sentAt);
         // The host sends a new token when this sign-in is close to expiry (routes/session.js).
         const token = profile.token || user.token;
+        // Permissions the admin changed on the Accounts page take effect on the next page change.
+        const permissionsChanged = (profile.permissions ?? []).join() !== (user.permissions ?? []).join();
         if (profile.role !== user.role || profile.username !== user.username || token !== user.token ||
-            (profile.screening_date ?? null) !== (user.screening_date ?? null)) {
-          setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date, token });
+            (profile.screening_date ?? null) !== (user.screening_date ?? null) || permissionsChanged) {
+          setUser({ id: profile.id, username: profile.username, role: profile.role, screening_date: profile.screening_date,
+            permissions: profile.permissions, token });
         }
-        if (!canAccessPage(profile.role, pathname)) {
-          router.replace(defaultPage(profile.role));
+        if (!canAccessPage(profile, pathname)) {
+          toast.error("This account can't open that page. Ask the admin if it should.", { id: "page-not-allowed" });
+          router.replace(defaultPage(profile));
           return;
         }
         setVerified(key);
@@ -130,6 +134,6 @@ function PageAccess({ user, children }: Props & { user: User }) {
     <p>Unable to verify page access. Check the connection to the host laptop.</p>
     <button type="button" className="mt-3 underline" onClick={() => setRetry(value => value + 1)}>Retry</button>
   </div>;
-  if (verified !== key || !canAccessPage(user.role, pathname)) return <LoadingSpinner />;
+  if (verified !== key || !canAccessPage(user, pathname)) return <LoadingSpinner />;
   return <>{children}</>;
 }

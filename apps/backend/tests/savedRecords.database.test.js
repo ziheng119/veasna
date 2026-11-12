@@ -30,7 +30,7 @@ const db = require("../config/db");
       });
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
-   CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
+   CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
    INSERT INTO users VALUES (1,'Admin','admin',TRUE),(2,'User','user',TRUE);
    CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1);
    CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, visit_date DATE);

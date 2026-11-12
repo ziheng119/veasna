@@ -21,6 +21,8 @@ import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
 import { sortQueuePatients } from "@/lib/queueSort";
 import { hostToday } from "@/stores/useHostClockStore";
+import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
 
 interface Props {
   patients: QueuedPatient[];
@@ -33,6 +35,8 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
+  // Discharging moves the patient: "Edit today's queue". Without it the button is not shown.
+  const canMove = useUserStore((state) => canEditSavedData(state.user));
 
   const filteredPatients = patients.filter((patient) => {
     if (!searchQuery) return true;
@@ -133,7 +137,7 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
                   <div>{patient.age}y, {patient.sex}</div>
                   <div>{patient.timestamp}</div>
                 </div>
-                {onRemovePatient && (
+                {onRemovePatient && canMove && (
                   <Button
                     type="button"
                     variant="ghost"

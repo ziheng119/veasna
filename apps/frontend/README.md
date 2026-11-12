@@ -39,17 +39,25 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 
 | Page | Address | Purpose |
 | --- | --- | --- |
-| Home | `/` | Register patients and see the clinic queue |
-| Patient List | `/patient-list` | Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there |
-| Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
+| Patient List | `/patient-list` | The first tab (needs **See today's patients**). Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there. The list scrollbar's room is always kept, so columns don't shift while it loads |
+| Registration | `/` | Register patients and see the clinic queue |
+| Patient Details | `/patient-details` | A patient's visits; accounts that may edit correct saved records here |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
 | Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |
 | Physiotherapy | `/physiotherapy` | Physiotherapy assessment (patients sent by the doctor) |
 | Dental | `/dental` | Triage notes, what the dental students did, and "referral needed" |
 | Partner NGO | `/seva` | Partner NGO notes and referrals (name set in `constants/partnerNgo.ts`) |
 | Pharmacy | `/pharmacy` | The Pharmacy queue, dispensing prescriptions, stock, and each patient's prescription history |
-| Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock |
-| Analytics | `/analytics` | Clinic numbers, from the user menu |
+| Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock (needs **Pharmacy stock**) |
+| Analytics | `/analytics` | Clinic numbers, from the account menu (needs **Analytics**) |
+| Accounts | `/accounts` | Admin: screening-day accounts and their permissions |
+
+What each account may see and do is in `src/lib/permissions.ts` (`can`, `canAccessPage`,
+`canEditSavedData`), matching the server's `apps/backend/utils/permissions.js`; see
+[accounts and permissions](../../docs/user-roles.md). Buttons an account can't use are
+not rendered. The account menu (`src/components/shared/AccountMenu.tsx`) grows out of its
+button (styles under `.account-menu` in `src/app/globals.css`) and shows each option's
+description beside the pointer.
 
 If a page fails to load, it shows a **Retry page** button. Lists that may be out of date
 after a dropped connection refresh themselves when the connection returns.
@@ -70,7 +78,7 @@ Run `npm run build` again afterwards for clinic use.
 ## For developers
 
 Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4 with
-shadcn/ui, and Zustand for sign-in and location state.
+shadcn/ui, and Zustand for sign-in state.
 
 | Path | Contents |
 | --- | --- |
@@ -105,18 +113,13 @@ text, a preferred side, and optionally a registration tab to show first (`tab`).
   fades in once the spotlight has arrived, as redrawing a blur every frame is slow on
   tablets. Styles are under "Guided tour" in `src/app/globals.css`. With reduced motion
   turned on, it moves without animating.
-- The tour's pages are prefetched when it starts. With no location chosen, it borrows
-  the first location and clears it again when it ends, so the pages aren't empty.
+- The tour's pages are prefetched when it starts.
 - A sample patient goes through the stations with the tour (`src/lib/guide/sample.ts`).
   While the tour runs, `apiFetch` answers queues, patient lists, pending prescriptions
   and the sample's own records (id `-1`) itself; everything else still goes to the
   host. Station steps open the sample with `?visit=-1` in their `path`. Saving the
   sample is refused, so nothing reaches the database, and pages that showed it are
   opened afresh when the tour ends. To show more of a station, add to its record there.
-
-Pages that show one location's patients call `useLocationReminder()`
-(`src/hooks/useLocationReminder.ts`) to ask for a location. It uses one toast id, so
-moving between pages never stacks reminders, and it stays quiet during the tour.
 
 ```bash
 npm test --workspace apps/frontend

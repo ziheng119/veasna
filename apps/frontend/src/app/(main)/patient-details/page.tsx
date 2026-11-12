@@ -49,8 +49,8 @@ export default function PatientDetailsPage() {
   const from = searchParams.get('from');
   const backTo = from && from.startsWith('/') && !from.startsWith('//') ? from : null;
   const token = useUserStore((state) => state.user?.token);
-  const role = useUserStore((state) => state.user?.role);
-  const canEdit = canEditSavedData(role);
+  const user = useUserStore((state) => state.user);
+  const canEdit = canEditSavedData(user);
   // Deleting a visit can't be undone, so it stays with the admin account.
   const canDelete = useUserStore((state) => isAdmin(state.user?.role));
 
@@ -154,8 +154,8 @@ export default function PatientDetailsPage() {
 
   const { patient, visits } = patientData;
   const selectedSummary = visits.find(visit => visit.visit_id === selectedVisitId);
-  // Earlier visits are read-only except for the admin (the server sends `editable` per visit).
-  const canEditVisit = canEditVisitFor(role, selectedSummary);
+  // Visits this account can't change are read-only (the server sends `editable` per visit).
+  const canEditVisit = canEditVisitFor(user, selectedSummary);
 
   return (
     <div className={PAGE_SHELL}>
@@ -179,7 +179,8 @@ export default function PatientDetailsPage() {
         <div className={cn("col-span-1", PANEL_SCROLL, STABLE_SCROLLBAR, ENTER)}>
           <PatientInfoCard
             patient={patient}
-            canEdit={canEdit}
+            // Without "Edit past visits", only a patient with a visit this account may change (queued today).
+            canEdit={canEdit && (user?.role === "admin" || visits.some(visit => visit.editable))}
             onSaved={(updated) => setPatientData(previous => previous && { ...previous, patient: { ...previous.patient, ...updated } })}
             onStale={reloadPatient}
           />
@@ -235,7 +236,7 @@ export default function PatientDetailsPage() {
                               </span>
                             </div>
                             <div className="text-sm text-muted-foreground ml-7">
-                              Queue: <span className="font-medium">{visit.queue_no}</span> • {visit.location_name}
+                              Queue: <span className="font-medium">{visit.queue_no}</span>
                             </div>
                             {/* What the visit has records for, in clinic order. */}
                             <div className="flex gap-2 mt-3 ml-7 flex-wrap">
@@ -284,17 +285,17 @@ export default function PatientDetailsPage() {
                   )}
                 </div>
                 <div className="mt-2">
-                  {/* Prefer the loaded visit so edits to date, queue or location show at once. */}
+                  {/* Prefer the loaded visit so edits to date or queue show at once. */}
                   <CardTitle className="text-2xl">
                     {formatDate(visitDetails?.visit_date ?? selectedSummary?.visit_date ?? null)}
                   </CardTitle>
                   <CardDescription className="text-base mt-1">
-                    Queue {visitDetails?.queue_no ?? selectedSummary?.queue_no} • {visitDetails?.location_name ?? selectedSummary?.location_name}
+                    Queue {visitDetails?.queue_no ?? selectedSummary?.queue_no}
                   </CardDescription>
                   {canEdit && !canEditVisit && (
                     <p className={cn("mt-2 flex items-center gap-1.5 text-sm text-muted-foreground", ENTER_FAST)}>
                       <Lock className="size-3.5 shrink-0" aria-hidden="true" />
-                      Earlier visit: read-only. Only the admin account can change it.
+                      Read-only: changing this visit needs the &quot;Edit past visits&quot; permission.
                     </p>
                   )}
                 </div>
