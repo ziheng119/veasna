@@ -1,7 +1,7 @@
 const db = require('../config/db');
 const { authenticateToken } = require('../routes/auth');
 const { canAccessApi, normalizeRole } = require('../utils/permissions');
-const { checkDayScope, scopeDate } = require('../utils/dayScope');
+const { checkDayScope, scopeDate, screeningDayEnded, screeningDayEndedMessage } = require('../utils/dayScope');
 
 // Mounted before every /api route. Never trust a role sent in the body or an old JWT.
 function authorizeApi(req, res, next) {
@@ -19,6 +19,8 @@ function authorizeApi(req, res, next) {
         // Set for a screening-day account (utils/dayScope.js).
         screening_date: account.screening_date,
       };
+      // 401: the day this account was for is over, so the device signs out.
+      if (screeningDayEnded(req.user)) return res.status(401).json({ message: screeningDayEndedMessage(req.user) });
       // The day whose patients this account may see: null for admins (every patient), otherwise the
       // screening date, or the host's clinic day for an account without one.
       req.user.scope_date = scopeDate(req.user);

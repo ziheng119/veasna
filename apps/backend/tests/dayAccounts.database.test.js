@@ -53,11 +53,14 @@ const { localDate } = require('../utils/validation');
     app.use('/form-options', require('../routes/formOptions'));
     // Everything else only checks the gate in front of it.
     app.all('*', (_req, res) => res.sendStatus(200));
-    for (const name of ['admin', 'user', 'today_village', 'jan_village']) {
+    for (const name of ['admin', 'user', 'today_village']) {
       const login = await request(app).post('/auth/login').send({ username: name, password: 'pw-1234' });
       expect(login.status).toBe(200);
       tokens[name] = login.body.token;
     }
+    // jan_village's day is over, so it can't sign in: a token from back then, as a device still signed in has.
+    const { rows: [jan] } = await client.query("SELECT id FROM users WHERE username = 'jan_village'");
+    tokens.jan_village = require('jsonwebtoken').sign({ id: jan.id, username: 'jan_village', role: 'user' }, process.env.JWT_SECRET, { expiresIn: '1d' });
   }, 30000); // Hashing and four sign-ins can be slow while the other suites run.
   afterAll(async () => {
     if (client) await client.end();
@@ -120,10 +123,28 @@ const { localDate } = require('../utils/validation');
     expect((await as('today_village', 'post', '/visits/dental/10')).status).toBe(403); // Alice's earlier visit
     expect((await as('today_village', 'post', '/family').send({ patient_id: 1, with_patient_id: 2 })).status).toBe(403);
     expect((await as('today_village', 'post', '/registration')).status).toBe(200);
-    const late = await as('jan_village', 'post', '/registration');
-    expect(late.status).toBe(403);
-    expect(late.body.message).toContain('2025-01-01');
-    expect((await as('jan_village', 'get', '/patients?location_id=1')).body.map(p => p.id).sort()).toEqual([1, 2]);
+  });
+
+  test('once its day is over, a day account is signed out and cannot sign in; its records stay', async () => {
+    const login = await request(app).post('/auth/login').send({ username: 'jan_village', password: 'pw-1234' });
+    expect(login.status).toBe(403);
+    expect(login.body.message).toContain('2025-01-01');
+    expect(login.body.token).toBeUndefined();
+    // A wrong password still reads as a wrong password, so the message doesn't confirm the account exists.
+    expect((await request(app).post('/auth/login').send({ username: 'jan_village', password: 'nope' })).status).toBe(401);
+    // 401, so a device still signed in with it signs out, for reading as well as saving.
+    for (const [method, url] of [['get', '/auth/me'], ['get', '/patients?location_id=1'], ['post', '/registration']]) {
+      const res = await as('jan_village', method, url);
+      expect(res.status).toBe(401);
+      expect(res.body.message).toContain('has ended');
+    }
+    // Not removed or disabled: the admin still sees it, and what it entered still names it.
+    const accounts = (await as('admin', 'get', '/accounts')).body;
+    const jan = accounts.find(a => a.username === 'jan_village');
+    expect(jan).toMatchObject({ is_active: true, screening_date: '2025-01-01' });
+    // Fixed accounts have no day to end.
+    expect((await as('user', 'get', '/auth/me')).status).toBe(200);
+    expect((await as('admin', 'get', '/auth/me')).status).toBe(200);
   });
 
   test("a day account corrects that day's patients and visits on Patient Details, nobody else's", async () => {

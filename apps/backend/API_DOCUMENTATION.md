@@ -225,7 +225,9 @@ Totals only, with no patient names or notes. Admin only. See [analytics](../../d
 ### Accounts, station data and export
 
 Screening-day accounts only see patients queued on their date (and those patients'
-earlier visits), and save only on that date. See [accounts](../../docs/user-roles.md).
+earlier visits), and save only on that date. Once the host's date is past it, login
+returns `403` (after the password is checked) and every other request returns `401`
+with a message that the screening has ended. See [accounts](../../docs/user-roles.md).
 
 - **GET** `accounts`, **POST** `accounts` `{ username, password, screening_date }`,
   **PUT** `accounts/{id}` `{ password?, screening_date?, is_active? }`,
