@@ -293,7 +293,18 @@ function ensureAccountPermissions() {
   return accountPermissionsPromise;
 }
 
+// hef.has_nssf and hef.uses_hef_nssf: the NSSF questions at registration.
+let nssfPromise;
+function ensureNssf() {
+  if (!nssfPromise) {
+    nssfPromise = runMigration('029_nssf.sql')
+      .catch(err => { nssfPromise = null; throw err; });
+  }
+  return nssfPromise;
+}
+
 module.exports = {
+  ensureNssf,
   ensureAccountPermissions,
   ensureLocationsRemoved,
   ensureVisitIndexes,

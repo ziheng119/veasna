@@ -56,6 +56,8 @@ type FormErrors = {
     temperature?: string;
     know_of_hef?: string;
     has_hef?: string;
+    has_nssf?: string;
+    uses_hef_nssf?: string;
     stations?: string;
 };
 
@@ -82,7 +84,7 @@ const emptyVitals: Vitals = {
     notes: ""
 };
 
-const emptyHef: HEF = { know_of_hef: "", has_hef: "", notes: "" };
+const emptyHef: HEF = { know_of_hef: "", has_hef: "", has_nssf: "", uses_hef_nssf: "", notes: "" };
 
 const MAX_SUGGESTIONS = 8;
 const MAX_AGE = 130;
@@ -197,7 +199,8 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       setPatientInfo(values.patientInfo);
       setLinkedPatient(values.linkedPatient);
       setVitals(values.vitals);
-      setHEF(values.hef);
+      // Drafts kept before the NSSF questions were added lack them.
+      setHEF({ ...emptyHef, ...values.hef });
       setStations(values.stations);
       setStickerColour(values.stickerColour);
       setTbRedFlags(values.tbRedFlags);
@@ -263,13 +266,15 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
+      if (!hef.has_nssf) nextErrors.has_nssf = "Please select Yes or No.";
+      if (!hef.uses_hef_nssf) nextErrors.uses_hef_nssf = "Please select Yes or No.";
       if (!tbFlagged && stations.length === 0) nextErrors.stations = "Select at least one station.";
 
       setErrors(nextErrors);
 
       const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
-      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
+      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "has_nssf", "uses_hef_nssf", "stations"];
 
       if (patientInfoFields.some((field) => nextErrors[field])) setActiveTab("patient-info");
       else if (vitalsFields.some((field) => nextErrors[field])) setActiveTab("vitals");
@@ -641,6 +646,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                     className="mt-2 bg-muted"
                   />
                 </div>
+
               </TabsContent>
     
               <TabsContent value="vitals" data-tour="reg-vitals" className="space-y-4 mt-6 h-full">
@@ -823,14 +829,58 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                   </RadioGroup>
                   {errors.has_hef && <p className="mt-2 text-xs text-destructive">{errors.has_hef}</p>}
                 </div>
+
+                <div>
+                  <Label className="text-muted-foreground block mb-4">Does patient have NSSF?</Label>
+                  <RadioGroup
+                    value={hef.has_nssf}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, has_nssf: value as "yes" | "no" }));
+                      clearFieldError("has_nssf");
+                    }}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="nssf-yes" className="border-border text-primary bg-background" />
+                      <Label htmlFor="nssf-yes" className="text-muted-foreground">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="nssf-no" className="border-border text-primary bg-background" />
+                      <Label htmlFor="nssf-no" className="text-muted-foreground">No</Label>
+                    </div>
+                  </RadioGroup>
+                  {errors.has_nssf && <p className="mt-2 text-xs text-destructive">{errors.has_nssf}</p>}
+                </div>
+
+                <div>
+                  <Label className="text-muted-foreground block mb-4">Does patient use HEF/NSSF?</Label>
+                  <RadioGroup
+                    value={hef.uses_hef_nssf}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, uses_hef_nssf: value as "yes" | "no" }));
+                      clearFieldError("uses_hef_nssf");
+                    }}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="uses-yes" className="border-border text-primary bg-background" />
+                      <Label htmlFor="uses-yes" className="text-muted-foreground">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="uses-no" className="border-border text-primary bg-background" />
+                      <Label htmlFor="uses-no" className="text-muted-foreground">No</Label>
+                    </div>
+                  </RadioGroup>
+                  {errors.uses_hef_nssf && <p className="mt-2 text-xs text-destructive">{errors.uses_hef_nssf}</p>}
+                </div>
     
                 <div>
-                  <Label htmlFor="hefReason" className="text-muted-foreground block mb-3">Does patient use HEF? Why or Why not?</Label>
+                  <Label htmlFor="hefReason" className="text-muted-foreground block mb-3">Why or why not?</Label>
                   <Textarea
                     id="hefReason"
                     value={hef.notes}
                     onChange={(e) => setHEF(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Explain patient's HEF usage and reasoning"
+                    placeholder="Why the patient uses HEF/NSSF, or doesn't"
                     className=""
                   />
                 </div>

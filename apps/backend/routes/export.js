@@ -21,7 +21,7 @@ router.get('/patients', authenticateToken, async (req, res) => {
       (SELECT string_agg(s.station, ' > ' ORDER BY s.position, s.id) FROM visit_stations s WHERE s.visit_id = v.id) AS stations,
       vt.height, vt.weight, vt.bmi, vt.below_3rd_percentile, vt.bp_systolic, vt.bp_diastolic, vt.temperature,
       vt.notes AS vitals_notes,
-      h.know_of_hef, h.has_hef, h.notes AS hef_notes,
+      h.know_of_hef, h.has_hef, h.has_nssf, h.uses_hef_nssf, h.notes AS hef_notes,
       va.left_without_pinhole, va.left_with_pinhole, va.left_with_glasses,
       va.right_without_pinhole, va.right_with_pinhole, va.right_with_glasses,
       va.notes AS visual_acuity_notes,

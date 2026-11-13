@@ -1,6 +1,7 @@
 // Registrations that are safe to send again (routes/visits.js, migration 024): a request repeated
 // with the same request_id is saved once, and a returning patient already in today's queue is not
-// queued a second time. Real PostgreSQL temp tables: run with RUN_DB_TESTS=1 and apps/backend/.env.
+// queued a second time. Also the NSSF answers registration saves beside the patient. Real PostgreSQL temp tables: run with RUN_DB_TESTS=1 and
+// apps/backend/.env.
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
@@ -32,16 +33,20 @@ const VITALS = { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diasto
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
       INSERT INTO users VALUES (1);
       CREATE TEMP TABLE patients (id SERIAL PRIMARY KEY, english_name TEXT, khmer_name TEXT, date_of_birth DATE,
-        sex TEXT, address TEXT, phone_number TEXT, last_updated_by INT REFERENCES users(id));
+        sex TEXT, address TEXT, phone_number TEXT, family TEXT, last_updated_by INT REFERENCES users(id),
+        last_updated_at TIMESTAMP DEFAULT NOW());
       INSERT INTO patients (id, english_name, sex, last_updated_by) VALUES (500, 'Returning Rith', 'M', 1);
       CREATE TEMP TABLE visits (id SERIAL PRIMARY KEY, patient_id INT REFERENCES patients(id), queue_no TEXT,
         visit_date DATE, sticker_colour TEXT, completed_at TIMESTAMP, last_updated_by INT, created_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, position INT, entered_at TIMESTAMP, completed_at TIMESTAMP,
-        last_updated_by INT);
+      CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT, station TEXT, position INT, entered_at TIMESTAMP,
+        completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE tb_screening (visit_id INT PRIMARY KEY, status TEXT);
       CREATE TEMP TABLE vitals (visit_id INT, height NUMERIC, weight NUMERIC, bmi NUMERIC, below_3rd_percentile BOOLEAN,
         bp_systolic INT, bp_diastolic INT, temperature NUMERIC, notes TEXT, last_updated_by INT);
       CREATE TEMP TABLE hef (visit_id INT, know_of_hef BOOLEAN, has_hef BOOLEAN, notes TEXT, last_updated_by INT);`);
+    // The NSSF columns come from their migration, run twice to show it is safe to repeat.
+    await client.query(fs.readFileSync(path.join(__dirname, '../migrations/029_nssf.sql'), 'utf8'));
+    await client.query(fs.readFileSync(path.join(__dirname, '../migrations/029_nssf.sql'), 'utf8'));
     // The migration itself, so the column and unique index are the ones the host gets.
     await client.query(fs.readFileSync(path.join(__dirname, '../migrations/024_registration_request_id.sql'), 'utf8'));
     await client.query(fs.readFileSync(path.join(__dirname, '../migrations/024_registration_request_id.sql'), 'utf8'));
@@ -98,4 +103,23 @@ const VITALS = { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diasto
     }
     expect(await count('visits')).toBe(before);
   });
+
+  describe('NSSF answers', () => {
+    const answers = async visitId => (await client.query(
+      'SELECT has_nssf, uses_hef_nssf FROM hef WHERE visit_id = $1', [visitId])).rows[0];
+
+    test('yes and no are saved; left out (an older app) they are saved as not asked', async () => {
+      const asked = await register({ english_name: 'Nssf Yes', sex: 'F' }, { hef: { has_nssf: 'yes', uses_hef_nssf: 'no' } });
+      expect(await answers(asked.body.visit_id)).toEqual({ has_nssf: true, uses_hef_nssf: false });
+      const older = await register({ english_name: 'Nssf Old', sex: 'F' });
+      expect(await answers(older.body.visit_id)).toEqual({ has_nssf: null, uses_hef_nssf: null });
+    });
+
+    test('any other answer is refused', async () => {
+      const res = await register({ english_name: 'Nssf Bad', sex: 'F' }, { hef: { has_nssf: true } });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("hef.has_nssf must be 'yes' or 'no'.");
+    });
+  });
+
 });

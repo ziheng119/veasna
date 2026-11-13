@@ -38,7 +38,12 @@ type VitalsDraft = {
   height: string; weight: string; bmi: string; below_3rd_percentile: boolean;
   bp_systolic: string; bp_diastolic: string; temperature: string; notes: string;
 };
-type HefDraft = { know_of_hef: boolean; has_hef: boolean; notes: string };
+// The NSSF answers are "yes", "no" or "" (not asked).
+type HefDraft = { know_of_hef: boolean; has_hef: boolean; has_nssf: YesNo; uses_hef_nssf: YesNo; notes: string };
+type YesNo = "yes" | "no" | "";
+const YES_NO_OPTIONS = [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] as const;
+const yesNo = (value: boolean | null | undefined): YesNo => (value == null ? "" : value ? "yes" : "no");
+const fromYesNo = (value: YesNo) => (value === "" ? null : value === "yes");
 // status "" = not reviewed yet (suspected).
 type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doctor_notes: string };
 type AcuityDraft = {
@@ -81,6 +86,8 @@ const VITALS_FIELDS: FieldSpec<VitalsDraft>[] = [
 const HEF_FIELDS: FieldSpec<HefDraft>[] = [
   { key: "know_of_hef", label: "Knows of HEF", kind: "boolean" },
   { key: "has_hef", label: "Has HEF", kind: "boolean" },
+  { key: "has_nssf", label: "Has NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
+  { key: "uses_hef_nssf", label: "Uses HEF/NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
@@ -274,7 +281,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
         below_3rd_percentile: vitals.below_3rd_percentile, bp_systolic: text(vitals.bp_systolic),
         bp_diastolic: text(vitals.bp_diastolic), temperature: text(vitals.temperature), notes: text(vitals.notes),
       } as VitalsDraft),
-      hef: hef && ({ know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, notes: text(hef.notes) } as HefDraft),
+      hef: hef && ({
+        know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, has_nssf: yesNo(hef.has_nssf),
+        uses_hef_nssf: yesNo(hef.uses_hef_nssf), notes: text(hef.notes),
+      } as HefDraft),
       tb: tb && ({ status: tb.status, red_flags: tb.red_flags, flag_notes: text(tb.flag_notes), doctor_notes: text(tb.doctor_notes) } as TbDraft),
       acuity: va && ({
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
@@ -420,8 +430,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
           record={drafts.hef}
           fields={HEF_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ know_of_hef: false, has_hef: false, notes: "" }}
-          onSave={saved((d: HefDraft) => updateVisitVitals(visitId, { hef: d }))}
+          emptyDraft={{ know_of_hef: false, has_hef: false, has_nssf: "", uses_hef_nssf: "", notes: "" }}
+          onSave={saved((d: HefDraft) => updateVisitVitals(visitId, {
+            hef: { ...d, has_nssf: fromYesNo(d.has_nssf), uses_hef_nssf: fromYesNo(d.uses_hef_nssf) },
+          }))}
         />
       </StationPanel>
 

@@ -237,6 +237,8 @@ router.get(
           h.id AS hef_id,
           h.know_of_hef,
           h.has_hef,
+          h.has_nssf,
+          h.uses_hef_nssf,
           h.notes AS hef_notes,
           
           -- Visual Acuity
@@ -414,6 +416,8 @@ router.get(
             ? {
                 know_of_hef: visit.know_of_hef,
                 has_hef: visit.has_hef,
+                has_nssf: visit.has_nssf,
+                uses_hef_nssf: visit.uses_hef_nssf,
                 notes: visit.hef_notes,
               }
             : null,

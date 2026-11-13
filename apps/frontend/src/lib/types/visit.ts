@@ -100,6 +100,9 @@ export interface VisitVitals {
 export interface VisitHef {
     know_of_hef: boolean;
     has_hef: boolean;
+    // NSSF answers; null when not asked (registered before the questions were added).
+    has_nssf?: boolean | null;
+    uses_hef_nssf?: boolean | null;
     notes: string | null;
 }
 

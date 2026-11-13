@@ -146,8 +146,9 @@ router.put('/:visitId', ...editors, async (req, res) => {
 
 // PUT /api/visits/:visitId/vitals
 // Body: { vitals?: { height, weight, bmi, below_3rd_percentile, bp_systolic, bp_diastolic,
-//         temperature, notes }, hef?: { know_of_hef, has_hef, notes } }
+//         temperature, notes }, hef?: { know_of_hef, has_hef, has_nssf?, uses_hef_nssf?, notes } }
 // Either section may be sent alone. A missing row is created, so a visit can be backfilled.
+// has_nssf and uses_hef_nssf are true, false or null (not asked); left out, they keep their value.
 router.put('/:visitId/vitals', ...editors, async (req, res) => {
   const visitId = parsePositiveInt(req.params.visitId);
   if (!visitId) return res.status(400).json({ error: 'Visit ID must be a positive integer' });
@@ -160,6 +161,9 @@ router.put('/:visitId/vitals', ...editors, async (req, res) => {
   if (normalizedVitals?.error) return res.status(400).json({ error: normalizedVitals.error });
   if (hef != null && (typeof hef.know_of_hef !== 'boolean' || typeof hef.has_hef !== 'boolean')) {
     return res.status(400).json({ error: 'hef.know_of_hef and hef.has_hef must be true or false' });
+  }
+  if (hef != null && ['has_nssf', 'uses_hef_nssf'].some((field) => ![undefined, null, true, false].includes(hef[field]))) {
+    return res.status(400).json({ error: 'hef.has_nssf and hef.uses_hef_nssf must be true, false or null' });
   }
 
   await inTransaction(res, 'vitals', async (client) => {
@@ -186,13 +190,16 @@ router.put('/:visitId/vitals', ...editors, async (req, res) => {
     }
     if (hef != null) {
       const { rows } = await client.query(
-        `INSERT INTO hef (visit_id, know_of_hef, has_hef, notes, last_updated_by)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO hef (visit_id, know_of_hef, has_hef, notes, last_updated_by, has_nssf, uses_hef_nssf)
+         VALUES ($1, $2, $3, $4, $5, $6, $8)
          ON CONFLICT (visit_id) DO UPDATE SET
            know_of_hef = EXCLUDED.know_of_hef, has_hef = EXCLUDED.has_hef, notes = EXCLUDED.notes,
+           has_nssf = CASE WHEN $7 THEN EXCLUDED.has_nssf ELSE hef.has_nssf END,
+           uses_hef_nssf = CASE WHEN $9 THEN EXCLUDED.uses_hef_nssf ELSE hef.uses_hef_nssf END,
            last_updated_by = EXCLUDED.last_updated_by, last_updated_at = NOW()
          RETURNING *`,
-        [visitId, hef.know_of_hef, hef.has_hef, textOrEmpty(hef.notes), req.user.id]
+        [visitId, hef.know_of_hef, hef.has_hef, textOrEmpty(hef.notes), req.user.id,
+          hef.has_nssf ?? null, hef.has_nssf !== undefined, hef.uses_hef_nssf ?? null, hef.uses_hef_nssf !== undefined]
       );
       body.hef = rows[0];
     }

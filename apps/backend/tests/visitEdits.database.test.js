@@ -175,6 +175,16 @@ const USER_ID = 2;
       expect((await client.query("SELECT has_hef FROM hef WHERE visit_id = 1")).rows[0].has_hef).toBe(false);
     });
 
+    test("the NSSF answers can be corrected; left out they keep their value", async () => {
+      const nssf = async () => (await client.query("SELECT has_nssf, uses_hef_nssf FROM hef WHERE visit_id = 1")).rows[0];
+      const hef = { know_of_hef: true, has_hef: true, notes: "" };
+      expect((await put("/visits/1/vitals", { hef: { ...hef, has_nssf: true, uses_hef_nssf: false } })).status).toBe(200);
+      expect(await nssf()).toEqual({ has_nssf: true, uses_hef_nssf: false });
+      await put("/visits/1/vitals", { hef: { ...hef, uses_hef_nssf: null } });
+      expect(await nssf()).toEqual({ has_nssf: true, uses_hef_nssf: null });
+      expect((await put("/visits/1/vitals", { hef: { ...hef, has_nssf: "yes" } })).status).toBe(400);
+    });
+
     test("invalid vitals leave the record unchanged", async () => {
       expect((await put("/visits/1/vitals", { vitals: { ...vitals, height: -1 } })).status).toBe(400);
       expect((await put("/visits/1/vitals", { hef: { know_of_hef: "yes", has_hef: true } })).status).toBe(400);

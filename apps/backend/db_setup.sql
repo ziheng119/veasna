@@ -184,6 +184,8 @@ CREATE TABLE hef (
         ON DELETE CASCADE ON UPDATE CASCADE,
     know_of_hef BOOLEAN NOT NULL,
     has_hef BOOLEAN NOT NULL,
+    has_nssf BOOLEAN, -- NULL: not asked (registered by an older app)
+    uses_hef_nssf BOOLEAN, -- notes says why or why not
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,    

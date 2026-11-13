@@ -123,6 +123,14 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     if (!hef || typeof hef !== 'object') {
         return res.status(400).json({ error: 'hef is required.' });
     }
+    // The NSSF questions: 'yes' or 'no'. Left out (an older app), they are saved as not asked.
+    const nssf = {};
+    for (const field of ['has_nssf', 'uses_hef_nssf']) {
+        const answer = hef[field];
+        if (answer === undefined || answer === null || answer === '') nssf[field] = null;
+        else if (answer === 'yes' || answer === 'no') nssf[field] = answer === 'yes';
+        else return res.status(400).json({ error: `hef.${field} must be 'yes' or 'no'.` });
+    }
 
     if (!stations || stations.length === 0) {
         return res.status(400).json({ error: `stations must be a non-empty list of: ${REGISTRATION_STATIONS.join(', ')}. Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing.` });
@@ -301,13 +309,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         // Step 4: Insert into HEF table
         const hefQuery = `
-            INSERT INTO hef (visit_id, know_of_hef, has_hef, notes, last_updated_by)
-            VALUES ($1, $2, $3, $4, $5);
+            INSERT INTO hef (visit_id, know_of_hef, has_hef, has_nssf, uses_hef_nssf, notes, last_updated_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7);
         `;
         const hefValues = [
             visitId,
             hef.know_of_hef === 'yes',
             hef.has_hef === 'yes',
+            nssf.has_nssf,
+            nssf.uses_hef_nssf,
             hef.notes,
             last_updated_by
         ];

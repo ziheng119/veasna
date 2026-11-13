@@ -59,7 +59,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 {
   "patientInfo": { "english_name": "Sok Dara", "khmer_name": "សុខ ដារា", "sex": "M", "date_of_birth": "1990-03-07" },
   "vitals": { "height": 165, "weight": 60, "bp_systolic": 120, "bp_diastolic": 80, "temperature": 36.8 },
-  "hef": { "know_of_hef": "yes", "has_hef": "no" },
+  "hef": { "know_of_hef": "yes", "has_hef": "no", "has_nssf": "no", "uses_hef_nssf": "no", "notes": "Too far to the health centre" },
   "stations": ["triage", "dental", "consultation"],
   "sticker_colour": "light_blue",
   "tb": { "red_flags": ["cough_2_weeks", "fever", "night_sweats"], "notes": "" },
@@ -117,7 +117,7 @@ The station `POST` endpoints are the same upserts the station pages use. They cr
 Body: any of `queue_no` (letters and digits, e.g. `12`, `12A` or `A12`), `visit_date` (`YYYY-MM-DD`) and `sticker_colour`; omitted fields keep their value. Returns `409` if the queue number is already used on that date. A changed number or date is checked against that date's sequence, leaving this visit out, by the same rule as `POST visits`; an unchanged number is not re-checked. This replaces the old route of the same path, which wrote to a column that does not exist.
 
 **PUT** `visits/{visitId}/vitals`
-Body: `vitals` (`height`, `weight`, `bmi`, `below_3rd_percentile`, `bp_systolic`, `bp_diastolic`, `temperature`, `notes`, validated like registration), `hef` (`know_of_hef`, `has_hef` as booleans, `notes`), or both. A missing record is created.
+Body: `vitals` (`height`, `weight`, `bmi`, `below_3rd_percentile`, `bp_systolic`, `bp_diastolic`, `temperature`, `notes`, validated like registration), `hef` (`know_of_hef`, `has_hef` as booleans, `notes`; `has_nssf` and `uses_hef_nssf` as `true`, `false` or `null` for not asked, kept when left out), or both. A missing record is created.
 
 **PUT** `visits/{visitId}/tb`
 Body: any of `red_flags`, `flag_notes`, `doctor_notes` and `status` (`suspected`, `tb_likely` or `cleared`). Everything can be corrected at any time; `cleared` removes the red TB marker from the queues. A first status change recorded here sets `reviewed_by` and `reviewed_at`. If the red flags or status change and the visit stays flagged, it needs 3 or more red flags (`400` otherwise); an older flag with fewer can still have its notes corrected. Returns `404` if the visit was never flagged for TB.
