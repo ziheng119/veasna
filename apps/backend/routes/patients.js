@@ -59,25 +59,9 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
           LIMIT 1
         ) AS last_visit_at,
         -- In today's queue here: the open visit and the station it waits at (null when not queued).
-        q.visit_id AS queue_visit_id, q.station AS current_station,
-        -- The latest visit here once it is completed (discharged), for adding or editing its
-        -- referral from the list, and whether it has one. Null while that visit is still open.
-        c.visit_id AS completed_visit_id, COALESCE(c.has_referral, FALSE) AS completed_visit_has_referral
+        q.visit_id AS queue_visit_id, q.station AS current_station
       FROM patients p
       JOIN locations l ON l.id = p.location_id
-      LEFT JOIN LATERAL (
-        SELECT lv.id AS visit_id,
-          EXISTS (SELECT 1 FROM referral r WHERE r.visit_id = lv.id) AS has_referral
-        FROM (
-          SELECT v.id, v.completed_at
-          FROM visits v
-          -- A day-limited account ($3) only gets that day's visit, the only ones it may save to.
-          WHERE v.patient_id = p.id AND v.location_id = p.location_id
-            AND ($3::date IS NULL OR v.visit_date = $3::date)
-          ORDER BY v.visit_date DESC, v.created_at DESC, v.id DESC LIMIT 1
-        ) lv
-        WHERE lv.completed_at IS NOT NULL
-      ) c ON TRUE
       LEFT JOIN LATERAL (
         SELECT v.id AS visit_id, (
           SELECT s.station FROM visit_stations s

@@ -38,7 +38,6 @@ const { localDate } = require('../utils/validation');
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
       INSERT INTO visits VALUES (10, 1, 1, '2025-01-01', NOW()), (11, 1, 1, '${today}', NULL), (20, 2, 1, '2025-01-01', NOW());
       CREATE TEMP TABLE visit_stations (visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);
-      CREATE TEMP TABLE referral (visit_id INT PRIMARY KEY);
       CREATE TEMP TABLE audit (author INT REFERENCES users(id));`);
     await client.query(fs.readFileSync(path.join(__dirname, '../migrations/020_day_accounts_form_options.sql'), 'utf8'));
     await client.query(`INSERT INTO users (username, password_hash, role, screening_date) VALUES

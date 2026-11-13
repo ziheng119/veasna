@@ -40,7 +40,7 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Page | Address | Purpose |
 | --- | --- | --- |
 | Home | `/` | Register patients and see the clinic queue |
-| Patient List | `/patient-list` | Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there. Once the latest visit is completed, **Add referral** / **Edit referral** (file icon) opens the referral form for that visit |
+| Patient List | `/patient-list` | Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there |
 | Patient Details | `/patient-details` | A patient's visits; admins can correct saved records here |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
 | Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |

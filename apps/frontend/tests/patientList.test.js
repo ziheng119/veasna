@@ -1,5 +1,5 @@
 // Patient List: sorting by column (lib/patientSort.ts, PatientTable.tsx) and opening a queued patient
-// at their station (PatientTableRow.tsx), and the referral of a completed visit (ReferralAction.tsx).
+// at their station (PatientTableRow.tsx).
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 const push = jest.fn();
@@ -7,9 +7,6 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role: 'user' } }) }));
 jest.mock('../src/assets/icons', () => ({ EyeIcon: () => null, TrashIcon: () => null, PersonIcon: () => null }));
 jest.mock('../src/components/patient-list/FamilyButton', () => ({ __esModule: true, default: () => null }));
-jest.mock('../src/components/shared/read-only/patient-container/referral/ReferralPopUp', () => ({ __esModule: true, default: () => null }));
-const mockGetConsultation = jest.fn();
-jest.mock('../src/lib/api/visit/doctors-consultation/getConsultation', () => ({ getConsultation: (...args) => mockGetConsultation(...args) }));
 const { sortPatients, nextPatientSort, describeSort, DEFAULT_PATIENT_SORT } = require('../src/lib/patientSort');
 const { PatientTable } = require('../src/components/patient-list/PatientTable');
 const { ArrowDown, ArrowUp } = require('lucide-react');
@@ -128,25 +125,5 @@ describe('the table', () => {
     // The row's own buttons don't open the station.
     await act(async () => click(ann, { closest: () => ({}) }));
     expect(push).not.toHaveBeenCalled();
-  });
-
-  test('a completed visit offers Add or Edit referral, loading the saved one first; open visits offer none', async () => {
-    await render([
-      person(1, 'Ann', { completed_visit_id: 20, completed_visit_has_referral: true }),
-      person(2, 'Bo', { completed_visit_id: 21, completed_visit_has_referral: false }),
-      person(3, 'Chan', { queue_visit_id: 7, current_station: 'triage' }),
-    ]);
-    const referralButton = name => renderer.root.findAll(node => node.type === 'button'
-      && /referral for/.test(node.props['aria-label'] || '') && node.props['aria-label'].endsWith(name));
-    expect(referralButton('Ann').map(b => b.props.title)).toEqual(['Edit referral']);
-    expect(referralButton('Bo').map(b => b.props.title)).toEqual(['Add referral']);
-    expect(referralButton('Chan')).toHaveLength(0);
-    const ReferralPopUp = require('../src/components/shared/read-only/patient-container/referral/ReferralPopUp').default;
-    const saved = { referralType: ['Hospital'] };
-    mockGetConsultation.mockResolvedValueOnce({ referral: saved });
-    await act(async () => referralButton('Ann')[0].props.onClick());
-    expect(mockGetConsultation).toHaveBeenCalledWith(20);
-    const popUp = renderer.root.findByType(ReferralPopUp);
-    expect(popUp.props).toMatchObject({ showPopUp: true, retrievedReferral: saved, patient: { visit_id: 20, patient_id: 1 } });
   });
 });

@@ -135,7 +135,6 @@ export default function PatientListPage() {
         onViewPatient={handleViewPatient}
         onDeletePatient={handleDeletePatient}
         onFamilyChanged={refreshAllPatients}
-        onReferralChanged={refreshAllPatients}
       />
       {dialog}
     </div>

@@ -158,10 +158,6 @@ A few things worth knowing:
   on top, the most recently registered first. Click any column header to sort by it
   (the sorted header is raised and bold, with a coloured arrow); click again to
   reverse.
-- Once a patient's visit is completed, their Patient List row has an **Add referral**
-  (or **Edit referral**) icon: it opens the same referral form as at Consult, for that
-  visit, e.g. when results come back after the patient left. Day accounts can do this
-  for visits on their day only.
 - Deleting, removing or discharging anything asks first in a pop-up that says what will
   happen.
 - Always check that a save succeeded before leaving a page. Unsaved work is not

@@ -17,8 +17,6 @@ interface PatientTableProps {
     onDeletePatient?: (patientId: number) => void;
     // Called after a family changed, to reload the list.
     onFamilyChanged?: () => void | Promise<unknown>;
-    // Called after a completed visit's referral was saved or deleted, to reload the list.
-    onReferralChanged?: () => void | Promise<unknown>;
 }
 
 // Columns in display order; every one but Actions sorts the list.
@@ -37,7 +35,7 @@ const COLUMNS: { key: PatientSortKey; label: string; width?: string }[] = [
 
 const HEADER_TEXT = 'uppercase text-left text-xs font-medium text-muted-foreground tracking-wider';
 
-export function PatientTable({ patients, allPatients = patients, onViewPatient, onDeletePatient, onFamilyChanged, onReferralChanged }: PatientTableProps) {
+export function PatientTable({ patients, allPatients = patients, onViewPatient, onDeletePatient, onFamilyChanged }: PatientTableProps) {
     // Kept in this page only: sorting is instant and doesn't change anyone else's list.
     const [sort, setSort] = useState<PatientSort>(DEFAULT_PATIENT_SORT);
     // Members of the same family sit together, where the first of them falls in the chosen order.
@@ -90,7 +88,7 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
                     </th>
                   );
                 })}
-                <th className={cn(HEADER_TEXT, 'w-40 py-3 pl-5 pr-6')}>Actions</th>
+                <th className={cn(HEADER_TEXT, 'w-32 py-3 pl-5 pr-6')}>Actions</th>
               </tr>
             </thead>
 
@@ -104,7 +102,6 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
                   onViewPatient={onViewPatient}
                   onDeletePatient={onDeletePatient}
                   onFamilyChanged={onFamilyChanged}
-                  onReferralChanged={onReferralChanged}
                 />
               ))}
             </tbody>
