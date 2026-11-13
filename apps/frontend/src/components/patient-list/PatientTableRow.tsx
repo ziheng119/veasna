@@ -7,6 +7,7 @@ import { EyeIcon, TrashIcon } from "@/assets/icons";
 import formatDate from "@/helper/format_date";
 import { PatientInfo } from "@/lib/types/patient";
 import FamilyButton from "./FamilyButton";
+import ReferralAction from "./ReferralAction";
 import FamilyBadge from "@/components/shared/FamilyBadge";
 import StationBadge from "@/components/shared/StationBadge";
 import { stationLabel, stationPageHref } from "@/constants/stations";
@@ -29,6 +30,8 @@ interface PatientTableRowProps {
     onViewPatient?: (patientId: number) => void;
     onDeletePatient?: (patientId: number) => void;
     onFamilyChanged?: () => void | Promise<unknown>;
+    // Called after a completed visit's referral was saved or deleted, to reload the list.
+    onReferralChanged?: () => void | Promise<unknown>;
 }
 
 const calculateAge = (birthDate: string): number => {
@@ -41,7 +44,7 @@ const calculateAge = (birthDate: string): number => {
 
 const VIEW_ADMIN_ONLY = "Only the admin can open patient records here. Open a returning patient's past visits from their card in the queue.";
 
-export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient, onDeletePatient, onFamilyChanged }: PatientTableRowProps) {
+export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient, onDeletePatient, onFamilyChanged, onReferralChanged }: PatientTableRowProps) {
     const router = useRouter();
     const isAdmin = useUserStore(state => state.user?.role === "admin");
     // While this patient's "Add to family" pop-up is open, the row is highlighted.
@@ -118,6 +121,9 @@ export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient
                                 <EyeIcon className="h-4 w-4"/>
                             </button>
                         </DisabledActionHint>
+
+                        {/* Add or edit the referral once the patient's visit is completed */}
+                        <ReferralAction patient={patient} onChanged={onReferralChanged} />
 
                         {/* Group with the patients they came with */}
                         {patient.id && (

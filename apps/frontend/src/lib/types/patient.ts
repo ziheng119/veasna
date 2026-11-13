@@ -22,6 +22,10 @@ export type PatientInfo = {
     // Patient list only: the open visit in today's queue here and the station it waits at, or null.
     queue_visit_id?: number | null;
     current_station?: StationId | null;
+    // Patient list only: the latest visit here once it is completed (discharged), for adding or
+    // editing its referral, and whether it has one. Null while that visit is still open.
+    completed_visit_id?: number | null;
+    completed_visit_has_referral?: boolean;
 }
 
 export type QueuedPatient = {
