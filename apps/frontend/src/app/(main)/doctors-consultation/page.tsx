@@ -7,6 +7,7 @@ import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
+import { QUEUE_FOLD } from "@/lib/pageLayout";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
@@ -14,7 +15,7 @@ import StationDataButton from "@/components/shared/StationDataButton";
 
 // Queue, patient snapshot and triage summary share the top row; the consultation notes take the
 // full page width underneath. The page scrolls as a whole instead of fitting one screen.
-const TOP_ROW = "grid grid-cols-1 gap-6 xl:h-[30rem] xl:grid-cols-12 xl:grid-rows-1";
+const TOP_ROW = `grid grid-cols-1 gap-6 xl:h-[30rem] xl:grid-rows-1 ${QUEUE_FOLD}`;
 
 export default function DoctorsConsultation() {
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);

@@ -41,22 +41,43 @@ when someone registers a patient on another device, and the number actually give
 shown once you submit.
 
 To show that patients came together, group them into a **family**. A family has its
-own letter (A, B, ... Z, then AA, AB...); queue numbers don't change:
+own letter (A, B, ... Z, then AA, AB...); queue numbers don't change.
+
+The quickest way is from **Today's Queue** on Registration, or any station's queue, once they are
+registered (a station's queue groups the patients waiting there):
 
 1. Register each family member as usual, e.g. mother 3, father 4 and child 5.
-2. On **Patient List**, press the **Add to family** icon (people) on the father's row.
+2. Turn on **Group families** (the switch above the queue's search box). It opens into
+   a highlighted panel, and family boxes are drawn more strongly. Cards can now only be
+   dragged: tapping or clicking them does nothing.
+3. Hold the father's card and drop it on the mother's, then drop the child's on either
+   of them (or on their box). Each drop shows at once: their cards glide into one box marked **New**.
+4. Turn **Group families** off to save. The box gets its letter (family A)
+   and the queue settles into its saved order. **Cancel** drops the changes.
+
+Dropping a card on a family's box, or on one of its members, adds it to that whole
+family. To take someone out, drag their card out of the box onto empty space in the
+queue (like an app out of a folder) while the switch is on, then turn it off. Dropping
+a card outside the queue, or back in its own box, changes nothing. A family left with one person is dissolved. One family is
+grouped at a time.
+
+To group anyone on the Patient List, including patients not in today's queue:
+
+1. On **Patient List**, press the **Add to family** icon (people) on the father's row.
    A pop-up opens over the list, and his row is highlighted so you can see who it is
    about.
-3. Search the patient list for the mother (name, phone number or family letter). Pick
+2. Search the patient list for the mother (name, phone number or family letter). Pick
    her (the box is highlighted), then press **Make a family with Mother**. Both are
    now family A, still numbers 3 and 4.
-4. Open the child's pop-up and search for either parent. The whole family shows as one
+3. Open the child's pop-up and search for either parent. The whole family shows as one
    box; pick it and press **Add to family A**.
 
 Things to know:
 
 - Any patient on the Patient List can be grouped, whether or not they are in today's
   queue. A family belongs to the patients, so it is the same at the next screening.
+- **Group families** shows only today's queue. A card from another family dropped on a
+  patient leaves its old family for the new one.
 - The pop-up only puts the patient whose row you opened into the family of the person
   you pick. Nothing changes until you confirm.
 - A family always has at least two people. Picking a single patient starts a new
@@ -74,8 +95,16 @@ Where families are shown:
 - Every queue shows the queue number with a small coloured family badge (e.g. **A**)
   beside it, and puts the family's members together where its first member is, in
   either sort order. The colour is the same wherever the family appears.
+- **Today's Queue** on Registration and each station's queue also draw a dotted box, in the
+  family's colour, around its members' cards: light normally, stronger while **Group families** is on.
+- **Queue search** (top of every station) draws the same dotted border, in the family's colour,
+  around family members listed next to each other; each row is still picked on its own.
+- **Station queues fold** while a patient is open: a narrow strip of numbers and names (with the
+  sort order and how many are waiting), with no buttons, so the patient's forms get the room; the
+  forms widen and narrow with it. **>>** at the top right opens the whole queue again, **<<** folds
+  it, and opening another patient folds it again. The queue has a bolder border than the forms.
 - **Patient List** puts family members side by side, with a coloured stripe down the left edge and the family badge after the name. Rows
-  keep their usual size.
+  keep their usual size. Families grouped from the queue show here straight away.
 
 Families move between stations together: see
 [families](station-routing.md#families-move-together).

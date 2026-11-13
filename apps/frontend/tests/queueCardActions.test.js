@@ -170,3 +170,31 @@ test('a patient done at this station is marked "Done here" on their card', async
   expect(card(5)).toMatch(/Done here/);
   expect(card(6)).not.toMatch(/Done here/);
 });
+
+test('with a patient open the station queue folds (sort order and count only, nothing to press) until >> unfolds it', async () => {
+  stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null }];
+  const props = { station: 'consultation', onSelectPatient: jest.fn() };
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, props)); });
+  const folded = () => renderer.root.findAll(node => node.type === 'div' && node.props.inert === true).length > 0;
+  const toggle = () => renderer.root.findAll(node => node.type === 'button' && /queue$/.test(node.props['aria-label'] ?? ''))[0];
+  expect(folded()).toBe(false);
+  expect(toggle()).toBeUndefined();
+  await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 5 })));
+  expect(folded()).toBe(true);
+  expect(toggle().props['aria-label']).toBe('Show the whole queue');
+  // Folded, the strip still says how it is sorted and how many are waiting.
+  expect(label(renderer.root)).toMatch(/By (queue number|arrival time)/);
+  expect(label(renderer.root)).toContain('1 waiting');
+  await act(async () => toggle().props.onClick());
+  expect(folded()).toBe(false);
+  expect(toggle().props['aria-label']).toBe('Fold the queue');
+  // << folds it again; so does opening another patient.
+  await act(async () => toggle().props.onClick());
+  expect(folded()).toBe(true);
+  await act(async () => toggle().props.onClick());
+  await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 6 })));
+  expect(folded()).toBe(true);
+  await act(async () => toggle().props.onClick());
+  // The station queue has the same Group families switch as Registration.
+  expect(renderer.root.findAll(node => node.props.role === 'switch')).toHaveLength(1);
+});
