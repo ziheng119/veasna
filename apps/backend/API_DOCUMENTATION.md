@@ -88,7 +88,7 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ### Patients
 
 **GET** `patients`
-List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date. Each patient includes `last_visit_date` (`YYYY-MM-DD`, or `null`): the most recent day they were seen at a screening, `family` (their family letter, or `null`), and `queue_visit_id` and `current_station` (their open visit in today's queue at this location and the station it waits at; both `null` when they aren't queued, and `current_station` is `null` once every station is done).
+List patients for a location (`location_id` required). Optional `visit_date=YYYY-MM-DD` returns only patients who had a visit on that date. Each patient includes `last_visit_date` (`YYYY-MM-DD`, or `null`): the most recent day they were seen at a screening, `family` (their family letter, or `null`), and `queue_visit_id` and `current_station` (their open visit in today's queue at this location and the station it waits at; both `null` when they aren't queued, and `current_station` is `null` once every station is done). `completed_visit_id` is the patient's latest visit at this location once it is completed (discharged), so its referral can be added or edited from the Patient List, with `completed_visit_has_referral`; `null`/`false` while that visit is still open. Day-limited accounts only get a visit from their day.
 
 **GET** `patients/{id}`
 Fetch a patient by ID.

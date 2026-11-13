@@ -27,7 +27,8 @@ const { currentVisitDate } = require('../utils/queueNumber');
       CREATE TEMP TABLE locations (id INT PRIMARY KEY, name TEXT);
       CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, family TEXT);
       CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);`);
+      CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);
+      CREATE TEMP TABLE referral (visit_id INT PRIMARY KEY);`);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express();
     app.use('/api/patients', require('../routes/patients'));
@@ -62,5 +63,30 @@ const { currentVisitDate } = require('../utils/queueNumber');
     const filtered = await request(app).get('/api/patients').query({ location_id: 1, visit_date: '2026-01-01' })
       .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`);
     expect(filtered.body.map(p => p.english_name)).toEqual(['Chan']);
+  });
+
+  test('a completed latest visit is offered for a referral; open visits and other days for day accounts are not', async () => {
+    const today = currentVisitDate();
+    await client.query(`
+      DELETE FROM visit_stations; DELETE FROM visits; DELETE FROM patients; DELETE FROM referral;
+      INSERT INTO patients VALUES (1, 1, 'Ann', NULL), (2, 1, 'Bo', NULL), (3, 1, 'Chan', NULL), (4, 1, 'Dara', NULL);
+      -- Ann: finished today, with a referral. Bo: finished today, none yet. Chan: finished on an
+      -- earlier day, back in the queue today. Dara: finished on an earlier day only.
+      INSERT INTO visits VALUES (20, 1, 1, '${today}', NOW()), (21, 2, 1, '${today}', NOW()),
+        (22, 3, 1, '2026-01-01', NOW()), (23, 3, 1, '${today}', NULL), (24, 4, 1, '2026-01-01', NOW());
+      INSERT INTO referral VALUES (20);`);
+    const list = async (user) => {
+      const res = await request(app).get('/api/patients').query({ location_id: 1 })
+        .set('Authorization', `Bearer ${jwt.sign(user, secret)}`);
+      expect(res.status).toBe(200);
+      return res.body.map(p => [p.english_name, p.completed_visit_id, p.completed_visit_has_referral]);
+    };
+    expect(await list({ id: 1, role: 'admin' })).toEqual([
+      ['Ann', 20, true], ['Bo', 21, false], ['Chan', null, false], ['Dara', 24, false],
+    ]);
+    // A day account (set by middleware/authorizeApi.js) only sees and saves that day's visits.
+    expect(await list({ id: 2, role: 'user', scope_date: today })).toEqual([
+      ['Ann', 20, true], ['Bo', 21, false], ['Chan', null, false],
+    ]);
   });
 });
