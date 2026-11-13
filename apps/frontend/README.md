@@ -41,7 +41,7 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | --- | --- | --- |
 | Patient List | `/patient-list` | The first tab (needs **See today's patients**). Search patients; **+** adds a new one; **Add to family** (people icon) groups patients who came together, shown side by side. Click a column header to sort (again to reverse; the default is English name A to Z); sorting stays on your screen only. **Current Station** shows where a patient in today's queue is waiting, and clicking their row opens them there. The list scrollbar's room is always kept, so columns don't shift while it loads |
 | Registration | `/` | Register patients and see the clinic queue |
-| Patient Details | `/patient-details` | A patient's visits; accounts that may edit correct saved records here |
+| Patient Details | `/patient-details` | A patient's visits; accounts that may edit correct saved records here. A visit's Consult tab > **Referral** has **Add referral** (or **Sign / print** once there is one), opening the Consult referral form for that visit, e.g. after the patient was completed |
 | Triage | `/triage` | Visual acuity, presenting complaint, medical history and the TB flag |
 | Consultation | `/doctors-consultation` | Doctor's notes, dental notes, sending to Physiotherapy, prescribing from pharmacy stock, and referrals |
 | Physiotherapy | `/physiotherapy` | Physiotherapy assessment (patients sent by the doctor) |

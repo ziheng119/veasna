@@ -309,7 +309,7 @@ export default function PatientDetailsPage() {
                     ))}
                   </div>
                 ) : visitDetails ? (
-                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} />
+                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} patient={patient} />
                 ) : (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Failed to load visit details</p>

@@ -9,6 +9,8 @@ import SegmentedTabs, { SegmentedTab } from "@/components/shared/SegmentedTabs";
 import EditableRecordSection, { CheckboxTile, FieldOption, FieldSpec } from "./EditableRecordSection";
 import VisitPrescriptions from "./VisitPrescriptions";
 import VisitStations from "./VisitStations";
+import ReferralFormButton from "./ReferralFormButton";
+import type { PatientInfo } from "@/lib/types/patient";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { parseReferralDestinations } from "@/constants/referral";
@@ -242,10 +244,12 @@ interface Props {
   canEdit: boolean;
   // Called after any section is saved, so the page can reload the visit and visit list.
   onSaved: () => Promise<void>;
+  // The visit's patient, for the referral form; without it the form can't be opened here.
+  patient?: PatientInfo;
 }
 
 /** Every record of one visit, grouped by station. Each section can be corrected or added. */
-export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
+export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Props) {
   // A visit flagged for suspected TB opens on its TB record.
   const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
@@ -524,7 +528,15 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved }: Props) {
           readOnlyItems={visit.referrals[0]?.signer_name
             ? [{ label: "Signed By", value: visit.referrals[0].signer_name }]
             : []}
-          editHint="The saved signature is kept unchanged. To re-sign, open the referral from the Consult page."
+          editHint="The saved signature is kept unchanged. To re-sign or print, use Sign / print."
+          actions={canEdit && patient && (
+            <ReferralFormButton
+              visitId={visitId}
+              patient={patient}
+              hasReferral={visit.referrals.length > 0}
+              onChanged={onSaved}
+            />
+          )}
           onSave={saved((d: ReferralDraft) => postReferral({
             referralDate: d.referral_date,
             referralType: d.destinations,

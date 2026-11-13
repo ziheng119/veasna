@@ -59,6 +59,8 @@ interface Props<D extends Record<string, unknown>> {
   emptyMessage?: string;
   // Draw the section as its own card. Turn off when it already sits inside a Card.
   framed?: boolean;
+  // Extra buttons in the header beside Edit/Add, hidden while editing.
+  actions?: ReactNode;
 }
 
 const SELECT_CLASS =
@@ -78,6 +80,7 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
   readOnlyItems = [],
   emptyMessage = "Not recorded for this visit.",
   framed = true,
+  actions,
 }: Props<D>) {
   const idPrefix = useId();
   const [editing, setEditing] = useState(false);
@@ -156,7 +159,10 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
           )}
         </div>
 
-        {canEdit && !editing && (record || canAdd) && (
+        {!editing && (actions || (canEdit && (record || canAdd))) && (
+          <div className="flex items-center gap-2">
+            {actions}
+        {canEdit && (record || canAdd) && (
           <GlassButton
             size="sm"
             onClick={startEditing}
@@ -171,6 +177,8 @@ export default function EditableRecordSection<D extends Record<string, unknown>>
             />
             {record ? "Edit" : "Add"}
           </GlassButton>
+        )}
+          </div>
         )}
 
         {editing && (
