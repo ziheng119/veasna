@@ -258,7 +258,7 @@ These rules are enforced by the server, so they apply on every device:
   flags or notes.
 - **Queue numbers** are text, always issued automatically: 1, 2, 3... per day, under the
   queue lock. Families have their own letter (`patients.family`), set with
-  `POST /api/family` (`routes/family.js`, `utils/family.js`), and move between stations
+  `POST /api/family` and `POST /api/family/group` (`routes/family.js`, `utils/family.js`), and move between stations
   together (`utils/familyMoves.js`). Queue numbers are unique per day, kept so by the app
   and by the `visits_day_queue_no_key` index. Admin corrections can't run
   ahead of the next number (`queueNoJumpError` in `utils/queueNumber.js`).

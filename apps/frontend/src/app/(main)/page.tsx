@@ -49,7 +49,11 @@ export default function RegistrationPage() {
     <div className={PAGE_SHELL}>
       <div className={PANEL_GRID}>
         <div data-tour="home-queue" className={`${PANEL_WRAPPER} xl:col-span-4 2xl:col-span-3`}>
-          <PatientQueue patients={queuePatients} onRemovePatient={handleRemoveFromQueue} />
+          <PatientQueue
+            patients={queuePatients}
+            onRemovePatient={handleRemoveFromQueue}
+            onFamilyChanged={() => Promise.all([refreshQueuePatients(), refreshAllPatients()])}
+          />
         </div>
         <div id="patient-registration" data-tour="registration" className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
           {canRegister ? (

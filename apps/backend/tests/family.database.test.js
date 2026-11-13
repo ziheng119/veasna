@@ -33,6 +33,7 @@ const DAY = '2026-11-05';
   const post = (url, body) => auth(request(app).post(url)).send(body);
   const join = (patient_id, with_patient_id) => post('/api/family', { patient_id, with_patient_id });
   const leave = (patient_id) => post('/api/family/leave', { patient_id });
+  const group = (patient_ids) => post('/api/family/group', { patient_ids });
   const done = (visitId, station) => post(`/api/queue/${visitId}/stations/${station}/complete`, {});
   const families = async () => Object.fromEntries((await client.query('SELECT id, family FROM patients ORDER BY id')).rows
     .map(r => [r.id, r.family]));
@@ -141,6 +142,36 @@ const DAY = '2026-11-05';
       expect((await join(1, 99)).status).toBe(404);
       expect((await leave(99)).status).toBe(404);
       expect(await families()).toMatchObject({ 1: null, 5: null });
+    });
+  });
+
+  describe('grouping several at once (the queue)', () => {
+    test('patients not in a family start one; dropping more on a family adds them to it', async () => {
+      const res = await group([1, 2, 3]);
+      expect(res.status).toBe(200);
+      expect(res.body.family).toBe('A');
+      expect(await families()).toMatchObject({ 1: 'A', 2: 'A', 3: 'A', 4: null });
+      expect((await group([4, 1])).body.family).toBe('A');
+      expect(await families()).toMatchObject({ 4: 'A' });
+    });
+
+    test('the family most of them are in takes the rest; a family left with one member is dissolved', async () => {
+      await group([1, 2]); // A
+      await group([3, 4, 5]); // B
+      // 1 and 2 of A, 3 of B: they become A, and B (4, 5) keeps two members.
+      expect((await group([3, 1, 2])).body.family).toBe('A');
+      expect(await families()).toMatchObject({ 1: 'A', 2: 'A', 3: 'A', 4: 'B', 5: 'B' });
+      // 4 joins A: B is left with only 5, so it is dissolved.
+      await group([1, 4]);
+      expect(await families()).toMatchObject({ 4: 'A', 5: null });
+    });
+
+    test('fewer than two patients, bad ids, or a patient who does not exist are refused', async () => {
+      for (const ids of [[1], [1, 1], 'x', [1, 0], Array.from({ length: 21 }, (_, i) => i + 1)]) {
+        expect((await group(ids)).status).toBe(400);
+      }
+      expect((await group([1, 99])).status).toBe(404);
+      expect(await families()).toMatchObject({ 1: null });
     });
   });
 

@@ -126,8 +126,9 @@ A few things worth knowing:
   the page you were on. The **?** pulses until the guide has been opened once on that device.
 - Register patients on **Registration**. The **+ (Add patient)** button on Patient List opens
   the same form. The form shows the queue number the patient will get; it is assigned
-  automatically. To group a family, register each member, then use **Add to family** on
-  Patient List: they share a family letter, keep their numbers, sit together in every
+  automatically. To group a family once they are in the queue, turn on **Group families**
+  above Today's Queue, drag their cards onto each other, and turn it off to save (or use
+  **Add to family** on Patient List): they share a family letter, keep their numbers, sit together in every
   queue and move between stations together (see
   [queue numbers and families](docs/queue-ordering.md#queue-numbers-and-families)).
   If **Submit** fails on weak Wi-Fi, press it again: a patient the host had already saved

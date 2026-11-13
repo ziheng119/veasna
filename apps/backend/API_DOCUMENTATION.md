@@ -68,7 +68,9 @@ Registers a visit, creating the patient if needed, in one transaction. This is w
 ```
 
 - For an existing patient, send `patientInfo.id`. Otherwise `english_name` and `sex` (`M`/`F`) are required.
-- The queue number is always the next one for today, assigned under the queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. Group a family afterwards with `POST family`. The visit date is always the host's today.
+- The queue number is always the next one for today, assigned under the queue lock so devices registering at once get different numbers. A `visit.queue_no` in the body (sent by older apps) is ignored. The visit date is always the host's today.
+- `hef.has_nssf` and `hef.uses_hef_nssf` are `"yes"` or `"no"` (`400` otherwise). Left out, by an older app, they are saved as `null` (not asked).
+- Families are grouped after registering, from Today's Queue (`POST family/group`). The answer's `family` is the patient's family letter, or `null`.
 - `stations` defaults to `triage`, `dental`, `consultation`; `tb` is optional and flags the visit for suspected TB (see TB flag).
 - `sticker_colour` is optional: the id of a sticker colour from `form-options` (`sticker_colours`), or blank/`null` for no sticker. Returned on the visit and in `GET queue` rows.
 - `request_id` is optional: a one-off id the device makes for this registration (8–64 letters, digits, `-` or `_`). If the same `request_id` is sent again, for example after the Wi-Fi dropped before the answer arrived, nothing new is saved and the first registration is returned with `200` and `"repeated": true`. The app keeps the id until the host confirms the registration.
@@ -148,6 +150,9 @@ Body `{ "needed": true }` adds one station to the remaining route in clinic orde
 
 **POST** `family`
 Body `{ "patient_id": 2, "with_patient_id": 1 }` puts patient 2 in patient 1's family, or, when patient 1 has none, starts a family of the two with the first free letter (A, B, ... Z, AA, ...; a letter freed up is used again). Patients need not be in today's queue. A patient moving from another family leaves it; a family left with one member is dissolved (that patient's `family` becomes `null`). Queue numbers don't change. Returns `{ "family": "A", "patients": [{ "patient_id": 2, "family": "A" }, { "patient_id": 1, "family": "A" }] }`. `400` for the same patient; `404` for an unknown patient. Needs `edit_today`.
+
+**POST** `family/group`
+Body `{ "patient_ids": [3, 4, 5] }` (2 to 20 patients) makes them one family: the family most of them are in already (on a tie, the first listed such patient's), or a new letter. Members of other families leave those; a family left with one member is dissolved. Used by **Group families** on Today's Queue. Returns `{ "family": "A", "patients": [{ "patient_id": 3, "family": "A" }, ...] }`. `400` for fewer than two different ids or a bad list; `404` if a patient no longer exists (nothing changes). Family members waiting at a station for a changed member move on.
 
 **POST** `family/leave`
 Body `{ "patient_id": 2 }` takes the patient out of their family: `{ "patient_id": 2, "family": null }`. A family left with one member is dissolved. Family members who were waiting at a station only for this patient move on, and so does this patient if they were waiting for their family.

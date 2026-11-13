@@ -30,6 +30,7 @@ function registrationResponse(visit, age) {
     patient_id: visit.patient_id,
     queue_no: visit.queue_no,
     sticker_colour: visit.sticker_colour,
+    family: visit.family ?? null,
     current_station: visit.current_station,
     tb_status: visit.tb_status,
     english_name: visit.english_name,
@@ -44,7 +45,7 @@ function registrationResponse(visit, age) {
 async function findRegistration(client, requestId) {
   const { rows } = await client.query(`
     SELECT v.id AS visit_id, v.patient_id, v.queue_no, v.sticker_colour, v.created_at,
-      p.english_name, p.khmer_name, p.sex, tb.status AS tb_status,
+      p.english_name, p.khmer_name, p.sex, p.family, tb.status AS tb_status,
       (SELECT s.station FROM visit_stations s WHERE s.visit_id = v.id
         ORDER BY (s.completed_at IS NOT NULL), s.position LIMIT 1) AS current_station
     FROM visits v
@@ -102,7 +103,7 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     // Present only when registering a new visit for an existing patient.
     const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
     // The queue number is always the next one for the date (assigned below). A
-    // visit.queue_no sent by an older client is ignored; families are grouped later (routes/family.js).
+    // visit.queue_no sent by an older client is ignored; families are grouped from the queue (routes/family.js).
 
     if (existingPatientId === null && patientInfo?.id != null && patientInfo.id !== '') {
         return res.status(400).json({ error: 'patientInfo.id must be a positive integer.' });

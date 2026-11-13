@@ -7,12 +7,12 @@ import { StationId, stationLabel } from "@/constants/stations";
 // Colours told apart at a glance; a family keeps its colour everywhere it is shown. Full class names,
 // so Tailwind keeps them.
 const TONES = [
-  { badge: "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200", stripe: "bg-sky-500" },
-  { badge: "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", stripe: "bg-amber-500" },
-  { badge: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200", stripe: "bg-violet-500" },
-  { badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200", stripe: "bg-emerald-500" },
-  { badge: "bg-pink-100 text-pink-800 dark:bg-pink-500/20 dark:text-pink-200", stripe: "bg-pink-500" },
-  { badge: "bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200", stripe: "bg-teal-500" },
+  { badge: "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200", stripe: "bg-sky-500", box: "border-sky-500/40 bg-sky-500/5", boxStrong: "border-sky-500 bg-sky-500/15" },
+  { badge: "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", stripe: "bg-amber-500", box: "border-amber-500/40 bg-amber-500/5", boxStrong: "border-amber-500 bg-amber-500/15" },
+  { badge: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200", stripe: "bg-violet-500", box: "border-violet-500/40 bg-violet-500/5", boxStrong: "border-violet-500 bg-violet-500/15" },
+  { badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200", stripe: "bg-emerald-500", box: "border-emerald-500/40 bg-emerald-500/5", boxStrong: "border-emerald-500 bg-emerald-500/15" },
+  { badge: "bg-pink-100 text-pink-800 dark:bg-pink-500/20 dark:text-pink-200", stripe: "bg-pink-500", box: "border-pink-500/40 bg-pink-500/5", boxStrong: "border-pink-500 bg-pink-500/15" },
+  { badge: "bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200", stripe: "bg-teal-500", box: "border-teal-500/40 bg-teal-500/5", boxStrong: "border-teal-500 bg-teal-500/15" },
 ];
 
 export function familyTone(family: string) {

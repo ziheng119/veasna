@@ -394,7 +394,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
               { duration: 10000 }
             );
           } else {
-            toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
+            toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}${newQueuedPatient.family ? `, in family ${newQueuedPatient.family}` : ""}.`);
           }
 
           // Empty the form for the next patient, which also removes the draft.
@@ -493,7 +493,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                       {nextQueueNo || "–"}
                     </output>
                     <p id="queueNumberHint" className="mt-1 text-xs text-muted-foreground">
-                      Assigned automatically when you submit. To group a family, use Add to family on Patient List.
+                      Assigned automatically when you submit. To group a family, use Group families above Today&apos;s Queue.
                     </p>
                   </div>
                   <div>
