@@ -59,7 +59,7 @@ describe('Live lists', () => {
     await act(async () => pending.resolve([{ location: 2 }]));
     expect(renders[renders.length - 1]).toMatchObject({ loaded: true, data: [{ location: 2 }] });
   });
-  test('location/filter changes cancel old work and do not keep previous rows', async () => {
+  test('filter changes cancel old work and do not keep previous rows', async () => {
     const first = jest.fn().mockResolvedValue([{ location: 1 }]);
     await mount(first);
     const pending = deferred();

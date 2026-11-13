@@ -8,6 +8,7 @@ import { PersonIcon } from '@/assets/icons';
 import { groupFamilies } from '@/lib/family';
 import { DEFAULT_PATIENT_SORT, describeSort, nextPatientSort, PatientSort, PatientSortKey, sortPatients } from '@/lib/patientSort';
 import { cn } from '@/lib/utils';
+import { STABLE_SCROLLBAR } from '@/lib/pageLayout';
 
 interface PatientTableProps {
     patients: PatientInfo[];
@@ -48,7 +49,9 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
       // Sized to its rows (no empty space under the last one), scrolling once it reaches the page bottom.
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden xl:flex xl:min-h-0 xl:flex-col">
 
-        <div className="overflow-x-auto xl:min-h-0 xl:overflow-y-auto">
+        {/* The scrollbar's room is always kept, so columns don't shift when it comes and goes (e.g.
+            while the list loads). */}
+        <div className={cn("overflow-x-auto xl:min-h-0 xl:overflow-y-auto", STABLE_SCROLLBAR)}>
           <table className="w-full min-w-[1300px] table-fixed">
             <caption className="sr-only">
               Patients sorted by {COLUMNS.find((column) => column.key === sort.key)?.label}, {describeSort(sort)}

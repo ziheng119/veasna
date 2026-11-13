@@ -4,47 +4,47 @@ import { Drug, PharmacyStats } from "@/lib/types/drug";
 import { apiFetch, readError } from "@/lib/api/request";
 
 type AddDrugPayload = {
-    location_id: number;
     drug_name: string;
     stock_count: number;
 };
 
-const cachedDrugs: Record<number, Drug[]> = {};
-const cachedETags: Record<number, string> = {};
+// The last drug list, so a dropped connection still shows it and an unchanged list is a 304.
+let cachedDrugs: Drug[] | null = null;
+let cachedETag = "";
 
 export function clearPharmacyCache() {
-  Object.keys(cachedDrugs).forEach(key => delete cachedDrugs[Number(key)]);
-  Object.keys(cachedETags).forEach(key => delete cachedETags[Number(key)]);
+  cachedDrugs = null;
+  cachedETag = "";
 }
 
-export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
+export async function getDrugs(): Promise<Drug[]> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
     const headers: HeadersInit = {
         'Authorization': `Bearer ${token}`,
     };
 
-    if (cachedETags[locationId]) {
-        headers['If-None-Match'] = cachedETags[locationId];
+    if (cachedETag) {
+        headers['If-None-Match'] = cachedETag;
     }
 
-    const res = await apiFetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy`, {
         cache: "no-cache",
         headers
     });
 
     if (res.status === 304) {
-        if (cachedDrugs[locationId]) {
-            return cachedDrugs[locationId];
+        if (cachedDrugs) {
+            return cachedDrugs;
         }
-        const freshRes = await apiFetch(`${backend_url}/api/pharmacy?location_id=${locationId}`, {
+        const freshRes = await apiFetch(`${backend_url}/api/pharmacy`, {
             cache: "no-cache",
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!freshRes.ok) throw new Error('Failed to fetch pharmacy stock');
         const freshData: Drug[] = await freshRes.json();
-        cachedDrugs[locationId] = freshData;
-        cachedETags[locationId] = freshRes.headers.get('ETag') || '';
+        cachedDrugs = freshData;
+        cachedETag = freshRes.headers.get('ETag') || '';
         return freshData;
     }
 
@@ -52,16 +52,16 @@ export async function getDrugsByLocation(locationId: number): Promise<Drug[]> {
 
     const data: Drug[] = await res.json();
 
-    cachedDrugs[locationId] = data;
-    cachedETags[locationId] = res.headers.get('ETag') || '';
+    cachedDrugs = data;
+    cachedETag = res.headers.get('ETag') || '';
 
     return data;
 }
 
-export async function getPharmacyStats(locationId: number): Promise<PharmacyStats> {
+export async function getPharmacyStats(): Promise<PharmacyStats> {
     const token = useUserStore.getState().user?.token;
     if (!token) throw new Error("User not authenticated");
-    const res = await apiFetch(`${backend_url}/api/pharmacy/stats?location_id=${locationId}`, {
+    const res = await apiFetch(`${backend_url}/api/pharmacy/stats`, {
         headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Failed to fetch pharmacy stats');
@@ -79,12 +79,9 @@ export async function addDrug(drugData: AddDrugPayload): Promise<Drug> {
         },
         body: JSON.stringify(drugData),
     });
-    if (!res.ok) throw new Error('Failed to add drug');
+    if (!res.ok) throw new Error(await readError(res, 'Failed to add drug'));
 
-    if (drugData.location_id) {
-        delete cachedDrugs[drugData.location_id];
-        delete cachedETags[drugData.location_id];
-    }
+    clearPharmacyCache();
     return res.json();
 }
 
@@ -104,7 +101,7 @@ export async function updateDrugCount(drugId: number, stockCount: number): Promi
         throw new Error(await readError(res, 'Failed to update drug stock'));
     }
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    clearPharmacyCache();
     return res.json();
 }
 
@@ -142,7 +139,7 @@ export async function updateDrugName(drugId: number, drugName: string): Promise<
     });
     if (!res.ok) throw new Error('Failed to update drug name');
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    clearPharmacyCache();
     return res.json();
 }
 
@@ -158,5 +155,5 @@ export async function deleteDrug(drugId: number): Promise<void> {
         throw new Error(await readError(res, 'Failed to delete drug'));
     }
 
-    Object.keys(cachedDrugs).forEach(key => { delete cachedDrugs[parseInt(key)]; delete cachedETags[parseInt(key)]; });
+    clearPharmacyCache();
 }

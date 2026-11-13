@@ -233,3 +233,27 @@
   .guide-ripple, .guide-ping { animation: none; opacity: 0; }
   .guide-later { animation: none; }
 }
+
+/* The account menu (components/shared/AccountMenu.tsx) grows out of its button: the panel starts
+   clipped to the button's size at the top right and opens to its full size; closing shrinks it back.
+   The shadow is a filter on the wrapper, so it follows the clipped shape. */
+.account-menu { filter: drop-shadow(0 10px 24px rgb(15 23 42 / 0.16)) drop-shadow(0 2px 6px rgb(15 23 42 / 0.08)); }
+.account-menu[data-state="open"] .account-menu-panel { animation: account-menu-grow 280ms cubic-bezier(0.2, 0.9, 0.25, 1); }
+.account-menu[data-state="closed"] .account-menu-panel { animation: account-menu-shrink 180ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+.account-menu[data-state="open"] .account-menu-body { animation: account-menu-items 220ms ease-out 60ms both; }
+@keyframes account-menu-grow {
+  from { clip-path: inset(0 0 calc(100% - var(--radix-dropdown-menu-trigger-height)) calc(100% - var(--radix-dropdown-menu-trigger-width)) round 0.5rem); }
+  to { clip-path: inset(0 0 0 0 round 0.75rem); }
+}
+@keyframes account-menu-shrink {
+  from { clip-path: inset(0 0 0 0 round 0.75rem); }
+  to { clip-path: inset(0 0 calc(100% - var(--radix-dropdown-menu-trigger-height)) calc(100% - var(--radix-dropdown-menu-trigger-width)) round 0.5rem); }
+}
+@keyframes account-menu-items { from { opacity: 0; transform: translateY(-4px); } }
+/* Opacity only: the tip's position is its inline transform. */
+.account-menu-tip { animation: account-menu-fade 120ms ease-out; }
+@keyframes account-menu-fade { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .account-menu[data-state] .account-menu-panel, .account-menu[data-state] .account-menu-body, .account-menu-tip { animation-duration: 1ms; }
+}

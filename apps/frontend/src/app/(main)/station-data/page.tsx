@@ -54,7 +54,7 @@ export default function StationDataPage() {
       <h2 className={SECTION_TITLE}>Elsewhere</h2>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
         <li>Medicines and stock: <Link className="underline" href="/pharmacy/dashboard">Pharmacy dashboard</Link>.</li>
-        <li>Clinic locations: the location menu at the top of every page.</li>
+        <li>Accounts and what each may do: <Link className="underline" href="/accounts">Accounts</Link>.</li>
         <li>Patients and their visits: open a patient from <Link className="underline" href="/patient-list">Patient List</Link>.</li>
       </ul>
     </div>

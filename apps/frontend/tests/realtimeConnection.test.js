@@ -6,17 +6,12 @@ jest.mock('../src/stores/useUserStore', () => {
   const { create } = require('zustand');
   return { useUserStore: create(set => ({ user: { token: 'test-token' }, removeUser: () => set({ user: null }) })) };
 });
-jest.mock('../src/stores/useLocationStore', () => {
-  const { create } = require('zustand');
-  return { useLocationStore: create(() => ({ currentLocation: null })) };
-});
 jest.mock('../src/lib/api/queue/getQueue', () => ({ clearQueueCache: jest.fn() }));
-jest.mock('../src/lib/api/patients/getPatientsByLocation', () => ({ clearPatientsByLocationCache: jest.fn() }));
+jest.mock('../src/lib/api/patients/getPatientList', () => ({ clearPatientListCache: jest.fn() }));
 const { io } = require('socket.io-client');
 const Connection = require('../src/components/shared/RealtimeConnection').default;
 const { useRealtimeStore } = require('../src/stores/useRealtimeStore');
 const { useUserStore } = require('../src/stores/useUserStore');
-const { useLocationStore } = require('../src/stores/useLocationStore');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Shared realtime connection', () => {
@@ -26,7 +21,6 @@ describe('Shared realtime connection', () => {
     global.document = new EventTarget(); document.visibilityState = 'visible';
     global.window = new EventTarget();
     useUserStore.setState({ user: { token: 'test-token' } });
-    useLocationStore.setState({ currentLocation: null });
     useRealtimeStore.setState({ revision: 0, status: 'connecting', visitChanges: { seq: 0, visitIds: [] } });
     sockets = [];
     io.mockImplementation(() => {
@@ -49,7 +43,8 @@ describe('Shared realtime connection', () => {
     await mount();
     await act(async () => renderer.update(React.createElement(Connection)));
     expect(io).toHaveBeenCalledTimes(1);
-    expect(io.mock.calls[0][1].auth).toEqual({ token: 'test-token', locationId: null });
+    // One clinic: the device is told about every change, so only the sign-in is sent.
+    expect(io.mock.calls[0][1].auth).toEqual({ token: 'test-token' });
     await act(async () => sockets[0].emit('connect')); await flush();
     expect(useRealtimeStore.getState().status).toBe('live');
     expect(useRealtimeStore.getState().revision).toBe(1);
@@ -81,14 +76,6 @@ describe('Shared realtime connection', () => {
     expect(io.mock.calls[1][1].auth.token).toBe('new-token');
     await act(async () => useUserStore.getState().removeUser());
     expect(sockets[1].disconnect).toHaveBeenCalledTimes(1);
-  });
-  test("the connection names the device's location, and a new location reconnects with it", async () => {
-    useLocationStore.setState({ currentLocation: { id: 2, name: 'Poipet' } });
-    await mount();
-    expect(io.mock.calls[0][1].auth).toEqual({ token: 'test-token', locationId: 2 });
-    await act(async () => useLocationStore.setState({ currentLocation: { id: 3, name: 'Sisophon' } }));
-    expect(sockets[0].disconnect).toHaveBeenCalledTimes(1);
-    expect(io.mock.calls[1][1].auth).toEqual({ token: 'test-token', locationId: 3 });
   });
   test('devices told at once reload at slightly different moments', async () => {
     const random = jest.spyOn(Math, 'random').mockReturnValue(0.5);

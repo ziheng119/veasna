@@ -17,6 +17,7 @@ import { HEF } from "@/lib/types/hef";
 import { QueuedPatient } from "@/lib/types/patient";
 import { PatientFormData } from "@/lib/types/patient";
 import { useUserStore } from "@/stores/useUserStore";
+import { can } from "@/lib/permissions";
 import { createVisit } from "@/lib/api/visit/createVisit";
 import { retryableRequestId } from "@/lib/requestId";
 import StickerColourSelect from "@/components/shared/StickerColourSelect";
@@ -24,7 +25,6 @@ import { LOOKUP_MIN_LENGTH, lookupPatients } from "@/lib/api/patients/lookupPati
 import { getNextQueueNo } from "@/lib/api/queue/getNextQueueNo";
 import formatDate from "@/helper/format_date";
 import { calculateAge } from "@/helper/calculate_age";
-import { useLocationDataStore } from "@/stores/useLocationDataStore";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { useFormOptions } from "@/stores/useFormOptionsStore";
@@ -43,7 +43,6 @@ import { LiveRecordNotice } from "../shared/LiveRecord";
 interface PatientFormProps {
     existingPatients: PatientInfo[];
     onSubmit: (patient: QueuedPatient) => void;
-    locationId?: number;
 }
 
 type FormErrors = {
@@ -57,6 +56,8 @@ type FormErrors = {
     temperature?: string;
     know_of_hef?: string;
     has_hef?: string;
+    has_nssf?: string;
+    uses_hef_nssf?: string;
     stations?: string;
 };
 
@@ -83,7 +84,7 @@ const emptyVitals: Vitals = {
     notes: ""
 };
 
-const emptyHef: HEF = { know_of_hef: "", has_hef: "", notes: "" };
+const emptyHef: HEF = { know_of_hef: "", has_hef: "", has_nssf: "", uses_hef_nssf: "", notes: "" };
 
 const MAX_SUGGESTIONS = 8;
 const MAX_AGE = 130;
@@ -96,7 +97,7 @@ const getBMICategory = (bmi: number) : string => {
     return "Severely Obese";
 }
 
-export function PatientForm({ existingPatients, onSubmit, locationId }: PatientFormProps) {
+export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     const token = useUserStore((state) => state.user?.token);
 
     const revision = useRealtimeStore(state => state.revision);
@@ -116,19 +117,19 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       previewRequest.current?.abort();
       const controller = new AbortController();
       previewRequest.current = controller;
-      if (!locationId || !token) {
+      if (!token) {
         setNextQueueNo("");
         return;
       }
       try {
-        const next = await getNextQueueNo(locationId, token, controller.signal);
+        const next = await getNextQueueNo(token, controller.signal);
         if (!controller.signal.aborted) setNextQueueNo(next);
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("Failed to fetch next queue number:", err);
         setNextQueueNo("");
       }
-    }, [locationId, token]);
+    }, [token]);
 
     useEffect(() => {
       refreshNextQueueNo();
@@ -142,24 +143,25 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     const [matchPrompt, setMatchPrompt] = useState<{ matches: PatientInfo[]; onSubmit: boolean } | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // A screening-day account's patient list holds only that day's patients, so returning patients
-    // are looked up on the host by the name being typed (debounced) and added to the matches.
-    const screeningDay = useUserStore((state) => state.user?.screening_date);
+    // Without "See past patients" the patient list holds only that day's patients (or none, without
+    // "See today's patients"), so returning patients are looked up on the host by the name being
+    // typed (debounced) and added to the matches.
+    const listHasEveryone = useUserStore((state) => can(state.user, "view_past"));
     const lookupName = (patientInfo.english_name?.trim() || patientInfo.khmer_name?.trim() || "");
     const [lookedUp, setLookedUp] = useState<PatientInfo[]>([]);
     useEffect(() => {
-      if (!screeningDay || !locationId || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
+      if (listHasEveryone || !token || lookupName.length < LOOKUP_MIN_LENGTH) {
         setLookedUp([]);
         return;
       }
       const controller = new AbortController();
       const timer = setTimeout(() => {
-        lookupPatients(locationId, lookupName, token, controller.signal)
+        lookupPatients(lookupName, token, controller.signal)
           .then(setLookedUp)
           .catch((err) => { if (!controller.signal.aborted) console.error("Patient lookup failed:", err); });
       }, 250);
       return () => { clearTimeout(timer); controller.abort(); };
-    }, [screeningDay, locationId, token, lookupName]);
+    }, [listHasEveryone, token, lookupName]);
     const knownPatients = useMemo(() => {
       if (!lookedUp.length) return existingPatients;
       const ids = new Set(existingPatients.map((p) => p.id));
@@ -197,14 +199,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
       setPatientInfo(values.patientInfo);
       setLinkedPatient(values.linkedPatient);
       setVitals(values.vitals);
-      setHEF(values.hef);
+      // Drafts kept before the NSSF questions were added lack them.
+      setHEF({ ...emptyHef, ...values.hef });
       setStations(values.stations);
       setStickerColour(values.stickerColour);
       setTbRedFlags(values.tbRedFlags);
       setTbNotes(values.tbNotes);
       registrationId.current.resume(values.requestId);
     };
-    const draft = useNewFormDraft(userId && locationId ? newRecordDraftKey(userId, "registration", locationId) : null,
+    const draft = useNewFormDraft(userId ? newRecordDraftKey(userId, "registration") : null,
       draftValues, emptyForm, fillForm);
 
     const clearFieldError = (field: keyof FormErrors) => {
@@ -263,13 +266,15 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
+      if (!hef.has_nssf) nextErrors.has_nssf = "Please select Yes or No.";
+      if (!hef.uses_hef_nssf) nextErrors.uses_hef_nssf = "Please select Yes or No.";
       if (!tbFlagged && stations.length === 0) nextErrors.stations = "Select at least one station.";
 
       setErrors(nextErrors);
 
       const patientInfoFields: (keyof FormErrors)[] = ["english_name", "sex"];
       const vitalsFields: (keyof FormErrors)[] = ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"];
-      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "stations"];
+      const hefFields: (keyof FormErrors)[] = ["know_of_hef", "has_hef", "has_nssf", "uses_hef_nssf", "stations"];
 
       if (patientInfoFields.some((field) => nextErrors[field])) setActiveTab("patient-info");
       else if (vitalsFields.some((field) => nextErrors[field])) setActiveTab("vitals");
@@ -337,8 +342,8 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     const handleSubmit = () => {
-        if (!locationId || !token) {
-          alert("Location not selected or user not authenticated.");
+        if (!token) {
+          toast.error("You are signed out. Sign in again to register patients.");
           return;
         }
         if (!validateForm()) return;
@@ -354,7 +359,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
     };
 
     const submitVisit = async (patientId?: number) => {
-        if (!locationId || !token) return;
+        if (!token) return;
 
         setMatchPrompt(null);
         setIsSubmitting(true);
@@ -362,7 +367,6 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
         // The queue number is assigned by the server.
         const completePatientInfo = {
           ...patientInfo,
-          location_id: locationId,
           id: patientId,
         };
 
@@ -390,7 +394,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
               { duration: 10000 }
             );
           } else {
-            toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}.`);
+            toast.success(`Added to the ${stationLabel(newQueuedPatient.current_station)} queue as number ${newQueuedPatient.queue_no}${newQueuedPatient.family ? `, in family ${newQueuedPatient.family}` : ""}.`);
           }
 
           // Empty the form for the next patient, which also removes the draft.
@@ -489,7 +493,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                       {nextQueueNo || "–"}
                     </output>
                     <p id="queueNumberHint" className="mt-1 text-xs text-muted-foreground">
-                      Assigned automatically when you submit. To group a family, use Add to family on Patient List.
+                      Assigned automatically when you submit. To group a family, use Group families above Today&apos;s Queue.
                     </p>
                   </div>
                   <div>
@@ -642,6 +646,7 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                     className="mt-2 bg-muted"
                   />
                 </div>
+
               </TabsContent>
     
               <TabsContent value="vitals" data-tour="reg-vitals" className="space-y-4 mt-6 h-full">
@@ -824,14 +829,58 @@ export function PatientForm({ existingPatients, onSubmit, locationId }: PatientF
                   </RadioGroup>
                   {errors.has_hef && <p className="mt-2 text-xs text-destructive">{errors.has_hef}</p>}
                 </div>
+
+                <div>
+                  <Label className="text-muted-foreground block mb-4">Does patient have NSSF?</Label>
+                  <RadioGroup
+                    value={hef.has_nssf}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, has_nssf: value as "yes" | "no" }));
+                      clearFieldError("has_nssf");
+                    }}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="nssf-yes" className="border-border text-primary bg-background" />
+                      <Label htmlFor="nssf-yes" className="text-muted-foreground">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="nssf-no" className="border-border text-primary bg-background" />
+                      <Label htmlFor="nssf-no" className="text-muted-foreground">No</Label>
+                    </div>
+                  </RadioGroup>
+                  {errors.has_nssf && <p className="mt-2 text-xs text-destructive">{errors.has_nssf}</p>}
+                </div>
+
+                <div>
+                  <Label className="text-muted-foreground block mb-4">Does patient use HEF/NSSF?</Label>
+                  <RadioGroup
+                    value={hef.uses_hef_nssf}
+                    onValueChange={(value) => {
+                      setHEF(prev => ({ ...prev, uses_hef_nssf: value as "yes" | "no" }));
+                      clearFieldError("uses_hef_nssf");
+                    }}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="uses-yes" className="border-border text-primary bg-background" />
+                      <Label htmlFor="uses-yes" className="text-muted-foreground">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="uses-no" className="border-border text-primary bg-background" />
+                      <Label htmlFor="uses-no" className="text-muted-foreground">No</Label>
+                    </div>
+                  </RadioGroup>
+                  {errors.uses_hef_nssf && <p className="mt-2 text-xs text-destructive">{errors.uses_hef_nssf}</p>}
+                </div>
     
                 <div>
-                  <Label htmlFor="hefReason" className="text-muted-foreground block mb-3">Does patient use HEF? Why or Why not?</Label>
+                  <Label htmlFor="hefReason" className="text-muted-foreground block mb-3">Why or why not?</Label>
                   <Textarea
                     id="hefReason"
                     value={hef.notes}
                     onChange={(e) => setHEF(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Explain patient's HEF usage and reasoning"
+                    placeholder="Why the patient uses HEF/NSSF, or doesn't"
                     className=""
                   />
                 </div>

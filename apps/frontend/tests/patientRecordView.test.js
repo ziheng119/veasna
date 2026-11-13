@@ -1,10 +1,11 @@
 // Patient Details: prescriptions and stations of a visit (components/patient-details/VisitPrescriptions.tsx,
-// VisitStations.tsx), and the Patient List's View button, which only the admin can use.
+// VisitStations.tsx), and the Patient List's row actions.
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 let role = 'admin';
+let userPermissions;
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
-jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role } }) }));
+jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role, permissions: userPermissions } }) }));
 jest.mock('../src/assets/icons', () => ({ EyeIcon: () => null, TrashIcon: () => null }));
 jest.mock('../src/components/patient-list/FamilyButton', () => ({ __esModule: true, default: () => null }));
 const VisitPrescriptions = require('../src/components/patient-details/VisitPrescriptions').default;
@@ -12,6 +13,7 @@ const { prescriptionTrail } = require('../src/components/patient-details/VisitPr
 const VisitStations = require('../src/components/patient-details/VisitStations').default;
 const { visitStatusText } = require('../src/components/patient-details/VisitStations');
 const { PatientTableRow } = require('../src/components/patient-list/PatientTableRow');
+const FamilyButton = require('../src/components/patient-list/FamilyButton').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const text = node => (node.children ?? []).flatMap(child => (typeof child === 'string' ? [child] : text(child))).join('');
@@ -54,19 +56,23 @@ test('stations show the route in order, what was finished, and where the patient
   expect(await render(React.createElement(VisitStations, { stations: [], completedAt: null }))).toBe('');
 });
 
-test.each([['admin', false], ['user', true]])('Patient List View button for %s: disabled %s', async (who, disabled) => {
+// The list holds only patients the account may open, so every account can view them; deleting is
+// admin-only and grouping needs "Edit today's queue". Actions an account can't take aren't shown.
+test.each([
+  ['admin', undefined, { group: true, remove: true }],
+  ['user', undefined, { group: true, remove: false }],
+  ['user', ['view_today'], { group: false, remove: false }],
+])('Patient List row actions for %s %j', async (who, permissions, shown) => {
   role = who;
+  userPermissions = permissions;
   const onViewPatient = jest.fn();
   const patient = { id: 7, english_name: 'Sok', khmer_name: '', date_of_birth: '1990-01-01', sex: 'M' };
   await render(React.createElement('table', null, React.createElement('tbody', null,
     React.createElement(PatientTableRow, { patient, allPatients: [patient], onViewPatient }))));
   const view = renderer.root.findByProps({ 'aria-label': 'View Sok' });
-  expect(Boolean(view.props.disabled)).toBe(disabled);
-  // Hovering the disabled button explains where other accounts find past visits.
-  const hint = renderer.root.findAll(node => typeof node.props['aria-label'] === 'string' && node.props['aria-label'].startsWith('Only the admin'));
-  expect(hint.length > 0).toBe(disabled);
-  if (!disabled) {
-    await act(async () => view.props.onClick());
-    expect(onViewPatient).toHaveBeenCalledWith(7);
-  }
+  expect(Boolean(view.props.disabled)).toBe(false);
+  await act(async () => view.props.onClick());
+  expect(onViewPatient).toHaveBeenCalledWith(7);
+  expect(renderer.root.findAll(node => node.props['aria-label'] === 'Delete Sok' && node.type === 'button')).toHaveLength(shown.remove ? 1 : 0);
+  expect(renderer.root.findAll(node => node.type === FamilyButton)).toHaveLength(shown.group ? 1 : 0);
 });

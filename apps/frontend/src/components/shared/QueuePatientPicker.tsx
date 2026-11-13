@@ -17,13 +17,15 @@ import FamilyBadge from "./FamilyBadge";
 import StickerTag, { findSticker, stickerLabel, useStickerColours } from "./StickerTag";
 import { stationMoveMessage } from "@/lib/family";
 import { ENTER_FAST, LIFT } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { Collapse, FamilyBlocks, GroupFamiliesPanel, groupingCardClass, toBlocks, useFamilyGrouping } from "./FamilyGrouping";
 import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { Check, ChevronRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
+import { canEditSavedData } from "@/lib/permissions";
+import { Check, ChevronRight, ChevronsLeft, ChevronsRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
 import { useStationFlow } from "./StationFlow";
 import toast from "react-hot-toast";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -50,20 +52,20 @@ export default function QueuePatientPicker({
 }: QueuePatientPickerProps) {
   const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
-  const location = useLocationStore((state) => state.currentLocation);
   const token = useUserStore((state) => state.user?.token);
-  // Present on station pages (not Home): Next saves the open form first, and the order is shared.
+  // Next, Send to and Discharge move patients: "Edit today's queue". Without it they are not shown.
+  const canMove = useUserStore((state) => canEditSavedData(state.user));
+  // Present on station pages (not Registration): Next saves the open form first, and the order is shared.
   const flow = useStationFlow();
 
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
-  const locationId = location?.id;
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
-    if (!locationId || !token) return [];
-    return getQueue(locationId, CLINIC_TODAY, token, station, signal);
-  }, [locationId, token, station]);
+    if (!token) return [];
+    return getQueue(CLINIC_TODAY, token, station, signal);
+  }, [token, station]);
   const { data: patients, refresh: loadQueue, loaded } = useLiveList(load);
 
   // Opening this page with ?visit=<id> (e.g. from the queue search) selects that visit once this
@@ -72,12 +74,12 @@ export default function QueuePatientPicker({
   const pathname = usePathname();
   const requestedVisitId = Number(useSearchParams().get("visit")) || null;
   useEffect(() => {
-    if (!requestedVisitId || !loaded || !locationId || !token) return;
+    if (!requestedVisitId || !loaded || !token) return;
     const requested = patients.find((patient) => patient.visit_id === requestedVisitId);
     if (requested) onSelectPatient(requested);
     else toast(`That patient is no longer waiting at ${stationLabel(station)}.`);
     router.replace(pathname, { scroll: false });
-  }, [requestedVisitId, loaded, locationId, token, patients, onSelectPatient, router, pathname, station]);
+  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station]);
 
   // Bring the selected patient into view however they were chosen (queue search, link, click).
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function QueuePatientPicker({
   const seen = useRef<{ key: string; patients: Map<number, QueuedPatient> } | null>(null);
   const openVisit = useRef(selectedVisitId);
   openVisit.current = selectedVisitId;
-  const listKey = `${locationId}:${station}`;
+  const listKey = station;
   useEffect(() => {
     if (!loaded) return;
     const previous = seen.current;
@@ -160,7 +162,7 @@ export default function QueuePatientPicker({
       await loadQueue();
     } catch (err) {
       console.error("Failed to remove patient from queue:", err);
-      toast.error("Failed to remove patient from queue");
+      toast.error(err instanceof Error ? err.message : "Failed to remove patient from queue");
     }
   };
 
@@ -180,9 +182,24 @@ export default function QueuePatientPicker({
     await loadQueue();
   };
 
-  const sortedPatients = useMemo(() => {
+  // "Group families", as on Registration: while on, cards are dragged onto each other or out of
+  // their box, each drop shown at once; turning it off saves.
+  const groupState = useFamilyGrouping(patients, token, loadQueue);
+  const { grouping } = groupState;
+
+  // With a patient open the queue folds to a narrow strip (numbers and names, nothing to press) so
+  // their forms get the room; >> unfolds it. Opening another patient folds it again.
+  const [unfolded, setUnfolded] = useState(false);
+  const [foldedFor, setFoldedFor] = useState(selectedVisitId);
+  if (foldedFor !== selectedVisitId) {
+    setFoldedFor(selectedVisitId);
+    setUnfolded(false);
+  }
+  const compact = !!selectedVisitId && !unfolded && !grouping;
+
+  const filterAndSort = useCallback((list: QueuedPatient[]) => {
     const query = searchQuery.toLowerCase().trim();
-    const filtered = patients.filter((patient) => {
+    const filtered = list.filter((patient) => {
       if (!query) return true;
       const engName = patient.english_name?.toLowerCase() || "";
       const khmerName = patient.khmer_name?.toLowerCase() || "";
@@ -194,7 +211,11 @@ export default function QueuePatientPicker({
       );
     });
     return sortQueuePatients(filtered, mode);
-  }, [patients, searchQuery, mode]);
+  }, [searchQuery, mode]);
+  const sortedPatients = useMemo(() => filterAndSort(patients), [filterAndSort, patients]);
+  // While grouping, the list shows the families as they will be saved.
+  const blocks = toBlocks(grouping ? filterAndSort(groupState.shown) : sortedPatients);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // "Save & next" on this page opens the next patient in the order shown here.
   useEffect(() => {
@@ -205,12 +226,52 @@ export default function QueuePatientPicker({
     <PageCard
       title={`${stationLabel(station)} Queue`}
       tour="station-queue"
-      action={<Badge variant="inactive">{patients.length} waiting</Badge>}
-      className="xl:col-span-4"
-      contentClassName="space-y-3"
+      // Set apart from the forms beside it: a bolder border, tinted with the app colour, and a lift.
+      className="xl:col-span-4 border-2 border-primary/25 shadow-md"
+      data={{ "data-queue-compact": compact ? "" : undefined }}
+      headerClassName={cn("transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4")}
+      contentClassName={cn("px-7 pt-3 pb-4 transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4 pt-4")}
+      action={
+        <span className="flex shrink-0 items-center gap-1.5">
+          {/* Slides away when folded, leaving the name and >>. */}
+          <span className={cn(
+            "flex overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+            compact ? "max-w-0 opacity-0" : "max-w-32 opacity-100",
+          )}>
+            <Badge variant="inactive" className="whitespace-nowrap">{patients.length} waiting</Badge>
+          </span>
+          {!!selectedVisitId && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7 animate-in fade-in zoom-in-75 duration-150"
+              aria-expanded={!compact}
+              aria-label={compact ? "Show the whole queue" : "Fold the queue"}
+              title={compact ? "Show the whole queue" : "Fold the queue"}
+              disabled={grouping}
+              onClick={() => setUnfolded(compact)}
+            >
+              {compact ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
+            </Button>
+          )}
+        </span>
+      }
       headerExtra={
-        <div className="mt-4 space-y-3">
+        <>
+        {/* Folded: what the strip is showing, in place of the controls. */}
+        <Collapse open={compact}>
+          <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="rounded-full border border-border bg-background px-2 py-0.5 font-medium text-foreground">
+              {mode === "arrival" ? "By arrival time" : "By queue number"}
+            </span>
+            <span>{patients.length} waiting</span>
+          </span>
+        </Collapse>
+        <Collapse open={!compact}>
+        <span className="mt-4 block space-y-3">
           <QueueSortControl mode={mode} onChange={setMode} />
+          {canMove && <GroupFamiliesPanel state={groupState} disabled={patients.length === 0} />}
           <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -220,7 +281,9 @@ export default function QueuePatientPicker({
             className="pl-10"
           />
           </div>
-        </div>
+        </span>
+        </Collapse>
+        </>
       }
     >
       {sortedPatients.length === 0 ? (
@@ -228,36 +291,51 @@ export default function QueuePatientPicker({
           {searchQuery ? "No patients match this search." : `No patients waiting at ${stationLabel(station)}.`}
         </p>
       ) : (
-        sortedPatients.map((patient) => {
+        <FamilyBlocks
+          blocks={blocks}
+          state={groupState}
+          listRef={listRef}
+          className={cn("min-h-full pt-1", compact ? "space-y-4" : "space-y-3")}
+          renderCard={(patient, inFamilyBox, isNew) => {
           const isSelected = selectedVisitId === patient.visit_id;
           const next = nextStation(patient);
           const tbFlagged = !!patient.tb_flagged;
           // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
           const routeLocked = patient.tb_status != null;
           const sticker = findSticker(stickerColours, patient.sticker_colour);
+          // Folded, or grouping: only the patient is shown, nothing to press.
+          const bare = compact || grouping;
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
               data-visit-id={patient.visit_id}
+              data-flip-id={patient.visit_id}
+              data-drop-id={grouping ? patient.patient_id : undefined}
+              onPointerDown={grouping ? (event) => groupState.onPointerDown(event, patient.patient_id) : undefined}
               onClick={(event) => {
                 // The native buttons handle their own actions; all remaining card space selects.
-                if (!(event.target as Element).closest("button")) onSelectPatient(patient);
+                if (!grouping && !(event.target as Element).closest("button")) onSelectPatient(patient);
               }}
-              className={`cursor-pointer rounded-lg border p-3 ${LIFT} ${ENTER_FAST} ${
+              className={cn(
+                "rounded-lg border",
+                compact ? "p-2" : "p-3",
+                isNew && ENTER_FAST,
+                grouping ? groupingCardClass(groupState, patient.patient_id, inFamilyBox) : `cursor-pointer ${LIFT}`,
                 tbFlagged
                   ? tbCardClass(isSelected)
                   : isSelected
                     ? "border-primary bg-primary/10"
-                    : "border-border hover:bg-accent/60"
-              }`}
+                    : "border-border bg-card hover:bg-accent/60",
+              )}
             >
               <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
                 aria-pressed={isSelected}
+                disabled={grouping}
                 onClick={() => onSelectPatient(patient)}
-                className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                className={cn("flex min-w-0 flex-1 items-start text-left disabled:cursor-default", compact ? "gap-2" : "gap-3")}
               >
                 {/* Queue number first and large: it is what staff call out. */}
                 <span className="flex shrink-0 flex-col items-center gap-1">
@@ -277,8 +355,9 @@ export default function QueuePatientPicker({
                   {tbFlagged && <TbBadge />}
                   {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
-                <span className="min-w-0 flex-1 border-l border-border pl-3">
-                  <span className="block break-words font-medium text-foreground">{patient.english_name || "Unknown name"}</span>
+                <span className={cn("min-w-0 flex-1 border-l border-border", compact ? "pl-2" : "pl-3")}>
+                  <span className={cn("block font-medium text-foreground", compact ? "truncate text-sm" : "break-words")}>{patient.english_name || "Unknown name"}</span>
+                  <Collapse open={!compact}>
                   {patient.khmer_name?.trim() && <span className="block break-words text-sm text-muted-foreground">{patient.khmer_name}</span>}
                   <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -293,9 +372,17 @@ export default function QueuePatientPicker({
                       <CircleCheck className="size-3.5" aria-hidden="true" /> Done here
                     </span>
                   )}
+                  </Collapse>
                 </span>
               </button>
-              <div className="flex shrink-0 items-center">
+              {/* Slides away (width and fade) when folded or grouping, so the patient's details glide over. */}
+              <div
+                inert={bare || undefined}
+                className={cn(
+                  "flex shrink-0 items-center overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                  bare ? "pointer-events-none max-w-0 opacity-0" : "max-w-64 opacity-100",
+                )}
+              >
                 {/* TB is cleared only at Consult, by the doctor who saw the patient. */}
                 {tbFlagged && station === "consultation" && (
                   <ClearTbButton
@@ -304,6 +391,7 @@ export default function QueuePatientPicker({
                     className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal"
                   />
                 )}
+                {canMove && <>
                 <Button
                     type="button"
                     variant="ghost"
@@ -338,11 +426,13 @@ export default function QueuePatientPicker({
                   <X className="size-3.5" />
                   Discharge
                 </Button>
+                </>}
               </div>
               </div>
               {/* Only for a patient who has been before: their earlier trips and days. */}
               {!!patient.previous_visits && (
-                <div className="mt-2 border-t border-border/70 pt-1.5">
+                <Collapse open={!bare}>
+                <span className="mt-2 block border-t border-border/70 pt-1.5">
                   <Button
                     type="button"
                     variant="ghost"
@@ -355,11 +445,13 @@ export default function QueuePatientPicker({
                     Past visits ({patient.previous_visits})
                     <ChevronRight className="size-3.5 transition-transform duration-200 group-hover/past:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
                   </Button>
-                </div>
+                </span>
+                </Collapse>
               )}
             </div>
           );
-        })
+          }}
+        />
       )}
       <EditStationsDialog
         patient={editingPatient}

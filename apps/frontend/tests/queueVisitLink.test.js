@@ -7,7 +7,6 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ replace }), usePathnam
 const toast = jest.fn();
 jest.mock('react-hot-toast', () => Object.assign((...args) => toast(...args), { success: jest.fn(), error: jest.fn() }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 't', role: 'admin' } }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/PageCard', () => ({ PageCard: ({ children }) => React.createElement('section', null, children) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/components/shared/QueueSortControl', () => ({ __esModule: true, default: () => null }));

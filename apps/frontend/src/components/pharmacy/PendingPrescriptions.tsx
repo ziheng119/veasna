@@ -6,7 +6,8 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveList } from "@/hooks/useLiveList";
 import { useConfirm } from "@/hooks/useConfirm";
-import { cancelPrescription, dispensePrescription, getLocationPrescriptions } from "@/lib/api/pharmacy/prescriptions";
+import { cancelPrescription, dispensePrescription, getAllPrescriptions } from "@/lib/api/pharmacy/prescriptions";
+import { can } from "@/lib/permissions";
 import { Prescription } from "@/lib/types/prescription";
 import { useUserStore } from "@/stores/useUserStore";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,6 @@ import { StationDonePrompt } from "@/components/shared/StationFlow";
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 interface Props {
-  locationId: number;
   // Called after a dispense or cancel, so stock figures elsewhere on the page refresh.
   onStockChanged: () => void;
   // Only this patient's prescriptions (the patient selected in the Pharmacy queue).
@@ -24,14 +24,16 @@ interface Props {
 }
 
 /** Prescriptions waiting at the pharmacy. Dispensing finalises the stock deduction. */
-export default function PendingPrescriptions({ locationId, onStockChanged, patient }: Props) {
+export default function PendingPrescriptions({ onStockChanged, patient }: Props) {
   const { confirm, dialog } = useConfirm();
   const token = useUserStore((state) => state.user?.token);
-  const isAdmin = useUserStore((state) => state.user?.role === "admin");
+  // Dispensing and cancelling change stock: the "Pharmacy stock" permission. Without it the
+  // buttons are not shown at all.
+  const canDispense = useUserStore((state) => can(state.user, "pharmacy"));
   const load = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
     if (!token) return [];
-    return getLocationPrescriptions(locationId, "pending", signal);
-  }, [locationId, token]);
+    return getAllPrescriptions("pending", signal);
+  }, [token]);
   const { data: all, refresh, loaded } = useLiveList(load);
   const pending = patient ? all.filter((prescription) => prescription.visit_id === patient.visit_id) : all;
   const [busy, setBusy] = useState<number | null>(null);
@@ -70,8 +72,8 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
 
   return (
     <div className="overflow-x-auto">
-      {!isAdmin && (
-        <p className="px-6 pt-3 text-xs text-muted-foreground">Dispensing changes stock, so it needs an admin login.</p>
+      {!canDispense && (
+        <p className="px-6 pt-3 text-xs text-muted-foreground">Dispensing changes stock, so it needs the &quot;Pharmacy stock&quot; permission. Ask the admin to turn it on in Accounts.</p>
       )}
       <table className="w-full min-w-[720px]">
         <thead className="sticky top-0 z-10 bg-muted">
@@ -81,7 +83,7 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
             <th className="px-4 py-3">Drug</th>
             <th className="px-4 py-3 text-right">Qty</th>
             <th className="px-4 py-3">Prescribed</th>
-            <th className="px-4 py-3 text-right">Action</th>
+            {canDispense && <th className="px-4 py-3 text-right">Action</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border bg-card text-sm">
@@ -101,14 +103,14 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
                 {p.visit_date} {time(p.prescribed_at)}
                 {p.prescribed_by && <span className="block">by {p.prescribed_by}</span>}
               </td>
-              <td className="px-4 py-3">
+              {canDispense && <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     className="gap-1 text-muted-foreground hover:text-destructive"
-                    disabled={!isAdmin || busy !== null}
+                    disabled={busy !== null}
                     title="Cancel and release the reserved stock"
                     onClick={() => act(p, "cancel")}
                   >
@@ -118,14 +120,14 @@ export default function PendingPrescriptions({ locationId, onStockChanged, patie
                     type="button"
                     size="sm"
                     className="gap-1"
-                    disabled={!isAdmin || busy !== null}
+                    disabled={busy !== null}
                     title="Hand the drug over and take it off the stock count"
                     onClick={() => act(p, "dispense")}
                   >
                     <Check className="size-4" aria-hidden="true" /> Dispense
                   </Button>
                 </div>
-              </td>
+              </td>}
             </tr>
           ))}
         </tbody>

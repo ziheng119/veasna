@@ -25,20 +25,20 @@ function queued(station: StationId) {
   };
 }
 
-function patient(locationId: number) {
+function patient() {
   return {
-    id: SAMPLE_ID, face_id: null, location_id: locationId, ...NAME, date_of_birth: "1984-03-12", sex: "F",
+    id: SAMPLE_ID, face_id: null, ...NAME, date_of_birth: "1984-03-12", sex: "F",
     address: "Village 3", phone_number: null, lastUpdated: stamp(), last_visit_date: today(), last_visit_at: stamp(),
     family: null, queue_visit_id: SAMPLE_ID, current_station: "triage",
   };
 }
 
-function prescriptions(locationId: number) {
+function prescriptions() {
   return [{
     id: SAMPLE_ID, visit_id: SAMPLE_ID, drug_id: null, drug_name: "Paracetamol 500 mg", quantity: 20,
     instructions: "2 tablets up to 4 times a day, after food", status: "pending", prescribed_at: stamp(),
     prescribed_by: "doctor", dispensed_at: null, dispensed_by: null, cancelled_at: null, cancelled_by: null,
-    patient_id: SAMPLE_ID, queue_no: "S1", visit_date: today(), location_id: locationId, ...NAME,
+    patient_id: SAMPLE_ID, queue_no: "S1", visit_date: today(), ...NAME,
   }];
 }
 
@@ -80,7 +80,7 @@ function record(path: string): unknown {
       right_with_glasses_new: "", left_with_glasses_new: "", diagnosis: "Early cataract, left eye",
       date_of_referral: null, referral: "", notes: "Check again at the next screening.", ...saved,
     },
-    [`patients/${SAMPLE_ID}`]: patient(0),
+    [`patients/${SAMPLE_ID}`]: patient(),
   };
   return records[path];
 }
@@ -97,7 +97,6 @@ export function sampleReply(url: string, method = "GET"): Response | null {
   if (!useGuideStore.getState().active) return null;
   const { pathname, searchParams } = new URL(url, "http://host");
   const path = pathname.replace(/^.*?\/api\//, "");
-  const locationId = Number(searchParams.get("location_id")) || 0;
   const aboutSample = path.split("/").includes(String(SAMPLE_ID)) || searchParams.get("visit_id") === String(SAMPLE_ID);
   if (method.toUpperCase() !== "GET") {
     return aboutSample ? json({ error: "This is the guide's sample patient: nothing is saved." }, 403) : null;
@@ -105,9 +104,10 @@ export function sampleReply(url: string, method = "GET"): Response | null {
 
   let body: unknown;
   if (path === "queue") body = [queued((searchParams.get("station") as StationId | null) ?? "triage")];
-  else if (path === "patients") body = [patient(locationId)];
-  else if (path === "prescriptions" && (searchParams.has("location_id") || aboutSample)) body = prescriptions(locationId);
-  else if (path === `prescriptions/patient/${SAMPLE_ID}`) body = prescriptions(locationId);
+  else if (path === "patients") body = [patient()];
+  // The pharmacy's list (no visit_id), or the sample visit's own.
+  else if (path === "prescriptions" && (!searchParams.has("visit_id") || aboutSample)) body = prescriptions();
+  else if (path === `prescriptions/patient/${SAMPLE_ID}`) body = prescriptions();
   else if (aboutSample) {
     body = record(path);
     if (body === undefined) return json({ error: "Not part of the sample" }, 404);

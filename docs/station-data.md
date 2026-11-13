@@ -33,7 +33,8 @@ press **Save**. Every device uses the new list from the next page it opens (or a
   A removed colour still shows (in grey) on visits that were given it.
 - Partner NGO referral outcomes (cataract surgery, general) are fixed, because the
   database only accepts those two.
-- Medicines are edited on the Pharmacy dashboard; locations from the location menu.
+- Medicines are edited on the Pharmacy dashboard; accounts and their permissions on
+  **Accounts**.
 
 ## Technical details
 

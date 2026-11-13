@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLiveList } from "@/hooks/useLiveList";
 import { useConfirm } from "@/hooks/useConfirm";
-import { getDrugsByLocation } from "@/lib/api/pharmacy/pharmacy";
+import { getDrugs } from "@/lib/api/pharmacy/pharmacy";
 import { cancelPrescription, createPrescription, getVisitPrescriptions } from "@/lib/api/pharmacy/prescriptions";
 import { Drug } from "@/lib/types/drug";
 import { Prescription, PRESCRIPTION_STATUS_LABELS } from "@/lib/types/prescription";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { cn } from "@/lib/utils";
+import { can } from "@/lib/permissions";
 
 const MAX_MATCHES = 8;
 
@@ -32,20 +32,20 @@ interface Props {
 }
 
 /**
- * Prescribe from the location's pharmacy. Prescribing reserves the stock at once, so it is no
+ * Prescribe from the pharmacy. Prescribing reserves the stock at once, so it is no
  * longer available to anyone else; the pharmacy dispenses it, or it can be cancelled to release it.
  */
 export default function PrescriptionPanel({ visitId, legacyPrescription }: Props) {
   const { confirm, dialog } = useConfirm();
-  const locationId = useLocationStore((state) => state.currentLocation?.id);
   const token = useUserStore((state) => state.user?.token);
-  const isAdmin = useUserStore((state) => state.user?.role === "admin");
+  // Cancelling releases reserved stock: the "Pharmacy stock" permission.
+  const canCancel = useUserStore((state) => can(state.user, "pharmacy"));
   const listId = useId();
 
   const loadDrugs = useCallback(async (): Promise<Drug[]> => {
-    if (!locationId || !token) return [];
-    return getDrugsByLocation(locationId);
-  }, [locationId, token]);
+    if (!token) return [];
+    return getDrugs();
+  }, [token]);
   const loadPrescriptions = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
     if (!token) return [];
     return getVisitPrescriptions(visitId, signal);
@@ -124,8 +124,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
             aria-expanded={showMatches}
             aria-controls={`${listId}-drugs`}
             aria-label="Search drugs in the pharmacy"
-            placeholder={locationId ? "Search drugs in the pharmacy" : "Select a location first"}
-            disabled={!locationId}
+            placeholder="Search drugs in the pharmacy"
             value={query}
             onChange={(e) => { setQuery(e.target.value); setDrug(null); setShowMatches(true); }}
             onFocus={() => setShowMatches(true)}
@@ -135,7 +134,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
             <ul id={`${listId}-drugs`} role="listbox" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
               {matches.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-muted-foreground">
-                  {drugs.length === 0 ? "No drugs in this location's pharmacy yet." : "No drug matches this search."}
+                  {drugs.length === 0 ? "No drugs in the pharmacy yet." : "No drug matches this search."}
                 </li>
               ) : matches.map((d) => {
                 const left = available(d);
@@ -202,14 +201,13 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
               <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_TONES[p.status])}>
                 {PRESCRIPTION_STATUS_LABELS[p.status]}
               </span>
-              {p.status === "pending" && (
+              {p.status === "pending" && canCancel && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
-                  disabled={!isAdmin}
-                  title={isAdmin ? "Cancel and release the reserved stock" : "Only an admin can cancel a prescription"}
+                  title="Cancel and release the reserved stock"
                   onClick={() => cancel(p)}
                 >
                   <X className="size-3.5" aria-hidden="true" /> Cancel

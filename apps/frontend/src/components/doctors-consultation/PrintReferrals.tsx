@@ -5,22 +5,22 @@ import { Printer } from "lucide-react";
 import GlassButton from "../shared/GlassButton";
 import PrintReferralsDialog from "../shared/PrintReferralsDialog";
 import { useUserStore } from "@/stores/useUserStore";
-import { isAdmin } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 
 /**
  * "Print referrals" on the Consult page: pick a day (today by default) and print its saved referrals.
- * Admin only, like printing a single referral.
+ * Needs the "Print and download" permission, like printing a single referral; hidden without it.
  */
-export default function PrintReferrals({ locationId }: { locationId?: number }) {
+export default function PrintReferrals() {
   const [open, setOpen] = useState(false);
-  const admin = useUserStore((state) => isAdmin(state.user?.role));
-  if (!admin) return null;
+  const allowed = useUserStore((state) => can(state.user, "print"));
+  if (!allowed) return null;
   return <>
-    <GlassButton type="button" className="h-10 shrink-0 px-4" disabled={!locationId}
-      onClick={() => setOpen(true)} title="Print saved referrals for a day at the selected location">
+    <GlassButton type="button" className="h-10 shrink-0 px-4"
+      onClick={() => setOpen(true)} title="Print saved referrals for a day">
       <Printer className="size-4" aria-hidden="true" />
       Print referrals
     </GlassButton>
-    <PrintReferralsDialog open={open} onOpenChange={setOpen} locationId={locationId} choices={["today", "date"]} />
+    <PrintReferralsDialog open={open} onOpenChange={setOpen} choices={["today", "date"]} />
   </>;
 }

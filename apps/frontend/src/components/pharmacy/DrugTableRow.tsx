@@ -1,4 +1,5 @@
 import { useUserStore } from "@/stores/useUserStore";
+import { can, isAdmin as isAdminRole } from "@/lib/permissions";
 import { Drug } from "@/lib/types/drug"
 import { StockStatusBadge } from "./StockStatusBadge"
 import { StockCountInput } from "./StockCountInput"
@@ -14,7 +15,9 @@ interface DrugTableRowProps {
 }
 
 export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDeleteDrug }: DrugTableRowProps) {
-    const isAdmin = useUserStore(state => state.user?.role === "admin");
+    // Renaming and stock counts: the "Pharmacy stock" permission. Deleting a drug: the admin only.
+    const canManage = useUserStore(state => can(state.user, "pharmacy"));
+    const isAdmin = useUserStore(state => isAdminRole(state.user?.role));
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedName, setEditedName] = useState(drug.drug_name);
 
@@ -61,12 +64,12 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{drug.drug_name}</span>
-                <button
-                  disabled={!isAdmin} onClick={() => setIsEditingName(true)}
+                {canManage && <button
+                  onClick={() => setIsEditingName(true)} aria-label={`Rename ${drug.drug_name}`}
                   className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <EditIcon className="h-3 w-3" />
-                </button>
+                </button>}
               </div>
             )}
           </td>
@@ -77,19 +80,21 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
             </div>
           </td>
           <td className="px-6 py-4">
-            <fieldset disabled={!isAdmin}><StockCountInput
-              count={drug.stock_count}
-              onCountChange={(newCount) => onStockCountChange(drug.id, newCount)}
-            /></fieldset>
+            {canManage
+              ? <StockCountInput
+                  count={drug.stock_count}
+                  onCountChange={(newCount) => onStockCountChange(drug.id, newCount)}
+                />
+              : <span className="text-xs text-muted-foreground">Needs &quot;Pharmacy stock&quot;</span>}
           </td>
           <td className="px-6 py-4">
-            <button
-              disabled={!isAdmin} onClick={() => onDeleteDrug(drug.id)}
+            {isAdmin && <button
+              onClick={() => onDeleteDrug(drug.id)}
               className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-1"
               title={`Delete ${drug.drug_name}`}
             >
               <TrashIcon className="h-4 w-4" />
-            </button>
+            </button>}
           </td>
         </tr>
     )

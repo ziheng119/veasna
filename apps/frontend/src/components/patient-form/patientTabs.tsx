@@ -23,7 +23,7 @@ interface Props {
 
 export default function PatientTabs({ patient, onUpdatePatient, onSave, onCancel, isSaving, mode }: Props) {
 
-    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
+    const canEdit = useUserStore(state => canEditSavedData(state.user));
     const effectiveMode = !canEdit && mode === "edit" ? "view" : mode;
     const [activeTab, setActiveTab] = useState<PatientListTab>(PATIENTINFO_TAB);
 

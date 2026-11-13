@@ -1,19 +1,20 @@
 # Analytics
 
-Open **Analytics** from the user menu. Only the **admin** account can. It shows clinic
-numbers for a location and time period. Apart from the referral lists (below), it
+Open **Analytics** from the account menu (your username, top right). The **admin** can,
+and so can screening-day accounts with the **Analytics** permission. It shows clinic
+numbers for a time period. Apart from the referral lists (below), it
 contains no patient names, IDs, notes or signatures.
 
 ## Using the page
 
 - **Printing referrals:** hover over (or tap) the **Visits with referrals** card and
   press **Print referrals** to print saved referral letters for today, a date, a period
-  or all dates, at the chosen location. The letters contain patient details; the
-  analytics numbers do not. See [printing saved referrals](consultation-referrals.md#printing-saved-referrals).
-- **Filters:** choose a location (or **All locations**), a period (**Day**, **Week**,
-  **30 days** or **Overall**) and the end date. Every section uses these filters.
-- **Section links** at the top jump to Summary, Trends, Conditions, Referrals, Locations
-  and Clinic operations.
+  or all dates. This needs the **Print and download** permission too. The letters contain
+  patient details; the analytics numbers do not. See [printing saved referrals](consultation-referrals.md#printing-saved-referrals).
+- **Filters:** choose a period (**Day**, **Week**, **30 days** or **Overall**) and the
+  end date. Every section uses these filters. There is one clinic, so every visit counts.
+- **Section links** at the top jump to Summary, Trends, Conditions, Referrals and
+  Clinic operations.
 - **Referral lists:** under **Patients by referral destination**, each destination shows
   how many patients were referred there, as a bar. Pick one to list its patients,
   numbered in the order they were seen: name (English and Khmer), age and sex, queue
@@ -24,12 +25,12 @@ contains no patient names, IDs, notes or signatures.
   names saved on older referrals that are no longer on the list appear after them.
 - **ⓘ buttons** explain what each number means. Hover over one to preview it, or tap
   it to keep it open.
-- **Refresh** reloads the latest saved data. **Back** returns Home.
+- **Refresh** reloads the latest saved data. **Back** returns to Registration.
 - **Export** downloads a spreadsheet (CSV) or opens the print window, where you can
   print or save as PDF. Both work without internet.
 - Charts can be read by hovering, tapping or using the arrow keys. Each has a **Show as
   table** option.
-- If nothing matches, the page offers a longer period or All locations with one click.
+- If nothing matches, the page offers a longer period, or all time, with one click.
 
 ## What the numbers mean
 
@@ -49,7 +50,6 @@ the end of that day.
 | Patients by referral destination | Referred visits for each destination. One referral can choose several, so a patient can be in more than one list. A name differing only in capitals or spacing (e.g. `OPTICIAN`) counts under the current choice. |
 | Conditions | Consulted patients for each condition the doctor ticked. A patient can count under several conditions. |
 | Condition mix (pie) | Each condition's share of all ticked conditions, not of patients. |
-| Patients by location | For All locations: a patient seen at two locations counts at both. |
 | Documentation checks | Consultation notes written, referrals not yet signed, and missing or future birth dates. These are reminders to review, not quality scores. |
 
 **Trends** show patients reached and consulted, or conditions, over the last 7 days,
@@ -71,14 +71,15 @@ These need new or checked data before they can be shown:
 
 ## Technical details
 
-- `GET /api/analytics?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all`
+- `GET /api/analytics?date=YYYY-MM-DD&period=day|week|month|all`
   returns the summary (the default period is `day`).
-  `GET /api/analytics/trend?location_id=<id>|all&date=YYYY-MM-DD&range=7d|30d|12w|12m`
+  `GET /api/analytics/trend?date=YYYY-MM-DD&range=7d|30d|12w|12m`
   returns the trend points. Weekly points are 7-day blocks, and the last month ends on
   the selected date.
-  `GET /api/analytics/referrals?location_id=<id>|all&date=YYYY-MM-DD&period=day|week|month|all`
+  `GET /api/analytics/referrals?date=YYYY-MM-DD&period=day|week|month|all`
   returns `{ destinations: [{ label, listed, patients: [...] }] }`, the referral lists with
-  patient details (admin only, like the rest of Analytics).
+  patient details (the `analytics` permission, like the rest of Analytics). A `location_id`
+  sent by an older app is ignored.
 - Both require a signed-in, active account, check their filters, and are never cached.
 - Each total is counted in its own query, so joining several station records never
   double-counts. A failed request shows an error, not zeros. If the filters change

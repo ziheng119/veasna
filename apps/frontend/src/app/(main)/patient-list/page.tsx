@@ -6,20 +6,20 @@ import { FullSearchBar } from "@/components/patient-list/FullSearchBar";
 import { PatientPageHeader } from "@/components/patient-list/PageHeader";
 import DownloadAllPatientsButton from "@/components/patient-list/DownloadAllPatientsButton";
 import { PatientTable } from "@/components/patient-list/PatientTable";
-import { Location } from "@/lib/types/location";
 import { PatientInfo } from "@/lib/types/patient";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import toast from "react-hot-toast";
-import { getPatientsByLocation } from "@/lib/api/patients/getPatientsByLocation";
+import { getPatientList } from "@/lib/api/patients/getPatientList";
 import { deletePatient } from "@/lib/api/patients/deletePatient";
 import { useUserStore } from "@/stores/useUserStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PAGE_SHELL } from "@/lib/pageLayout";
+import { can } from "@/lib/permissions";
+import { formatDayLabel } from "@/helper/format_date";
+import { hostToday } from "@/stores/useHostClockStore";
 
 import { useLiveList } from "@/hooks/useLiveList";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -29,19 +29,20 @@ export default function PatientListPage() {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
 
-  const location: Location | null = useLocationStore((state) => state.currentLocation)
   const token = useUserStore((state) => state.user?.token)
+  const screeningDate = useUserStore((state) => state.user?.screening_date)
+  // Without "See past patients" the list is the account's day only, so a date filter has nothing to choose.
+  const seesPast = useUserStore((state) => can(state.user, "view_past"))
+  const canRegister = useUserStore((state) => can(state.user, "edit_today"))
 
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [visitDate, setVisitDate] = useState<string>("");
 
-  useLocationReminder();
 
-  const locationId = location?.id;
   const loadPatients = useCallback(async (signal: AbortSignal): Promise<PatientInfo[]> => {
-    if (!token || !locationId) return [];
-    return getPatientsByLocation(locationId, token, visitDate || undefined, signal);
-  }, [token, locationId, visitDate]);
+    if (!token) return [];
+    return getPatientList(token, (seesPast && visitDate) || undefined, signal);
+  }, [token, visitDate, seesPast]);
   const { data: patients, refresh: refreshAllPatients } = useLiveList(loadPatients);
 
   const filteredPatients: PatientInfo[] = useMemo(() => {
@@ -65,7 +66,6 @@ export default function PatientListPage() {
   }
   
   const handleViewPatient = (patientId: number) => {
-    console.log('Viewing Patient, ', patientId);
     router.push(`/patient-details?id=${patientId}`);
   }
 
@@ -82,7 +82,7 @@ export default function PatientListPage() {
       await refreshAllPatients();
     } catch (error) {
       console.error('Delete patient error:', error);
-      toast.error('Failed to delete patient');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete patient');
     }
   };
 
@@ -98,14 +98,20 @@ export default function PatientListPage() {
 
         <div className="flex items-center gap-2 shrink-0">
           <DownloadAllPatientsButton />
-          <Input
-            type="date"
-            value={visitDate}
-            onChange={(e) => setVisitDate(e.target.value)}
-            aria-label="Filter by visit date"
-            className="w-auto"
-          />
-          {visitDate && (
+          {seesPast ? (
+            <Input
+              type="date"
+              value={visitDate}
+              onChange={(e) => setVisitDate(e.target.value)}
+              aria-label="Filter by visit date"
+              className="w-auto"
+            />
+          ) : (
+            <span className="text-sm text-muted-foreground" title="Seeing earlier days needs the &quot;See past patients&quot; permission">
+              Patients queued {formatDayLabel(screeningDate || hostToday())}
+            </span>
+          )}
+          {seesPast && visitDate && (
             <Button
               type="button"
               variant="ghost"
@@ -118,7 +124,7 @@ export default function PatientListPage() {
           )}
         </div>
 
-        <Button
+        {canRegister && <Button
           asChild
           size="icon"
           className="rounded-full"
@@ -126,7 +132,7 @@ export default function PatientListPage() {
           <Link href="/#patient-registration" aria-label="Add patient" title="Add patient">
             <PlusIcon className="w-5 h-5" />
           </Link>
-        </Button>
+        </Button>}
       </div>
 
       <PatientTable

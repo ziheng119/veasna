@@ -53,7 +53,7 @@ describe('Live list notifications', () => {
   }
   // DELETE /api/registration/5 runs in a transaction that finds patient 5, or nobody.
   const patientFive = (found = true) => db.pool.connect.mockResolvedValue({ release: jest.fn(), query: jest.fn(async sql => (
-    found && sql.includes('FROM patients') ? { rows: [{ id: 5, location_id: 1, family: null }] } : { rows: [] })) });
+    found && sql.includes('FROM patients') ? { rows: [{ id: 5, family: null }] } : { rows: [] })) });
   async function ready(socket) { const connected = event(socket, 'connect'); socket.connect(); await connected; }
 
   test('committed station movement notifies two users with the visit id, without patient data', async () => {
@@ -77,24 +77,18 @@ describe('Live list notifications', () => {
     expect(transaction.release).toHaveBeenCalled();
   });
 
-  test("devices are told only about changes at their own location (or all, with none chosen)", async () => {
+  test("every device is told about every change (there is one clinic)", async () => {
     db.pool.connect.mockResolvedValue({ release: jest.fn(), query: jest.fn(async sql => {
       if (sql.includes('FROM visits')) return { rows: [{ id: 1, completed_at: null }] };
       if (sql.includes('SELECT id, station')) return { rows: [{ id: 1, station: 'triage' }, { id: 2, station: 'seva' }] };
       return { rows: [] };
     }) });
-    db.query.mockResolvedValue({ rows: [{ location_id: 1 }] }); // visit 1 is at location 1
-    const at = locationId => client(token(), { auth: { token: token(), locationId } });
-    const here = at(1), elsewhere = at(2), anywhere = client();
-    await Promise.all([ready(here), ready(elsewhere), ready(anywhere)]);
-    let elsewhereTold = false;
-    elsewhere.on('lists:changed', () => { elsewhereTold = true; });
-    const told = Promise.all([event(here, 'lists:changed'), event(anywhere, 'lists:changed')]);
+    // An older device still sends the location it had chosen; it is told all the same.
+    const older = client(token(), { auth: { token: token(), locationId: 2 } }), current = client();
+    await Promise.all([ready(older), ready(current)]);
+    const told = Promise.all([event(older, 'lists:changed'), event(current, 'lists:changed')]);
     await request(app).post('/api/queue/1/stations/triage/complete').set('Authorization', `Bearer ${token()}`).send({});
     expect(await told).toEqual([[{ visitId: 1 }], [{ visitId: 1 }]]);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    expect(elsewhereTold).toBe(false);
-    expect(db.query).toHaveBeenCalledWith('SELECT location_id FROM visits WHERE id = $1', [1]);
   });
 
   test('new registration notifies observers only after commit', async () => {
@@ -112,7 +106,7 @@ describe('Live list notifications', () => {
     observer.once('lists:changed', () => { committedWhenNotified = committed; });
     const changed = event(observer, 'lists:changed');
     const response = await request(app).post('/api/visits').set('Authorization', `Bearer ${token()}`).send({
-      patientInfo: { english_name: 'Test Only', location_id: 1, sex: 'F' },
+      patientInfo: { english_name: 'Test Only', sex: 'F' },
       visit: { queue_no: '9' }, stations: ['triage'], hef: {},
       vitals: { height: 160, weight: 50, bmi: 19.5, bp_systolic: 110, bp_diastolic: 70, temperature: 37, below_3rd_percentile: false },
     });

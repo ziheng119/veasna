@@ -5,7 +5,7 @@ const router = express.Router();
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 const { comparePassword } = require('../config/db');
-const { normalizeRole } = require('../utils/permissions');
+const { normalizeRole, permissionsFor } = require('../utils/permissions');
 const { hostClock } = require('../utils/hostClock');
 const { screeningDayEnded, screeningDayEndedMessage } = require('../utils/dayScope');
 
@@ -74,6 +74,7 @@ router.get('/me', authenticateToken, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     id: req.user.id, username: req.user.username, role: req.user.role, screening_date: req.user.screening_date ?? null,
+    permissions: req.user.permissions ?? permissionsFor(req.user.role),
     ...hostClock(),
     // The role and name here are the current ones from the database (middleware/authorizeApi.js).
     token: renewedToken(req.user),
@@ -95,7 +96,7 @@ router.post('/login', async (req, res) => {
 
     const userQuery = `
       SELECT id, username, password_hash, role, is_active,
-        TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date
+        TO_CHAR(screening_date, 'YYYY-MM-DD') AS screening_date, permissions
       FROM users
       WHERE LOWER(username) = LOWER($1)
     `;
@@ -128,7 +129,14 @@ router.post('/login', async (req, res) => {
 
     const token = signUserToken(user);
 
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, screening_date: user.screening_date }, ...hostClock() });
+    res.json({
+      token,
+      user: {
+        id: user.id, username: user.username, role: user.role, screening_date: user.screening_date,
+        permissions: permissionsFor(user.role, user.permissions),
+      },
+      ...hostClock(),
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Internal server error' });

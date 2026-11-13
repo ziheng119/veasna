@@ -36,7 +36,7 @@ const SELECT_PRESCRIPTIONS = `
            pr.prescribed_at, pu.username AS prescribed_by,
            pr.dispensed_at, du.username AS dispensed_by,
            pr.cancelled_at, cu.username AS cancelled_by,
-           v.patient_id, v.queue_no, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, v.location_id,
+           v.patient_id, v.queue_no, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date,
            pa.english_name, pa.khmer_name
     FROM prescriptions pr
     JOIN visits v ON v.id = pr.visit_id
@@ -74,15 +74,14 @@ async function inTransaction(res, label, work) {
     }
 }
 
-// GET /api/prescriptions?visit_id=...                     one visit's prescriptions
-// GET /api/prescriptions?location_id=...[&status=pending]  a location's prescriptions (pharmacy)
+// GET /api/prescriptions?visit_id=...   one visit's prescriptions
+// GET /api/prescriptions[?status=pending] every prescription (pharmacy)
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = req.query.visit_id === undefined ? null : toPositiveInt(req.query.visit_id);
-    const locationId = req.query.location_id === undefined ? null : toPositiveInt(req.query.location_id);
     const status = req.query.status || null;
 
-    if (!visitId && !locationId) {
-        return res.status(400).json({ error: 'visit_id or location_id must be a positive integer' });
+    if (req.query.visit_id !== undefined && !visitId) {
+        return res.status(400).json({ error: 'visit_id must be a positive integer' });
     }
     if (status && !STATUSES.includes(status)) {
         return res.status(400).json({ error: `status must be one of: ${STATUSES.join(', ')}` });
@@ -92,11 +91,10 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
         const { rows } = await db.query(
             `${SELECT_PRESCRIPTIONS}
              WHERE ($1::int IS NULL OR pr.visit_id = $1)
-               AND ($2::int IS NULL OR v.location_id = $2)
-               AND ($3::text IS NULL OR pr.status = $3)
-               AND ${patientOnDaySql('v.patient_id', '$4')}
+               AND ($2::text IS NULL OR pr.status = $2)
+               AND ${patientOnDaySql('v.patient_id', '$3')}
              ORDER BY pr.prescribed_at ASC, pr.id ASC`,
-            [visitId, locationId, status, req.user.scope_date ?? null]
+            [visitId, status, req.user.scope_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {
@@ -105,14 +103,9 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
 });
 
-// GET /api/prescriptions/patients?location_id=... - patients with prescriptions at the location,
-// with counts by status and the date they were last prescribed something.
+// GET /api/prescriptions/patients - patients with prescriptions, with counts by status and the
+// date they were last prescribed something.
 router.get('/patients', authenticateToken, requireRole(['any']), async (req, res) => {
-    const locationId = toPositiveInt(req.query.location_id);
-    if (!locationId) {
-        return res.status(400).json({ error: 'location_id must be a positive integer' });
-    }
-
     try {
         const { rows } = await db.query(
             `SELECT pa.id AS patient_id, pa.english_name, pa.khmer_name, pa.face_id,
@@ -123,11 +116,10 @@ router.get('/patients', authenticateToken, requireRole(['any']), async (req, res
              FROM prescriptions pr
              JOIN visits v ON v.id = pr.visit_id
              JOIN patients pa ON pa.id = v.patient_id
-             WHERE v.location_id = $1
-               AND ${patientOnDaySql('pa.id', '$2')}
+             WHERE ${patientOnDaySql('pa.id', '$1')}
              GROUP BY pa.id
              ORDER BY MAX(pr.prescribed_at) DESC`,
-            [locationId, req.user.scope_date ?? null]
+            [req.user.scope_date ?? null]
         );
         res.status(200).json(rows);
     } catch (err) {
@@ -170,15 +162,12 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     await inTransaction(res, 'creating prescription', async (client) => {
         // Locked: prescribing may add Pharmacy to the visit's route.
-        const visit = await client.query('SELECT id, location_id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
+        const visit = await client.query('SELECT id FROM visits WHERE id = $1 FOR UPDATE', [visitId]);
         if (!visit.rows.length) {
             return { status: 404, body: { error: 'Visit not found. It may have been deleted on another device.' } };
         }
         const drug = await lockDrug(client, drugId);
         if (!drug) return { status: 404, body: { error: 'Drug not found. Refresh the drug list.' } };
-        if (drug.location_id !== visit.rows[0].location_id) {
-            return { status: 400, body: { error: "That drug is not in this location's pharmacy." } };
-        }
         if (quantity > drug.available_count) {
             return {
                 status: 409,

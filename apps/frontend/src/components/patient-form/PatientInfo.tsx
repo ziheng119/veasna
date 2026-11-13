@@ -12,7 +12,7 @@ interface Props {
 
 export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requestedViewMode}: Props) {
 
-    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
+    const canEdit = useUserStore(state => canEditSavedData(state.user));
     const isViewMode = requestedViewMode || (Boolean(patient.id) && !canEdit);
     const inputProps = {
         disabled: isViewMode,

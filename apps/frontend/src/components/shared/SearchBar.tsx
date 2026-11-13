@@ -10,14 +10,13 @@ import StationBadge from "./StationBadge"
 import TbBadge from "./TbBadge"
 import FamilyBadge from "./FamilyBadge";
 import { QueuedPatient } from "@/lib/types/patient"
-import { Location } from "@/lib/types/location"
 import { StationId, stationLabel, stationPageHref } from "@/constants/stations"
-import { useLocationStore } from "@/stores/useLocationStore"
 import { useLiveList } from "@/hooks/useLiveList"
 import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue"
 import { sortQueuePatients } from "@/lib/queueSort"
 import { useUserStore } from "@/stores/useUserStore"
 import { cn } from "@/lib/utils"
+import { familyTone } from "@/lib/family"
 
 // With nothing typed, the dropdown previews the next few patients by queue number.
 const UPCOMING_COUNT = 6
@@ -51,13 +50,11 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
   const searchId = useId()
   const listId = `${searchId}-list`
   const token = useUserStore((state) => state.user?.token)
-  const location: Location | null = useLocationStore(state => state.currentLocation)
 
-  const locationId = location?.id
   const load = useCallback(async (signal: AbortSignal): Promise<QueuedPatient[]> => {
-    if (!locationId || !token) return []
-    return getQueue(locationId, CLINIC_TODAY, token, undefined, signal)
-  }, [locationId, token])
+    if (!token) return []
+    return getQueue(CLINIC_TODAY, token, undefined, signal)
+  }, [token])
   const { data: patients } = useLiveList(load)
 
   const trimmed = query.trim().toLowerCase()
@@ -128,9 +125,7 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
     }
   }
 
-  const emptyMessage = !locationId
-    ? "Select a location to search its queue."
-    : trimmed
+  const emptyMessage = trimmed
       ? `No patient in today's queue matches "${query.trim()}".`
       : "No patients in today's queue yet."
 
@@ -220,8 +215,13 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
                 const destination = patient.current_station
                   ? here ? "Open here" : `Open in ${stationLabel(patient.current_station)}`
                   : "Open record"
+                // A family's rows next to each other share one dotted border, drawn over them so the
+                // rows keep their size; each row is still hovered and picked on its own.
+                const family = patient.family
+                const joinsAbove = !!family && results[idx - 1]?.family === family
+                const joinsBelow = !!family && results[idx + 1]?.family === family
                 return (
-                  <li key={patient.visit_id} id={`${listId}-${idx}`} role="option" aria-selected={highlighted}>
+                  <li key={patient.visit_id} id={`${listId}-${idx}`} role="option" aria-selected={highlighted} className="relative">
                     <button
                       type="button"
                       tabIndex={-1}
@@ -273,6 +273,18 @@ export default function SearchBar({ station, onSelectPatient }: SearchBarProps) 
                         )}
                       />
                     </button>
+                    {family && (joinsAbove || joinsBelow) && (
+                      <span
+                        aria-hidden="true"
+                        data-family-edge={family}
+                        className={cn(
+                          "pointer-events-none absolute inset-0 border-x-2 border-dashed",
+                          familyTone(family).box,
+                          joinsAbove ? "border-t-0" : "rounded-t-xl border-t-2",
+                          joinsBelow ? "border-b-0" : "rounded-b-xl border-b-2",
+                        )}
+                      />
+                    )}
                   </li>
                 )
               })}

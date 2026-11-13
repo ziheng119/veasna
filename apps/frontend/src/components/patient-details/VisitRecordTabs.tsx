@@ -18,7 +18,6 @@ import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
 import { TB_MIN_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useFormOptionsStore } from "@/stores/useFormOptionsStore";
 import type { FormOption } from "@/lib/types/formOptions";
 import { updateVisitDetails, updateVisitTb, updateVisitVitals } from "@/lib/api/visit/adminEdits";
@@ -34,12 +33,17 @@ import StickerColourSelect from "@/components/shared/StickerColourSelect";
 import { StickerColourValue } from "@/components/shared/StickerTag";
 
 // Edit-form shapes. Numbers are kept as the text typed so partially entered values survive.
-type VisitInfoDraft = { queue_no: string; visit_date: string; location_id: string; sticker_colour: string };
+type VisitInfoDraft = { queue_no: string; visit_date: string; sticker_colour: string };
 type VitalsDraft = {
   height: string; weight: string; bmi: string; below_3rd_percentile: boolean;
   bp_systolic: string; bp_diastolic: string; temperature: string; notes: string;
 };
-type HefDraft = { know_of_hef: boolean; has_hef: boolean; notes: string };
+// The NSSF answers are "yes", "no" or "" (not asked).
+type HefDraft = { know_of_hef: boolean; has_hef: boolean; has_nssf: YesNo; uses_hef_nssf: YesNo; notes: string };
+type YesNo = "yes" | "no" | "";
+const YES_NO_OPTIONS = [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] as const;
+const yesNo = (value: boolean | null | undefined): YesNo => (value == null ? "" : value ? "yes" : "no");
+const fromYesNo = (value: YesNo) => (value === "" ? null : value === "yes");
 // status "" = not reviewed yet (suspected).
 type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doctor_notes: string };
 type AcuityDraft = {
@@ -82,6 +86,8 @@ const VITALS_FIELDS: FieldSpec<VitalsDraft>[] = [
 const HEF_FIELDS: FieldSpec<HefDraft>[] = [
   { key: "know_of_hef", label: "Knows of HEF", kind: "boolean" },
   { key: "has_hef", label: "Has HEF", kind: "boolean" },
+  { key: "has_nssf", label: "Has NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
+  { key: "uses_hef_nssf", label: "Uses HEF/NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
@@ -251,7 +257,6 @@ interface Props {
 
 /** Every record of one visit, grouped by station. Each section can be corrected or added. */
 export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Props) {
-  const locations = useLocationStore((state) => state.locations);
   // A visit flagged for suspected TB opens on its TB record.
   const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
@@ -270,13 +275,16 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
     const { vitals, hef, visual_acuity: va, presenting_complaint: pc, history, seva, physiotherapy, dental, consultation, tb } = visit;
     const referral = visit.referrals[0] ?? null;
     return {
-      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, location_id: text(visit.location_id), sticker_colour: text(visit.sticker_colour) } as VisitInfoDraft,
+      info: { queue_no: visit.queue_no, visit_date: visit.visit_date, sticker_colour: text(visit.sticker_colour) } as VisitInfoDraft,
       vitals: vitals && ({
         height: text(vitals.height), weight: text(vitals.weight), bmi: text(vitals.bmi),
         below_3rd_percentile: vitals.below_3rd_percentile, bp_systolic: text(vitals.bp_systolic),
         bp_diastolic: text(vitals.bp_diastolic), temperature: text(vitals.temperature), notes: text(vitals.notes),
       } as VitalsDraft),
-      hef: hef && ({ know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, notes: text(hef.notes) } as HefDraft),
+      hef: hef && ({
+        know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, has_nssf: yesNo(hef.has_nssf),
+        uses_hef_nssf: yesNo(hef.uses_hef_nssf), notes: text(hef.notes),
+      } as HefDraft),
       tb: tb && ({ status: tb.status, red_flags: tb.red_flags, flag_notes: text(tb.flag_notes), doctor_notes: text(tb.doctor_notes) } as TbDraft),
       acuity: va && ({
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
@@ -310,19 +318,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
     };
   }, [visit]);
 
-  const locationOptions: FieldOption[] = useMemo(() => {
-    const options = locations.map((l) => ({ value: String(l.id), label: l.name }));
-    // Keep an inactive or not-yet-loaded location selectable so saving does not change it.
-    if (visit.location_id && !options.some((o) => o.value === String(visit.location_id))) {
-      options.unshift({ value: String(visit.location_id), label: visit.location_name ?? `Location ${visit.location_id}` });
-    }
-    return options;
-  }, [locations, visit.location_id, visit.location_name]);
-
   const visitInfoFields: FieldSpec<VisitInfoDraft>[] = [
     { key: "queue_no", label: "Queue Number", kind: "text" },
     { key: "visit_date", label: "Visit Date", kind: "date" },
-    { key: "location_id", label: "Location", kind: "select", options: locationOptions },
     {
       key: "sticker_colour",
       label: "Sticker colour",
@@ -399,17 +397,15 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
           record={drafts.info}
           fields={visitInfoFields}
           canEdit={canEdit}
-          editHint="Queue numbers must be unique for the location and date."
+          editHint="Queue numbers must be unique for the date."
           validate={(d) => {
             if (!isValidQueueNo(d.queue_no)) return QUEUE_NO_ERROR;
             if (!d.visit_date) return "Visit date is required.";
-            if (!d.location_id) return "Location is required.";
             return null;
           }}
           onSave={saved((d: VisitInfoDraft) => updateVisitDetails(visitId, {
             queue_no: d.queue_no.trim().toUpperCase(),
             visit_date: d.visit_date,
-            location_id: Number(d.location_id),
             sticker_colour: d.sticker_colour || null,
           }))}
         />
@@ -434,8 +430,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
           record={drafts.hef}
           fields={HEF_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ know_of_hef: false, has_hef: false, notes: "" }}
-          onSave={saved((d: HefDraft) => updateVisitVitals(visitId, { hef: d }))}
+          emptyDraft={{ know_of_hef: false, has_hef: false, has_nssf: "", uses_hef_nssf: "", notes: "" }}
+          onSave={saved((d: HefDraft) => updateVisitVitals(visitId, {
+            hef: { ...d, has_nssf: fromYesNo(d.has_nssf), uses_hef_nssf: fromYesNo(d.uses_hef_nssf) },
+          }))}
         />
       </StationPanel>
 

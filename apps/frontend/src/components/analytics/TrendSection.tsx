@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp } from "lucide-react";
-import { AnalyticsLocation, AnalyticsTrend, getAnalyticsTrend, TrendBucket, TrendRange } from "@/lib/api/analytics";
+import { AnalyticsTrend, getAnalyticsTrend, TrendBucket, TrendRange } from "@/lib/api/analytics";
 import { PRIMARY_SERIES_COLOR, SECONDARY_SERIES_COLOR, conditionColor } from "@/constants/consultationConditions";
 import { useFormOptions } from "@/stores/useFormOptionsStore";
 import type { FormOption } from "@/lib/types/formOptions";
@@ -34,8 +34,8 @@ function seriesFor(metric: string, buckets: TrendBucket[], listed: FormOption[])
   return conditions.map(c => ({ id: c.id, label: c.label, color: conditionColor(c.id, listed), values: buckets.map(b => b.conditions[c.id] ?? 0) }));
 }
 
-export default function TrendSection({ id, locationId, date, token, refresh, onLoaded, delay }: {
-  id?: string; locationId: AnalyticsLocation; date: string; token: string; refresh: number; onLoaded?: (trend: AnalyticsTrend | null) => void; delay?: number;
+export default function TrendSection({ id, date, token, refresh, onLoaded, delay }: {
+  id?: string; date: string; token: string; refresh: number; onLoaded?: (trend: AnalyticsTrend | null) => void; delay?: number;
 }) {
   const conditions = useFormOptions("consultation_conditions");
   const [range, setRange] = useState<TrendRange>("30d");
@@ -46,14 +46,14 @@ export default function TrendSection({ id, locationId, date, token, refresh, onL
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    getAnalyticsTrend(locationId, date, range, token, controller.signal)
+    getAnalyticsTrend(date, range, token, controller.signal)
       .then(result => { if (!controller.signal.aborted) setData(result); })
       .catch(err => { if (!controller.signal.aborted) { setData(null); setError(err instanceof Error ? err.message : "Unable to load trends."); } });
     return () => controller.abort();
-  }, [locationId, date, range, token, refresh]);
+  }, [date, range, token, refresh]);
 
   // Hold the previous chart (dimmed) while a new range loads instead of flashing empty.
-  const current = data?.range === range && data.date === date && data.locationId === locationId;
+  const current = data?.range === range && data.date === date;
   useEffect(() => { onLoaded?.(current ? data : null); }, [current, data, onLoaded]);
   const unit = RANGES.find(r => r.id === range)!.unit;
   const caption = metric === "patients" ? `Patients reached and consulted per ${unit}`

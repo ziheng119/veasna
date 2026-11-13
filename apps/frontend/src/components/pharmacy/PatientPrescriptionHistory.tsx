@@ -16,16 +16,16 @@ const STATUS_TONES: Record<Prescription["status"], string> = {
 
 const dateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
 
-/** Patients with prescriptions at the location; selecting one shows everything they were given. */
-export default function PatientPrescriptionHistory({ locationId }: { locationId: number }) {
+/** Patients with prescriptions; selecting one shows everything they were given. */
+export default function PatientPrescriptionHistory() {
   const token = useUserStore((state) => state.user?.token);
   const [search, setSearch] = useState("");
   const [patientId, setPatientId] = useState<number | null>(null);
 
   const loadPatients = useCallback(async (signal: AbortSignal): Promise<PrescriptionPatient[]> => {
     if (!token) return [];
-    return getPrescriptionPatients(locationId, signal);
-  }, [locationId, token]);
+    return getPrescriptionPatients(signal);
+  }, [token]);
   const loadHistory = useCallback(async (signal: AbortSignal): Promise<Prescription[]> => {
     if (!token || !patientId) return [];
     return getPatientPrescriptions(patientId, signal);
@@ -49,7 +49,7 @@ export default function PatientPrescriptionHistory({ locationId }: { locationId:
         </div>
         {loaded && shown.length === 0 ? (
           <p className="px-4 pb-6 text-sm text-muted-foreground">
-            {patients.length === 0 ? "No prescriptions at this location yet." : "No patient matches this search."}
+            {patients.length === 0 ? "No prescriptions yet." : "No patient matches this search."}
           </p>
         ) : (
           <ul className="max-h-[32rem] overflow-y-auto px-2 pb-2" aria-label="Patients with prescriptions">

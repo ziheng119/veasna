@@ -1,4 +1,4 @@
-// Queue cards for a non-admin user: moving patients is open to everyone, a suspected TB patient's
+// Queue cards for a non-admin user: moving patients needs "Edit today's queue" (a default), a suspected TB patient's
 // card stays red when selected and offers Clear TB only at Consult (with an in-app confirmation),
 // and Home cards open the patient's station.
 const React = require('react');
@@ -15,7 +15,6 @@ jest.mock('../src/components/ui/input', () => ({ Input: props => React.createEle
 const refresh = jest.fn();
 let stationPatients = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: stationPatients, refresh }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/lib/api/tb/tb', () => ({ setTbFlag: jest.fn(async () => ({ flagged: false, status: 'cleared', current_station: 'consultation' })) }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
@@ -55,6 +54,22 @@ test('a user can use Next, Send to and Discharge on a station queue card', async
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
   for (const text of ['Next', 'Send to', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
   expect(button(renderer, 'Clear TB')).toBeUndefined();
+});
+
+test("without 'Edit today's queue' the queue is view-only: Next, Send to and Discharge are not shown", async () => {
+  const { useUserStore } = require('../src/stores/useUserStore');
+  useUserStore.setState({ user: { id: 2, role: 'user', token: 't', permissions: ['view_today'] } });
+  try {
+    stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null }];
+    await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+    const actions = renderer.root.findAllByType('button').filter(node =>
+      /^Done here|^Discharge/.test(node.props.title ?? '') || /to another station$/.test(node.props['aria-label'] ?? ''));
+    expect(actions).toHaveLength(0);
+    // Still listed, so the patient can be opened.
+    expect(renderer.root.findAll(node => node.props['data-visit-id'] === 5)).toHaveLength(1);
+  } finally {
+    useUserStore.setState({ user: { id: 2, role: 'user', token: 't' } });
+  }
 });
 
 test.each(['suspected', 'cleared'])('a TB patient (%s) can be finished or discharged, but not sent to other stations', async status => {
@@ -154,4 +169,32 @@ test('a patient done at this station is marked "Done here" on their card', async
   const card = id => label(renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === id));
   expect(card(5)).toMatch(/Done here/);
   expect(card(6)).not.toMatch(/Done here/);
+});
+
+test('with a patient open the station queue folds (sort order and count only, nothing to press) until >> unfolds it', async () => {
+  stationPatients = [{ ...tbPatient, tb_flagged: false, tb_status: null }];
+  const props = { station: 'consultation', onSelectPatient: jest.fn() };
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, props)); });
+  const folded = () => renderer.root.findAll(node => node.type === 'div' && node.props.inert === true).length > 0;
+  const toggle = () => renderer.root.findAll(node => node.type === 'button' && /queue$/.test(node.props['aria-label'] ?? ''))[0];
+  expect(folded()).toBe(false);
+  expect(toggle()).toBeUndefined();
+  await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 5 })));
+  expect(folded()).toBe(true);
+  expect(toggle().props['aria-label']).toBe('Show the whole queue');
+  // Folded, the strip still says how it is sorted and how many are waiting.
+  expect(label(renderer.root)).toMatch(/By (queue number|arrival time)/);
+  expect(label(renderer.root)).toContain('1 waiting');
+  await act(async () => toggle().props.onClick());
+  expect(folded()).toBe(false);
+  expect(toggle().props['aria-label']).toBe('Fold the queue');
+  // << folds it again; so does opening another patient.
+  await act(async () => toggle().props.onClick());
+  expect(folded()).toBe(true);
+  await act(async () => toggle().props.onClick());
+  await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 6 })));
+  expect(folded()).toBe(true);
+  await act(async () => toggle().props.onClick());
+  // The station queue has the same Group families switch as Registration.
+  expect(renderer.root.findAll(node => node.props.role === 'switch')).toHaveLength(1);
 });

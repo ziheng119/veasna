@@ -27,6 +27,7 @@ export async function loginUser(username: string, password: string): Promise<Use
         token,
         role: backendUser.role,
         screening_date: backendUser.screening_date ?? null,
+        permissions: backendUser.permissions,
       };
   
       return createdUser;

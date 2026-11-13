@@ -5,7 +5,6 @@ import { Signature } from "./consultation";
 export type Visit = {
     id?: number;
     patient_id: number;
-    location_id: number;
     queue_no: string;
     visit_date: string;
     last_updated_at: string;
@@ -17,7 +16,6 @@ export interface VisitSummary {
     visit_id: number;
     queue_no: string;
     visit_date: string;
-    location_name: string;
     last_updated_at: string;
     // Set when the visit is finished (discharged or done at every station).
     completed_at?: string | null;
@@ -33,8 +31,8 @@ export interface VisitSummary {
     prescription_count?: number;
     // Flagged for suspected TB (not cleared).
     has_tb_flag?: boolean;
-    // This account may change the visit's records: the admin any visit, everyone else only the
-    // visits of their day (apps/backend/utils/dayScope.js saveScope).
+    // This account may change the visit's records: the admin any visit, other accounts what their
+    // permissions allow (apps/backend/utils/dayScope.js saveScope).
     editable?: boolean;
   }
   
@@ -45,8 +43,6 @@ export interface VisitDetails {
     patient_id: number;
     queue_no: string;
     visit_date: string;  // YYYY-MM-DD
-    location_id: number | null;
-    location_name: string | null;
     // Registration sticker: an id from the sticker_colours list, or null.
     sticker_colour?: string | null;
     completed_at: string | null;
@@ -104,6 +100,9 @@ export interface VisitVitals {
 export interface VisitHef {
     know_of_hef: boolean;
     has_hef: boolean;
+    // NSSF answers; null when not asked (registered before the questions were added).
+    has_nssf?: boolean | null;
+    uses_hef_nssf?: boolean | null;
     notes: string | null;
 }
 

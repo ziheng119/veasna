@@ -60,7 +60,7 @@ interface TriageTabsProps {
 }
 
 export function TriageTabs({ patient, visit_id, patient_id, stations, onStationsChanged }: TriageTabsProps) {
-    const canEdit = useUserStore(state => canEditSavedData(state.user?.role));
+    const canEdit = useUserStore(state => canEditSavedData(state.user));
     const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
     const [loadedVisit, setLoadedVisit] = useState<number | null>(null);
     const [loadError, setLoadError] = useState(false);

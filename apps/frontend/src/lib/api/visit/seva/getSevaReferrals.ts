@@ -18,9 +18,9 @@ export interface SevaReferralRow {
   face_id: string | null;
 }
 
-// Patients at a location that Seva has marked for referral, newest visit first.
-export async function getSevaReferrals(locationId: number, token: string): Promise<SevaReferralRow[]> {
-  const res = await apiFetch(`${backend_url}/api/visits/seva-referrals?location_id=${locationId}`, {
+// Patients that Seva has marked for referral, newest visit first.
+export async function getSevaReferrals(token: string): Promise<SevaReferralRow[]> {
+  const res = await apiFetch(`${backend_url}/api/visits/seva-referrals`, {
     cache: "no-cache",
     headers: { Authorization: `Bearer ${token}` },
   });

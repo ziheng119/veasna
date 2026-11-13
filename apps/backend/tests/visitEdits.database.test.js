@@ -43,14 +43,14 @@ const USER_ID = 2;
       });
       await client.connect();
       await client.query(`SET search_path TO pg_temp;
-        CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE);
-        INSERT INTO users VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);
+        CREATE TEMP TABLE users (id INT PRIMARY KEY, username TEXT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
+        INSERT INTO users (id, username, role, is_active) VALUES (${ADMIN_ID},'admin','admin',TRUE),(${USER_ID},'user','user',TRUE);
         CREATE TEMP TABLE patients (id INT PRIMARY KEY); INSERT INTO patients VALUES (1), (2);`);
       // Real table definitions, so constraints match production.
       const setup = fs
         .readFileSync(path.join(__dirname, "../db_setup.sql"), "utf8")
         .replace(/\r\n/g, "\n");
-      for (const table of ["locations", "visits", "tb_screening", "vitals", "hef"]) {
+      for (const table of ["visits", "tb_screening", "vitals", "hef"]) {
         const start = setup.indexOf("CREATE TABLE " + table + " (");
         let sql = setup.slice(start, setup.indexOf("\n);", start) + 3);
         // Visits reference patients, which these tests do not need.
@@ -69,10 +69,9 @@ const USER_ID = 2;
     });
 
     beforeEach(async () => {
-      await client.query(`TRUNCATE visits, locations, tb_screening, vitals, hef RESTART IDENTITY CASCADE;
-        INSERT INTO locations (name) VALUES ('North'), ('South');
-        INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-          VALUES (1, 1, '1', '2026-10-01', ${USER_ID}), (2, 1, '2', '2026-10-01', ${USER_ID});`);
+      await client.query(`TRUNCATE visits, tb_screening, vitals, hef RESTART IDENTITY CASCADE;
+        INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by)
+          VALUES (1, '1', '2026-10-01', ${USER_ID}), (2, '2', '2026-10-01', ${USER_ID});`);
     });
 
     afterAll(async () => {
@@ -105,9 +104,10 @@ const USER_ID = 2;
     });
 
     test("visit details are corrected and attributed to the admin", async () => {
-      const res = await put("/visits/1", { queue_no: "b7", visit_date: "2026-10-02", location_id: 2 });
+      const res = await put("/visits/1", { queue_no: "b7", visit_date: "2026-10-02" });
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ queue_no: "B7", visit_date: "2026-10-02", location_id: 2, last_updated_by: ADMIN_ID });
+      expect(res.body).toMatchObject({ queue_no: "B7", visit_date: "2026-10-02", last_updated_by: ADMIN_ID });
+      expect(res.body).not.toHaveProperty("location_id");
     });
 
     test("the sticker colour can be set, changed and cleared on its own", async () => {
@@ -132,12 +132,12 @@ const USER_ID = 2;
     });
 
     test("an unchanged older number is kept when other details are saved", async () => {
-      await client.query(`INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by)
-        VALUES (3, 1, '50', '2026-10-01', ${USER_ID})`);
+      await client.query(`INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by)
+        VALUES (3, '50', '2026-10-01', ${USER_ID})`);
       expect((await put("/visits/3", { queue_no: "50", visit_date: "2026-10-01" })).status).toBe(200);
     });
 
-    test("a queue number already used at the location and date is rejected", async () => {
+    test("a queue number already used on the date is rejected", async () => {
       const res = await put("/visits/1", { queue_no: "2" });
       expect(res.status).toBe(409);
       const { rows } = await client.query("SELECT queue_no FROM visits WHERE id = 1");
@@ -155,14 +155,13 @@ const USER_ID = 2;
       [{ queue_no: "ABC" }],
       [{ queue_no: "12345678901" }],
       [{ visit_date: "2026-02-30" }],
-      [{ location_id: 0 }],
+      [{ location_id: 2 }], // locations are gone; only the location given is nothing to save
       [{}],
     ])("invalid visit details %j are rejected", async (body) => {
       expect((await put("/visits/1", body)).status).toBe(400);
     });
 
-    test("unknown locations and visits are reported", async () => {
-      expect((await put("/visits/1", { location_id: 99 })).status).toBe(400);
+    test("unknown visits are reported", async () => {
       expect((await put("/visits/99", { queue_no: "3" })).status).toBe(404);
     });
 
@@ -174,6 +173,16 @@ const USER_ID = 2;
       const { rows } = await client.query("SELECT weight, last_updated_by FROM vitals WHERE visit_id = 1");
       expect(rows).toEqual([{ weight: "55", last_updated_by: ADMIN_ID }]);
       expect((await client.query("SELECT has_hef FROM hef WHERE visit_id = 1")).rows[0].has_hef).toBe(false);
+    });
+
+    test("the NSSF answers can be corrected; left out they keep their value", async () => {
+      const nssf = async () => (await client.query("SELECT has_nssf, uses_hef_nssf FROM hef WHERE visit_id = 1")).rows[0];
+      const hef = { know_of_hef: true, has_hef: true, notes: "" };
+      expect((await put("/visits/1/vitals", { hef: { ...hef, has_nssf: true, uses_hef_nssf: false } })).status).toBe(200);
+      expect(await nssf()).toEqual({ has_nssf: true, uses_hef_nssf: false });
+      await put("/visits/1/vitals", { hef: { ...hef, uses_hef_nssf: null } });
+      expect(await nssf()).toEqual({ has_nssf: true, uses_hef_nssf: null });
+      expect((await put("/visits/1/vitals", { hef: { ...hef, has_nssf: "yes" } })).status).toBe(400);
     });
 
     test("invalid vitals leave the record unchanged", async () => {

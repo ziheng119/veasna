@@ -15,7 +15,14 @@ BEGIN
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS patients_family_idx ON patients (location_id, family) WHERE family IS NOT NULL;
+-- Migration 027 removed patients.location_id and indexes families by letter alone.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = current_schema() AND table_name = 'patients' AND column_name = 'location_id') THEN
+        CREATE INDEX IF NOT EXISTS patients_family_idx ON patients (location_id, family) WHERE family IS NOT NULL;
+    END IF;
+END $$;
 
 -- A development version kept the family on each visit; it was never released, so it is dropped.
 DROP INDEX IF EXISTS visits_family_idx;

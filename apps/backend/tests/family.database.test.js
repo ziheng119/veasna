@@ -33,6 +33,7 @@ const DAY = '2026-11-05';
   const post = (url, body) => auth(request(app).post(url)).send(body);
   const join = (patient_id, with_patient_id) => post('/api/family', { patient_id, with_patient_id });
   const leave = (patient_id) => post('/api/family/leave', { patient_id });
+  const group = (patient_ids) => post('/api/family/group', { patient_ids });
   const done = (visitId, station) => post(`/api/queue/${visitId}/stations/${station}/complete`, {});
   const families = async () => Object.fromEntries((await client.query('SELECT id, family FROM patients ORDER BY id')).rows
     .map(r => [r.id, r.family]));
@@ -52,9 +53,9 @@ const DAY = '2026-11-05';
     await client.connect();
     await client.query(`SET search_path TO pg_temp;
       CREATE TEMP TABLE users (id INT PRIMARY KEY);
-      CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE,
+      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE,
         family TEXT CHECK (family ~ '^[A-Z]{1,4}$'), last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW());
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT REFERENCES patients(id) ON DELETE CASCADE, location_id INT, queue_no TEXT, visit_date DATE,
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT REFERENCES patients(id) ON DELETE CASCADE, queue_no TEXT, visit_date DATE,
         completed_at TIMESTAMP, last_updated_by INT REFERENCES users(id), last_updated_at TIMESTAMP DEFAULT NOW(), sticker_colour TEXT, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT REFERENCES visits(id) ON DELETE CASCADE, station TEXT, position INT,
         entered_at TIMESTAMP, completed_at TIMESTAMP, family_ready_at TIMESTAMP, last_updated_by INT,
@@ -78,15 +79,15 @@ const DAY = '2026-11-05';
     app.use('/api/registration', require('../routes/registration'));
   });
 
-  // Patients 1-3 are the Tan family, 4 is Sok, 5 is Dara (another location) and 6 is Vanna, who has
+  // Patients 1-3 are the Tan family, 4 is Sok, 5 is Dara and 6 is Vanna, who has
   // no visit today. Visits 3, 4, 5 and 6 (patients 1-4) wait at Triage, then go to Consult.
   beforeEach(() => client.query(`
     TRUNCATE tb_screening, visit_station_route_history, visit_stations, visits, patients, users RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (1), (${USER_ID});
-    INSERT INTO patients (id, location_id, english_name, last_updated_by) VALUES
-      (1, 1, 'Mother Tan', 1), (2, 1, 'Father Tan', 1), (3, 1, 'Child Tan', 1), (4, 1, 'Sok', 1), (5, 2, 'Dara', 1), (6, 1, 'Vanna', 1);
-    INSERT INTO visits (id, patient_id, location_id, queue_no, visit_date, last_updated_by) VALUES
-      (3, 1, 1, '3', '${DAY}', 1), (4, 2, 1, '4', '${DAY}', 1), (5, 3, 1, '5', '${DAY}', 1), (6, 4, 1, '6', '${DAY}', 1);
+    INSERT INTO patients (id, english_name, last_updated_by) VALUES
+      (1, 'Mother Tan', 1), (2, 'Father Tan', 1), (3, 'Child Tan', 1), (4, 'Sok', 1), (5, 'Dara', 1), (6, 'Vanna', 1);
+    INSERT INTO visits (id, patient_id, queue_no, visit_date, last_updated_by) VALUES
+      (3, 1, '3', '${DAY}', 1), (4, 2, '4', '${DAY}', 1), (5, 3, '5', '${DAY}', 1), (6, 4, '6', '${DAY}', 1);
     INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by)
       SELECT id, 'triage', 1, NOW(), 1 FROM visits;
     INSERT INTO visit_stations (visit_id, station, position, last_updated_by)
@@ -136,12 +137,41 @@ const DAY = '2026-11-05';
       expect((await join(1, 4)).body.family).toBe('B');
     });
 
-    test('patients at another location, or the same patient, are refused', async () => {
-      expect((await join(1, 5)).status).toBe(400);
+    test('the same patient, or one who does not exist, is refused', async () => {
       expect((await join(1, 1)).status).toBe(400);
       expect((await join(1, 99)).status).toBe(404);
       expect((await leave(99)).status).toBe(404);
       expect(await families()).toMatchObject({ 1: null, 5: null });
+    });
+  });
+
+  describe('grouping several at once (the queue)', () => {
+    test('patients not in a family start one; dropping more on a family adds them to it', async () => {
+      const res = await group([1, 2, 3]);
+      expect(res.status).toBe(200);
+      expect(res.body.family).toBe('A');
+      expect(await families()).toMatchObject({ 1: 'A', 2: 'A', 3: 'A', 4: null });
+      expect((await group([4, 1])).body.family).toBe('A');
+      expect(await families()).toMatchObject({ 4: 'A' });
+    });
+
+    test('the family most of them are in takes the rest; a family left with one member is dissolved', async () => {
+      await group([1, 2]); // A
+      await group([3, 4, 5]); // B
+      // 1 and 2 of A, 3 of B: they become A, and B (4, 5) keeps two members.
+      expect((await group([3, 1, 2])).body.family).toBe('A');
+      expect(await families()).toMatchObject({ 1: 'A', 2: 'A', 3: 'A', 4: 'B', 5: 'B' });
+      // 4 joins A: B is left with only 5, so it is dissolved.
+      await group([1, 4]);
+      expect(await families()).toMatchObject({ 4: 'A', 5: null });
+    });
+
+    test('fewer than two patients, bad ids, or a patient who does not exist are refused', async () => {
+      for (const ids of [[1], [1, 1], 'x', [1, 0], Array.from({ length: 21 }, (_, i) => i + 1)]) {
+        expect((await group(ids)).status).toBe(400);
+      }
+      expect((await group([1, 99])).status).toBe(404);
+      expect(await families()).toMatchObject({ 1: null });
     });
   });
 
@@ -154,7 +184,7 @@ const DAY = '2026-11-05';
       expect(first.body).toMatchObject({ held: true, next_station: null, waiting_for: [{ visit_id: 4, queue_no: '4', english_name: 'Father Tan' }] });
       expect(await stations()).toMatchObject({ 3: 'triage', 4: 'triage' });
       // The queue shows who is waiting for family; others are not held (6 has no family).
-      const queue = await auth(request(app).get('/api/queue').query({ location_id: 1, date: DAY, station: 'triage' }));
+      const queue = await auth(request(app).get('/api/queue').query({ date: DAY, station: 'triage' }));
       expect(queue.body.filter(p => p.family_waiting).map(p => p.visit_id)).toEqual([3]);
       expect(queue.body.find(p => p.visit_id === 4)).toMatchObject({ family: 'A', family_waiting: false });
       expect((await done(6, 'triage')).body).toMatchObject({ held: false, next_station: 'consultation' });
@@ -170,7 +200,7 @@ const DAY = '2026-11-05';
     test('a member at another station, or on another day, does not hold the family', async () => {
       await join(3, 1);
       await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 5 AND station = 'triage'");
-      await client.query(`INSERT INTO visits (id, patient_id, location_id, queue_no, visit_date, last_updated_by) VALUES (9, 2, 1, '1', '2026-11-04', 1);
+      await client.query(`INSERT INTO visits (id, patient_id, queue_no, visit_date, last_updated_by) VALUES (9, 2, '1', '2026-11-04', 1);
         INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (9, 'triage', 1, NOW(), 1);`);
       await done(3, 'triage');
       expect((await done(4, 'triage')).body.family_moved.map(m => m.visit_id)).toEqual([3]);

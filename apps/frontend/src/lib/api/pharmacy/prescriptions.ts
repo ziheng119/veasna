@@ -27,13 +27,13 @@ export function getVisitPrescriptions(visitId: number, signal?: AbortSignal) {
   return request<Prescription[]>(`?visit_id=${visitId}`, { headers: authHeaders(), signal }, "Failed to load prescriptions");
 }
 
-export function getLocationPrescriptions(locationId: number, status?: "pending", signal?: AbortSignal) {
-  const filter = status ? `&status=${status}` : "";
-  return request<Prescription[]>(`?location_id=${locationId}${filter}`, { headers: authHeaders(), signal }, "Failed to load prescriptions");
+export function getAllPrescriptions(status?: "pending", signal?: AbortSignal) {
+  const filter = status ? `?status=${status}` : "";
+  return request<Prescription[]>(filter, { headers: authHeaders(), signal }, "Failed to load prescriptions");
 }
 
-export function getPrescriptionPatients(locationId: number, signal?: AbortSignal) {
-  return request<PrescriptionPatient[]>(`/patients?location_id=${locationId}`, { headers: authHeaders(), signal }, "Failed to load patients");
+export function getPrescriptionPatients(signal?: AbortSignal) {
+  return request<PrescriptionPatient[]>(`/patients`, { headers: authHeaders(), signal }, "Failed to load patients");
 }
 
 export function getPatientPrescriptions(patientId: number, signal?: AbortSignal) {

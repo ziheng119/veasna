@@ -1,7 +1,7 @@
 // utils/queueNumber.js
-// Queue numbers are issued automatically, in order per location per visit date, starting at 1.
+// Queue numbers are issued automatically, in order per visit date, starting at 1.
 // Families have their own letter, apart from the number (utils/family.js). Admins may correct a
-// number on Patient Details. They are stored as text, upper-cased, and must be unique per location and date.
+// number on Patient Details. They are stored as text, upper-cased, and must be unique per date.
 
 const { localDate } = require('./validation');
 
@@ -47,22 +47,22 @@ function currentVisitDate() {
   return localDate();
 }
 
-// Serializes queue number assignment for a location until the surrounding transaction ends,
-// so two devices registering at the same time cannot be given the same number.
-function lockQueue(client, locationId) {
-  return client.query('SELECT pg_advisory_xact_lock($1, $2)', [QUEUE_LOCK_NAMESPACE, locationId]);
+// Serializes queue number assignment until the surrounding transaction ends, so two devices
+// registering at the same time cannot be given the same number.
+function lockQueue(client) {
+  return client.query('SELECT pg_advisory_xact_lock($1, 0)', [QUEUE_LOCK_NAMESPACE]);
 }
 
-// Next number after the highest one issued for the location and date. Completed visits count,
+// Next number after the highest one issued for the date. Completed visits count,
 // so numbers are not reused; suffixed values such as "12A" count as 12, and numbers that start
 // with a letter ("A12") are a separate series and do not affect it.
 // exceptVisitId leaves one visit out, for checking a change to that visit's own number.
-async function getNextQueueNo(client, locationId, visitDate, exceptVisitId = null) {
+async function getNextQueueNo(client, visitDate, exceptVisitId = null) {
   const { rows } = await client.query(
     `SELECT COALESCE(MAX(substring(queue_no from '^[0-9]{1,9}')::int), 0) + 1 AS next_queue_no
      FROM visits
-     WHERE location_id = $1 AND visit_date = $2::date AND ($3::int IS NULL OR id <> $3)`,
-    [locationId, visitDate, exceptVisitId]
+     WHERE visit_date = $1::date AND ($2::int IS NULL OR id <> $2)`,
+    [visitDate, exceptVisitId]
   );
   return String(rows[0].next_queue_no);
 }

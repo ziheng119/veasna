@@ -8,7 +8,6 @@ import TriageContainer from "@/components/shared/read-only/triage-container/Tria
 import StationDataButton from "@/components/shared/StationDataButton";
 import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
@@ -18,7 +17,6 @@ export default function Seva() {
     
     const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-    useLocationReminder();
 
     return (
         <StationFlowProvider station="seva" onSelectPatient={setSelectedPatient}>

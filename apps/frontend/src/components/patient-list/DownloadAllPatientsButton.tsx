@@ -6,19 +6,20 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
-import { isAdmin } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { downloadFile, toCsv } from "@/components/analytics/exportCsv";
 import { hostToday } from "@/stores/useHostClockStore";
 import { apiFetch, readError } from "@/lib/api/request";
 
 /**
- * Admin only: a spreadsheet of every patient and every visit, all locations and dates, one row per
- * visit (apps/backend/routes/export.js). Column names are the database's.
+ * "Print and download" permission (hidden without it): a spreadsheet of every patient this account
+ * may see (every patient with "See past patients", otherwise its day's) and their visits, one row
+ * per visit (apps/backend/routes/export.js). Column names are the database's.
  */
 export default function DownloadAllPatientsButton() {
   const user = useUserStore((state) => state.user);
   const [busy, setBusy] = useState(false);
-  if (!isAdmin(user?.role)) return null;
+  if (!can(user, "print")) return null;
 
   const download = async () => {
     setBusy(true);
@@ -47,7 +48,7 @@ export default function DownloadAllPatientsButton() {
 
   return (
     <Button type="button" variant="outline" disabled={busy} onClick={download}
-      title="Every patient and visit, all locations and dates, as a spreadsheet (CSV)">
+      title="Every patient and visit this account can see, as a spreadsheet (CSV)">
       <Download className="size-4" aria-hidden="true" />
       {busy ? "Preparing..." : "Download all patient data"}
     </Button>

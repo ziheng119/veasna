@@ -12,6 +12,8 @@ interface PageCardProps {
   contentClassName?: string;
   // Marks the card for the guided tour (lib/guide/steps.ts).
   tour?: string;
+  // Extra data-* attributes on the card (e.g. data-queue-compact, see lib/pageLayout.ts).
+  data?: Record<`data-${string}`, string | undefined>;
 }
 
 export function PageCard({
@@ -23,12 +25,13 @@ export function PageCard({
   headerClassName,
   contentClassName,
   tour,
+  data,
 }: PageCardProps) {
   return (
-    <Card data-tour={tour} className={cn("border-border xl:min-h-0 xl:max-h-full", className)}>
+    <Card data-tour={tour} {...data} className={cn("border-border xl:min-h-0 xl:max-h-full", className)}>
       <CardHeader className={cn("border-b border-border", headerClassName)}>
         <CardTitle className="flex items-center justify-between text-foreground">
-          <span>{title}</span>
+          <span className="min-w-0">{title}</span>
           {action}
         </CardTitle>
         {headerExtra}

@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react"
 import { Drug, PharmacyStats } from "@/lib/types/drug"
-import { getDrugsByLocation, getPharmacyStats, dispenseDrug } from "@/lib/api/pharmacy/pharmacy"
-import { useLocationStore } from "@/stores/useLocationStore"
+import { getDrugs, getPharmacyStats, dispenseDrug } from "@/lib/api/pharmacy/pharmacy"
+import { useUserStore } from "@/stores/useUserStore"
+import { can } from "@/lib/permissions"
 import { useRealtimeStore } from "@/stores/useRealtimeStore"
 import { DashboardStats } from "@/components/pharmacy/DashboardStats"
 import { StockStatusBadge } from "@/components/pharmacy/StockStatusBadge"
@@ -14,7 +15,6 @@ import { PageCard } from "@/components/shared/PageCard"
 import Link from "next/link"
 import { Settings } from "lucide-react"
 import toast from "react-hot-toast"
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import SegmentedTabs from "@/components/shared/SegmentedTabs"
@@ -40,18 +40,17 @@ export default function Pharmacy() {
     // The patient picked in the Pharmacy queue; their prescriptions are shown. None shows all.
     const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null)
 
-    const location = useLocationStore((state) => state.currentLocation)
+    // Dispensing changes stock: the "Pharmacy stock" permission (the host refuses it otherwise).
+    const canDispense = useUserStore((state) => can(state.user, "pharmacy"))
     // Prescribing elsewhere changes available stock; reload when another device makes a change.
     const revision = useRealtimeStore((state) => state.revision)
 
-    useLocationReminder();
 
     async function fetchData() {
-      if (!location) return;
       try {
         const [drugsData, statsData] = await Promise.all([
-          getDrugsByLocation(location.id),
-          getPharmacyStats(location.id),
+          getDrugs(),
+          getPharmacyStats(),
         ]);
         setDrugs(drugsData);
         setStats(statsData);
@@ -64,8 +63,7 @@ export default function Pharmacy() {
 
     useEffect(() => {
       fetchData();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location, revision]);
+    }, [revision]);
 
     // Sent again if Dispense is pressed after a failure, so a dispense the host already made isn't repeated.
     const dispenseRequest = useRef(retryableRequestId());
@@ -77,8 +75,8 @@ export default function Pharmacy() {
         const updatedDrug = await dispenseDrug(drugId, quantity, dispenseRequest.current.get(`${drugId}:${quantity}`));
         dispenseRequest.current.saved();
         setDrugs(prev => prev.map(d => d.id === drugId ? updatedDrug : d));
-        if (stats && location) {
-          const newStats = await getPharmacyStats(location.id);
+        if (stats) {
+          const newStats = await getPharmacyStats();
           setStats(newStats);
         }
         toast.success(`Dispensed ${quantity}x ${drug.drug_name}. ${updatedDrug.available_count ?? updatedDrug.stock_count} available.`);
@@ -138,9 +136,7 @@ export default function Pharmacy() {
                   >
                     {/* The patient open here was finished on another device. */}
                     {!selectedPatient && <StationDepartureNotice className="mx-6 mb-4" />}
-                    {location
-                      ? <PendingPrescriptions locationId={location.id} patient={selectedPatient} onStockChanged={() => void fetchData()} />
-                      : <p className="px-6 text-sm text-muted-foreground">Select a location.</p>}
+                    <PendingPrescriptions patient={selectedPatient} onStockChanged={() => void fetchData()} />
                   </PageCard>
                 </div>
               </div>
@@ -226,7 +222,9 @@ export default function Pharmacy() {
               {/* Dispense Sidebar */}
               <div className={`${PANEL_WRAPPER} xl:col-span-4`}>
                 <PageCard title="Dispense Medication">
-                  <DispenseForm drugs={drugs} onDispense={handleDispense} />
+                  {canDispense
+                    ? <DispenseForm drugs={drugs} onDispense={handleDispense} />
+                    : <p className="text-sm text-muted-foreground">Dispensing needs the &quot;Pharmacy stock&quot; permission. Ask the admin to turn it on in Accounts.</p>}
                 </PageCard>
               </div>
             </div>
@@ -234,9 +232,7 @@ export default function Pharmacy() {
 
           <TabsContent value="patients" className="mt-0">
             <PageCard title="Patients: prescribed and dispensed" contentClassName="px-0">
-              {location
-                ? <PatientPrescriptionHistory locationId={location.id} />
-                : <p className="px-6 text-sm text-muted-foreground">Select a location.</p>}
+              <PatientPrescriptionHistory />
             </PageCard>
           </TabsContent>
         </Tabs>

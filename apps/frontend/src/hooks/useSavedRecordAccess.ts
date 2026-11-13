@@ -5,16 +5,17 @@ import { canEditSavedData } from "@/lib/permissions";
 
 /**
  * Fail closed until this record loads; a late response for another visit cannot unlock it.
- * Once loaded, every account may save it again (lib/permissions.ts canEditSavedData).
+ * Once loaded, an account with "Edit today's queue" may save it again (lib/permissions.ts
+ * canEditSavedData); without it the form is read-only.
  */
 export function useSavedRecordAccess(recordKey: number) {
-  const role = useUserStore((state) => state.user?.role);
+  const mayEdit = useUserStore((state) => canEditSavedData(state.user));
   // version counts loads and saves, so a form can tell when its values were last saved.
   const [record, setRecord] = useState<{ key: number; exists: boolean; version: number } | null>(
     null,
   );
   const loaded = record?.key === recordKey;
-  const editable = loaded && canEditSavedData(role);
+  const editable = loaded && mayEdit;
   // The record for this key has been saved (e.g. the station's form is done).
   const saved = loaded && record.exists;
   const markSaved = useCallback(

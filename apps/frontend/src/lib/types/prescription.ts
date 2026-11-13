@@ -23,12 +23,11 @@ export interface Prescription {
   patient_id: number;
   queue_no: string;
   visit_date: string;
-  location_id: number;
   english_name: string | null;
   khmer_name: string | null;
 }
 
-// A patient with prescriptions at a location, for the Pharmacy patient list.
+// A patient with prescriptions, for the Pharmacy patient list.
 export interface PrescriptionPatient {
   patient_id: number;
   english_name: string | null;

@@ -1,6 +1,7 @@
 import { backend_url } from "@/constants/env_variable";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch, readError } from "@/lib/api/request";
+import type { Permission } from "@/lib/permissions";
 
 // Admin-only account management (apps/backend/routes/accounts.js).
 
@@ -11,6 +12,8 @@ export interface Account {
   is_active: boolean;
   // YYYY-MM-DD for a screening-day account; null for the fixed admin and user accounts.
   screening_date: string | null;
+  // What the account may do (lib/permissions.ts); the admin may do everything whatever this says.
+  permissions: string[];
   created_at: string;
   last_updated_at: string;
 }
@@ -31,10 +34,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const getAccounts = () => request<Account[]>("");
 
-export const createDayAccount = (account: { username: string; password: string; screening_date: string }) =>
+export const createDayAccount = (account: { username: string; password: string; screening_date: string; permissions: Permission[] }) =>
   request<Account>("", { method: "POST", body: JSON.stringify(account) });
 
-export const updateDayAccount = (id: number, changes: { password?: string; screening_date?: string; is_active?: boolean }) =>
+export const updateDayAccount = (id: number, changes: { password?: string; screening_date?: string; is_active?: boolean; permissions?: Permission[] }) =>
   request<Account>(`/${id}`, { method: "PUT", body: JSON.stringify(changes) });
 
 /** Removes the account, or disables it when it has entered records (deleted: false). */

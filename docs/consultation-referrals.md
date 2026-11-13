@@ -77,17 +77,16 @@ cryptographic digital signature.
 
 ## Printing saved referrals
 
-Printing referrals, one or many at once, is for the **admin** account only.
+Printing referrals, one or many at once, is for the **admin** and accounts with the
+**Print and download** permission; the buttons are not shown to anyone else.
 
 **Print referrals**, at the right of the search row on the Consult page, opens a small
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
-prints every saved referral for that day at the selected location. You don't need to
-select a patient first.
+prints every saved referral for that day. You don't need to select a patient first.
 
 On **Analytics**, hover over the **Visits with referrals** card (or tap or click it)
 and press **Print referrals**. There you can also choose **A period** (both days
-included) or **All dates**, and the location is the one chosen on the page, including
-**All locations**.
+included) or **All dates**.
 
 - Referrals are kept in the database, so any day's can be printed later.
 - It includes discharged patients and unsigned drafts. Drafts are clearly marked
@@ -113,9 +112,10 @@ referrals, one or many at once, or delete one. See
 
 ## Technical details
 
-- `GET /api/visits/referrals` (admin only) returns referrals for batch printing, oldest
-  first, and is never cached. `location_id` is an id or `all`; then one of `date=YYYY-MM-DD`,
-  `from=...&to=...` or `all=true` (`utils/referralFilter.js`).
+- `GET /api/visits/referrals` (the `print` permission) returns referrals for batch
+  printing, oldest first, and is never cached: one of `date=YYYY-MM-DD`,
+  `from=...&to=...` or `all=true` (`utils/referralFilter.js`). Without `view_past`, only
+  the account's day.
 - `DELETE /api/visits/referral/:visit_id` removes the referral and signature and clears
   the consultation's referral flag in one statement. It records who deleted it and
   when. Deleting twice is harmless. It answers `200` with `consultation_updated_at`, the

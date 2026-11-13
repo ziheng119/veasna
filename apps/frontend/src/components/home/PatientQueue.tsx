@@ -1,11 +1,12 @@
 "use client";
 
 import { Badge } from "../ui/badge";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { SearchIcon } from "@/assets/icons";
 import { useConfirm } from "@/hooks/useConfirm";
+import toast from "react-hot-toast";
 
 import { X } from "lucide-react";
 import { stationLabel, stationPageHref } from "@/constants/stations";
@@ -16,25 +17,40 @@ import TbBadge, { tbCardClass } from "../shared/TbBadge";
 import FamilyBadge from "../shared/FamilyBadge";
 import StickerTag, { findSticker, stickerLabel, useStickerColours } from "../shared/StickerTag";
 import { ENTER_FAST, LIFT } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 import QueueSortControl from "../shared/QueueSortControl";
 import { useQueueSort } from "@/hooks/useQueueSort";
 import { sortQueuePatients } from "@/lib/queueSort";
 import { hostToday } from "@/stores/useHostClockStore";
+import { useUserStore } from "@/stores/useUserStore";
+import { canEditSavedData } from "@/lib/permissions";
+import { FamilyBlocks, GroupFamiliesPanel, groupingCardClass, toBlocks, useFamilyGrouping } from "../shared/FamilyGrouping";
 
 interface Props {
   patients: QueuedPatient[];
   onRemovePatient?: (visitId: number) => void;
+  // Called after families were changed with "Group families", to reload the queue.
+  onFamilyChanged?: () => void | Promise<unknown>;
 }
 
-export function PatientQueue({ patients, onRemovePatient }: Props) {
+export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Props) {
   const { confirm, dialog } = useConfirm();
   const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
   const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
+  const token = useUserStore((state) => state.user?.token);
+  // Discharging moves the patient and grouping changes the patient: "Edit today's queue". Without
+  // it neither is shown.
+  const canMove = useUserStore((state) => canEditSavedData(state.user));
 
-  const filteredPatients = patients.filter((patient) => {
+  // "Group families": while on, cards are dragged onto each other; turning it off saves. While
+  // grouping, each drop is shown as it will be saved: in its family's box, or out of it.
+  const groupState = useFamilyGrouping(patients, token, onFamilyChanged);
+  const { grouping, onPointerDown } = groupState;
+
+  const filteredPatients = groupState.shown.filter((patient) => {
     if (!searchQuery) return true;
 
     const query = searchQuery.toLowerCase();
@@ -51,18 +67,125 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
   });
 
   const sortedPatients = sortQueuePatients(filteredPatients, mode);
+  const blocks = toBlocks(sortedPatients);
   // The host's date: the day this queue belongs to.
   const today = new Date(`${hostToday()}T00:00:00`).toLocaleDateString();
+
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const renderCard = (patient: QueuedPatient, inFamilyBox: boolean, isNew: boolean) => {
+    // Opens the patient at the station they are waiting at, already selected there.
+    const href = patient.current_station ? stationPageHref(patient.current_station, patient.visit_id) : null;
+    const sticker = findSticker(stickerColours, patient.sticker_colour);
+    const id = patient.patient_id;
+    // While grouping, cards are only dragged: clicks do nothing.
+    const open = () => {
+      if (!grouping && href) router.push(href);
+    };
+    return (
+      <div
+        key={patient.visit_id}
+        data-visit-id={patient.visit_id}
+        data-flip-id={patient.visit_id}
+        data-drop-id={grouping ? id : undefined}
+        onPointerDown={grouping ? (event) => onPointerDown(event, id) : undefined}
+        onClick={(event) => {
+          // The card's own button (Discharge) handles its own clicks.
+          if (!(event.target as Element).closest("button")) open();
+        }}
+        className={cn(
+          "relative flex items-center justify-between p-4 rounded-lg gap-3",
+          isNew && ENTER_FAST,
+          grouping
+            ? groupingCardClass(groupState, id, inFamilyBox)
+            : href ? `cursor-pointer ${LIFT}` : "transition-colors",
+          patient.tb_flagged ? tbCardClass() : "border border-border bg-card hover:bg-accent",
+        )}
+      >
+        <button
+          type="button"
+          disabled={grouping || !href}
+          aria-label={`${grouping ? "" : "Open "}${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${
+            patient.current_station ? `, at ${stationLabel(patient.current_station)}` : ""}${patient.tb_flagged ? ", suspected TB" : ""}${
+            patient.family ? `, family ${patient.family}` : ""}`}
+          onClick={open}
+          className="flex items-center gap-3 min-w-0 text-left disabled:cursor-default"
+        >
+          <span className="flex shrink-0 flex-col items-center gap-1">
+            <span className="relative flex">
+              <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
+                patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+              }`}>
+                {patient.queue_no}
+              </span>
+              <StickerTag sticker={sticker} pinned />
+            </span>
+            {patient.tb_flagged && <TbBadge />}
+            {patient.family && <FamilyBadge family={patient.family} />}
+          </span>
+          <span className="block min-w-0 border-l border-border pl-3">
+            <span className="block font-medium text-foreground truncate">{patient.english_name}</span>
+            <span className="block text-sm text-muted-foreground truncate">
+              {patient.khmer_name}
+            </span>
+            {patient.current_station && (
+              <span className="block text-xs font-medium truncate text-primary">
+                At {stationLabel(patient.current_station)}
+              </span>
+            )}
+          </span>
+        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right text-sm text-muted-foreground">
+            <div>{patient.age}y, {patient.sex}</div>
+            <div>{patient.timestamp}</div>
+          </div>
+          {onRemovePatient && canMove && (
+            // Slides away (width and fade) while grouping, so the rest of the card glides over.
+            <span
+              aria-hidden={grouping || undefined}
+              className={cn(
+                "flex overflow-hidden transition-[max-width,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
+                grouping ? "pointer-events-none -ml-3 max-w-0 opacity-0" : "max-w-6 opacity-100",
+              )}
+            >
+            <Button
+              tabIndex={grouping ? -1 : undefined}
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 text-muted-foreground hover:text-destructive"
+              title="Discharge patient"
+              onClick={async () => {
+                if (!await confirm({
+                  title: `Discharge ${patient.english_name || "this patient"}?`,
+                  description: "They leave today's queue at every station. Their saved records stay.",
+                  confirmLabel: "Discharge",
+                })) return;
+                onRemovePatient(patient.visit_id);
+              }}
+            >
+              <X className="size-3.5" />
+            </Button>
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <PageCard
       title="Today's Queue"
       action={<Badge variant="inactive">{today}</Badge>}
       className="h-full flex flex-col"
-      contentClassName="flex-1 overflow-y-auto space-y-3 bg-card"
+      contentClassName="flex-1 overflow-y-auto bg-card"
       headerExtra={
         <div className="mt-4 space-y-3">
           <QueueSortControl mode={mode} onChange={setMode} />
+          {canMove && onFamilyChanged && (
+            <GroupFamiliesPanel state={groupState} disabled={patients.length === 0} />
+          )}
           <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -80,82 +203,13 @@ export function PatientQueue({ patients, onRemovePatient }: Props) {
             {searchQuery ? "No patients found matching search" : "No patients in queue today"}
           </p>
         ) : (
-          sortedPatients.map((patient) => {
-            // Opens the patient at the station they are waiting at, already selected there.
-            const href = patient.current_station ? stationPageHref(patient.current_station, patient.visit_id) : null;
-            const sticker = findSticker(stickerColours, patient.sticker_colour);
-            return (
-            <div
-              key={patient.visit_id}
-              data-visit-id={patient.visit_id}
-              onClick={(event) => {
-                // The card's own button (Discharge) handles its own clicks.
-                if (href && !(event.target as Element).closest("button")) router.push(href);
-              }}
-              className={`flex items-center justify-between p-4 rounded-lg gap-3 ${ENTER_FAST} ${href ? `cursor-pointer ${LIFT}` : "transition-colors"} ${
-                patient.tb_flagged ? tbCardClass() : "border border-border bg-card hover:bg-accent"
-              }`}
-            >
-              <button
-                type="button"
-                disabled={!href}
-                aria-label={`Open ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${
-                  patient.current_station ? `, at ${stationLabel(patient.current_station)}` : ""}${patient.tb_flagged ? ", suspected TB" : ""}`}
-                onClick={() => href && router.push(href)}
-                className="flex items-center gap-3 min-w-0 text-left disabled:cursor-default"
-              >
-                <span className="flex shrink-0 flex-col items-center gap-1">
-                  <span className="relative flex">
-                    <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                      patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
-                    }`}>
-                      {patient.queue_no}
-                    </span>
-                    <StickerTag sticker={sticker} pinned />
-                  </span>
-                  {patient.tb_flagged && <TbBadge />}
-                  {patient.family && <FamilyBadge family={patient.family} />}
-                </span>
-                <span className="block min-w-0 border-l border-border pl-3">
-                  <span className="block font-medium text-foreground truncate">{patient.english_name}</span>
-                  <span className="block text-sm text-muted-foreground truncate">
-                    {patient.khmer_name}
-                  </span>
-                  {patient.current_station && (
-                    <span className="block text-xs font-medium truncate text-primary">
-                      At {stationLabel(patient.current_station)}
-                    </span>
-                  )}
-                </span>
-              </button>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right text-sm text-muted-foreground">
-                  <div>{patient.age}y, {patient.sex}</div>
-                  <div>{patient.timestamp}</div>
-                </div>
-                {onRemovePatient && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-muted-foreground hover:text-destructive"
-                    title="Discharge patient"
-                    onClick={async () => {
-                      if (!await confirm({
-                        title: `Discharge ${patient.english_name || "this patient"}?`,
-                        description: "They leave today's queue at every station. Their saved records stay.",
-                        confirmLabel: "Discharge",
-                      })) return;
-                      onRemovePatient(patient.visit_id);
-                    }}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            );
-          })
+          <FamilyBlocks
+            blocks={blocks}
+            state={groupState}
+            listRef={listRef}
+            renderCard={renderCard}
+            className="min-h-full space-y-3 px-1 pt-3 pb-4"
+          />
         )}
       {dialog}
     </PageCard>

@@ -156,7 +156,7 @@ there. Veasna follows that:
    Pharmacy is added after Consult as for any patient.
 3. **Clear:** the doctor who sees them in the TB tent presses **Clear TB** on the
    patient's card in the **Consult** queue and confirms in the pop-up. The red marker
-   goes; the patient stays in the Consult queue. Clear TB isn't offered on Home, at
+   goes; the patient stays in the Consult queue. Clear TB isn't offered on Registration, at
    Triage or in other queues.
 4. **Next:** the doctor writes the consultation notes, prescribes, and presses **Next**.
    The patient moves to the Pharmacy queue for their prescriptions (or, with nothing

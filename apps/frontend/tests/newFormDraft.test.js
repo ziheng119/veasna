@@ -15,7 +15,7 @@ global.localStorage = {
 };
 
 const EMPTY = { name: '', requestId: 'r1' };
-const KEY = newRecordDraftKey(7, 'registration', 1);
+const KEY = newRecordDraftKey(7, 'registration');
 let form, setForm;
 function Form({ draftKey }) {
   const [values, set] = React.useState(EMPTY);
@@ -53,15 +53,15 @@ test('reopening the form puts the draft back, with its request id, and a note wi
   expect(values()).toBeNull();
 });
 
-test('nothing is read or written until the account and location are known, and each location has its own', () => {
+test('nothing is read or written until the account is known, and each account has its own', () => {
   writeDraft(KEY, { values: JSON.stringify({ name: 'Sokha', requestId: 'r0' }), base: '', savedAt: Date.now() });
   render(null);
   act(() => setForm({ name: 'Dara', requestId: 'r1' }));
   expect(values()).toEqual({ name: 'Sokha', requestId: 'r0' });
 
   items.clear();
-  render(newRecordDraftKey(7, 'registration', 2));
+  render(newRecordDraftKey(8, 'registration'));
   act(() => setForm({ name: 'Dara', requestId: 'r1' }));
   expect(values()).toBeNull();
-  expect(readDraft(newRecordDraftKey(7, 'registration', 2))).not.toBeNull();
+  expect(readDraft(newRecordDraftKey(8, 'registration'))).not.toBeNull();
 });

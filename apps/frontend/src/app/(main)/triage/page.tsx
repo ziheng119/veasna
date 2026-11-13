@@ -7,7 +7,6 @@ import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import { TriageTabs } from "@/components/triage/TriageTabs";
 import TbFlagPanel from "@/components/triage/TbFlagPanel";
-import { useLocationReminder } from "@/hooks/useLocationReminder";
 import { PageCard } from "@/components/shared/PageCard";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
 import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
@@ -39,7 +38,6 @@ export default function Traige() {
     setQueueVersion((version) => version + 1);
   };
 
-  useLocationReminder();
 
 
     return (

@@ -3,7 +3,6 @@ const { act, create } = require('react-test-renderer');
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 'test' } }) }));
-jest.mock('../src/stores/useLocationStore', () => ({ useLocationStore: selector => selector({ currentLocation: { id: 1 } }) }));
 const QUEUE = [
   { visit_id: 1, patient_id: 11, queue_no: '12', english_name: 'Alice', current_station: 'triage' },
   { visit_id: 2, patient_id: 12, queue_no: '3', english_name: 'Bona', current_station: 'seva' },

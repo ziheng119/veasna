@@ -24,9 +24,8 @@ const { currentVisitDate } = require('../utils/queueNumber');
     });
     await client.connect();
     await client.query(`SET search_path TO pg_temp;
-      CREATE TEMP TABLE locations (id INT PRIMARY KEY, name TEXT);
-      CREATE TEMP TABLE patients (id INT PRIMARY KEY, location_id INT, english_name TEXT, family TEXT);
-      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, location_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
+      CREATE TEMP TABLE patients (id INT PRIMARY KEY, english_name TEXT, family TEXT);
+      CREATE TEMP TABLE visits (id INT PRIMARY KEY, patient_id INT, visit_date DATE, completed_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
       CREATE TEMP TABLE visit_stations (id SERIAL PRIMARY KEY, visit_id INT, station TEXT, position INT, completed_at TIMESTAMP);`);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express();
@@ -42,12 +41,11 @@ const { currentVisitDate } = require('../utils/queueNumber');
   test('a patient waiting today shows their visit and station; finished, other-day and unqueued patients show none', async () => {
     const today = currentVisitDate();
     await client.query(`
-      INSERT INTO locations VALUES (1, 'Village');
-      INSERT INTO patients VALUES (1, 1, 'Ann', NULL), (2, 1, 'Bo', NULL), (3, 1, 'Chan', NULL), (4, 1, 'Dara', NULL);
-      INSERT INTO visits VALUES (10, 1, 1, '${today}', NULL), (11, 2, 1, '${today}', NOW()), (12, 3, 1, '2026-01-01', NULL);
+      INSERT INTO patients VALUES (1, 'Ann', NULL), (2, 'Bo', NULL), (3, 'Chan', NULL), (4, 'Dara', NULL);
+      INSERT INTO visits VALUES (10, 1, '${today}', NULL), (11, 2, '${today}', NOW()), (12, 3, '2026-01-01', NULL);
       INSERT INTO visit_stations (visit_id, station, position, completed_at) VALUES
         (10, 'triage', 1, NOW()), (10, 'dental', 2, NULL), (11, 'triage', 1, NULL), (12, 'triage', 1, NULL);`);
-    const res = await request(app).get('/api/patients').query({ location_id: 1 })
+    const res = await request(app).get('/api/patients')
       .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`);
     expect(res.status).toBe(200);
     expect(res.body.map(({ english_name, queue_visit_id, current_station }) => [english_name, queue_visit_id, current_station])).toEqual([
@@ -59,7 +57,7 @@ const { currentVisitDate } = require('../utils/queueNumber');
     expect(Number.isNaN(Date.parse(ann.last_visit_at))).toBe(false);
     expect(res.body.find(p => p.english_name === 'Dara').last_visit_at).toBeNull();
     // The date filter still works alongside it.
-    const filtered = await request(app).get('/api/patients').query({ location_id: 1, visit_date: '2026-01-01' })
+    const filtered = await request(app).get('/api/patients').query({ visit_date: '2026-01-01' })
       .set('Authorization', `Bearer ${jwt.sign({ id: 1, role: 'user' }, secret)}`);
     expect(filtered.body.map(p => p.english_name)).toEqual(['Chan']);
   });

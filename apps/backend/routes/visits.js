@@ -30,6 +30,7 @@ function registrationResponse(visit, age) {
     patient_id: visit.patient_id,
     queue_no: visit.queue_no,
     sticker_colour: visit.sticker_colour,
+    family: visit.family ?? null,
     current_station: visit.current_station,
     tb_status: visit.tb_status,
     english_name: visit.english_name,
@@ -44,7 +45,7 @@ function registrationResponse(visit, age) {
 async function findRegistration(client, requestId) {
   const { rows } = await client.query(`
     SELECT v.id AS visit_id, v.patient_id, v.queue_no, v.sticker_colour, v.created_at,
-      p.english_name, p.khmer_name, p.sex, tb.status AS tb_status,
+      p.english_name, p.khmer_name, p.sex, p.family, tb.status AS tb_status,
       (SELECT s.station FROM visit_stations s WHERE s.visit_id = v.id
         ORDER BY (s.completed_at IS NOT NULL), s.position LIMIT 1) AS current_station
     FROM visits v
@@ -55,9 +56,9 @@ async function findRegistration(client, requestId) {
 }
 const MAX_DOCTOR_NAME = 100;
 
-// Saved referrals to print, for a day, a period or every date, at one location or all
-// (utils/referralFilter.js). Includes completed visits and unsigned drafts, not just patients still
-// queued. Ordered by referral date, then registration.
+// Saved referrals to print, for a day, a period or every date (utils/referralFilter.js). Includes
+// completed visits and unsigned drafts, not just patients still queued. An account without
+// view_past gets only its day's visits. Ordered by referral date, then registration.
 router.get('/referrals', authenticateToken, async (req, res) => {
   const filter = parseReferralFilter(req.query);
   if (filter.error) return res.status(400).json({ error: filter.error });
@@ -66,16 +67,16 @@ router.get('/referrals', authenticateToken, async (req, res) => {
       SELECT r.visit_id, r.referral_type, r.illness, r.duration, r.reason,
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
         r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
-        p.id AS patient_id, v.location_id, p.english_name, p.khmer_name, p.sex, p.address,
+        p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
         TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
       FROM referral r
       JOIN visits v ON v.id = r.visit_id
       JOIN patients p ON p.id = v.patient_id
-      WHERE ($1::int IS NULL OR v.location_id = $1)
-        AND ($2::date IS NULL OR COALESCE(r.referral_date, v.visit_date) >= $2::date)
-        AND ($3::date IS NULL OR COALESCE(r.referral_date, v.visit_date) <= $3::date)
+      WHERE ($1::date IS NULL OR COALESCE(r.referral_date, v.visit_date) >= $1::date)
+        AND ($2::date IS NULL OR COALESCE(r.referral_date, v.visit_date) <= $2::date)
+        AND ($3::date IS NULL OR v.visit_date = $3::date)
       ORDER BY COALESCE(r.referral_date, v.visit_date) ASC, v.created_at ASC, v.id ASC
-    `, [filter.locationId, filter.from, filter.to]);
+    `, [filter.from, filter.to, req.user.scope_date ?? null]);
     res.setHeader('Cache-Control', 'no-store');
     res.json(rows);
   } catch (error) {
@@ -99,15 +100,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
-    const locationId = toPositiveInt(patientInfo?.location_id);
     // Present only when registering a new visit for an existing patient.
     const existingPatientId = patientInfo?.id == null || patientInfo.id === '' ? null : toPositiveInt(patientInfo.id);
-    // The queue number is always the next one for the location and date (assigned below). A
-    // visit.queue_no sent by an older client is ignored; families are grouped later (routes/family.js).
-
-    if (!locationId) {
-        return res.status(400).json({ error: 'Valid patientInfo.location_id is required.' });
-    }
+    // The queue number is always the next one for the date (assigned below). A
+    // visit.queue_no sent by an older client is ignored; families are grouped from the queue (routes/family.js).
 
     if (existingPatientId === null && patientInfo?.id != null && patientInfo.id !== '') {
         return res.status(400).json({ error: 'patientInfo.id must be a positive integer.' });
@@ -127,6 +123,14 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
     if (!hef || typeof hef !== 'object') {
         return res.status(400).json({ error: 'hef is required.' });
+    }
+    // The NSSF questions: 'yes' or 'no'. Left out (an older app), they are saved as not asked.
+    const nssf = {};
+    for (const field of ['has_nssf', 'uses_hef_nssf']) {
+        const answer = hef[field];
+        if (answer === undefined || answer === null || answer === '') nssf[field] = null;
+        else if (answer === 'yes' || answer === 'no') nssf[field] = answer === 'yes';
+        else return res.status(400).json({ error: `hef.${field} must be 'yes' or 'no'.` });
     }
 
     if (!stations || stations.length === 0) {
@@ -180,9 +184,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         await client.query('BEGIN');
 
         const visitDate = currentVisitDate();
-        // Held until commit: registrations at this location go one at a time, so each gets its own
-        // queue number, and a registration sent twice or a patient queued twice is caught here.
-        await lockQueue(client, locationId);
+        // Held until commit: registrations go one at a time, so each gets its own queue number, and
+        // a registration sent twice or a patient queued twice is caught here.
+        await lockQueue(client);
         if (requestId) {
             const earlier = await findRegistration(client, requestId);
             if (earlier) {
@@ -211,13 +215,12 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         let patientId = existingPatientId;
         if (!patientId) {
             const patientQuery = `
-                INSERT INTO patients (location_id, english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                INSERT INTO patients (english_name, khmer_name, date_of_birth, sex, address, phone_number, last_updated_by)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id;
             `;
             // face_id is generated by a database trigger from the names and date of birth.
             const patientValues = [
-                locationId,
                 patientInfo.english_name,
                 patientInfo.khmer_name,
                 patientInfo.date_of_birth || null,
@@ -253,15 +256,14 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         }
 
         // Step 2: Insert into visits table (the queue is locked above)
-        const queueNo = await getNextQueueNo(client, locationId, visitDate);
+        const queueNo = await getNextQueueNo(client, visitDate);
         const visitQuery = `
-            INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by, sticker_colour, request_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by, sticker_colour, request_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, created_at;
         `;
         const visitValues = [
             patientId,
-            locationId,
             queueNo,
             visitDate,
             last_updated_by,
@@ -308,13 +310,15 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
 
         // Step 4: Insert into HEF table
         const hefQuery = `
-            INSERT INTO hef (visit_id, know_of_hef, has_hef, notes, last_updated_by)
-            VALUES ($1, $2, $3, $4, $5);
+            INSERT INTO hef (visit_id, know_of_hef, has_hef, has_nssf, uses_hef_nssf, notes, last_updated_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7);
         `;
         const hefValues = [
             visitId,
             hef.know_of_hef === 'yes',
             hef.has_hef === 'yes',
+            nssf.has_nssf,
+            nssf.uses_hef_nssf,
             hef.notes,
             last_updated_by
         ];
@@ -341,10 +345,10 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
             return res.status(409).json({ error: 'This registration was already saved. Check the queue before registering again.' });
         }
         if (err && err.code === '23505') {
-            return res.status(409).json({ error: 'Duplicate queue number for this location and date' });
+            return res.status(409).json({ error: 'Duplicate queue number for this date' });
         }
         if (err && err.code === '23503') {
-            return res.status(400).json({ error: 'The location or patient no longer exists. Refresh and try again.' });
+            return res.status(400).json({ error: 'The patient no longer exists. Refresh and try again.' });
         }
         console.error('Error in registration transaction:', err);
         res.status(500).json({ error: 'Failed to register patient' });
@@ -572,13 +576,8 @@ router.get("/seva/:visit_id", authenticateToken, async (req, res) => {
   }
 });
 
-// GET: patients at a location that Seva has marked for referral, newest visit first
+// GET: patients that Seva has marked for referral, newest visit first
 router.get('/seva-referrals', authenticateToken, async (req, res) => {
-  const locationId = toPositiveInt(req.query.location_id);
-  if (!locationId) {
-    return res.status(400).json({ error: 'Valid location_id is required' });
-  }
-
   try {
     const { rows } = await db.query(
       `
@@ -599,11 +598,11 @@ router.get('/seva-referrals', authenticateToken, async (req, res) => {
       FROM seva s
       JOIN visits v ON v.id = s.visit_id
       JOIN patients p ON p.id = v.patient_id
-      WHERE v.location_id = $1 AND s.referral IS NOT NULL
-        AND ${patientOnDaySql('p.id', '$2')}
+      WHERE s.referral IS NOT NULL
+        AND ${patientOnDaySql('p.id', '$1')}
       ORDER BY v.visit_date DESC, s.last_updated_at DESC
       `,
-      [locationId, req.user.scope_date ?? null]
+      [req.user.scope_date ?? null]
     );
     res.status(200).json(rows);
   } catch (err) {

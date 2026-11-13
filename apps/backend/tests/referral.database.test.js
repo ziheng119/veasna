@@ -159,39 +159,39 @@ const db = require('../config/db');
     await client.query('DELETE FROM consultation WHERE visit_id=50');
     await client.query('DELETE FROM visits WHERE id=50');
   });
-  test('daily batch filters location/date, includes completed and undated drafts, and validates input', async () => {
+  test('daily batch filters by date, includes completed and undated drafts, and validates input', async () => {
     await client.query(`
-      ALTER TABLE visits ADD COLUMN location_id INT DEFAULT 1, ADD COLUMN patient_id INT DEFAULT 1,
+      ALTER TABLE visits ADD COLUMN patient_id INT DEFAULT 1,
         ADD COLUMN visit_date DATE DEFAULT '2026-10-20', ADD COLUMN created_at TIMESTAMP DEFAULT NOW(),
         ADD COLUMN completed_at TIMESTAMP;
       CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, address TEXT, date_of_birth DATE);
       INSERT INTO patients VALUES (1,'Patient','','F','Address','2000-01-01');
       UPDATE visits SET completed_at=NOW() WHERE id=1;
-      UPDATE visits SET location_id=2 WHERE id=2;
       INSERT INTO visits (id) VALUES (3),(4),(5);
       UPDATE visits SET visit_date='2026-10-19' WHERE id=4;
       INSERT INTO referral (visit_id, referral_type, illness, duration, reason, last_updated_by) VALUES
         (3,'Dentist','','','Undated draft',1), (4,'Dentist','','','Yesterday',1);
     `);
     const daily = (query) => request(app).get('/referrals').set('Authorization', `Bearer ${token}`).query(query);
-    const response = await daily({ location_id: 1, date: '2026-10-20' });
+    const response = await daily({ date: '2026-10-20' });
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
-    expect(response.body.map(row => row.visit_id)).toEqual([1, 3]);
+    expect(response.body.map(row => row.visit_id)).toEqual([1, 2, 3]);
     expect(response.body[0]).toHaveProperty('doctor_name', null);
     expect(response.body[0]).toMatchObject({ patient_id: 1, date_of_birth: '2000-01-01', referral_date: '2026-10-20' });
-    expect(response.body[1].signature).toBeNull();
-    expect((await daily({ location_id: 1, date: '2026-10-22' })).body).toEqual([]);
-    // A period (both days included) and every date list earlier days first; "all" covers every location.
-    expect((await daily({ location_id: 1, from: '2026-10-19', to: '2026-10-20' })).body.map(row => row.visit_id)).toEqual([4, 1, 3]);
-    expect((await daily({ location_id: 1, all: 'true' })).body.map(row => row.visit_id)).toEqual([4, 1, 3]);
-    const everywhere = (await daily({ location_id: 'all', date: '2026-10-20' })).body;
-    expect(everywhere.map(row => [row.visit_id, row.location_id])).toEqual([[1, 1], [2, 2], [3, 1]]);
-    expect((await daily({ location_id: 1, from: '2026-10-21', to: '2026-10-20' })).status).toBe(400);
-    for (const query of [{}, { location_id: -1, date: '2026-10-20' }, { location_id: 1, date: '2026-02-30' }]) {
+    expect(response.body[2].signature).toBeNull();
+    expect(response.body[0]).not.toHaveProperty('location_id');
+    expect((await daily({ date: '2026-10-22' })).body).toEqual([]);
+    // A period (both days included) and every date list earlier days first.
+    expect((await daily({ from: '2026-10-19', to: '2026-10-20' })).body.map(row => row.visit_id)).toEqual([4, 1, 2, 3]);
+    expect((await daily({ all: 'true' })).body.map(row => row.visit_id)).toEqual([4, 1, 2, 3]);
+    // An older client still sends a location; it is ignored.
+    expect((await daily({ location_id: 1, date: '2026-10-20' })).body.map(row => row.visit_id)).toEqual([1, 2, 3]);
+    expect((await daily({ from: '2026-10-21', to: '2026-10-20' })).status).toBe(400);
+    for (const query of [{}, { date: '2026-02-30' }]) {
       expect((await daily(query)).status).toBe(400);
     }
-    expect((await request(app).get('/referrals').query({ location_id: 1, date: '2026-10-20' })).status).toBe(401);
+    expect((await request(app).get('/referrals').query({ date: '2026-10-20' })).status).toBe(401);
   });
   test('condition selections persist, reject invalid input, can be changed by users and preserve labels for older clients', async () => {
     const migration = fs.readFileSync(path.join(__dirname, '../migrations/015_consultation_conditions.sql'), 'utf8');

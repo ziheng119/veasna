@@ -10,21 +10,16 @@ const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
 const { planStationRoute, setStationNeeded } = require('../utils/stationRoute');
 const { isTbVisit, TB_ROUTE_LOCKED_ERROR } = require('../utils/tb');
-const { lockFamilies, visitLocation, advanceVisit, releaseFamily } = require('../utils/familyMoves');
+const { lockFamilies, visitExists, advanceVisit, releaseFamily } = require('../utils/familyMoves');
 
-// GET /api/queue?location_id=...&date=...[&station=...]
+// GET /api/queue?date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
 // waiting at that station, in the order they arrived there.
 router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
-    const location_id = toPositiveInt(req.query.location_id);
     // Defaults to the host's clinic day, the same date registration assigns to new visits. A
-    // screening-day account always sees its own day's queue (utils/dayScope.js).
+    // an account without view_past always sees its own day's queue (utils/dayScope.js).
     const date = req.user.scope_date || req.query.date || currentVisitDate();
     const station = req.query.station || null;
-
-    if (!location_id) {
-        return res.status(400).json({ error: 'location_id must be a positive integer' });
-    }
 
     if (!isIsoDate(date)) {
         return res.status(400).json({ error: 'date must be a valid YYYY-MM-DD date' });
@@ -91,14 +86,13 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 ORDER BY s.position
                 LIMIT 1
             ) cur ON TRUE
-            WHERE v.location_id = $1
-              AND v.visit_date::date = $2::date
+            WHERE v.visit_date::date = $1::date
               AND v.completed_at IS NULL
-              AND ($3::text IS NULL OR cur.station = $3)
-            ORDER BY CASE WHEN $3::text IS NULL THEN v.created_at ELSE COALESCE(cur.entered_at, v.created_at) END ASC,
+              AND ($2::text IS NULL OR cur.station = $2)
+            ORDER BY CASE WHEN $2::text IS NULL THEN v.created_at ELSE COALESCE(cur.entered_at, v.created_at) END ASC,
                      v.id ASC;
         `;
-        const result = await db.query(queryText, [location_id, date, station]);
+        const result = await db.query(queryText, [date, station]);
         res.status(200).json(result.rows);
     } catch (err) {
         console.error('Error fetching queue:', err);
@@ -106,16 +100,10 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
     }
 });
 
-// GET /api/queue/next?location_id=... - Preview the next queue number for today
+// GET /api/queue/next - Preview the next queue number for today
 router.get('/next', authenticateToken, requireRole(['any']), async (req, res) => {
-    const locationId = toPositiveInt(req.query.location_id);
-
-    if (!locationId) {
-        return res.status(400).json({ error: 'location_id must be a positive integer' });
-    }
-
     try {
-        const queueNo = await getNextQueueNo(db, locationId, currentVisitDate());
+        const queueNo = await getNextQueueNo(db, currentVisitDate());
         res.status(200).json({ queue_no: queueNo });
     } catch (err) {
         console.error('Error fetching next queue number:', err);
@@ -150,16 +138,15 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
     try {
         await client.query('BEGIN');
 
-        const locationId = await visitLocation(client, visitId);
-        if (locationId === null) {
+        if (!await visitExists(client, visitId)) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Visit not found' });
         }
         // Family moves lock every member, so the family lock comes before this visit's row lock.
-        await lockFamilies(client, locationId);
+        await lockFamilies(client);
         // Lock the visit so two devices cannot advance it at the same time
         const visit = await client.query(
-            `SELECT v.id, v.completed_at, p.family, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
+            `SELECT v.id, v.completed_at, p.family, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
              FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1 FOR UPDATE OF v`,
             [visitId]
         );
@@ -230,12 +217,11 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
     }
     try {
         await client.query('BEGIN');
-        const locationId = await visitLocation(client, visitId);
-        if (locationId !== null) await lockFamilies(client, locationId);
+        await lockFamilies(client);
         // This is the same row lock used by station completion, so routing cannot
         // race with another device moving or discharging the patient.
         const visit = await client.query(
-            `SELECT v.id, v.completed_at, p.family, v.location_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
+            `SELECT v.id, v.completed_at, p.family, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date
              FROM visits v JOIN patients p ON p.id = v.patient_id WHERE v.id = $1 FOR UPDATE OF v`,
             [visitId]
         );
@@ -368,8 +354,7 @@ router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async
     }
     try {
         await client.query('BEGIN');
-        const locationId = await visitLocation(client, visitId);
-        if (locationId !== null) await lockFamilies(client, locationId);
+        await lockFamilies(client);
         const result = await client.query(
             `
             UPDATE visits
@@ -377,7 +362,7 @@ router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async
                 last_updated_by = $1,
                 last_updated_at = NOW()
             WHERE id = $2
-            RETURNING id, completed_at, last_updated_at, last_updated_by, location_id,
+            RETURNING id, completed_at, last_updated_at, last_updated_by,
                 TO_CHAR(visit_date, 'YYYY-MM-DD') AS visit_date,
                 (SELECT family FROM patients WHERE patients.id = visits.patient_id) AS family
             `,
@@ -388,8 +373,8 @@ router.post('/:visitId/complete', authenticateToken, requireRole(['any']), async
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Visit not found' });
         }
-        const { family, location_id, visit_date, ...visit } = result.rows[0];
-        await releaseFamily(client, { location_id, visit_date }, family, last_updated_by);
+        const { family, visit_date, ...visit } = result.rows[0];
+        await releaseFamily(client, { visit_date }, family, last_updated_by);
         await client.query('COMMIT');
         res.status(200).json({ visit });
     } catch (err) {

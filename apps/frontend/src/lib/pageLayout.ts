@@ -5,9 +5,17 @@
 // Root of a page. Fixed-height rows (headers, search bars) go directly inside it.
 export const PAGE_SHELL = "flex flex-col gap-5 xl:h-full xl:min-h-[520px]";
 
+// A station's queue (the first 4 of 12 columns) folds to a narrow strip while a patient is open
+// (QueuePatientPicker marks its card data-queue-compact): its columns narrow and the rest widen,
+// gliding, with the same 12 columns. Add to a 12-column row that holds the queue.
+// The 12 columns are written as 4 + 8 on both sides, so browsers can glide between them; the panels
+// beside the queue (and the forms in them) widen and narrow with it, frame by frame.
+export const QUEUE_FOLD =
+  "xl:grid-cols-[repeat(4,minmax(0,1fr))_repeat(8,minmax(0,1fr))] xl:transition-[grid-template-columns] xl:duration-250 xl:ease-out motion-reduce:transition-none xl:[&:has(>[data-queue-compact])]:grid-cols-[repeat(4,minmax(0,0.32fr))_repeat(8,minmax(0,1.34fr))]";
+
 // 12-column row of panels that takes the remaining height. Panels use `xl:col-span-*`.
 export const PANEL_GRID =
-  "grid grid-cols-1 gap-6 xl:grid-cols-12 xl:grid-rows-1 xl:h-full xl:min-h-0 xl:flex-1";
+  `grid grid-cols-1 gap-6 xl:grid-rows-1 xl:h-full xl:min-h-0 xl:flex-1 ${QUEUE_FOLD}`;
 
 // For a plain wrapper around a panel, so the panel inside can shrink and scroll.
 export const PANEL_WRAPPER = "xl:min-h-0";

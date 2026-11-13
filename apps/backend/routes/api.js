@@ -8,7 +8,6 @@ router.use(authorizeApi);
 const sessionRoutes = require('./session');
 const patientRoutes = require('./patient');
 const patientsRoutes = require('./patients');
-const locationRoutes = require('./locations');
 const registrationRoutes = require('./registration');
 const queueRoutes = require('./queue');
 const visitRoutes = require('./visits');
@@ -24,7 +23,6 @@ const formOptionRoutes = require('./formOptions');
 const exportRoutes = require('./export');
 
 router.use('/auth', sessionRoutes);
-router.use('/locations', locationRoutes);
 router.use('/registration', registrationRoutes);
 router.use('/queue', queueRoutes);
 router.use('/visits', visitRoutes);

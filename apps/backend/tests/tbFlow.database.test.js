@@ -50,8 +50,8 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
     for (const table of ['visits', 'visit_stations', 'tb_screening']) {
       const start = setup.indexOf(`CREATE TABLE ${table} (`);
       let sql = setup.slice(start, setup.indexOf('\n);', start) + 3);
-      // Visits reference patients and locations, which these tests do not need.
-      if (table === 'visits') sql = sql.replace(/REFERENCES (patients|locations)\(id\)\s+ON DELETE \w+( NULL)? ON UPDATE CASCADE/g, '');
+      // Visits reference patients, which these tests do not need.
+      if (table === 'visits') sql = sql.replace(/REFERENCES patients\(id\)\s+ON DELETE \w+ ON UPDATE CASCADE/g, '');
       await client.query(sql.replace('CREATE TABLE', 'CREATE TEMP TABLE'));
     }
     const history = fs.readFileSync(path.join(__dirname, '../migrations/010_station_route_history.sql'), 'utf8');
@@ -68,7 +68,7 @@ const THREE_FLAGS = ['cough_2_weeks', 'fever', 'night_sweats'];
   beforeEach(() => client.query(`
     TRUNCATE visit_station_route_history, tb_screening, visit_stations, visits, users, patients RESTART IDENTITY CASCADE;
     INSERT INTO users VALUES (${ADMIN_ID}), (${USER_ID}); INSERT INTO patients (id) VALUES (1);
-    INSERT INTO visits (patient_id, location_id, queue_no, visit_date, last_updated_by) VALUES (1, 1, '7', CURRENT_DATE, ${USER_ID});`));
+    INSERT INTO visits (patient_id, queue_no, visit_date, last_updated_by) VALUES (1, '7', CURRENT_DATE, ${USER_ID});`));
 
   afterAll(async () => {
     if (client) await client.end();

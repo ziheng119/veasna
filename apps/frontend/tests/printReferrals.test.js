@@ -38,22 +38,26 @@ afterEach(async () => {
   useHostClockStore.setState({ offsetMs: 0, utcOffsetMinutes: null });
 });
 const render = async props => {
-  await act(async () => { renderer = create(React.createElement(PrintReferralsDialog, { open: true, onOpenChange, locationId: 4, ...props })); });
+  await act(async () => { renderer = create(React.createElement(PrintReferralsDialog, { open: true, onOpenChange, ...props })); });
 };
 const footerButtons = () => renderer.root.findByProps({ 'data-dialog': 'footer' }).findAllByType('button');
 const printButton = () => footerButtons()[1];
 const choose = label => act(async () => renderer.root.findAll(n => n.props.role === 'radio' && n.type === 'button').find(n => text(n) === label).props.onClick());
 const dateInputs = () => renderer.root.findAllByType('input');
 
-test('Consult\'s "Print referrals" is shown only to admins', async () => {
+test('Consult\'s "Print referrals" is shown only with the "Print and download" permission', async () => {
   useUserStore.setState({ user: { id: 2, username: 'user', role: 'user', token: 't' } });
-  await act(async () => { renderer = create(React.createElement(PrintReferrals, { locationId: 4 })); });
+  await act(async () => { renderer = create(React.createElement(PrintReferrals)); });
   expect(renderer.root.findAllByType('button')).toHaveLength(0);
+  await act(async () => renderer.unmount());
+  useUserStore.setState({ user: { id: 2, username: 'user', role: 'user', token: 't', permissions: ['print'] } });
+  await act(async () => { renderer = create(React.createElement(PrintReferrals)); });
+  expect(renderer.root.findAllByType('button').filter(b => text(b).includes('Print referrals'))).toHaveLength(1);
 });
 
 test('Consult\'s "Print referrals" opens a pop-up offering today (the default) or another date', async () => {
   useUserStore.setState({ user: { id: 1, username: 'admin', role: 'admin', token: 't' } });
-  await act(async () => { renderer = create(React.createElement(PrintReferrals, { locationId: 4 })); });
+  await act(async () => { renderer = create(React.createElement(PrintReferrals)); });
   const open = renderer.root.findAllByType('button').find(b => text(b).includes('Print referrals'));
   await act(async () => open.props.onClick());
   expect(renderer.root.findAllByProps({ role: 'dialog' })).toHaveLength(1);
@@ -69,7 +73,7 @@ test("printing today (the host laptop's date, not this device's), then another d
   await render();
   getReferrals.mockResolvedValueOnce([{ visitId: 1 }]);
   await act(async () => printButton().props.onClick());
-  expect(getReferrals).toHaveBeenLastCalledWith(4, { kind: 'date', date: hostDate });
+  expect(getReferrals).toHaveBeenLastCalledWith({ kind: 'date', date: hostDate });
   expect(popup.document.write).toHaveBeenCalledWith('<html>Batch</html>');
   expect(popup.print).toHaveBeenCalledTimes(1);
   expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -78,13 +82,13 @@ test("printing today (the host laptop's date, not this device's), then another d
   await act(async () => dateInputs()[0].props.onChange({ target: { value: '2026-10-03' } }));
   getReferrals.mockResolvedValueOnce([]);
   await act(async () => printButton().props.onClick());
-  expect(getReferrals).toHaveBeenLastCalledWith(4, { kind: 'date', date: '2026-10-03' });
+  expect(getReferrals).toHaveBeenLastCalledWith({ kind: 'date', date: '2026-10-03' });
   expect(popup.close).toHaveBeenCalled();
-  expect(toast).toHaveBeenCalledWith('No saved referrals on 3 Oct 2026 at this location.');
+  expect(toast).toHaveBeenCalledWith('No saved referrals on 3 Oct 2026.');
 });
 
-test('analytics can print a period or every date, at every location; a backwards period is refused', async () => {
-  await render({ locationId: 'all', choices: ['today', 'date', 'period', 'all'], initialDate: '2026-10-05' });
+test('analytics can print a period or every date; a backwards period is refused', async () => {
+  await render({ choices: ['today', 'date', 'period', 'all'], initialDate: '2026-10-05' });
   await choose('A period');
   const [from, to] = dateInputs();
   expect([from.props.value, to.props.value]).toEqual(['2026-10-05', '2026-10-05']);
@@ -94,12 +98,12 @@ test('analytics can print a period or every date, at every location; a backwards
   await act(async () => dateInputs()[0].props.onChange({ target: { value: '2026-10-01' } }));
   getReferrals.mockResolvedValueOnce([{ visitId: 1 }]);
   await act(async () => printButton().props.onClick());
-  expect(getReferrals).toHaveBeenLastCalledWith('all', { kind: 'period', from: '2026-10-01', to: '2026-10-05' });
+  expect(getReferrals).toHaveBeenLastCalledWith({ kind: 'period', from: '2026-10-01', to: '2026-10-05' });
 
   await choose('All dates');
   getReferrals.mockResolvedValueOnce([{ visitId: 1 }]);
   await act(async () => printButton().props.onClick());
-  expect(getReferrals).toHaveBeenLastCalledWith('all', { kind: 'all' });
+  expect(getReferrals).toHaveBeenLastCalledWith({ kind: 'all' });
 });
 
 test('a blocked pop-up, a failure and a double click are handled', async () => {

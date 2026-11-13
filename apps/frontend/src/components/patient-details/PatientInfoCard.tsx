@@ -7,7 +7,6 @@ import EditableRecordSection, { FieldOption, FieldSpec } from "./EditableRecordS
 import { calculateAge } from "@/helper/calculate_age";
 import { updatePatient } from "@/lib/api/patient/updatePatient";
 import { PatientInfo } from "@/lib/types/patient";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserStore } from "@/stores/useUserStore";
 
 type PatientDraft = {
@@ -17,7 +16,6 @@ type PatientDraft = {
   sex: string;
   phone_number: string;
   address: string;
-  location_id: string;
 };
 
 const SEX_OPTIONS: FieldOption[] = [
@@ -28,7 +26,6 @@ const SEX_OPTIONS: FieldOption[] = [
 // The patient record as returned by GET /api/patient/:id.
 export type PatientRecord = PatientInfo & {
   last_updated_at?: string;
-  location_name?: string | null;
 };
 
 interface Props {
@@ -39,10 +36,9 @@ interface Props {
   onStale: () => void;
 }
 
-/** Demographics of the patient. Any account can correct them; the Unique ID is regenerated on save. */
+/** Demographics of the patient, corrected by accounts that may edit them; the Unique ID is regenerated on save. */
 export default function PatientInfoCard({ patient, canEdit, onSaved, onStale }: Props) {
   const token = useUserStore((state) => state.user?.token);
-  const locations = useLocationStore((state) => state.locations);
 
   const record = useMemo<PatientDraft>(() => ({
     english_name: patient.english_name ?? "",
@@ -51,17 +47,7 @@ export default function PatientInfoCard({ patient, canEdit, onSaved, onStale }: 
     sex: patient.sex ?? "",
     phone_number: patient.phone_number ?? "",
     address: patient.address ?? "",
-    location_id: patient.location_id ? String(patient.location_id) : "",
   }), [patient]);
-
-  const locationOptions = useMemo<FieldOption[]>(() => {
-    const options = locations.map((l) => ({ value: String(l.id), label: l.name }));
-    // Keep an inactive or not-yet-loaded location selectable so saving does not change it.
-    if (patient.location_id && !options.some((o) => o.value === String(patient.location_id))) {
-      options.unshift({ value: String(patient.location_id), label: patient.location_name ?? `Location ${patient.location_id}` });
-    }
-    return options;
-  }, [locations, patient.location_id, patient.location_name]);
 
   const fields: FieldSpec<PatientDraft>[] = [
     { key: "english_name", label: "English Name", kind: "text" },
@@ -69,7 +55,6 @@ export default function PatientInfoCard({ patient, canEdit, onSaved, onStale }: 
     { key: "date_of_birth", label: "Date of Birth", kind: "date" },
     { key: "sex", label: "Sex", kind: "select", options: SEX_OPTIONS },
     { key: "phone_number", label: "Phone Number", kind: "text" },
-    { key: "location_id", label: "Registered Location", kind: "select", options: locationOptions },
     { key: "address", label: "Address", kind: "textarea", wide: true },
   ];
 
@@ -81,7 +66,6 @@ export default function PatientInfoCard({ patient, canEdit, onSaved, onStale }: 
     const result = await updatePatient(patient.id, {
       ...draft,
       sex: draft.sex as PatientInfo["sex"],
-      location_id: draft.location_id ? Number(draft.location_id) : undefined,
     }, token, patient.last_updated_at);
     // Saved elsewhere: what was typed stays, the saved details load underneath, and Save again
     // (now with their version) replaces them.

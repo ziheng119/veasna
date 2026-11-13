@@ -1,15 +1,18 @@
-// Every account except the admin sees only the patients queued on one day, and those patients'
-// earlier visits (their history, opened from their queue card). Patient data is therefore limited
-// to the villagers who come that day; only the admin browses every patient.
-//   Screening-day accounts (users.screening_date set, e.g. dec13village for 2026-12-13), shared by
-//   every volunteer on that day: that date. They save only on that date.
-//   Other non-admin accounts (e.g. the retired shared "user"): the host's clinic day.
-// Saves are allowed only to that day's visits.
+// Every account except the admin works on one day: a screening-day account (users.screening_date
+// set, e.g. dec13village for 2026-12-13, shared by every volunteer that day) on that date, any other
+// non-admin account (e.g. the retired shared "user") on the host's clinic day. What it may do there
+// is set by its permissions (utils/permissions.js):
+//   Reading: the patients queued that day, and those patients' earlier visits (their history, opened
+//   from their queue card). With view_past, every patient and visit.
+//   Saving: only while it is that day on the host. With edit_today, that day's visits; with
+//   edit_past, earlier visits too.
 //
-// Lists filter themselves with patientOnDaySql; single records are checked by checkDayScope, which
-// authorizeApi runs before every request. A request it does not know is refused (fail closed).
+// Lists filter themselves with patientOnDaySql and req.user.scope_date (null: no filter); single
+// records are checked by checkDayScope, which authorizeApi runs before every request. A request it
+// does not know is refused (fail closed).
 const { toPositiveInt } = require('./validation');
 const { currentVisitDate } = require('./queueNumber');
+const { hasPermission } = require('./permissions');
 
 // SQL condition: the patient (patientExpr) has a visit on the date in `param`, or `param` is NULL
 // (an account without a screening date).
@@ -27,7 +30,9 @@ const READ_RULES = [
   [/^\/prescriptions\/patient\/(\d+)$/, m => ({ patients: [m[1]] })],
   [/^\/prescriptions$/, (_m, req) => ({ visits: [req.query.visit_id] })],
   // Lists that filter by the screening day in their own queries, or that hold no patient records.
-  [/^\/(queue|queue\/next|patients|patients\/search|patients\/lookup|visits\/seva-referrals|prescriptions\/patients|pharmacy|pharmacy\/stats|locations|auth\/me|users|form-options)$/, () => ({})],
+  [/^\/(queue|queue\/next|patients|patients\/search|patients\/lookup|visits\/seva-referrals|visits\/referrals|prescriptions\/patients|pharmacy|pharmacy\/stats|auth\/me|users|form-options|export\/patients)$/, () => ({})],
+  // Totals with no patient's records (needs the analytics permission).
+  [/^\/analytics(\/(referrals|trend))?$/, () => ({})],
 ];
 const WRITE_RULES = [
   [/^\/queue\/(\d+)\/.+$/, m => ({ visits: [m[1]] })],
@@ -40,17 +45,26 @@ const WRITE_RULES = [
   [/^\/(triage\/[a-z-]+|prescriptions)$/, (_m, req) => ({ visits: [req.body?.visit_id] })],
   [/^\/family(\/leave)?$/, (_m, req) => ({ patients: [req.body?.patient_id, req.body?.with_patient_id] })],
   // Creating a patient or a visit: the new visit gets today's date, which the date check below
-  // has already confirmed is the screening day. Adding a medicine holds no patient data.
-  [/^\/(registration|visits|patients|pharmacy)$/, () => ({})],
+  // has already confirmed is the screening day.
+  [/^\/(registration|visits|patients)$/, () => ({})],
+  // Pharmacy stock (needs the pharmacy permission), which holds no patient data.
+  [/^\/pharmacy(\/\d+(\/(name|dispense))?)?$/, () => ({})],
+  [/^\/prescriptions\/\d+\/(dispense|cancel)$/, () => ({})],
 ];
 
 const ids = values => [...new Set((values ?? []).map(toPositiveInt).filter(Boolean))];
 
-// The day an account is limited to (YYYY-MM-DD), or null for the admin. Lists filter with it
-// (req.user.scope_date, set by middleware/authorizeApi.js).
-function scopeDate(user) {
+// The day an account works on (YYYY-MM-DD), or null for the admin.
+function workingDay(user) {
   if (!user || user.role === 'admin') return null;
   return user.screening_date || currentVisitDate();
+}
+
+// The day whose patients an account sees in lists, or null for every patient (the admin, or the
+// view_past permission). Lists filter with it (req.user.scope_date, set by middleware/authorizeApi.js).
+function scopeDate(user) {
+  if (!user || user.role === 'admin' || hasPermission(user, 'view_past')) return null;
+  return workingDay(user);
 }
 
 // A screening-day account stops working once its day is over on the host's calendar: it can no
@@ -68,18 +82,19 @@ function screeningDayEndedMessage(user) {
 }
 
 // The visits an account may change, as checkDayScope enforces for saves: every visit for the admin
-// ({ all: true }); otherwise only visits dated its day, and only while it is that day on the host
-// (day is null on any other date, so nothing is editable). Lets Patient Details show earlier visits
-// as read-only instead of failing on save.
+// ({ all: true }). Other accounts only while it is their day on the host: with edit_past every
+// visit, with edit_today that day's visits, otherwise none (day is null). Lets Patient Details show
+// visits it can't change as read-only instead of failing on save.
 function saveScope(user) {
-  const day = user?.scope_date === undefined ? scopeDate(user) : user.scope_date;
+  const day = workingDay(user);
   if (!day) return { all: true, day: null };
-  return { all: false, day: currentVisitDate() === day ? day : null };
+  if (currentVisitDate() !== day || !hasPermission(user, 'edit_today')) return { all: false, day: null };
+  return { all: hasPermission(user, 'edit_past'), day };
 }
 
 // Resolves to null when the request may go ahead, otherwise { status, message }.
 async function checkDayScope(db, req, rawPath) {
-  const day = req.user?.scope_date === undefined ? scopeDate(req.user) : req.user.scope_date;
+  const day = workingDay(req.user);
   if (!day) return null;
   const path = rawPath.replace(/\/+$/, '') || '/';
   const reading = req.method === 'GET' || req.method === 'HEAD';
@@ -88,6 +103,8 @@ async function checkDayScope(db, req, rawPath) {
   }
   const rule = (reading ? READ_RULES : WRITE_RULES).find(([pattern]) => pattern.test(path));
   if (!rule) return { status: 403, message: 'This screening-day account cannot do this.' };
+  // Every patient and visit: reading with view_past, saving with edit_past.
+  if (hasPermission(req.user, reading ? 'view_past' : 'edit_past')) return null;
   const targets = rule[1](path.match(rule[0]), req);
   const patients = ids(targets.patients);
   const visits = ids(targets.visits);
@@ -102,8 +119,8 @@ async function checkDayScope(db, req, rawPath) {
   );
   if (rows[0].patients === patients.length && rows[0].visits === visits.length) return null;
   return reading
-    ? { status: 404, message: 'Not found. This account only shows patients queued on its screening day.' }
-    : { status: 403, message: 'This account can only change visits from its screening day.' };
+    ? { status: 404, message: `Not found. This account only shows patients queued on ${day}; seeing earlier patients needs the "See past patients" permission.` }
+    : { status: 403, message: `This account can only change visits from ${day}; earlier visits need the "Edit past visits" permission.` };
 }
 
-module.exports = { patientOnDaySql, checkDayScope, scopeDate, saveScope, screeningDayEnded, screeningDayEndedMessage };
+module.exports = { patientOnDaySql, checkDayScope, workingDay, scopeDate, saveScope, screeningDayEnded, screeningDayEndedMessage };
