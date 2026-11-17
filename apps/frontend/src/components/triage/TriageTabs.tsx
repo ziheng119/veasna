@@ -268,7 +268,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                                         checked={sevaDone || sendToSeva}
                                         disabled={sevaDone}
                                         onCheckedChange={(checked) => setSendToSeva(checked === true)}
-                                        className="mt-0.5 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                        className="mt-0.5 bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                     />
                                     <div>
                                         <Label htmlFor="send-to-seva" className="text-foreground">Suspected cataract: send to {PARTNER_NGO_NAME}</Label>

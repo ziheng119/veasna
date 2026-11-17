@@ -55,7 +55,10 @@ export default function RegistrationPage() {
             onFamilyChanged={() => Promise.all([refreshQueuePatients(), refreshAllPatients()])}
           />
         </div>
-        <div id="patient-registration" data-tour="registration" className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9`}>
+        {/* On tablets (below xl) the panels stack: the form comes first for accounts that register,
+            so it starts on the first screen; side by side, the queue stays on the left. */}
+        <div id="patient-registration" data-tour="registration"
+          className={`${PANEL_WRAPPER} xl:col-span-8 2xl:col-span-9 ${canRegister ? "order-first xl:order-none" : ""}`}>
           {canRegister ? (
             <PatientForm
               existingPatients={patients}

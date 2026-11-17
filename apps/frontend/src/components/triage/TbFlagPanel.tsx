@@ -111,7 +111,7 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
                     : prev.filter((id) => id !== flag.id)
                 )
               }
-              className="border-border bg-background data-[state=checked]:border-destructive data-[state=checked]:bg-destructive"
+              className="bg-background data-[state=checked]:border-destructive data-[state=checked]:bg-destructive"
             />
             <Label htmlFor={`triage-tb-${flag.id}`} className="text-muted-foreground">{flag.label}</Label>
           </div>

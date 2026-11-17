@@ -200,7 +200,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
     >
         {sortedPatients.length === 0 ? (
           <p className="text-muted-foreground text-center">
-            {searchQuery ? "No patients found matching search" : "No patients in queue today"}
+            {searchQuery ? "No patients found matching search" : "No one is queued yet today. Patients appear here once you register them."}
           </p>
         ) : (
           <FamilyBlocks

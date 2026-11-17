@@ -31,11 +31,42 @@
   background-color: var(--muted-foreground);
 }
 
+/* TeX Gyre Heros (a free Helvetica lookalike, GUST Font License) is served from public/fonts by
+   the host, so every LAN device shows the same font without internet. */
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-bolditalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
-  /* Installed system fonts keep builds and LAN clients independent of font CDNs. */
-  --font-geist-sans: Arial, Helvetica, sans-serif;
-  --font-geist-mono: Consolas, "Courier New", monospace;
-  --font-inter: Arial, Helvetica, sans-serif;
+  /* Every font is the bundled TeX Gyre Heros; the rest only cover a failed font download. */
+  --font-geist-sans: "TeX Gyre Heros", Helvetica, Arial, sans-serif;
+  --font-geist-mono: var(--font-geist-sans);
+  --font-inter: var(--font-geist-sans);
   --radius: 0.65rem;
   --background: oklch(0.97 0.004 286.2);
   --foreground: oklch(0.141 0.005 285.823);
@@ -43,18 +74,18 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.623 0.214 259.815);
+  --primary: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --primary-foreground: oklch(0.97 0.014 254.604);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
+  --muted-foreground: oklch(0.53 0.016 285.938); /* 4.8:1 on the canvas, so placeholders pass AA */
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
+  --ring: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -62,12 +93,12 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
   --sidebar-accent: oklch(0.967 0.001 286.375);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --sidebar-ring: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --color-blue-default: oklch(0.56 0.2 258);
   --color-green-default: oklch(0.66 0.16 151);
   --color-beige-default: oklch(0.96 0.02 88);

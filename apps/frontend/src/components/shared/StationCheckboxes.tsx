@@ -36,9 +36,9 @@ export function StationCheckboxes({ idPrefix, selected, onChange, locked = [], o
               checked={isLocked || selected.includes(station.id)}
               disabled={isLocked}
               onCheckedChange={(checked) => toggle(station.id, checked === true)}
-              className="border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              className="bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
             />
-            <Label htmlFor={`${idPrefix}-${station.id}`} className="text-muted-foreground">
+            <Label htmlFor={`${idPrefix}-${station.id}`} className="font-normal">
               {station.label}
               {isLocked ? " (done)" : ""}
             </Label>

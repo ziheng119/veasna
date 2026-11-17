@@ -45,7 +45,7 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Registration", path: "/", target: "registration", side: "left", tab: "patient-info",
     title: "Register each patient here",
-    body: "New patients start here, in three tabs: Patient Info, Vitals and HEF.",
+    body: "New patients start here, in three tabs: Patient Info, Vitals, then HEF, TB & stations.",
   },
   {
     chapter: "Registration", path: "/", target: "reg-name", side: "bottom", tab: "patient-info",

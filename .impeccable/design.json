@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T09:06:45+00:00",
+  "title": "Design System: Veasna",
+  "extensions": {
+    "colorMeta": {
+      "battambang-blue": {
+        "role": "primary",
+        "displayName": "Project Battambang Blue",
+        "canonical": "oklch(0.461 0.122 262.8)",
+        "tonalRamp": [
+          "oklch(0.15 0.055 262.8)",
+          "oklch(0.25 0.072 262.8)",
+          "oklch(0.35 0.089 262.8)",
+          "oklch(0.46 0.107 262.8)",
+          "oklch(0.58 0.117 262.8)",
+          "oklch(0.70 0.097 262.8)",
+          "oklch(0.84 0.074 262.8)",
+          "oklch(0.95 0.055 262.8)"
+        ]
+      },
+      "blue-ink-foreground": {
+        "role": "primary",
+        "displayName": "Blue Ink Foreground",
+        "canonical": "oklch(0.97 0.014 254.604)",
+        "tonalRamp": [
+          "oklch(0.15 0.006 254.6)",
+          "oklch(0.25 0.008 254.6)",
+          "oklch(0.35 0.010 254.6)",
+          "oklch(0.46 0.012 254.6)",
+          "oklch(0.58 0.013 254.6)",
+          "oklch(0.70 0.011 254.6)",
+          "oklch(0.84 0.008 254.6)",
+          "oklch(0.95 0.006 254.6)"
+        ]
+      },
+      "mist-canvas": {
+        "role": "neutral",
+        "displayName": "Mist Canvas",
+        "canonical": "oklch(0.97 0.004 286.2)",
+        "tonalRamp": [
+          "oklch(0.15 0.004 286.2)",
+          "oklch(0.25 0.004 286.2)",
+          "oklch(0.35 0.004 286.2)",
+          "oklch(0.46 0.004 286.2)",
+          "oklch(0.58 0.004 286.2)",
+          "oklch(0.70 0.004 286.2)",
+          "oklch(0.84 0.004 286.2)",
+          "oklch(0.95 0.004 286.2)"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0.000 0)",
+          "oklch(0.25 0.000 0)",
+          "oklch(0.35 0.000 0)",
+          "oklch(0.46 0.000 0)",
+          "oklch(0.58 0.000 0)",
+          "oklch(0.70 0.000 0)",
+          "oklch(0.84 0.000 0)",
+          "oklch(0.95 0.000 0)"
+        ]
+      },
+      "slate-ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "oklch(0.141 0.005 285.823)",
+        "tonalRamp": [
+          "oklch(0.15 0.005 285.8)",
+          "oklch(0.25 0.005 285.8)",
+          "oklch(0.35 0.005 285.8)",
+          "oklch(0.46 0.005 285.8)",
+          "oklch(0.58 0.005 285.8)",
+          "oklch(0.70 0.005 285.8)",
+          "oklch(0.84 0.005 285.8)",
+          "oklch(0.95 0.005 285.8)"
+        ]
+      },
+      "quiet-wash": {
+        "role": "neutral",
+        "displayName": "Quiet Wash",
+        "canonical": "oklch(0.967 0.001 286.375)",
+        "tonalRamp": [
+          "oklch(0.15 0.001 286.4)",
+          "oklch(0.25 0.001 286.4)",
+          "oklch(0.35 0.001 286.4)",
+          "oklch(0.46 0.001 286.4)",
+          "oklch(0.58 0.001 286.4)",
+          "oklch(0.70 0.001 286.4)",
+          "oklch(0.84 0.001 286.4)",
+          "oklch(0.95 0.001 286.4)"
+        ]
+      },
+      "muted-slate": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "oklch(0.53 0.016 285.938)",
+        "tonalRamp": [
+          "oklch(0.15 0.007 285.9)",
+          "oklch(0.25 0.009 285.9)",
+          "oklch(0.35 0.012 285.9)",
+          "oklch(0.46 0.014 285.9)",
+          "oklch(0.58 0.015 285.9)",
+          "oklch(0.70 0.013 285.9)",
+          "oklch(0.84 0.010 285.9)",
+          "oklch(0.95 0.007 285.9)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.92 0.004 286.32)",
+        "tonalRamp": [
+          "oklch(0.15 0.004 286.3)",
+          "oklch(0.25 0.004 286.3)",
+          "oklch(0.35 0.004 286.3)",
+          "oklch(0.46 0.004 286.3)",
+          "oklch(0.58 0.004 286.3)",
+          "oklch(0.70 0.004 286.3)",
+          "oklch(0.84 0.004 286.3)",
+          "oklch(0.95 0.004 286.3)"
+        ]
+      },
+      "alarm-red": {
+        "role": "tertiary",
+        "displayName": "Alarm Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": [
+          "oklch(0.15 0.111 27.3)",
+          "oklch(0.25 0.145 27.3)",
+          "oklch(0.35 0.178 27.3)",
+          "oklch(0.46 0.215 27.3)",
+          "oklch(0.58 0.235 27.3)",
+          "oklch(0.70 0.195 27.3)",
+          "oklch(0.84 0.148 27.3)",
+          "oklch(0.95 0.111 27.3)"
+        ]
+      },
+      "tb-red": {
+        "role": "tertiary",
+        "displayName": "TB Red",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "oklch(0.15 0.100 27.3)",
+          "oklch(0.25 0.130 27.3)",
+          "oklch(0.35 0.160 27.3)",
+          "oklch(0.46 0.193 27.3)",
+          "oklch(0.58 0.211 27.3)",
+          "oklch(0.70 0.175 27.3)",
+          "oklch(0.84 0.133 27.3)",
+          "oklch(0.95 0.100 27.3)"
+        ]
+      },
+      "done-green": {
+        "role": "secondary",
+        "displayName": "Done Green",
+        "canonical": "#059669",
+        "tonalRamp": [
+          "oklch(0.15 0.064 163)",
+          "oklch(0.25 0.083 163)",
+          "oklch(0.35 0.102 163)",
+          "oklch(0.46 0.123 163)",
+          "oklch(0.58 0.134 163)",
+          "oklch(0.70 0.111 163)",
+          "oklch(0.84 0.085 163)",
+          "oklch(0.95 0.064 163)"
+        ]
+      },
+      "caution-amber": {
+        "role": "secondary",
+        "displayName": "Caution Amber",
+        "canonical": "#fffbeb",
+        "tonalRamp": [
+          "oklch(0.15 0.068 85)",
+          "oklch(0.25 0.089 85)",
+          "oklch(0.35 0.109 85)",
+          "oklch(0.46 0.132 85)",
+          "oklch(0.58 0.144 85)",
+          "oklch(0.70 0.119 85)",
+          "oklch(0.84 0.091 85)",
+          "oklch(0.95 0.068 85)"
+        ]
+      },
+      "caution-amber-ink": {
+        "role": "secondary",
+        "displayName": "Caution Amber Ink",
+        "canonical": "#78350f",
+        "tonalRamp": [
+          "oklch(0.15 0.045 50)",
+          "oklch(0.25 0.059 50)",
+          "oklch(0.35 0.073 50)",
+          "oklch(0.46 0.088 50)",
+          "oklch(0.58 0.096 50)",
+          "oklch(0.70 0.080 50)",
+          "oklch(0.84 0.060 50)",
+          "oklch(0.95 0.045 50)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles on admin pages."
+      },
+      "queue-number": {
+        "displayName": "Queue Number",
+        "purpose": "The patient's number on queue cards; the largest thing on a station screen."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and dialog titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default size for tables, form values, buttons and nav links."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Help text, badges, counts and status lines."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting-card",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Every card and the active segmented tab."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Buttons and clickable cards on hover."
+      },
+      {
+        "name": "glass-pill",
+        "value": "inset 0 1px 0 0 rgba(255,255,255,0.5), 0 2px 6px 0 rgba(0,0,0,0.12)",
+        "purpose": "Round secondary actions and the segmented control's slider."
+      },
+      {
+        "name": "sticker",
+        "value": "0 1px 2px rgba(0,0,0,0.35)",
+        "purpose": "The sticker tag."
+      },
+      {
+        "name": "floating-menu",
+        "value": "drop-shadow(0 10px 24px rgb(15 23 42 / 0.16)) drop-shadow(0 2px 6px rgb(15 23 42 / 0.08))",
+        "purpose": "The account menu (a filter, not a box-shadow)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-settle",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Entrances, chart draws, the sticker press and the success pop."
+      },
+      {
+        "name": "enter",
+        "value": "fade + rise 8px, 500ms",
+        "purpose": "Content appearing (ENTER in src/lib/motion.ts)."
+      },
+      {
+        "name": "enter-fast",
+        "value": "fade + rise 4px, 300ms",
+        "purpose": "Tab panels and view/edit swaps."
+      },
+      {
+        "name": "press",
+        "value": "scale(0.97)",
+        "purpose": "Press feedback on buttons and clickable cards."
+      },
+      {
+        "name": "hover-rise",
+        "value": "translateY(-1px), 200ms ease-out",
+        "purpose": "Buttons and nav links on hover."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action that moves the task forward.",
+      "html": "<button class=\"ds-btn-primary\">Submit</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:8px 16px;border:0;border-radius:8.4px;background:var(--primary,oklch(0.461 0.122 262.8));color:var(--primary-foreground,oklch(0.97 0.014 254.604));font:500 14px/20px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;cursor:pointer;transition:all .2s ease-out}.ds-btn-primary:hover{background:color-mix(in oklch,var(--primary,oklch(0.461 0.122 262.8)) 90%,transparent);transform:translateY(-1px);box-shadow:0 4px 6px -1px rgb(0 0 0/.1),0 2px 4px -2px rgb(0 0 0/.1)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}.ds-btn-primary:active{transform:scale(.97)}"
+    },
+    {
+      "name": "Success Button",
+      "kind": "button",
+      "refersTo": "button-success",
+      "description": "A finished step, e.g. Save & next once the form is complete.",
+      "html": "<button class=\"ds-btn-success\">Save &amp; next</button>",
+      "css": ".ds-btn-success{display:inline-flex;align-items:center;height:36px;padding:8px 16px;border:0;border-radius:8.4px;background:#059669;color:#fff;font:500 14px/20px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;cursor:pointer;transition:all .2s ease-out}.ds-btn-success:hover{background:rgb(5 150 105/.9);transform:translateY(-1px);box-shadow:0 4px 6px -1px rgb(0 0 0/.1)}.ds-btn-success:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(5 150 105/.3)}.ds-btn-success:active{transform:scale(.97)}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions beside a primary one.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline{display:inline-flex;align-items:center;height:36px;padding:8px 16px;border:1px solid oklch(0.92 0.004 286.32);border-radius:8.4px;background:#fff;color:oklch(0.141 0.005 285.823);font:500 14px/20px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;box-shadow:0 1px 2px 0 rgb(0 0 0/.05);cursor:pointer;transition:all .2s ease-out}.ds-btn-outline:hover{background:oklch(0.967 0.001 286.375);transform:translateY(-1px)}.ds-btn-outline:focus-visible{outline:none;border-color:oklch(0.461 0.122 262.8);box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}.ds-btn-outline:active{transform:scale(.97)}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Every form field.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search by name or queue number...\">",
+      "css": ".ds-input{height:36px;width:280px;padding:4px 12px;border:1px solid oklch(0.92 0.004 286.32);border-radius:8.4px;background:oklch(0.97 0.004 286.2);color:oklch(0.141 0.005 285.823);font:400 14px/20px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;box-shadow:0 1px 2px 0 rgb(0 0 0/.05);outline:none;transition:border-color .15s,box-shadow .15s}.ds-input::placeholder{color:oklch(0.53 0.016 285.938)}.ds-input:focus-visible{border-color:oklch(0.461 0.122 262.8);box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}"
+    },
+    {
+      "name": "Top Nav",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "The sticky station bar; the active page is brand blue on a blue tint.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link\">Patient List</a><a class=\"ds-nav-link ds-active\">Registration</a><a class=\"ds-nav-link\">Triage</a><a class=\"ds-nav-link\">Consult</a><a class=\"ds-nav-link\">Pharmacy</a></nav>",
+      "css": ".ds-nav{display:flex;gap:4px;padding:12px 24px;background:rgb(255 255 255/.95);border-bottom:1px solid oklch(0.92 0.004 286.32);backdrop-filter:blur(8px)}.ds-nav-link{padding:8px 12px;border-radius:8.4px;color:oklch(0.53 0.016 285.938);font:600 14px/20px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;cursor:pointer;transition:color .2s,background-color .2s,transform .2s}.ds-nav-link:hover{background:oklch(0.967 0.001 286.375);color:oklch(0.141 0.005 285.823);transform:translateY(-1px)}.ds-nav-link.ds-active{background:color-mix(in oklch,oklch(0.461 0.122 262.8) 10%,transparent);color:oklch(0.461 0.122 262.8)}.ds-nav-link:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-station",
+      "description": "TB flag, station, and family markers as they appear on queue cards.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-tb\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"/><path d=\"M12 8v4\"/><path d=\"M12 16h.01\"/></svg>TB</span><span class=\"ds-station ds-triage\">Triage</span><span class=\"ds-station ds-consult\">Consult</span><span class=\"ds-station ds-pharmacy\">Pharmacy</span><span class=\"ds-family\">A</span></div>",
+      "css": ".ds-badges{display:flex;gap:8px;align-items:center;font-family:'TeX Gyre Heros',Helvetica,Arial,sans-serif}.ds-tb{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:#dc2626;color:#fff;font-size:12px;font-weight:700;letter-spacing:.025em}.ds-station{display:inline-flex;padding:2px 8px;border-radius:9999px;font-size:12px;font-weight:500}.ds-triage{background:#dbeafe;color:#1d4ed8}.ds-consult{background:#d1fae5;color:#047857}.ds-pharmacy{background:#ffe4e6;color:#be123c}.ds-family{display:inline-flex;padding:2px 6px;border-radius:9999px;background:#e0f2fe;color:#075985;font-size:11px;font-weight:600;line-height:1}"
+    },
+    {
+      "name": "Queue Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The unit of the board: number, sticker, name and station.",
+      "html": "<div class=\"ds-queue-card\"><span class=\"ds-qno\">12<i class=\"ds-sticker\"></i></span><div><div class=\"ds-qname\">Sok Dara</div><div class=\"ds-qmeta\">F · 34 · arrived 09:12</div></div></div>",
+      "css": ".ds-queue-card{display:flex;gap:16px;align-items:center;width:300px;padding:12px 16px;border:1px solid oklch(0.92 0.004 286.32);border-radius:14.4px;background:#fff;box-shadow:0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);font-family:'TeX Gyre Heros',Helvetica,Arial,sans-serif;cursor:pointer;transition:transform .2s,box-shadow .2s}.ds-queue-card:hover{transform:translateY(-1px);box-shadow:0 4px 6px -1px rgb(0 0 0/.1)}.ds-queue-card:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}.ds-qno{position:relative;min-width:52px;padding:4px 8px;border-radius:8.4px;background:oklch(0.967 0.001 286.375);text-align:center;font-size:24px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.ds-sticker{position:absolute;right:-8px;top:-8px;width:18px;height:18px;border-radius:3px;background:#f97316;transform:rotate(12deg);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgb(0 0 0/.25)}.ds-qname{font-size:14px;font-weight:600;color:oklch(0.141 0.005 285.823)}.ds-qmeta{font-size:12px;color:oklch(0.53 0.016 285.938)}"
+    },
+    {
+      "name": "Segmented Tabs",
+      "kind": "custom",
+      "refersTo": "nav-link-active",
+      "description": "Pill track with a sliding glass highlight, for sort order and form sections.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-opt ds-on\">Queue number</button><button class=\"ds-seg-opt\">Arrival time</button></div>",
+      "css": ".ds-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:360px;padding:4px;border-radius:9999px;background:color-mix(in oklch,oklch(0.967 0.001 286.375) 40%,transparent);backdrop-filter:blur(12px)}.ds-seg-opt{height:28px;border:0;border-radius:9999px;background:transparent;color:oklch(0.53 0.016 285.938);font:500 12px/16px 'TeX Gyre Heros',Helvetica,Arial,sans-serif;cursor:pointer;transition:color .2s}.ds-seg-opt:hover{color:oklch(0.141 0.005 285.823)}.ds-seg-opt.ds-on{background:linear-gradient(to bottom,rgb(255 255 255/.9),rgb(255 255 255/.5));color:oklch(0.141 0.005 285.823);box-shadow:inset 0 1px 0 0 rgba(255,255,255,.5),0 2px 6px 0 rgba(0,0,0,.12),0 0 0 1px rgb(0 0 0/.1)}.ds-seg-opt:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.461 0.122 262.8) 50%,transparent)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Clinic Board",
+    "overview": "Veasna looks like a tidy board of queue cards at a pop-up village clinic. White cards sit on a cool, near-white canvas. Each station keeps its own colour and icon wherever it appears. Patient markers (the red TB flag, the family letter, the coloured sticker) stand out from across a tent, and everything else stays quiet. The mood is calm, clear and friendly: soft rounded surfaces and gentle motion, never cold and clinical, and never playful enough to pull a volunteer's attention from the patient in front of them.\n\nThe UI is dense where staff scan (queues, tables, forms in small text) and generous around them (cards with 20–24px padding, a 1600px maximum width). Brand lives in one place: Project Battambang blue marks what is active and what to press. The other colours all carry meaning, not decoration: station identity, family grouping, sticker matching, warnings and danger.\n\nThe interface is designed for light mode only. A few badges carry `dark:` variants, but the theme tokens have no dark set, so don't treat dark mode as supported.",
+    "keyCharacteristics": [
+      "One brand accent (Project Battambang blue). All other colour is meaning: stations, families, stickers, status.",
+      "White cards on a mist canvas, softly lifted with a small shadow.",
+      "Pills for status and selection, gently rounded rectangles for actions and fields.",
+      "Frosted-glass pills for secondary round actions and the segmented control's sliding highlight.",
+      "Small, tactile motion: a 1px lift on hover, a press-in on click, fades on entry, all off under reduced motion.",
+      "One typeface, TeX Gyre Heros, bundled with the app so it works offline."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Project Battambang blue is the only colour that means \"active\" or \"press here\". Never use a station, family or status colour for an action.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Means TB or Danger Rule",
+        "body": "Red is reserved for suspected TB and destructive or invalid states. Never use it for emphasis or decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Station Colour Is Fixed Rule",
+        "body": "A station's tone and icon are the same everywhere it appears (`components/shared/StationBadge.tsx`). Never recolour a station locally.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Everything is TeX Gyre Heros. Don't add a display or mono family, and don't load fonts from the internet.",
+        "section": "typography"
+      },
+      {
+        "name": "The Lift Means Clickable Rule",
+        "body": "Only things you can press lift on hover. Static cards keep their resting shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use Project Battambang blue (`--primary`) for every active, selected or primary state, and `--ring` for focus.",
+      "**Do** show a patient's TB, family and sticker markers wherever the patient appears.",
+      "**Do** reuse `StationBadge`, `TbBadge`, `FamilyBadge` and `StickerTag` instead of restyling them.",
+      "**Do** keep text at 14px (body) and 12px (labels), and give queue numbers tabular figures.",
+      "**Do** pair every animation with a `motion-reduce` fallback, as `src/lib/motion.ts` does.",
+      "**Do** confirm every destructive action in a dialog that says what will happen.",
+      "**Do** turn the final Submit red (with the shield icon) when the patient is flagged for suspected TB.",
+      "**Do** show failures inline, next to the action, saying what was kept and what to do next. Never use browser `alert()` pop-ups."
+    ],
+    "donts": [
+      "**Don't** use a station, family or status colour for an action or for decoration.",
+      "**Don't** use red for anything other than suspected TB, destructive actions and invalid fields.",
+      "**Don't** use hard-coded Tailwind `blue-*` classes for focus or primary states. Some forms (`components/patient-form/`) and Analytics still do; move them to `primary` and `ring` when touched.",
+      "**Don't** load fonts, icons or images from the internet. Everything is served by the host.",
+      "**Don't** add a second typeface."
+    ]
+  }
+}
