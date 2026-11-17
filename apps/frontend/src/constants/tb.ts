@@ -26,18 +26,26 @@ export function tbThresholdHint(count: number): string {
   return `${count} of ${TB_MIN_RED_FLAGS} red flags ticked. The patient is flagged for suspected TB only with ${TB_MIN_RED_FLAGS} or more.`;
 }
 
+// At registration, red flags below the threshold are still saved, as noted symptoms.
+export function tbObservedHint(count: number): string {
+  return `${count} of ${TB_MIN_RED_FLAGS} red flags ticked: saved as noted symptoms, and Triage sees them. With ${TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB.`;
+}
+
 export function tbRedFlagLabel(id: string, flags: readonly { id: string; label: string }[] = TB_RED_FLAGS): string {
   return flags.find((flag) => flag.id === id)?.label ?? id;
 }
 
 // suspected: flagged. cleared: flag removed. tb_likely: flagged (older records from the former
-// TB Tent, where a doctor recorded that TB was not ruled out).
-export type TbStatus = "suspected" | "cleared" | "tb_likely";
+// TB Tent, where a doctor recorded that TB was not ruled out). observed: fewer than
+// TB_MIN_RED_FLAGS red flags ticked at registration, kept as a record of symptoms, not a flag
+// (queues report it as tb_status null).
+export type TbStatus = "suspected" | "cleared" | "tb_likely" | "observed";
 
 export const TB_STATUS_LABELS: Record<TbStatus, string> = {
   suspected: "Suspected TB",
   cleared: "TB flag removed",
   tb_likely: "TB not ruled out",
+  observed: "Red flags noted, not flagged",
 };
 
 export function isTbFlagged(status: TbStatus | null | undefined): boolean {

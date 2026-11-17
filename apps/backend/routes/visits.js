@@ -14,7 +14,7 @@ const { currentVisitDate, lockQueue, getNextQueueNo } = require('../utils/queueN
 const { REGISTRATION_STATIONS, DEFAULT_REGISTRATION_STATIONS, normalizeStations } = require('../utils/stations');
 const { normalizeSnellenFields } = require('../utils/snellen');
 const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
-const { TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, rejectUnsavableVisit, flagTb, TB_ROUTE } = require('../utils/tb');
+const { TB_MIN_RED_FLAGS, normalizeRedFlags, rejectUnsavableVisit, flagTb, observeTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 const { patientOnDaySql } = require('../utils/dayScope');
 const { normalizeStickerColour } = require('../utils/formOptions');
@@ -45,7 +45,7 @@ function registrationResponse(visit, age) {
 async function findRegistration(client, requestId) {
   const { rows } = await client.query(`
     SELECT v.id AS visit_id, v.patient_id, v.queue_no, v.sticker_colour, v.created_at,
-      p.english_name, p.khmer_name, p.sex, p.family, tb.status AS tb_status,
+      p.english_name, p.khmer_name, p.sex, p.family, NULLIF(tb.status, 'observed') AS tb_status,
       (SELECT s.station FROM visit_stations s WHERE s.visit_id = v.id
         ORDER BY (s.completed_at IS NOT NULL), s.position LIMIT 1) AS current_station
     FROM visits v
@@ -95,8 +95,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     const stations = req.body.stations === undefined
         ? [...DEFAULT_REGISTRATION_STATIONS]
         : normalizeStations(req.body.stations, REGISTRATION_STATIONS);
-    // Optional suspected-TB flag: { red_flags: [...], notes }. The visit goes only to
-    // Consultation, whatever stations were ticked, and is marked in red in every queue.
+    // Optional TB red flags: { red_flags: [...], notes }. With TB_MIN_RED_FLAGS or more the visit is
+    // flagged for suspected TB: it goes only to Consultation, whatever stations were ticked, and is
+    // marked in red in every queue. With fewer they are kept as observed symptoms, not a flag.
     const tb = req.body.tb ?? null;
     const tbRedFlags = tb ? normalizeRedFlags(tb.red_flags) : [];
     const normalizedPatientSex = normalizeSexToEnum(patientInfo?.sex);
@@ -140,10 +141,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
     if (tb !== null && (typeof tb !== 'object' || tbRedFlags === null)) {
         return res.status(400).json({ error: 'tb must be an object with red_flags as a list of text.' });
     }
-    if (tb !== null && tbRedFlags.length < TB_MIN_RED_FLAGS) {
-        return res.status(400).json({ error: `${TB_MIN_RED_FLAGS_ERROR} Leave tb out for fewer.` });
-    }
-    const tbFlagged = tb !== null;
+    const tbFlagged = tb !== null && tbRedFlags.length >= TB_MIN_RED_FLAGS;
+    const tbNotes = textOrEmpty(tb?.notes);
+    const tbObserved = tb !== null && !tbFlagged && (tbRedFlags.length > 0 || tbNotes !== '');
 
     // Optional one-off id from the device: a registration sent again with the same id (because the
     // device never got the answer) returns the first one instead of queuing the patient twice.
@@ -285,7 +285,9 @@ router.post('/', authenticateToken, requireRole(['any']), async (req, res) => {
         }
 
         if (tbFlagged) {
-            await flagTb(client, visitId, { redFlags: tbRedFlags, notes: textOrEmpty(tb?.notes) }, last_updated_by);
+            await flagTb(client, visitId, { redFlags: tbRedFlags, notes: tbNotes }, last_updated_by);
+        } else if (tbObserved) {
+            await observeTb(client, visitId, { redFlags: tbRedFlags, notes: tbNotes }, last_updated_by);
         }
 
         // Step 3: Insert into vitals table

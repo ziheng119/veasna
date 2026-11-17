@@ -1,4 +1,4 @@
-// Registration stations (routes/visits.js): a patient registered with TB red flags goes only to
+// Registration stations (routes/visits.js): a patient registered with 3+ TB red flags goes only to
 // Consultation, and Physiotherapy and Pharmacy can't be chosen at registration.
 const express = require('express');
 const request = require('supertest');
@@ -57,11 +57,25 @@ describe('Registering a suspected TB patient', () => {
     expect(queued()).toEqual([['consultation', 1, true]]);
   });
 
-  test('fewer than 3 red flags are refused and nothing is saved', async () => {
-    const res = await register({ stations: ['triage'], tb: { red_flags: ['fever', 'night_sweats'] } });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/3 or more red flags/);
-    expect(db.pool.connect).not.toHaveBeenCalled();
+  // [red flags, notes, status] of each TB record saved.
+  const tbSaved = () => client.query.mock.calls
+    .filter(([sql]) => sql.includes('INSERT INTO tb_screening'))
+    .map(([sql, params]) => [params[1], params[2], sql.includes("'observed'") ? 'observed' : 'suspected']);
+
+  test('fewer than 3 red flags are kept as observed, without flagging the patient', async () => {
+    const res = await register({ stations: ['triage', 'dental'], tb: { red_flags: ['fever', 'night_sweats'], notes: 'Coughed blood once' } });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ current_station: 'triage', tb_status: null });
+    expect(queued()).toEqual([['triage', 1, true], ['dental', 2, false]]);
+    expect(tbSaved()).toEqual([[['fever', 'night_sweats'], 'Coughed blood once', 'observed']]);
+  });
+
+  test('3 red flags flag the patient; an empty tb saves nothing', async () => {
+    await register({ tb: { red_flags: THREE_FLAGS, notes: '' } });
+    expect(tbSaved()).toEqual([[THREE_FLAGS, '', 'suspected']]);
+    jest.clearAllMocks();
+    await register({ tb: { red_flags: [], notes: '' } });
+    expect(tbSaved()).toEqual([]);
   });
 
   test('registration offers Triage, Dental, Consult and the partner NGO, defaulting to the first three', async () => {

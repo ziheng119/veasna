@@ -47,7 +47,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 cur.station AS current_station,
                 -- Done here and waiting for the rest of the family at this station.
                 cur.family_ready_at IS NOT NULL AS family_waiting,
-                tb.status AS tb_status,
+                -- Red flags only observed at registration are not a TB flag.
+                NULLIF(tb.status, 'observed') AS tb_status,
                 -- Visits before this one (other trips or days): the card then offers Past visits.
                 (SELECT COUNT(*)::int FROM visits pv
                   WHERE pv.patient_id = p.id AND pv.id <> v.id

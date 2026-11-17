@@ -144,6 +144,7 @@ const SCHEMA_STEPS = [
   schema.ensureLocationsRemoved,
   schema.ensureAccountPermissions,
   schema.ensureNssf,
+  schema.ensureTbObserved,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.

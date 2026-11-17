@@ -81,14 +81,32 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
     );
   }
 
+  // Red flags noted at registration, below the threshold: shown here and ticked when the panel opens.
+  const observed = screening?.status === "observed" ? screening : null;
+  const openPanel = () => {
+    if (observed && redFlags.length === 0 && notes === "") {
+      setRedFlags(observed.red_flags);
+      setNotes(observed.flag_notes ?? "");
+    }
+    setOpen(true);
+  };
+
   if (!open) {
     return (
       <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
-        <span className="flex items-center gap-2 text-muted-foreground">
-          <ShieldAlert className="size-4 text-red-600" aria-hidden="true" />
-          TB red flags? Flag the patient to send them to Consult only, marked red in every queue.
+        <span className="min-w-0 space-y-1">
+          <span className="flex items-center gap-2 text-muted-foreground">
+            <ShieldAlert className="size-4 shrink-0 text-red-600" aria-hidden="true" />
+            TB red flags? Flag the patient to send them to Consult only, marked red in every queue.
+          </span>
+          {observed && observed.red_flags.length > 0 && (
+            <span className="block text-foreground">
+              Noted at registration: {observed.red_flags.map((id) => tbRedFlagLabel(id, tbRedFlags)).join(" · ")}
+            </span>
+          )}
+          {observed?.flag_notes && <span className="block whitespace-pre-wrap text-muted-foreground">{observed.flag_notes}</span>}
         </span>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={openPanel}>
           Flag suspected TB
         </Button>
       </div>

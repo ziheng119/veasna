@@ -33,7 +33,7 @@ import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
 import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
-import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbThresholdHint } from "@/constants/tb";
+import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbObservedHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
 import { useNewFormDraft } from "@/hooks/useNewFormDraft";
 import { newRecordDraftKey } from "@/lib/drafts";
@@ -219,12 +219,11 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
     // Colour of the sticker handed to the patient (sticker_colours on Station data); "" for none.
     const [stickerColour, setStickerColour] = useState("");
-    // TB red flags. Ticking any of them flags the patient for suspected TB: they go through their
-    // stations as usual and are marked in red in every queue.
+    // TB red flags. With TB_MIN_RED_FLAGS or more the patient is flagged for suspected TB: they go
+    // only to Consult and are marked in red in every queue. Fewer are saved as noted symptoms.
     const [tbRedFlags, setTbRedFlags] = useState<string[]>([]);
     const [tbNotes, setTbNotes] = useState("");
     const tbRedFlagOptions = useFormOptions("tb_red_flags");
-    // Fewer red flags than the threshold are not sent: the patient is not flagged.
     const tbFlagged = meetsTbThreshold(tbRedFlags);
 
     // Unsaved typing is kept on this device until the patient is registered (hooks/useNewFormDraft.ts),
@@ -457,7 +456,8 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
               // The server also queues a TB patient only at Consult.
               stations: tbFlagged ? TB_STATIONS : stations,
               sticker_colour: stickerColour,
-              tb: tbFlagged ? { red_flags: tbRedFlags, notes: tbNotes } : null,
+              // Red flags below the threshold are saved too, as noted symptoms (not a TB flag).
+              tb: tbRedFlags.length > 0 ? { red_flags: tbRedFlags, notes: tbNotes } : null,
               request_id: registrationId.current.get(),
             },
             token
@@ -992,10 +992,11 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                   </div>
                 </div>
 
-                <div data-tour="reg-tb" className={`rounded-md border p-3 ${tbFlagged ? "border-destructive/50 bg-destructive/5" : "border-border"}`}>
+                {/* A plain section like the others; only a flagged patient turns it into a red alert. */}
+                <div data-tour="reg-tb" className={tbFlagged ? "rounded-md border border-destructive/50 bg-destructive/5 p-3" : "border-t border-border pt-4"}>
                   <Label className="block mb-1 font-semibold">TB red flags</Label>
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
+                  <p className="mb-3 text-xs text-muted-foreground text-pretty">
+                    Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB: they go to Consult only (then Pharmacy for any prescriptions) and show in red in every queue.
                   </p>
                   <div className="grid gap-x-6 sm:grid-cols-2">
                     {tbRedFlagOptions.map((flag) => (
@@ -1017,34 +1018,41 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                     ))}
                   </div>
                   {!tbFlagged && tbRedFlags.length > 0 && (
-                    <p className="mt-3 text-xs text-muted-foreground" role="status">{tbThresholdHint(tbRedFlags.length)}</p>
+                    <p className="mt-3 text-xs text-muted-foreground" role="status">{tbObservedHint(tbRedFlags.length)}</p>
                   )}
-                  {tbFlagged && (
+                  {tbRedFlags.length > 0 && (
                     <div className="mt-3 space-y-3">
-                      <p className="flex items-start gap-2 text-sm font-medium text-destructive">
-                        <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                        Suspected TB: keep the patient apart from other villagers and inform a doctor.
-                      </p>
-                      <Textarea
-                        id="tb-notes"
-                        value={tbNotes}
-                        onChange={(e) => setTbNotes(e.target.value)}
-                        placeholder="TB notes for the doctor (e.g. how long the cough has lasted)"
-                      />
+                      {tbFlagged && (
+                        <p className="flex items-start gap-2 text-sm font-medium text-destructive">
+                          <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                          Suspected TB: keep the patient apart from other villagers and inform a doctor.
+                        </p>
+                      )}
+                      <div>
+                        <Label htmlFor="tb-notes" className="mb-2">TB notes</Label>
+                        <Textarea
+                          id="tb-notes"
+                          value={tbNotes}
+                          onChange={(e) => setTbNotes(e.target.value)}
+                          placeholder="For the doctor: how long the cough has lasted, or the other concern"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <div className="border-t border-border pt-4" data-tour="reg-stations">
                   <Label className="block mb-1 font-semibold">Stations for this visit *</Label>
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    Queued in clinic order. The doctor adds Physiotherapy and Pharmacy later.
-                  </p>
+                  {!tbFlagged && (
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Queued in clinic order. The doctor adds Physiotherapy and Pharmacy later.
+                    </p>
+                  )}
                   {tbFlagged ? (
                     // The ticked stations are kept, in case the red flags are unticked again.
                     <p className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive" role="status">
                       <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                      Suspected TB: the patient goes to Consult only, then Pharmacy for their prescriptions. Other stations can&apos;t be chosen.
+                      Suspected TB: the patient goes to Consult only (then Pharmacy for any prescriptions). Other stations can&apos;t be chosen.
                     </p>
                   ) : (
                     <StationCheckboxes

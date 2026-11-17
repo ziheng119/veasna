@@ -140,7 +140,8 @@ CREATE INDEX patients_family_idx ON patients (family) WHERE family IS NOT NULL;
 
 -- Suspected-TB flag on a visit. A flagged visit goes through its normal stations and is shown in
 -- red in every queue. status: suspected (flagged), cleared (flag removed), tb_likely (flagged;
--- older records reviewed at the former TB Tent).
+-- older records reviewed at the former TB Tent), observed (fewer red flags than the threshold noted
+-- at registration: a record of symptoms, not a flag).
 CREATE TABLE tb_screening (
     id SERIAL PRIMARY KEY,
     visit_id INT UNIQUE NOT NULL REFERENCES visits(id)
@@ -148,7 +149,8 @@ CREATE TABLE tb_screening (
     red_flags TEXT[] NOT NULL DEFAULT '{}',
     flag_notes TEXT NOT NULL DEFAULT '',
     status VARCHAR(20) NOT NULL DEFAULT 'suspected'
-        CHECK (status IN ('suspected', 'cleared', 'tb_likely')),
+        CONSTRAINT tb_screening_status_check
+        CHECK (status IN ('suspected', 'cleared', 'tb_likely', 'observed')),
     doctor_notes TEXT NOT NULL DEFAULT '',
     flagged_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     flagged_at TIMESTAMP NOT NULL DEFAULT NOW(),

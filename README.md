@@ -148,7 +148,9 @@ A few things worth knowing:
   flags, then the stations; for a flagged patient the Submit button turns red. If Submit can't reach the host, a message
   under the form says the typing is kept and to press Submit again.
 - **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag
-  suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient. A
+  suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient, but the
+  ticked red flags and TB notes are still saved as noted symptoms: Triage sees them (ticked
+  already when it opens **Flag suspected TB**) and they show on Patient Details. A
   flagged patient goes only to the Consult queue, shown in red and marked **TB** in
   every queue, and their stations can't be changed. The doctor who sees them in the
   TB tent presses **Clear TB** on their card in the Consult queue (and confirms), then

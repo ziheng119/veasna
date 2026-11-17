@@ -4,11 +4,13 @@
 // TB tent and clears the flag there. If the doctor prescribes, Pharmacy is added after it, as for
 // any patient. Staff cannot edit the route of a visit that was ever flagged.
 //   status 'suspected' = flagged; 'cleared' = flag removed (no TB);
-//   'tb_likely' = flagged (older records reviewed at the former TB Tent).
+//   'tb_likely' = flagged (older records reviewed at the former TB Tent);
+//   'observed' = fewer red flags than TB_MIN_RED_FLAGS noted at registration: kept as a record of
+//   the symptoms, not a flag (not red in the queues, route not locked).
 
 const { toPositiveInt } = require('./validation');
 
-const TB_STATUSES = ['suspected', 'cleared', 'tb_likely'];
+const TB_STATUSES = ['suspected', 'cleared', 'tb_likely', 'observed'];
 const TB_FLAGGED_STATUSES = ['suspected', 'tb_likely'];
 
 // A patient is flagged for suspected TB only with at least this many red flags (symptoms).
@@ -59,14 +61,25 @@ async function flagTb(client, visitId, { redFlags = [], notes = '' }, userId) {
   return rows[0];
 }
 
+// Keeps red flags noted at registration below the threshold (status 'observed'). Not a flag.
+async function observeTb(client, visitId, { redFlags = [], notes = '' }, userId) {
+  await client.query(
+    `INSERT INTO tb_screening (visit_id, red_flags, flag_notes, status, flagged_by, last_updated_by)
+     VALUES ($1, $2, $3, 'observed', $4, $4)`,
+    [visitId, redFlags, notes, userId]
+  );
+}
+
 // The only station a TB visit is sent to: the doctor sees them at Consultation (in the TB tent).
 // Pharmacy is added after it when the doctor prescribes, and is kept by sendToConsultation.
 const TB_ROUTE = ['consultation'];
 const TB_ROUTE_LOCKED_ERROR = 'This patient was flagged for suspected TB, so they only go to Consult and their stations cannot be changed.';
 
 // True when the visit was ever flagged for TB (flagged or cleared): its route is then fixed.
+// Red flags only observed at registration don't count.
 async function isTbVisit(client, visitId) {
-  const { rows } = await client.query('SELECT EXISTS (SELECT 1 FROM tb_screening WHERE visit_id = $1) AS tb', [visitId]);
+  const { rows } = await client.query(
+    "SELECT EXISTS (SELECT 1 FROM tb_screening WHERE visit_id = $1 AND status <> 'observed') AS tb", [visitId]);
   return Boolean(rows[0]?.tb);
 }
 
@@ -126,6 +139,7 @@ module.exports = {
   normalizeRedFlags,
   rejectUnsavableVisit,
   flagTb,
+  observeTb,
   clearTbFlag,
   TB_ROUTE,
   TB_ROUTE_LOCKED_ERROR,

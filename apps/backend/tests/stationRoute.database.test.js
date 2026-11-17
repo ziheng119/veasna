@@ -179,6 +179,14 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     expect(res.body.error).toMatch(/only go to Consult/);
     expect(await pending()).toEqual(['seva', 'consultation']);
   });
+
+  test('red flags only observed at registration are not a TB flag: the route can change and the queue shows no TB', async () => {
+    await client.query("INSERT INTO tb_screening (visit_id, red_flags, status) VALUES (1, '{fever}', 'observed')");
+    expect((await indicate('physiotherapy', true)).status).toBe(200);
+    expect(await pending()).toEqual(['seva', 'consultation', 'physiotherapy']);
+    const res = await request(app).get('/api/queue').query({ station: 'seva' }).set('Authorization', `Bearer ${token}`);
+    expect(res.body.find(row => row.visit_id === 1)).toMatchObject({ tb_status: null, tb_flagged: false });
+  });
   test('the queue says when a patient is done at their station: its form is saved, or nothing is left to dispense', async () => {
     const done = async station => {
       await client.query('UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 1 AND completed_at IS NULL');

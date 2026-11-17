@@ -148,7 +148,9 @@ there. Veasna follows that:
 
 1. **Flag:** tick **3 or more** TB red flags at registration, or press **Flag suspected
    TB** at Triage and tick 3 or more. With fewer, the patient isn't flagged and goes
-   through their stations as usual; the form shows how many are ticked.
+   through their stations as usual; the form shows how many are ticked. Red flags ticked at
+   registration are still saved, with any TB notes, as noted symptoms: Triage sees them, ticked
+   already when it opens **Flag suspected TB**, and they show on Patient Details.
 2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
    red with a **TB** label in every queue. Consult is their only station: any others
    (Triage, Dental, Partner NGO) are taken off their route, the registration form doesn't

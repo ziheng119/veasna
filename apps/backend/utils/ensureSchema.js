@@ -303,7 +303,19 @@ function ensureNssf() {
   return nssfPromise;
 }
 
+// tb_screening.status 'observed': red flags noted at registration below the TB threshold.
+let tbObservedPromise;
+function ensureTbObserved() {
+  if (!tbObservedPromise) {
+    tbObservedPromise = ensureTbFlag()
+      .then(() => runMigration('030_tb_observed.sql'))
+      .catch(err => { tbObservedPromise = null; throw err; });
+  }
+  return tbObservedPromise;
+}
+
 module.exports = {
+  ensureTbObserved,
   ensureNssf,
   ensureAccountPermissions,
   ensureLocationsRemoved,

@@ -268,7 +268,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const doctorItems = optionLists.referral_doctors.items;
   const savedDoctor = visit.referrals[0]?.doctor_name ?? "";
   const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
-  const tbSpec = useMemo(() => tbFields(redFlagItems), [redFlagItems]);
+  // Red flags only noted at registration (below the threshold) are not a flag: no status to set.
+  const tbObserved = visit.tb?.status === "observed";
+  const tbSpec = useMemo(() => (tbObserved ? tbNoteFields(redFlagItems) : tbFields(redFlagItems)), [redFlagItems, tbObserved]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
   const drafts = useMemo(() => {
@@ -345,7 +347,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [
-    ...(visit.tb ? [tab("tb", "TB Flag", ShieldAlert, true)] : []),
+    ...(visit.tb ? [tab("tb", tbObserved ? "TB red flags" : "TB Flag", ShieldAlert, true)] : []),
     tab("registration", "Registration", ClipboardList, hasRegistration),
     tab("triage", "Triage", STATION_ICONS.triage, hasTriage),
     // Clinic order (constants/stations.ts).
@@ -365,14 +367,16 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
       {visit.tb && drafts.tb && (
         <StationPanel value="tb">
           <EditableRecordSection
-            title="Suspected TB"
+            title={tbObserved ? "TB red flags noted at registration" : "Suspected TB"}
             record={drafts.tb}
             fields={tbSpec}
             canEdit={canEdit}
-            readOnlyItems={[
-              { label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
-            ]}
-            editHint="Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."
+            readOnlyItems={tbObserved
+              ? [{ label: "TB flag", value: `Not flagged (fewer than ${TB_MIN_RED_FLAGS} red flags). Flag at Triage if more appear.` }]
+              : [{ label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" }]}
+            editHint={tbObserved
+              ? "These symptoms were noted at registration; the patient was not flagged for suspected TB."
+              : "Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."}
             validate={(d: TbDraft) => {
               // Same rule as the server: only a change to the flags or status is checked.
               const original = drafts.tb!;
