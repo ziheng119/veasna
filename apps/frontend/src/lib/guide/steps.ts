@@ -90,7 +90,7 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Triage", path: withSample("/triage"), target: "station-work", side: "left",
     title: "Triage",
-    body: `Vision, complaint and history. Flag suspected TB here, or send a suspected cataract to ${PARTNER_NGO_NAME}. Save & next moves them on.`,
+    body: `Vision, complaint, then history. Flag suspected TB, or send a cataract to ${PARTNER_NGO_NAME}. Save & next on History moves them on.`,
   },
   {
     chapter: "Dental", path: withSample("/dental"), target: "station-work", side: "left",

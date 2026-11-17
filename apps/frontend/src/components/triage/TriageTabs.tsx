@@ -194,6 +194,17 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         draft: { form: "triage-history", restore: setMedicalHistory },
     });
 
+    // The open section. Like Registration's Next, saving Visual Acuity or Presenting Complaints moves
+    // on to the next section; each patient starts at Visual Acuity.
+    const [activeTab, setActiveTab] = useState("visual-acuity");
+    useEffect(() => { setActiveTab("visual-acuity"); }, [visit_id]);
+    // Saves the section (unless it is saved and this account can't change it), then opens the next.
+    // A failed save stays on the section.
+    const saveThenOpen = (section: SectionId, save: () => Promise<boolean>, next: string) => async () => {
+        if (!locked(section) && !(await save())) return;
+        setActiveTab(next);
+    };
+
     const triageDone = SECTIONS.every((section) => savedSections[section.id]);
 
     // A section is complete when every reading or field is filled in (notes are optional), and is
@@ -215,7 +226,8 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         history: Object.values(medicalHistory).some((value) => value.trim() !== ""),
     };
 
-    // "Save & next" from any section: saves it (if it can still be changed) and any other section
+    // "Save & next" (on Medical History, the last section; the earlier ones step through with
+    // "Save, next: …", and the queue card's Next sends a patient on from anywhere): saves it (if it can still be changed) and any other section
     // filled in but not saved yet, then moves the patient on only when every section is saved,
     // naming any that are missing.
     const saveAndNext = (section: SectionId, save: () => Promise<boolean>) => async (): Promise<boolean> => {
@@ -240,7 +252,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     };
 
     return (
-        <Tabs defaultValue="visual-acuity" className="h-full flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             {loadError && <p role="alert">Can&apos;t reach the host laptop to load the saved triage data. Trying again… <button type="button" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
             <div className="mb-3 space-y-2">
                 <StationDonePrompt patient={patient} done={loadedVisit === visit_id && triageDone} />
@@ -286,8 +298,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                             </div>
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 bg-card pt-4">
-                            <Button onClick={handleSaveVisualAcuity} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Visual Acuity"}</Button>
-                            <SaveAndNextButton patient={patient} onSave={saveAndNext("acuity", handleSaveVisualAcuity)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
+                            <Button onClick={saveThenOpen("acuity", handleSaveVisualAcuity, "presenting-complaint")} disabled={isLoading || loadedVisit !== visit_id}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save, next: Complaints"}</Button>
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
@@ -315,8 +326,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                             </div>
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 bg-card pt-4">
-                            <Button onClick={handleSavePresentingComplaint} disabled={isLoading}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save Complaints"}</Button>
-                            <SaveAndNextButton patient={patient} onSave={saveAndNext("complaint", handleSavePresentingComplaint)} ready={triageReady} hint={readyHint} disabled={isLoading || loadedVisit !== visit_id} />
+                            <Button onClick={saveThenOpen("complaint", handleSavePresentingComplaint, "medical-history")} disabled={isLoading || loadedVisit !== visit_id}><Save className="w-4 h-4 mr-2" />{isLoading ? "Saving..." : "Save, next: History"}</Button>
                         </CardFooter>
                     </Card>
                 </SavedRecordFields></TabsContent>
