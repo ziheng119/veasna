@@ -43,6 +43,32 @@ import { LiveRecordNotice } from "../shared/LiveRecord";
 // line up with the fields around them but don't look like something to type in.
 const COMPUTED_FIELD = "border-dashed bg-transparent shadow-none";
 
+// Wide limits on vitals: they catch typing slips (1 cm, 99 °C) without refusing a real extreme reading.
+const VITAL_LIMITS = {
+  height: [30, 250], weight: [1, 300], bp_systolic: [50, 300], bp_diastolic: [20, 200], temperature: [30, 45],
+} as const;
+const inRange = (value: number, min: number, max: number) => Number.isFinite(value) && value >= min && value <= max;
+
+// The control the cursor goes to when a field has a problem.
+const FIELD_FOCUS: Record<string, string> = {
+  english_name: "#englishName", sex: "#sex", height: "#height", weight: "#weight", bmi: "#height",
+  bp_systolic: "#systolic", bp_diastolic: "#diastolic", temperature: "#temperature",
+  know_of_hef: "#knows-yes", has_hef: "#has-yes", has_nssf: "#nssf-yes", uses_hef_nssf: "#uses-yes",
+  stations: "[id^='station-']",
+};
+
+// A Yes/No or checkbox option: the label fills a row at least 40px tall, so the whole row is
+// easy to tap on a tablet.
+const OPTION_ROW = "flex min-h-10 items-center space-x-2";
+const OPTION_LABEL = "self-stretch cursor-pointer pr-2 font-normal";
+
+// A field's error message, linked to the field with aria-describedby={errorId(field)}.
+const errorId = (field: string) => `${field}-error`;
+function FieldError({ field, message, className = "mt-1" }: { field: string; message?: string; className?: string }) {
+  if (!message) return null;
+  return <p id={errorId(field)} className={`${className} text-xs text-destructive`}>{message}</p>;
+}
+
 // Marks a form tab that has fields to fix; readable on the blue active tab too.
 function TabErrorDot() {
   return (
@@ -242,12 +268,14 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       setPatientInfo(prev => ({ ...prev, age: age >= 0 && age <= MAX_AGE ? age.toString() : "" }));
     }, [patientInfo.date_of_birth]);
 
-    // BMI and its category follow height and weight once both are filled in.
+    // BMI and its category follow height and weight once both are filled in and in range, so a
+    // typing slip (1600 cm) never shows a BMI.
     useEffect(() => {
-      const heightM = parseFloat(vitals.height) / 100; // Convert cm to m
+      const heightCm = parseFloat(vitals.height);
       const weightKg = parseFloat(vitals.weight);
+      const heightM = heightCm / 100;
 
-      if (heightM > 0 && weightKg > 0) {
+      if (inRange(heightCm, ...VITAL_LIMITS.height) && inRange(weightKg, ...VITAL_LIMITS.weight)) {
         const roundedBMI = Math.round((weightKg / (heightM * heightM)) * 10) / 10;
         setVitals(prev => ({
           ...prev,
@@ -268,10 +296,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     };
     const tabHasErrors = (tab: string) => TAB_FIELDS[tab].some((field) => errors[field]);
 
-    // Wide limits: they catch typing slips (1 cm, 99 °C) without refusing a real extreme reading.
-    const inRange = (value: number, min: number, max: number) =>
-      Number.isFinite(value) && value >= min && value <= max;
-
     const findErrors = (): FormErrors => {
       const nextErrors: FormErrors = {};
       const englishName = patientInfo.english_name?.trim() ?? "";
@@ -285,12 +309,13 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       if (!englishName) nextErrors.english_name = "English name is required.";
       if (!patientInfo.sex) nextErrors.sex = "Sex is required.";
 
-      if (!inRange(height, 30, 250)) nextErrors.height = "Enter a height between 30 and 250 cm.";
-      if (!inRange(weight, 1, 300)) nextErrors.weight = "Enter a weight between 1 and 300 kg.";
-      if (!Number.isFinite(bmi) || bmi <= 0) nextErrors.bmi = "Enter height and weight to calculate BMI.";
-      if (!Number.isInteger(bpSystolic) || !inRange(bpSystolic, 50, 300)) nextErrors.bp_systolic = "Enter a systolic pressure between 50 and 300.";
-      if (!Number.isInteger(bpDiastolic) || !inRange(bpDiastolic, 20, 200)) nextErrors.bp_diastolic = "Enter a diastolic pressure between 20 and 200.";
-      if (!inRange(temperature, 30, 45)) nextErrors.temperature = "Enter a temperature between 30 and 45 °C.";
+      if (!inRange(height, ...VITAL_LIMITS.height)) nextErrors.height = "Enter a height between 30 and 250 cm.";
+      if (!inRange(weight, ...VITAL_LIMITS.weight)) nextErrors.weight = "Enter a weight between 1 and 300 kg.";
+      // BMI is only calculated from a height and weight in range, so it needs no message of its own.
+      if (!nextErrors.height && !nextErrors.weight && (!Number.isFinite(bmi) || bmi <= 0)) nextErrors.bmi = "Enter height and weight to calculate BMI.";
+      if (!Number.isInteger(bpSystolic) || !inRange(bpSystolic, ...VITAL_LIMITS.bp_systolic)) nextErrors.bp_systolic = "Enter a systolic pressure between 50 and 300.";
+      if (!Number.isInteger(bpDiastolic) || !inRange(bpDiastolic, ...VITAL_LIMITS.bp_diastolic)) nextErrors.bp_diastolic = "Enter a diastolic pressure between 20 and 200.";
+      if (!inRange(temperature, ...VITAL_LIMITS.temperature)) nextErrors.temperature = "Enter a temperature between 30 and 45 °C.";
 
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
@@ -300,12 +325,21 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       return nextErrors;
     };
 
+    // Puts the cursor in the first field with a problem, once its tab is showing.
+    const focusFirstError = (found: FormErrors, fields: (keyof FormErrors)[]) => {
+      const field = fields.find((f) => found[f]);
+      if (field) requestAnimationFrame(() => document.querySelector<HTMLElement>(FIELD_FOCUS[field])?.focus());
+    };
+
     const validateForm = (): boolean => {
       const nextErrors = findErrors();
       setErrors(nextErrors);
       // Open the first tab with a problem; the others show a red dot.
       const firstTab = Object.keys(TAB_FIELDS).find((tab) => TAB_FIELDS[tab].some((field) => nextErrors[field]));
-      if (firstTab) setActiveTab(firstTab);
+      if (firstTab) {
+        setActiveTab(firstTab);
+        focusFirstError(nextErrors, TAB_FIELDS[firstTab]);
+      }
       return !firstTab;
     };
 
@@ -316,6 +350,14 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       for (const field of TAB_FIELDS[from]) if (found[field]) tabErrors[field] = found[field];
       setErrors((prev) => ({ ...prev, ...tabErrors }));
       if (Object.keys(tabErrors).length === 0) setActiveTab(to);
+      else focusFirstError(tabErrors, TAB_FIELDS[from]);
+    };
+
+    // Leaving a filled-in vital checks it, so a typing slip shows at once; empty ones wait for Next.
+    const checkVital = (field: keyof FormErrors, value: string) => {
+      if (!value.trim()) return;
+      const message = findErrors()[field];
+      if (message) setErrors((prev) => ({ ...prev, [field]: message }));
     };
 
     const normalizeName = (name?: string | null) => (name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -527,7 +569,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                   <Input
                     id="englishName"
                     value={patientInfo.english_name}
-                    aria-invalid={!!errors.english_name}
+                    aria-invalid={!!errors.english_name} aria-describedby={errors.english_name ? errorId("english_name") : undefined}
                     autoComplete="off"
                     onChange={(e) => {
                       setPatientInfo(prev => ({ ...prev, english_name: e.target.value }));
@@ -575,7 +617,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                       })}
                     </ul>
                   )}
-                  {errors.english_name && <p className="mt-1 text-xs text-destructive">{errors.english_name}</p>}
+                  <FieldError field="english_name" message={errors.english_name} />
                   {noMatchFor && (
                     <p className="mt-1 text-xs text-muted-foreground" role="status">
                       No registered patient matches &ldquo;{noMatchFor}&rdquo;. Carry on to register them as new.
@@ -623,7 +665,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                         clearFieldError("sex");
                       }}
                     >
-                      <SelectTrigger className="mt-2 w-full" aria-invalid={!!errors.sex}>
+                      <SelectTrigger id="sex" className="mt-2 w-full" aria-invalid={!!errors.sex} aria-describedby={errors.sex ? errorId("sex") : undefined}>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border">
@@ -631,7 +673,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                         <SelectItem value="F" className="text-foreground hover:bg-accent">Female</SelectItem>
                       </SelectContent>
                     </Select>
-                    {errors.sex && <p className="mt-1 text-xs text-destructive">{errors.sex}</p>}
+                    <FieldError field="sex" message={errors.sex} />
                   </div>
                 </div>
     
@@ -699,53 +741,55 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
               <TabsContent value="vitals" data-tour="reg-vitals" className="space-y-4 mt-6 h-full">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="height">Height (cm)</Label>
+                    <Label htmlFor="height">Height (cm) *</Label>
                     <FilteredInput
                       id="height"
                       format="measurement"
                       value={vitals.height}
-                      aria-invalid={!!errors.height}
+                      aria-invalid={!!errors.height} aria-describedby={errors.height ? errorId("height") : undefined}
                       onValueChange={(height) => {
                         setVitals(prev => ({ ...prev, height }));
                         clearFieldError("height");
                       }}
+                      onBlur={() => checkVital("height", vitals.height)}
                       placeholder="Height in cm"
                       className="mt-2"
                     />
-                    {errors.height && <p className="mt-1 text-xs text-destructive">{errors.height}</p>}
+                    <FieldError field="height" message={errors.height} />
                   </div>
                   <div>
-                    <Label htmlFor="weight">Weight (kg)</Label>
+                    <Label htmlFor="weight">Weight (kg) *</Label>
                     <FilteredInput
                       id="weight"
                       format="measurement"
                       value={vitals.weight}
-                      aria-invalid={!!errors.weight}
+                      aria-invalid={!!errors.weight} aria-describedby={errors.weight ? errorId("weight") : undefined}
                       onValueChange={(weight) => {
                         setVitals(prev => ({ ...prev, weight }));
                         clearFieldError("weight");
                       }}
+                      onBlur={() => checkVital("weight", vitals.weight)}
                       placeholder="Weight in kg"
                       className="mt-2"
                     />
-                    {errors.weight && <p className="mt-1 text-xs text-destructive">{errors.weight}</p>}
+                    <FieldError field="weight" message={errors.weight} />
                   </div>
                   <div>
                     <Label htmlFor="bmi">BMI</Label>
                     <Input
                       id="bmi"
                       value={vitals.bmi}
-                      aria-invalid={!!errors.bmi}
+                      aria-invalid={!!errors.bmi} aria-describedby={errors.bmi ? errorId("bmi") : undefined}
                       readOnly
                       placeholder="Auto from height and weight"
                       tabIndex={-1}
                       className={`mt-2 ${COMPUTED_FIELD}`}
                     />
-                    {errors.bmi && <p className="mt-1 text-xs text-destructive">{errors.bmi}</p>}
+                    <FieldError field="bmi" message={errors.bmi} />
                   </div>
                 </div>
     
-                <div className="flex items-center space-x-2 pt-2">
+                <div className={`${OPTION_ROW} pt-2`}>
                   <Checkbox
                     id="below3rd"
                     checked={vitals.below_3rd_percentile}
@@ -755,7 +799,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                     }))}
                     className="bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
-                  <Label htmlFor="below3rd">Child is below 3rd percentile (BMI by age)</Label>
+                  <Label htmlFor="below3rd" className={OPTION_LABEL}>Child is below 3rd percentile (BMI by age)</Label>
                 </div>
     
                 <div>
@@ -772,54 +816,57 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="systolic">Blood Pressure - Systolic</Label>
+                    <Label htmlFor="systolic">Blood pressure, systolic *</Label>
                     <FilteredInput
                       id="systolic"
                       format="wholeNumber"
                       value={vitals.bp_systolic}
-                      aria-invalid={!!errors.bp_systolic}
+                      aria-invalid={!!errors.bp_systolic} aria-describedby={errors.bp_systolic ? errorId("bp_systolic") : undefined}
                       onValueChange={(bp_systolic) => {
                         setVitals(prev => ({ ...prev, bp_systolic }));
                         clearFieldError("bp_systolic");
                       }}
+                      onBlur={() => checkVital("bp_systolic", vitals.bp_systolic)}
                       placeholder="Systolic"
                       className="mt-2"
                     />
-                    {errors.bp_systolic && <p className="mt-1 text-xs text-destructive">{errors.bp_systolic}</p>}
+                    <FieldError field="bp_systolic" message={errors.bp_systolic} />
                   </div>
                   <div>
-                    <Label htmlFor="diastolic">Blood Pressure - Diastolic</Label>
+                    <Label htmlFor="diastolic">Blood pressure, diastolic *</Label>
                     <FilteredInput
                       id="diastolic"
                       format="wholeNumber"
                       value={vitals.bp_diastolic}
-                      aria-invalid={!!errors.bp_diastolic}
+                      aria-invalid={!!errors.bp_diastolic} aria-describedby={errors.bp_diastolic ? errorId("bp_diastolic") : undefined}
                       onValueChange={(bp_diastolic) => {
                         setVitals(prev => ({ ...prev, bp_diastolic }));
                         clearFieldError("bp_diastolic");
                       }}
+                      onBlur={() => checkVital("bp_diastolic", vitals.bp_diastolic)}
                       placeholder="Diastolic"
                       className="mt-2"
                     />
-                    {errors.bp_diastolic && <p className="mt-1 text-xs text-destructive">{errors.bp_diastolic}</p>}
+                    <FieldError field="bp_diastolic" message={errors.bp_diastolic} />
                   </div>
                 </div>
     
                 <div>
-                  <Label htmlFor="temperature">Temperature (°C)</Label>
+                  <Label htmlFor="temperature">Temperature (°C) *</Label>
                   <FilteredInput
                     id="temperature"
                     format="temperature"
                     value={vitals.temperature}
-                    aria-invalid={!!errors.temperature}
+                    aria-invalid={!!errors.temperature} aria-describedby={errors.temperature ? errorId("temperature") : undefined}
                     onValueChange={(temperature) => {
                       setVitals(prev => ({ ...prev, temperature }));
                       clearFieldError("temperature");
                     }}
+                    onBlur={() => checkVital("temperature", vitals.temperature)}
                     placeholder="Temperature in Celsius"
                     className="mt-2"
                   />
-                  {errors.temperature && <p className="mt-1 text-xs text-destructive">{errors.temperature}</p>}
+                  <FieldError field="temperature" message={errors.temperature} />
                 </div>
     
                 <div>
@@ -838,91 +885,99 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                 <div className="space-y-4">
                   <p className="text-sm font-semibold">Health coverage (HEF, NSSF)</p>
                   <div>
-                    <Label className="block mb-4">Does patient know about HEF? *</Label>
+                    <Label className="block mb-2">Does patient know about HEF? *</Label>
                     <RadioGroup 
-                      value={hef.know_of_hef} 
+                      value={hef.know_of_hef}
+                      aria-invalid={!!errors.know_of_hef}
+                      aria-describedby={errors.know_of_hef ? errorId("know_of_hef") : undefined} 
                       onValueChange={(value) => {
                         setHEF(prev => ({ ...prev, know_of_hef: value as "yes" | "no" }));
                         clearFieldError("know_of_hef");
                       }}
                       className="flex gap-6"
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="yes" id="knows-yes" className="text-primary bg-background" />
-                        <Label htmlFor="knows-yes" className="font-normal">Yes</Label>
+                        <Label htmlFor="knows-yes" className={OPTION_LABEL}>Yes</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="no" id="knows-no" className="text-primary bg-background" />
-                        <Label htmlFor="knows-no" className="font-normal">No</Label>
+                        <Label htmlFor="knows-no" className={OPTION_LABEL}>No</Label>
                       </div>
                     </RadioGroup>
-                    {errors.know_of_hef && <p className="mt-2 text-xs text-destructive">{errors.know_of_hef}</p>}
+                    <FieldError field="know_of_hef" message={errors.know_of_hef} className="mt-2" />
                   </div>
     
                   <div>
-                    <Label className="block mb-4">Does patient have HEF? *</Label>
+                    <Label className="block mb-2">Does patient have HEF? *</Label>
                     <RadioGroup 
-                      value={hef.has_hef} 
+                      value={hef.has_hef}
+                      aria-invalid={!!errors.has_hef}
+                      aria-describedby={errors.has_hef ? errorId("has_hef") : undefined} 
                       onValueChange={(value) => {
                         setHEF(prev => ({ ...prev, has_hef: value as "yes" | "no" }));
                         clearFieldError("has_hef");
                       }}
                       className="flex gap-6"
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="yes" id="has-yes" className="text-primary bg-background" />
-                        <Label htmlFor="has-yes" className="font-normal">Yes</Label>
+                        <Label htmlFor="has-yes" className={OPTION_LABEL}>Yes</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="no" id="has-no" className="text-primary bg-background" />
-                        <Label htmlFor="has-no" className="font-normal">No</Label>
+                        <Label htmlFor="has-no" className={OPTION_LABEL}>No</Label>
                       </div>
                     </RadioGroup>
-                    {errors.has_hef && <p className="mt-2 text-xs text-destructive">{errors.has_hef}</p>}
+                    <FieldError field="has_hef" message={errors.has_hef} className="mt-2" />
                   </div>
 
                   <div>
-                    <Label className="block mb-4">Does patient have NSSF? *</Label>
+                    <Label className="block mb-2">Does patient have NSSF? *</Label>
                     <RadioGroup
                       value={hef.has_nssf}
+                      aria-invalid={!!errors.has_nssf}
+                      aria-describedby={errors.has_nssf ? errorId("has_nssf") : undefined}
                       onValueChange={(value) => {
                         setHEF(prev => ({ ...prev, has_nssf: value as "yes" | "no" }));
                         clearFieldError("has_nssf");
                       }}
                       className="flex gap-6"
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="yes" id="nssf-yes" className="text-primary bg-background" />
-                        <Label htmlFor="nssf-yes" className="font-normal">Yes</Label>
+                        <Label htmlFor="nssf-yes" className={OPTION_LABEL}>Yes</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="no" id="nssf-no" className="text-primary bg-background" />
-                        <Label htmlFor="nssf-no" className="font-normal">No</Label>
+                        <Label htmlFor="nssf-no" className={OPTION_LABEL}>No</Label>
                       </div>
                     </RadioGroup>
-                    {errors.has_nssf && <p className="mt-2 text-xs text-destructive">{errors.has_nssf}</p>}
+                    <FieldError field="has_nssf" message={errors.has_nssf} className="mt-2" />
                   </div>
 
                   <div>
-                    <Label className="block mb-4">Does patient use HEF/NSSF? *</Label>
+                    <Label className="block mb-2">Does patient use HEF/NSSF? *</Label>
                     <RadioGroup
                       value={hef.uses_hef_nssf}
+                      aria-invalid={!!errors.uses_hef_nssf}
+                      aria-describedby={errors.uses_hef_nssf ? errorId("uses_hef_nssf") : undefined}
                       onValueChange={(value) => {
                         setHEF(prev => ({ ...prev, uses_hef_nssf: value as "yes" | "no" }));
                         clearFieldError("uses_hef_nssf");
                       }}
                       className="flex gap-6"
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="yes" id="uses-yes" className="text-primary bg-background" />
-                        <Label htmlFor="uses-yes" className="font-normal">Yes</Label>
+                        <Label htmlFor="uses-yes" className={OPTION_LABEL}>Yes</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className={OPTION_ROW}>
                         <RadioGroupItem value="no" id="uses-no" className="text-primary bg-background" />
-                        <Label htmlFor="uses-no" className="font-normal">No</Label>
+                        <Label htmlFor="uses-no" className={OPTION_LABEL}>No</Label>
                       </div>
                     </RadioGroup>
-                    {errors.uses_hef_nssf && <p className="mt-2 text-xs text-destructive">{errors.uses_hef_nssf}</p>}
+                    <FieldError field="uses_hef_nssf" message={errors.uses_hef_nssf} className="mt-2" />
                   </div>
     
                   <div>
@@ -942,9 +997,9 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                   <p className="mb-3 text-xs text-muted-foreground">
                     Tick any that apply. With {TB_MIN_RED_FLAGS} or more, the patient is flagged for suspected TB and goes only to the Consult queue, shown in red in every queue, so a doctor sees them first.
                   </p>
-                  <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                  <div className="grid gap-x-6 sm:grid-cols-2">
                     {tbRedFlagOptions.map((flag) => (
-                      <div key={flag.id} className="flex items-center space-x-2">
+                      <div key={flag.id} className={OPTION_ROW}>
                         <Checkbox
                           id={`tb-flag-${flag.id}`}
                           checked={tbRedFlags.includes(flag.id)}
@@ -957,7 +1012,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                           }
                           className="bg-background data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
                         />
-                        <Label htmlFor={`tb-flag-${flag.id}`} className="font-normal">{flag.label}</Label>
+                        <Label htmlFor={`tb-flag-${flag.id}`} className={OPTION_LABEL}>{flag.label}</Label>
                       </div>
                     ))}
                   </div>
@@ -1002,7 +1057,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                       }}
                     />
                   )}
-                  {errors.stations && <p className="mt-2 text-xs text-destructive">{errors.stations}</p>}
+                  <FieldError field="stations" message={errors.stations} className="mt-2" />
                 </div>
               </TabsContent>
             </div>

@@ -14,6 +14,14 @@ export const INPUT_FORMATS = {
 
 export type InputFormat = keyof typeof INPUT_FORMATS;
 
+// Shown briefly under a field when something typed or pasted doesn't fit its format.
+export const INPUT_FORMAT_HINTS: Record<InputFormat, string> = {
+  measurement: "Numbers only, with one decimal place.",
+  temperature: "Numbers in °C only, with one decimal place.",
+  wholeNumber: "Whole numbers only.",
+  phone: "Digits, spaces, + and - only.",
+};
+
 export function matchesFormat(value: string, format: InputFormat): boolean {
   return INPUT_FORMATS[format].test(value);
 }

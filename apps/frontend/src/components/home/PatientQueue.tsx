@@ -146,7 +146,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
               aria-hidden={grouping || undefined}
               className={cn(
                 "flex overflow-hidden transition-[max-width,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
-                grouping ? "pointer-events-none -ml-3 max-w-0 opacity-0" : "max-w-6 opacity-100",
+                grouping ? "pointer-events-none -ml-3 max-w-0 opacity-0" : "max-w-10 opacity-100",
               )}
             >
             <Button
@@ -154,7 +154,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
               type="button"
               variant="ghost"
               size="icon"
-              className="size-6 text-muted-foreground hover:text-destructive"
+              className="-my-2 size-10 text-muted-foreground hover:text-destructive"
               title="Discharge patient"
               onClick={async () => {
                 if (!await confirm({
@@ -165,7 +165,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
                 onRemovePatient(patient.visit_id);
               }}
             >
-              <X className="size-3.5" />
+              <X className="size-4" />
             </Button>
             </span>
           )}
