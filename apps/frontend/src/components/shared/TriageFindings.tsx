@@ -7,6 +7,7 @@ import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { getPresentingComplaint } from "@/lib/api/visit/getPresentingComplaints";
 import { useVisitChanges } from "@/hooks/useVisitChanges";
 import { StationMark } from "./StationBadge";
+import { useRememberedOpen } from "@/hooks/useRememberedOpen";
 import SnellensTestDetails from "./read-only/triage-container/SnellensTestDetails";
 
 // Triage's presenting complaint, in the words of its own form; allergies first, as they change
@@ -32,6 +33,7 @@ export default function TriageFindings({ patient }: { patient: QueuedPatient }) 
   const [complaint, setComplaint] = useState<PresentingComplaint | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const changes = useVisitChanges(patient.visit_id);
+  const [open, setOpen] = useRememberedOpen("triage-findings");
 
   useEffect(() => {
     let cancelled = false;
@@ -45,11 +47,20 @@ export default function TriageFindings({ patient }: { patient: QueuedPatient }) 
   // The API sends "N/A" for a box left empty: left out, like an empty one.
   const rows = FIELDS.filter(([key]) => { const value = complaint?.[key]?.trim(); return value && value !== "N/A"; }).map(([key, label]) => ({ key, label, value: complaint![key].trim() }));
 
+  // Allergies stay in sight when the section is folded.
+  const allergy = rows.find(({ key, value }) => key === "drug_allergies" && !NO_ALLERGY.test(value))?.value;
+
   return (
-    <details open className="group/triage">
+    <details open={open} onToggle={(event) => { if (event.currentTarget.open !== open) setOpen(event.currentTarget.open); }} className="group/triage">
       <summary className="flex cursor-pointer select-none list-none items-center gap-2.5 rounded-md text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
         <StationMark station="triage" className="size-6" />
         From Triage
+        {allergy && (
+          <span className="flex min-w-0 items-center gap-1.5 font-medium text-amber-800 group-open/triage:hidden dark:text-amber-300">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">Allergy: {allergy}</span>
+          </span>
+        )}
         <ChevronDown className="ml-auto size-4 text-muted-foreground transition-transform duration-200 group-open/triage:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
       </summary>
       <div className="mt-3 space-y-3">
