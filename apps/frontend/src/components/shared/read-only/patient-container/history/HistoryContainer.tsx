@@ -3,13 +3,17 @@
 import { useState, useRef, useCallback, useEffect, RefObject } from "react";
 import { PopUpIcon } from "@/assets/icons/PopUpIcon";
 import HistoryPopUp from "./HistoryPopUp";
+import { History } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { QueuedPatient } from "@/lib/types/patient";
 
 interface Props {
   patient: QueuedPatient;
+  // "button": a small outline button (on a station's patient column) instead of the heading row.
+  variant?: "heading" | "button";
 }
 
-export default function HistoryContainer({ patient }: Props) {
+export default function HistoryContainer({ patient, variant = "heading" }: Props) {
   const [showPopUp, setShowPopUp] = useState(false);
 
   // Position state
@@ -54,15 +58,21 @@ export default function HistoryContainer({ patient }: Props) {
 
   return (
     <>
-      <div className="flex justify-between">
-        <h2 className="text-[20px] font-semibold">Patient History</h2>
-        <div
-          className="flex items-center justify-center hover:cursor-pointer"
-          onClick={() => setShowPopUp(true)}
-        >
-          <PopUpIcon width={20} height={20} />
+      {variant === "button" ? (
+        <Button type="button" variant="outline" size="sm" onClick={() => setShowPopUp(true)}>
+          <History className="size-4" aria-hidden="true" />Patient history
+        </Button>
+      ) : (
+        <div className="flex justify-between">
+          <h2 className="text-[20px] font-semibold">Patient History</h2>
+          <div
+            className="flex items-center justify-center hover:cursor-pointer"
+            onClick={() => setShowPopUp(true)}
+          >
+            <PopUpIcon width={20} height={20} />
+          </div>
         </div>
-      </div>
+      )}
 
       {showPopUp && 
         <HistoryPopUp 

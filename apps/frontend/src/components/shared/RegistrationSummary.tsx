@@ -22,8 +22,9 @@ const reading = (value: unknown, unit = "") => {
 };
 
 /**
- * What Registration recorded for this visit, under the patient header at a station: vitals, then
- * date of birth and phone. Missing readings are left out.
+ * What Registration recorded for this visit, under the patient header at a station: height, weight
+ * and BMI in one column; blood pressure, temperature, date of birth and phone in the other. Missing
+ * readings are left out.
  */
 export default function RegistrationSummary({ patient }: { patient: QueuedPatient }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -49,19 +50,20 @@ export default function RegistrationSummary({ patient }: { patient: QueuedPatien
   const bp = v?.bp_systolic && v?.bp_diastolic ? `${v.bp_systolic}/${v.bp_diastolic}` : "";
   const highBp = Boolean(bp) && (Number(v?.bp_systolic) >= HIGH_BP.systolic || Number(v?.bp_diastolic) >= HIGH_BP.diastolic);
   const raisedTemp = v?.temperature != null && Number(v.temperature) >= RAISED_TEMP_C;
-  // [label, value, what is unusual about it]; vitals in one column, the patient's details in another.
-  const vitals: Item[] = [
+  // [label, value, what is unusual about it]. Body size in one column; blood pressure, temperature
+  // and the patient's details in the other.
+  const body: Item[] = [
     ["Height", reading(v?.height, " cm")],
     ["Weight", reading(v?.weight, " kg")],
     ["BMI", reading(v?.bmi), v?.below_3rd_percentile ? "below 3rd percentile" : undefined],
+  ];
+  const signs: Item[] = [
     ["Blood pressure", bp, highBp ? "high" : undefined],
     ["Temperature", reading(v?.temperature, " °C"), raisedTemp ? "raised" : undefined],
-  ];
-  const personal: Item[] = [
     ["Date of birth", reading(details?.date_of_birth)],
     ["Phone", reading(details?.phone_number)],
   ];
-  const columns = [vitals, personal].map((items) => items.filter(([, value]) => value)).filter((items) => items.length);
+  const columns = [body, signs].map((items) => items.filter(([, value]) => value)).filter((items) => items.length);
 
   return (
     <section aria-label="From registration">
@@ -69,7 +71,8 @@ export default function RegistrationSummary({ patient }: { patient: QueuedPatien
         // One reading per line, read down: label on the left, value beside it.
         <div className="flex flex-wrap gap-x-12 gap-y-3">
           {columns.map((items) => (
-            <dl key={items[0][0]} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            // A 9rem label column, as in TriageFindings, so the two lists line up on Dental.
+            <dl key={items[0][0]} className="grid grid-cols-[minmax(9rem,auto)_1fr] gap-x-4 gap-y-1 text-sm">
               {items.map(([label, value, note]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>

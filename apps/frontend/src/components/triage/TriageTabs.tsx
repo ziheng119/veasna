@@ -1,5 +1,6 @@
 "use client"
 
+import { STICKY_FORM_FOOTER } from "@/lib/pageLayout";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { getTriageRecord } from "@/lib/api/triage/triageService";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -107,7 +108,7 @@ function NoteBox<T extends object>({ form, field, values, onChange }: {
 }
 
 // The buttons under a section: they stay in view at the bottom of the scrolling column.
-const SECTION_FOOTER = "sticky bottom-0 z-10 -mx-5 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-5 py-3";
+const SECTION_FOOTER = STICKY_FORM_FOOTER;
 
 interface TriageTabsProps {
     // The selected patient, for "Save & next".
@@ -391,9 +392,9 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                 <LiveRecordNotice live={liveComplaint} label="Presenting Complaints" />
                 <LiveRecordNotice live={liveHistory} label="Medical History" />
             </div>
-            {/* The tabs stick under the patient bar (--triage-header, set by the page). */}
-            <div ref={tabsTop} aria-hidden="true" style={{ scrollMarginTop: "var(--triage-header, 0px)" }} />
-            <div ref={tabsBar} className="sticky z-10 mt-4 border-b border-border bg-card px-5 py-2" style={{ top: "var(--triage-header, 0px)" }}>
+            {/* The tabs stick under the patient bar (--patient-bar, set by the page). */}
+            <div ref={tabsTop} aria-hidden="true" style={{ scrollMarginTop: "var(--patient-bar, 0px)" }} />
+            <div ref={tabsBar} className="sticky z-10 mt-4 border-b border-border bg-card px-5 py-2" style={{ top: "var(--patient-bar, 0px)" }}>
                 <TabsList className="grid w-full grid-cols-3 bg-muted/80">
                     {SECTIONS.map((section) => (
                         <TabsTrigger key={section.id} value={SECTION_TABS[section.id]} className={SECTION_TAB}>

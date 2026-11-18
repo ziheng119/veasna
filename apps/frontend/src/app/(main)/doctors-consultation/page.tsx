@@ -1,55 +1,29 @@
 "use client"
 
-import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
-import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import DoctorsNotesContainer from "@/components/doctors-consultation/DoctorsNotesContainer";
-import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
-import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import { QUEUE_FOLD } from "@/lib/pageLayout";
-import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
+import DoctorsNotesContainer from "@/components/doctors-consultation/DoctorsNotesContainer";
 import PrintReferrals from "@/components/doctors-consultation/PrintReferrals";
+import PatientContext from "@/components/shared/PatientContext";
+import StationSurface from "@/components/shared/StationSurface";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
-import StationDataButton from "@/components/shared/StationDataButton";
-
-// Queue, patient snapshot and triage summary share the top row; the consultation notes take the
-// full page width underneath. The page scrolls as a whole instead of fitting one screen.
-const TOP_ROW = `grid grid-cols-1 gap-6 xl:h-[30rem] xl:grid-rows-1 ${QUEUE_FOLD}`;
+import { QueuedPatient } from "@/lib/types/patient";
 
 export default function DoctorsConsultation() {
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-
   return (
     <StationFlowProvider station="consultation" onSelectPatient={setSelectedPatient}>
-      <div className="flex flex-col gap-5 pb-2">
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <div className="flex items-center gap-3">
-            <PrintReferrals />
-            <StationDataButton station="consultation" />
-          </div>
-        </div>
-        <div className={TOP_ROW}>
-          <QueuePatientPicker
-            station="consultation"
-            onSelectPatient={setSelectedPatient}
-            selectedVisitId={selectedPatient?.visit_id}
-          />
-          {!selectedPatient ? (
-            <div data-tour="station-work" className="xl:col-span-8 xl:min-h-0"><NoPatientSelected /></div>
-          ) : (
-            <>
-              <PatientContainer key={`snapshot-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
-              <TriageContainer key={`triage-${selectedPatient.visit_id}`} selectedPatient={selectedPatient} />
-            </>
-          )}
-        </div>
-        {selectedPatient && (
-          <div data-tour="station-work">
-            <DoctorsNotesContainer key={`notes-${selectedPatient.visit_id}`} patient={selectedPatient} />
-          </div>
+      {/* Like Dental: the queue beside the open patient, whose column reads down from what
+          Registration and Triage recorded to the consultation notes and prescribing. */}
+      <StationSurface station="consultation" selectedPatient={selectedPatient} onSelectPatient={setSelectedPatient}
+        actions={<PrintReferrals />}>
+        {(patient) => (
+          <>
+            <PatientContext patient={patient} />
+            <DoctorsNotesContainer key={patient.visit_id} patient={patient} />
+          </>
         )}
-      </div>
+      </StationSurface>
     </StationFlowProvider>
-  )
+  );
 }

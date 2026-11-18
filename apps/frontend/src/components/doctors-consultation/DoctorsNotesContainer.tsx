@@ -12,7 +12,7 @@ import Loading from "../shared/Loading";
 import { Consultation, Referral } from "@/lib/types/consultation";
 import { getConsultation } from "@/lib/api/visit/doctors-consultation/getConsultation";
 import { postConsultation } from "@/lib/api/visit/doctors-consultation/postConsultation";
-import { PageCard } from "../shared/PageCard";
+import StationForm from "../shared/StationForm";
 import PrescriptionPanel from "./PrescriptionPanel";
 import DentalSummary from "./DentalSummary";
 import SendToPhysiotherapy from "./SendToPhysiotherapy";
@@ -130,17 +130,46 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     } },
   });
 
+  // Save buttons on the left; the hospital referral, saved on its own, on the right. Not locked with
+  // the fields: a referral can still be written once the notes are saved.
+  const buttons = (
+    <>
+      <div className="flex items-center gap-2">
+        <SaveButton label="Save consultation notes" busy={saving} disabled={!loaded || !editable} onClick={handleSave} />
+        {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
+        <SaveAndNextButton patient={patient} onSave={handleSave}
+          ready={saved || (notes.trim() !== "" && conditionCategories !== null)} locked={saved && !editable}
+          disabled={saving || !loaded || (!editable && !saved)}
+          hint="Write notes and tick the conditions addressed (or None) to finish" />
+      </div>
+      <div className="ml-auto">
+        {loadFailed ? (
+          <p role="alert" className="text-sm text-destructive">
+            Can&apos;t reach the host laptop to load this consultation. Trying again…
+          </p>
+        ) : !loaded || patientInfo === null ? (
+          <Loading />
+        ) : (
+          <ReferralButton
+            patient={patient}
+            patientInfo={patientInfo}
+            retrievedReferral={referral}
+            onSaved={setReferral}
+            onDeleted={() => setReferral(null)}
+          />
+        )}
+      </div>
+    </>
+  );
+
+  // In the open patient's column on the Consult page (StationSurface), under what was recorded before.
   return (
-    <PageCard
-      title="Consultation Notes"
-      className="min-w-0"
-      headerClassName="text-base"
-      contentClassName="space-y-4 text-sm leading-5"
-    >
+    <StationForm station="consultation" title="Consultation Notes" footer={buttons} footerClassName="justify-between"
+      className="@container text-sm leading-5">
       <StationDonePrompt patient={patient} done={saved} />
       <LiveRecordNotice live={live} />
-      {/* Full page width: notes and conditions on the left, prescribing on the right. */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Notes and conditions, then prescribing; side by side once the column is wide enough. */}
+      <div className="grid gap-6 @3xl:grid-cols-2">
         <div className="min-w-0 space-y-4">
           <SavedRecordFields locked={!editable}>
             <div className="space-y-2">
@@ -177,39 +206,12 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         </div>
         {/* Prescriptions are separate records: they can be added after the notes are saved.
             Prescribing adds Pharmacy to the patient's route. */}
-        <div className="min-w-0 space-y-4 lg:border-l lg:border-border lg:pl-6">
+        <div className="min-w-0 space-y-4 @3xl:border-l @3xl:border-border @3xl:pl-6">
           <DentalSummary visitId={patient.visit_id} />
           <SendToPhysiotherapy patient={patient} />
           <PrescriptionPanel visitId={patient.visit_id} legacyPrescription={prescription} />
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <SaveButton label="Save consultation notes" busy={saving} disabled={!loaded || !editable} onClick={handleSave} />
-        {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
-          <SaveAndNextButton patient={patient} onSave={handleSave}
-            ready={saved || (notes.trim() !== "" && conditionCategories !== null)} locked={saved && !editable}
-            disabled={saving || !loaded || (!editable && !saved)}
-            hint="Write notes and tick the conditions addressed (or None) to finish" />
-        </div>
-        <div className="ml-auto">
-          {loadFailed ? (
-            <p role="alert" className="text-sm text-destructive">
-              Can&apos;t reach the host laptop to load this consultation. Trying again…
-            </p>
-          ) : !loaded || patientInfo === null ? (
-            <Loading />
-          ) : (
-            <ReferralButton
-              patient={patient}
-              patientInfo={patientInfo}
-              retrievedReferral={referral}
-              onSaved={setReferral}
-              onDeleted={() => setReferral(null)}
-            />
-          )}
-        </div>
-      </div>
-    </PageCard>
+    </StationForm>
   );
 }

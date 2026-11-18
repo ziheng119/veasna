@@ -32,3 +32,8 @@ export const COMPACT_SUMMARY_CARD = "min-h-0 min-w-0 overflow-hidden gap-3 py-4"
 export const COMPACT_SUMMARY_HEADER = "shrink-0 px-4 text-base [.border-b]:pb-3";
 export const COMPACT_SUMMARY_CONTENT =
   "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 space-y-3 text-sm leading-5 break-words [&_h1]:text-sm [&_h2]:text-sm [&_textarea]:text-sm";
+
+// A form's buttons on a station surface (StationSurface): stuck to the bottom of the patient's
+// column, full width over the form's 20px side padding, so Save is always in reach.
+export const STICKY_FORM_FOOTER =
+  "sticky bottom-0 z-10 -mx-5 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-5 py-3";

@@ -1,43 +1,27 @@
 "use client"
 
-import DentalNotesContainer from "@/components/dental/DentalNotesContainer";
-import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
-import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
-import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import DentalNotesContainer from "@/components/dental/DentalNotesContainer";
+import PatientContext from "@/components/shared/PatientContext";
+import StationSurface from "@/components/shared/StationSurface";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
+import { QueuedPatient } from "@/lib/types/patient";
 
 export default function Dental() {
-
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
-
 
   return (
     <StationFlowProvider station="dental" onSelectPatient={setSelectedPatient}>
-      <div className={PAGE_SHELL}>
-        <div className={PANEL_GRID}>
-          <QueuePatientPicker
-            station="dental"
-            onSelectPatient={setSelectedPatient}
-            selectedVisitId={selectedPatient?.visit_id}
-          />
-          <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
-            {!selectedPatient ? (
-              <NoPatientSelected />
-            ) : (
-              <div className={PANEL_GRID}>
-                <PatientContainer selectedPatient = {selectedPatient}/>
-                {/* Triage notes show the tooth problems found at Triage. */}
-                <TriageContainer selectedPatient = {selectedPatient}/>
-                <DentalNotesContainer key={selectedPatient.visit_id} patient={selectedPatient} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Like Triage: the queue beside the open patient. Their column reads down: what Registration
+          and Triage recorded (Triage shows the tooth problems found there), then the dental notes. */}
+      <StationSurface station="dental" selectedPatient={selectedPatient} onSelectPatient={setSelectedPatient}>
+        {(patient) => (
+          <>
+            <PatientContext patient={patient} />
+            <DentalNotesContainer key={patient.visit_id} patient={patient} />
+          </>
+        )}
+      </StationSurface>
     </StationFlowProvider>
-  )
+  );
 }

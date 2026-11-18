@@ -14,7 +14,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { getSeva } from "@/lib/api/visit/seva/getSeva";
 import { postSeva } from "@/lib/api/visit/seva/postSeva";
 import formatDate from "@/helper/format_date";
-import { PageCard } from "../shared/PageCard";
+import StationForm from "../shared/StationForm";
 import EyeReadingsGrid, { EMPTY_EYE_READINGS, EYE_READING_FIELDS, EyeReadingField, EyeReadings, REQUIRED_EYE_READING_FIELDS } from "../shared/EyeReadingsGrid";
 import {
   Select,
@@ -120,12 +120,17 @@ export default function SevaNotesContainer({ patient }: Props) {
   // With glasses is optional, so only the pinhole readings are needed to finish.
   const eyeReadingsComplete = REQUIRED_EYE_READING_FIELDS.every((field) => Boolean(readings[field]));
 
+  const buttons = (
+    <>
+      <SaveButton onClick={handleSave} disabled={!editable} />
+      <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
+        locked={saved && !editable} disabled={!editable && !saved} hint="Take the eye readings without and with pinhole, and write a diagnosis, to finish" />
+    </>
+  );
+
+  // In the open patient's column on the partner NGO page (StationSurface), under what was recorded before.
   return (
-    <PageCard
-      title={`${PARTNER_NGO_NAME} Notes`}
-      className="xl:col-span-4"
-      contentClassName="space-y-4"
-    >
+    <StationForm station="seva" title={`${PARTNER_NGO_NAME} Notes`} footer={buttons} footerDisabled={!editable}>
       <StationDonePrompt patient={patient} done={saved} />
       <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
@@ -190,13 +195,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             <EyeReadingsGrid values={readings} onChange={(field, value) => setReadings((previous) => ({ ...previous, [field]: value }))} />
           </div>
         </details>
-
-        <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} disabled={!editable} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
-            locked={saved && !editable} disabled={!editable && !saved} hint="Take the eye readings without and with pinhole, and write a diagnosis, to finish" />
-        </div>
       </SavedRecordFields>
-    </PageCard>
+    </StationForm>
   );
 }
