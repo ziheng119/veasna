@@ -50,7 +50,7 @@ export default function TopNav() {
     return pathname === path;
   };
 
-  const linkBaseClass = "rounded-md px-3 py-2 text-sm font-semibold transition-[color,background-color,transform] duration-200 hover:-translate-y-px active:translate-y-0 active:scale-95 motion-reduce:transform-none";
+  const linkBaseClass = "rounded-md px-2 py-2 xl:px-3 text-sm font-semibold transition-[color,background-color,transform] duration-200 hover:-translate-y-px active:translate-y-0 active:scale-95 motion-reduce:transform-none";
   const activeLinkClass = "bg-primary/10 text-primary";
   const inactiveLinkClass = "text-muted-foreground hover:bg-accent hover:text-foreground";
 
@@ -73,7 +73,7 @@ export default function TopNav() {
 
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-3">
+      <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-4 py-3 xl:px-6">
         {/* Search for anyone in today's clinic, then the page links */}
         <div className="flex min-w-0 items-center gap-3">
           {user?.token && <SearchBar />}

@@ -19,7 +19,8 @@ export default async function MainLayout({
     <>
       <AuthWrapper>
         {/* One screen tall: pages lay out their own scrolling panels (see PageLayout). */}
-        <div className="flex h-screen flex-col">
+        {/* The app footer is left off station pages from lg, so the surface runs to the bottom. */}
+        <div className="flex h-screen flex-col lg:has-[[data-station-surface]]:[&>footer]:hidden">
           <TopNav/>
           <RealtimeConnection />
           <ClockWarning />
