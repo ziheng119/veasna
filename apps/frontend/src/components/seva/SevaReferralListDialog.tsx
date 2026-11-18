@@ -48,10 +48,11 @@ export default function SevaReferralListDialog() {
 
   return (
     <>
-      {/* Same pill as the other buttons in a station page's search row. */}
-      <GlassButton type="button" className="h-10 shrink-0 px-4" onClick={() => setOpen(true)}>
-        <ClipboardList className="size-4" />
-        Referral list
+      {/* At the bottom of the queue column; icon only when the queue is folded. */}
+      <GlassButton type="button" className="shrink-0 px-4 in-data-queue-compact:px-2.5" onClick={() => setOpen(true)}
+        title={`${PARTNER_NGO_NAME} referral list`}>
+        <ClipboardList className="size-4" aria-hidden="true" />
+        <span className="in-data-queue-compact:sr-only">Referral list</span>
       </GlassButton>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">

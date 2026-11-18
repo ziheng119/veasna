@@ -16,10 +16,11 @@ export default function PrintReferrals() {
   const allowed = useUserStore((state) => can(state.user, "print"));
   if (!allowed) return null;
   return <>
-    <GlassButton type="button" className="h-10 shrink-0 px-4"
+    <GlassButton type="button" className="shrink-0 px-4 in-data-queue-compact:px-2.5"
       onClick={() => setOpen(true)} title="Print saved referrals for a day">
       <Printer className="size-4" aria-hidden="true" />
-      Print referrals
+      {/* Icon only when the queue it sits in is folded. */}
+      <span className="in-data-queue-compact:sr-only">Print referrals</span>
     </GlassButton>
     <PrintReferralsDialog open={open} onOpenChange={setOpen} choices={["today", "date"]} />
   </>;

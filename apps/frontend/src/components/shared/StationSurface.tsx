@@ -18,7 +18,7 @@ interface Props {
   onSelectPatient: (patient: QueuedPatient | null) => void;
   // Change to make the queue reload (e.g. after the form changed the patient's stations).
   refreshKey?: number;
-  // Page-wide buttons (e.g. Print referrals), in a row above the surface, right-aligned.
+  // Buttons for the station's whole day (e.g. Print referrals), at the bottom of the queue column.
   actions?: ReactNode;
   // The open patient's record and forms, under the sticky patient bar.
   children: (patient: QueuedPatient) => ReactNode;
@@ -57,14 +57,13 @@ export default function StationSurface({ station, selectedPatient, onSelectPatie
 
   return (
     // Split screen from lg: the surface fills the page edge to edge (the main layout drops its padding
-    // and max width for data-station-surface), so the line between the columns is the only edge. Page
-    // buttons keep a strip of page background above it. Below lg, queue above patient, it is a card.
-    <div data-station-surface className={cn(PAGE_SHELL, "lg:h-full lg:min-h-[480px] lg:gap-3")}>
-      {actions && <div className="flex flex-wrap items-center justify-end gap-3 lg:px-6 lg:pt-3">{actions}</div>}
+    // and max width for data-station-surface), so the line between the columns is the only edge.
+    // Below lg, queue above patient, it is a card.
+    <div data-station-surface className={cn(PAGE_SHELL, "lg:h-full lg:min-h-[480px]")}>
       {/* overflow-clip, not hidden, so the sticky patient bar and buttons still stick when the page
           itself scrolls (below lg). */}
       <div className={cn(PANEL_GRID, "gap-0 overflow-clip rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:flex-1 lg:grid-rows-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
-        "lg:rounded-none lg:border-x-0 lg:border-b-0 lg:shadow-none", !actions && "lg:border-t-0")}>
+        "lg:rounded-none lg:border-0 lg:shadow-none")}>
         <QueuePatientPicker
           embedded
           autoFold={false}
@@ -72,6 +71,7 @@ export default function StationSurface({ station, selectedPatient, onSelectPatie
           onSelectPatient={onSelectPatient}
           selectedVisitId={visitId}
           refreshKey={refreshKey}
+          footer={actions}
         />
         <div
           ref={workRef}

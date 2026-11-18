@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,9 @@ interface QueuePatientPickerProps {
   // Fold to the narrow strip whenever a patient is opened (default). When false the whole queue
   // stays open beside the patient; << still folds it, and that choice is kept between patients.
   autoFold?: boolean;
+  // Page buttons for the station's whole day (e.g. Print referrals), in a bar at the bottom of the
+  // column, level with the open patient's form buttons. Folded, they show as icons only.
+  footer?: ReactNode;
 }
 
 // The actions on a queue card (Clear TB, Next, Send to, Discharge): stacked down the card's right
@@ -61,6 +64,7 @@ export default function QueuePatientPicker({
   refreshKey,
   embedded = false,
   autoFold = true,
+  footer,
 }: QueuePatientPickerProps) {
   const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
@@ -248,6 +252,11 @@ export default function QueuePatientPicker({
         ? "xl:col-span-4 rounded-none border-0 border-b bg-muted/40 shadow-none lg:min-h-0 lg:max-h-full lg:border-b-0 lg:border-r"
         : "xl:col-span-4 border-2 border-primary/25 shadow-md"}
       data={{ "data-queue-compact": compact ? "" : undefined }}
+      footer={footer && (
+        <div className={cn("-mb-5 mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-border py-3", compact ? "px-4" : "px-5")}>
+          {footer}
+        </div>
+      )}
       headerClassName={cn("transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4")}
       contentClassName={cn("px-7 pt-3 pb-4 transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4 pt-4", embedded && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto")}
       action={
