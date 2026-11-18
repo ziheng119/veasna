@@ -131,11 +131,31 @@ export default function QueuePatientPicker({
     return pending[pending.indexOf(station) + 1] ?? null;
   };
 
+  // Next for a patient whose work at this station isn't saved: asks first, as Save & next would
+  // refuse. Resolves to whether to go ahead.
+  const confirmUnfinished = (patient: QueuedPatient) => {
+    if (patient.station_done || patient.family_waiting) return Promise.resolve(true);
+    const name = patient.english_name || "this patient";
+    const here = stationLabel(station);
+    return confirm({
+      title: `Send ${name} on without finishing ${here}?`,
+      description: station === "pharmacy"
+        ? "They still have prescriptions waiting to be dispensed. Send them on only if they declined them."
+        : `What ${here} needs isn't all saved for them yet. Send them on only if they declined or it doesn't apply.`,
+      confirmLabel: "Send on anyway",
+      destructive: false,
+    });
+  };
+
   const handleCompleteStation = async (patient: QueuedPatient) => {
     if (!token) return;
 
     try {
-      // Saves anything typed into this patient's open form first; a failed save keeps them here.
+      // The open patient's form asks itself (e.g. Triage sections not saved), as it knows what is
+      // typed; anyone else is asked about when their work here isn't saved ("Done here" not shown).
+      // Then anything typed into the open form is saved. Cancelling or a failed save keeps them here.
+      const isOpen = selectedVisitId === patient.visit_id;
+      if (isOpen ? flow && !(await flow.confirmLeave(patient.visit_id)) : !(await confirmUnfinished(patient))) return;
       if (flow && !(await flow.saveDrafts(patient.visit_id))) return;
       ownMoves.current.add(patient.visit_id);
       const move = await completeStation(patient.visit_id, station, token);
