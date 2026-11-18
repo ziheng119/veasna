@@ -80,8 +80,10 @@
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.53 0.016 285.938); /* 4.8:1 on the canvas, so placeholders pass AA */
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  /* Hover and keyboard-highlight wash: a whisper of the brand blue, lighter than a selected item
+     (primary at 10%), with deep blue ink. It says "you can press this". */
+  --accent: oklch(0.965 0.014 262.8);
+  --accent-foreground: oklch(0.36 0.1 262.8);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);

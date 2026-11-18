@@ -408,7 +408,7 @@ export default function QueuePatientPicker({
                 <Button
                     type="button"
                     variant="ghost"
-                    className={cn(CARD_ACTION, "text-muted-foreground hover:text-primary")}
+                    className={cn(CARD_ACTION, "font-medium text-primary hover:text-primary")}
                     title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
                     onClick={() => handleCompleteStation(patient)}
                   >

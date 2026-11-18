@@ -143,7 +143,7 @@ theme tokens have no dark set, so don't treat dark mode as supported.
 - One brand accent (Project Battambang blue). All other colour is meaning: stations, families, stickers, status.
 - White cards on a mist canvas, softly lifted with a small shadow.
 - Pills for status and selection, gently rounded rectangles for actions and fields.
-- Frosted-glass pills for secondary round actions and the segmented control's sliding highlight.
+- Frosted-glass pills for secondary round actions.
 - Small, tactile motion: a 1px lift on hover, a press-in on click, fades on entry, all off under reduced motion.
 - One typeface, TeX Gyre Heros, bundled with the app so it works offline.
 
@@ -156,12 +156,19 @@ identity, plus a fixed vocabulary of meaning colours.
 - **Project Battambang Blue** (`battambang-blue`): the hero blue of projectbattambang.com
   (#32559C). Active nav tab, selected segmented tab, primary buttons, focus rings, selection
   and the default badge tint (at 10–14% over white). White text on it reaches 7.2:1.
+- **Blue Wash** (`--accent`, oklch 0.965 0.014 262.8, with deep blue ink `--accent-foreground`):
+  hover and keyboard highlight on anything pressable (ghost buttons, menu and list items, queue
+  cards). Lighter than a selected item, so hover never reads as chosen.
+
+The blue comes in three strengths: solid for the one thing to press now (and the open patient's
+number), blue ink for what is chosen or the card's main action (active nav link, chosen sort
+order, **Next** on a queue card), and the wash for what you could press.
 
 ### Neutral
 - **Mist Canvas** (`mist-canvas`): the page background behind every card.
 - **Paper White** (`paper-white`): cards, dialogs, inputs, the top bar (at 95% with blur).
 - **Slate Ink** (`slate-ink`): body text and headings.
-- **Quiet Wash** (`quiet-wash`): muted fills: tab tracks, secondary buttons, inactive badges, hover backgrounds.
+- **Quiet Wash** (`quiet-wash`): muted fills: tab tracks, secondary buttons, inactive badges, the account button at rest.
 - **Muted Slate** (`muted-slate`): help text, inactive nav links, placeholders, counts, and the
   border of unticked checkboxes and radios. 4.8:1 on the canvas, so placeholders pass AA.
 - **Hairline** (`hairline`): every border and divider, and input strokes.
@@ -249,9 +256,9 @@ light inner highlight with a soft drop shadow and a background blur. Dialogs and
 account menu float highest.
 
 ### Shadow Vocabulary
-- **Resting card** (`shadow-sm`): every card and the active segmented tab.
+- **Resting card** (`shadow-sm`): every card.
 - **Hover lift** (`shadow-md`): buttons and clickable cards on hover.
-- **Glass pill** (`inset 0 1px 0 0 rgba(255,255,255,0.5), 0 2px 6px 0 rgba(0,0,0,0.12)`): round secondary actions and the segmented control's slider.
+- **Glass pill** (`inset 0 1px 0 0 rgba(255,255,255,0.5), 0 2px 6px 0 rgba(0,0,0,0.12)`): round secondary actions.
 - **Sticker** (`0 1px 2px rgba(0,0,0,0.35)`): the sticker tag, so it reads as a physical sticker.
 - **Floating menu** (`drop-shadow(0 10px 24px rgb(15 23 42 / 0.16))`): the account menu.
 
@@ -310,8 +317,9 @@ Tactile and confident, but small: 36px tall, 14px medium text.
 - **Account menu:** grows out of its own button and shows each option's description beside the pointer.
 
 ### Segmented Tabs
-A full-pill track in a translucent wash. The selected option sits on a glass pill that slides
-between options. Used for sort order (Queue number / Arrival time).
+A full-pill track in a translucent wash. The selected option sits on a pill that slides between
+options, filled like a Registration queue number (brand blue at 14%) with its label in brand
+blue semibold. Used for sort order (Queue number / Arrival time).
 
 ### Form Tabs
 The registration form's sections (Patient Info / Vitals / HEF, TB & stations) use the plain tab
