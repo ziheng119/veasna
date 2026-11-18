@@ -127,7 +127,8 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
           <ShieldAlert className="size-4 shrink-0 text-red-600" aria-hidden="true" />
           <span className="line-clamp-2">{summary}</span>
         </span>
-        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={openPanel}>
+        {/* Red edge like the TB shield beside it: this opens the TB checklist. */}
+        <Button type="button" variant="outline" size="sm" className="shrink-0 border-red-600 dark:border-red-400" onClick={openPanel}>
           Review TB red flags
         </Button>
       </div>
