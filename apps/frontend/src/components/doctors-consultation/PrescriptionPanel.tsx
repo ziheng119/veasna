@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Pill, X } from "lucide-react";
+import { PillBottle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -118,7 +118,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription, onCount
   return (
     <section className="space-y-3" aria-labelledby={`${listId}-title`}>
       <h3 id={`${listId}-title`} className="flex items-center gap-2 font-semibold">
-        <Pill className="size-4" aria-hidden="true" /> Prescription
+        <PillBottle className="size-4" aria-hidden="true" /> Prescription
       </h3>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_6rem]">
@@ -138,7 +138,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription, onCount
             <ul id={`${listId}-drugs`} role="listbox" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
               {matches.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-muted-foreground">
-                  {drugs.length === 0 ? "No drugs in the pharmacy yet." : "No drug matches this search."}
+                  {drugs.length === 0 ? "No drugs in the pharmacy yet. Pharmacy adds them on the Pharmacy page; until then, write the prescription in the notes." : "No drug matches this search."}
                 </li>
               ) : matches.map((d) => {
                 const left = available(d);

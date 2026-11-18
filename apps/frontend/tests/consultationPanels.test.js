@@ -22,20 +22,28 @@ let renderer;
 afterEach(async () => { if (renderer) await act(async () => renderer.unmount()); renderer = null; jest.clearAllMocks(); });
 const render = async element => { await act(async () => { renderer = create(element); }); return text(renderer.root); };
 
-test('the doctor sees the dental notes and a ticked, read-only "referral required" box', async () => {
+test('the doctor sees the dental notes, "Referral needed", and can write the referral from them', async () => {
   getDental.mockResolvedValue({ notes: 'Extracted lower left molar', referral_needed: true });
-  const shown = await render(React.createElement(DentalSummary, { visitId: 5 }));
+  const onRefer = jest.fn();
+  const shown = await render(React.createElement(DentalSummary, { visitId: 5, onRefer }));
   expect(getDental).toHaveBeenCalledWith(5, expect.anything());
   expect(shown).toMatch(/Extracted lower left molar/);
-  expect(shown).toMatch(/Referral required from Dental/);
-  expect(shown).toMatch(/Write it with Create referral/);
-  expect(renderer.root.findByType('input').props).toMatchObject({ checked: true, disabled: true, 'aria-readonly': 'true' });
+  expect(shown).toMatch(/Referral needed/);
+  // A status, not a checkbox that can't be ticked.
+  expect(renderer.root.findAllByType('input')).toHaveLength(0);
+  const write = renderer.root.findAllByType('button').find(node => text(node).includes('Write referral from these notes'));
+  await act(async () => write.props.onClick());
+  expect(onRefer).toHaveBeenCalledWith('Extracted lower left molar');
+  // Once written, the button opens it.
+  await act(async () => renderer.update(React.createElement(DentalSummary, { visitId: 5, onRefer, referralWritten: true })));
+  expect(text(renderer.root)).toMatch(/Open the referral/);
 });
 
-test('no referral needed: the box is unticked; empty notes say so', async () => {
+test('no referral needed says so, with no referral button; empty notes say so', async () => {
   getDental.mockResolvedValue({ notes: '  ', referral_needed: false });
-  const shown = await render(React.createElement(DentalSummary, { visitId: 5 }));
-  expect(renderer.root.findByType('input').props.checked).toBe(false);
+  const shown = await render(React.createElement(DentalSummary, { visitId: 5, onRefer: jest.fn() }));
+  expect(shown).toMatch(/No referral needed/);
+  expect(shown).not.toMatch(/Write referral/);
   expect(shown).toMatch(/No notes written/);
 });
 
@@ -43,7 +51,7 @@ test('a patient not yet seen at Dental says so; a failed load says so too', asyn
   getDental.mockResolvedValue(null);
   let shown = await render(React.createElement(DentalSummary, { visitId: 5 }));
   expect(shown).toMatch(/Not seen at Dental yet/);
-  expect(renderer.root.findByType('input').props.checked).toBe(false);
+  expect(shown).not.toMatch(/Referral needed/);
   await act(async () => renderer.unmount()); renderer = null;
   getDental.mockRejectedValue(new Error('offline'));
   shown = await render(React.createElement(DentalSummary, { visitId: 6 }));
@@ -62,7 +70,7 @@ test('a save at Dental on another device updates the summary without a loading f
   expect(text(renderer.root)).toMatch(/Not seen at Dental yet/);
   await act(async () => resolve({ notes: 'Scaling done', referral_needed: true }));
   expect(text(renderer.root)).toMatch(/Scaling done/);
-  expect(renderer.root.findByType('input').props.checked).toBe(true);
+  expect(text(renderer.root)).toMatch(/Referral needed/);
   // A save for another patient's visit does not reload it.
   await act(async () => useRealtimeStore.getState().noteVisitChanges([6]));
   expect(getDental).toHaveBeenCalledTimes(2);

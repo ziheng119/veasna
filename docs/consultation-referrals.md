@@ -24,6 +24,11 @@ conditions**). Each
 visit has at most one referral. Switching to another patient starts a fresh form, so
 a draft never carries over to the wrong patient.
 
+When Dental ticked **Referral needed**, the Dental notes card says so and has **Write
+referral from these notes**: it opens a new referral with the Dental notes as the reason
+(and ticks a dental destination, if the Station data page lists one). Once the visit has
+a referral it reads **Open the referral**.
+
 ## Writing, signing and printing a referral
 
 1. Press **Create referral** (or **Edit referral**). Choose the destinations and fill

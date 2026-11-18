@@ -41,6 +41,9 @@ function missing({ notes, conditionCategories }: NotesValues): string | null {
   if (noConditions) return "Tick the conditions addressed (or None) to finish.";
   return null;
 }
+// A condition: a 20px box in the brand blue and a row tall enough to tap on a tablet.
+const CONDITION = "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-1 text-sm hover:bg-accent";
+const CONDITION_BOX = "size-5 shrink-0 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 const timeOf = (date: Date) => date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 export default function DoctorsNotesContainer({ patient }: Props) {
@@ -58,6 +61,10 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const [referral, setReferral] = useState<Referral | null>(null);
   // For the visit summary in the footer; both panels save their own records as soon as they change.
   const [prescriptionCount, setPrescriptionCount] = useState(0);
+  // The referral dialog, also opened from the Dental notes with those notes as its reason.
+  const [referralOpen, setReferralOpen] = useState(false);
+  const [referralPrefill, setReferralPrefill] = useState<{ reason?: string; referralType?: string[] } | undefined>();
+  const destinations = useFormOptions("referral_destinations");
   const [physioReferred, setPhysioReferred] = useState(false);
 
   const values: NotesValues = { notes, conditionCategories };
@@ -215,6 +222,9 @@ export default function DoctorsNotesContainer({ patient }: Props) {
           <Loading />
         ) : (
           <ReferralButton
+            open={referralOpen}
+            onOpenChange={(open) => { setReferralOpen(open); if (!open) setReferralPrefill(undefined); }}
+            prefill={referralPrefill}
             patient={patient}
             patientInfo={patientInfo}
             retrievedReferral={referral}
@@ -261,6 +271,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
               <textarea
                 id={notesId}
                 rows={8}
+                placeholder="Findings, diagnosis and plan"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 className="block w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -269,29 +280,36 @@ export default function DoctorsNotesContainer({ patient }: Props) {
             <fieldset className="space-y-3 rounded-xl border border-border p-4">
               <legend className="px-1 font-semibold">Conditions addressed</legend>
               <p className="text-xs text-muted-foreground">Select conditions addressed for this patient during this consultation, not family history or ruled-out conditions.</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {conditions.map(condition => <label key={condition.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={conditionCategories?.includes(condition.id) ?? false}
+              <div className="grid gap-x-3 gap-y-1 sm:grid-cols-2">
+                {conditions.map(condition => <label key={condition.id} className={CONDITION}>
+                  <input type="checkbox" className={CONDITION_BOX} checked={conditionCategories?.includes(condition.id) ?? false}
                     onChange={event => setConditionCategories(previous => event.target.checked
                       ? [...(previous ?? []), condition.id] : (previous ?? []).filter(id => id !== condition.id))} />
                   {condition.label}
                 </label>)}
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={conditionCategories !== null && conditionCategories.length === 0}
+                <label className={CONDITION}>
+                  <input type="checkbox" className={CONDITION_BOX} checked={conditionCategories !== null && conditionCategories.length === 0}
                     onChange={event => setConditionCategories(event.target.checked ? [] : null)} />
                   None of the listed conditions
                 </label>
               </div>
-              <p className="text-xs text-muted-foreground">{conditionCategories === null ? "Not recorded yet. Existing notes are not automatically classified." : "Saved with the consultation notes as you tick."}</p>
+              <p className="text-xs text-muted-foreground">{conditionCategories === null ? "Not ticked yet. Tick what this visit dealt with, or None." : "Saved with the consultation notes as you tick."}</p>
             </fieldset>
           </SavedRecordFields>
         </div>
         {/* Prescriptions are separate records: they can be added after the notes are saved.
-            Prescribing adds Pharmacy to the patient's route. */}
+            Prescribing adds Pharmacy to the patient's route. Prescribing first, in the order the
+            doctor works: what they give, then where the patient goes next. */}
         <div className="min-w-0 space-y-4 @3xl:border-l @3xl:border-border @3xl:pl-6">
-          <DentalSummary visitId={patient.visit_id} />
-          <SendToPhysiotherapy patient={patient} onReferredChange={setPhysioReferred} />
           <PrescriptionPanel visitId={patient.visit_id} legacyPrescription={prescription} onCountChange={setPrescriptionCount} />
+          <SendToPhysiotherapy patient={patient} onReferredChange={setPhysioReferred} />
+          <DentalSummary visitId={patient.visit_id} referralWritten={referral !== null}
+            onRefer={loaded && patientInfo !== null ? (dentalNotes) => {
+              // A new referral starts from the Dental notes, and a dental destination if the clinic lists one.
+              const dentalDestination = destinations.find((option) => /dent/i.test(option.label))?.label;
+              setReferralPrefill({ reason: dentalNotes ? `Dental: ${dentalNotes}` : "", referralType: dentalDestination ? [dentalDestination] : [] });
+              setReferralOpen(true);
+            } : undefined} />
         </div>
       </div>
     </StationForm>

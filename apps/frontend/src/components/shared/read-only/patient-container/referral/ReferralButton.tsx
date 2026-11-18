@@ -4,7 +4,7 @@ import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { Referral } from "@/lib/types/consultation";
 import ReferralPopUp from "./ReferralPopUp";
 import GlassButton from "@/components/shared/GlassButton";
-import { useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 
 interface Props {
   patient: QueuedPatient;
@@ -12,10 +12,19 @@ interface Props {
   retrievedReferral: Referral | null;
   onSaved?: (referral: Referral) => void;
   onDeleted?: () => void;
+  // Opened from elsewhere (e.g. the Dental notes), with what the new referral starts from.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  prefill?: { reason?: string; referralType?: string[] };
 }
 
-export default function ReferralButton({ patient, patientInfo, retrievedReferral, onSaved, onDeleted }: Props) {
-  const [showPopUp, setShowPopUp] = useState(false);
+export default function ReferralButton({ patient, patientInfo, retrievedReferral, onSaved, onDeleted, open, onOpenChange, prefill }: Props) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const showPopUp = open ?? ownOpen;
+  const setShowPopUp: Dispatch<SetStateAction<boolean>> = (value) => {
+    const next = typeof value === "function" ? value(showPopUp) : value;
+    if (onOpenChange) onOpenChange(next); else setOwnOpen(next);
+  };
   
   return (
     <>
@@ -31,6 +40,7 @@ export default function ReferralButton({ patient, patientInfo, retrievedReferral
         patient={patient} 
         patientInfo={patientInfo}
         retrievedReferral={retrievedReferral}
+        prefill={prefill}
         setShowPopUp={setShowPopUp}
         showPopUp={showPopUp}
       />
