@@ -4,7 +4,6 @@ import DentalNotesContainer from "@/components/dental/DentalNotesContainer";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
@@ -19,7 +18,6 @@ export default function Dental() {
   return (
     <StationFlowProvider station="dental" onSelectPatient={setSelectedPatient}>
       <div className={PAGE_SHELL}>
-        <SearchBar station="dental" onSelectPatient={setSelectedPatient} />
         <div className={PANEL_GRID}>
           <QueuePatientPicker
             station="dental"

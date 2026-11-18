@@ -38,6 +38,11 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: `One page per station, in clinic order: Triage, Dental, Consult, then Physiotherapy, ${PARTNER_NGO_NAME} or Pharmacy.`,
   },
   {
+    chapter: "Getting started", path: "/", target: "clinic-search", side: "bottom",
+    title: "Find anyone in the clinic",
+    body: "Search everyone here today by name, number or family. It opens them at the station they're waiting for.",
+  },
+  {
     chapter: "Getting started", path: "/", target: "connection", side: "bottom",
     title: "Live updates",
     body: "Changes show up live. If this turns amber, the host can't be reached: keep typing, and save when it's back.",
@@ -81,11 +86,6 @@ export const GUIDE_STEPS: GuideStep[] = [
     chapter: "Triage", path: withSample("/triage"), target: "station-queue", side: "right",
     title: "Each station has its own queue",
     body: "Patients waiting here, in order; for now, just the sample patient. Choose one to open them. Next sends them on.",
-  },
-  {
-    chapter: "Triage", path: withSample("/triage"), target: "station-search", side: "bottom",
-    title: "Find a patient",
-    body: "Search by name or queue number.",
   },
   {
     chapter: "Triage", path: withSample("/triage"), target: "station-work", side: "left",

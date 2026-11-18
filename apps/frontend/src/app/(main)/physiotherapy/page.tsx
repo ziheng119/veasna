@@ -4,7 +4,6 @@ import PhysiotherapyNotesContainer from "@/components/physiotherapy/Physiotherap
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
 import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
@@ -19,7 +18,6 @@ export default function Physiotherapy() {
   return (
     <StationFlowProvider station="physiotherapy" onSelectPatient={setSelectedPatient}>
       <div className={PAGE_SHELL}>
-        <SearchBar station="physiotherapy" onSelectPatient={setSelectedPatient} />
         <div className={PANEL_GRID}>
           <QueuePatientPicker
             station="physiotherapy"

@@ -1,6 +1,6 @@
 # Queue ordering
 
-Each queue has a **Sort queue by** switch above its search box:
+Each queue has a **Sort queue by** switch at its top:
 
 - **Queue number:** in registration number order, with letter suffixes after their
   number: `2, 2A, 2AA, 2B, 10`. Numbers that start with a letter come after the plain
@@ -29,9 +29,10 @@ have waited longer.
 - Station cards show **Arrived** with the time the patient reached that station, and a
   green **Done here** once everything needed at the station is saved (see
   [finishing at a station](station-routing.md#finishing-at-a-station)).
-- The search icon opens a lookup across the whole clinic queue. Close it or press
-  Escape to clear it. Your selected patient stays selected.
-- Searching and live updates keep your chosen order.
+- To find someone, use the round search button at the left of the top bar: it looks across
+  the whole clinic and opens them at their station. The queues have no search box of their
+  own. Close it or press Escape to clear it. Your selected patient stays selected.
+- Live updates keep your chosen order.
 
 ## Queue numbers and families
 
@@ -47,7 +48,7 @@ The quickest way is from **Today's Queue** on Registration, or any station's que
 registered (a station's queue groups the patients waiting there):
 
 1. Register each family member as usual, e.g. mother 3, father 4 and child 5.
-2. Turn on **Group families** (the switch above the queue's search box). It opens into
+2. Turn on **Group families** (the switch at the top of the queue). It opens into
    a highlighted panel, and family boxes are drawn more strongly. Cards can now only be
    dragged: tapping or clicking them does nothing.
 3. Hold the father's card and drop it on the mother's, then drop the child's on either
@@ -97,7 +98,7 @@ Where families are shown:
   either sort order. The colour is the same wherever the family appears.
 - **Today's Queue** on Registration and each station's queue also draw a dotted box, in the
   family's colour, around its members' cards: light normally, stronger while **Group families** is on.
-- **Queue search** (top of every station) draws the same dotted border, in the family's colour,
+- **Clinic search** (the round search button at the left of the top bar, on every page) finds a family by its letter (`C` or `family C`) and lists the rest of a family with anyone found. It draws the same dotted border, in the family's colour,
   around family members listed next to each other; each row is still picked on its own.
 - **Station queues fold** while a patient is open: a narrow strip of numbers and names (with the
   sort order and how many are waiting), with no buttons, so the patient's forms get the room; the

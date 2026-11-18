@@ -8,7 +8,7 @@ import { StationId, stationLabel } from "@/constants/stations";
 import GlassButton from "./GlassButton";
 
 /**
- * Admin-only "Edit station data" link, at the top right of a station page beside the queue search.
+ * Admin-only "Edit station data" link, at the top right of a station page.
  * Opens the Station data page at this station's lists (dropdown and checkbox choices in its forms).
  */
 export default function StationDataButton({ station }: { station: StationId }) {

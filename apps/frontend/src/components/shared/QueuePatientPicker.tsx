@@ -4,9 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { PageCard } from "@/components/shared/PageCard";
-import { SearchIcon } from "@/assets/icons/SearchIcon";
 import { QueuedPatient } from "@/lib/types/patient";
 import { getQueue, CLINIC_TODAY } from "@/lib/api/queue/getQueue";
 import { completeQueueVisit } from "@/lib/api/queue/completeQueueVisit";
@@ -66,7 +64,6 @@ export default function QueuePatientPicker({
   // Present on station pages (not Registration): Next saves the open form first, and the order is shared.
   const flow = useStationFlow();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
   const [editingPatient, setEditingPatient] = useState<QueuedPatient | null>(null);
 
@@ -76,7 +73,7 @@ export default function QueuePatientPicker({
   }, [token, station]);
   const { data: patients, refresh: loadQueue, loaded } = useLiveList(load);
 
-  // Opening this page with ?visit=<id> (e.g. from the queue search) selects that visit once this
+  // Opening this page with ?visit=<id> (e.g. from the clinic search in the top bar) selects that visit once this
   // station's queue has loaded. The parameter is then removed so a reload does not reselect it.
   const router = useRouter();
   const pathname = usePathname();
@@ -89,7 +86,7 @@ export default function QueuePatientPicker({
     router.replace(pathname, { scroll: false });
   }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station]);
 
-  // Bring the selected patient into view however they were chosen (queue search, link, click).
+  // Bring the selected patient into view however they were chosen (clinic search, link, click).
   useEffect(() => {
     if (!selectedVisitId || typeof document === "undefined") return;
     document.querySelector(`[data-visit-id="${selectedVisitId}"]`)
@@ -205,24 +202,10 @@ export default function QueuePatientPicker({
   }
   const compact = !!selectedVisitId && !unfolded && !grouping;
 
-  const filterAndSort = useCallback((list: QueuedPatient[]) => {
-    const query = searchQuery.toLowerCase().trim();
-    const filtered = list.filter((patient) => {
-      if (!query) return true;
-      const engName = patient.english_name?.toLowerCase() || "";
-      const khmerName = patient.khmer_name?.toLowerCase() || "";
-      const queueNo = patient.queue_no?.toLowerCase() || "";
-      return (
-        engName.includes(query) ||
-        khmerName.includes(query) ||
-        queueNo.includes(query)
-      );
-    });
-    return sortQueuePatients(filtered, mode);
-  }, [searchQuery, mode]);
-  const sortedPatients = useMemo(() => filterAndSort(patients), [filterAndSort, patients]);
+  // Finding a patient is the top bar's clinic search (SearchBar), which opens them here.
+  const sortedPatients = useMemo(() => sortQueuePatients(patients, mode), [patients, mode]);
   // While grouping, the list shows the families as they will be saved.
-  const blocks = toBlocks(grouping ? filterAndSort(groupState.shown) : sortedPatients);
+  const blocks = toBlocks(grouping ? sortQueuePatients(groupState.shown, mode) : sortedPatients);
   const listRef = useRef<HTMLDivElement>(null);
 
   // "Save & next" on this page opens the next patient in the order shown here.
@@ -282,15 +265,6 @@ export default function QueuePatientPicker({
         <span className="mt-4 block space-y-3">
           <QueueSortControl mode={mode} onChange={setMode} />
           {canMove && <GroupFamiliesPanel state={groupState} disabled={patients.length === 0} />}
-          <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by queue or name"
-            className="pl-10"
-          />
-          </div>
         </span>
         </Collapse>
         </>
@@ -298,7 +272,7 @@ export default function QueuePatientPicker({
     >
       {sortedPatients.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {searchQuery ? "No patients match this search." : `No patients waiting at ${stationLabel(station)}.`}
+          {`No patients waiting at ${stationLabel(station)}.`}
         </p>
       ) : (
         <FamilyBlocks

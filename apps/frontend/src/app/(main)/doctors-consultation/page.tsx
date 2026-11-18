@@ -3,7 +3,6 @@
 import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
 import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
 import DoctorsNotesContainer from "@/components/doctors-consultation/DoctorsNotesContainer";
-import SearchBar from "@/components/shared/SearchBar";
 import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
 import NoPatientSelected from "@/components/shared/NoPatientSelected";
@@ -24,8 +23,7 @@ export default function DoctorsConsultation() {
   return (
     <StationFlowProvider station="consultation" onSelectPatient={setSelectedPatient}>
       <div className="flex flex-col gap-5 pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0 flex-1"><SearchBar station="consultation" onSelectPatient={setSelectedPatient} /></div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex items-center gap-3">
             <PrintReferrals />
             <StationDataButton station="consultation" />

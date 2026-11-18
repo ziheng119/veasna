@@ -12,6 +12,7 @@ import { formatDayLabel } from "@/helper/format_date";
 import { MENU_TRIGGER } from "@/lib/motion";
 import GuideButton from "@/components/guide/GuideButton";
 import AccountMenu, { AccountMenuItem } from "./AccountMenu";
+import SearchBar from "./SearchBar";
 
 export default function TopNav() {
   const user = useUserStore((state) => state.user);
@@ -73,14 +74,17 @@ export default function TopNav() {
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between px-6 py-3">
-        {/* Navigation Links */}
-        <div className="flex flex-wrap items-center gap-1" data-tour="nav">
-          {NAVIGATION.filter(item => canAccessPage(user, item.href)).map(item => (
-            <Link key={item.href} href={item.href}
-              className={`${linkBaseClass} ${isActive(item.href) || (item.href === "/pharmacy" && pathname.startsWith("/pharmacy/")) ? activeLinkClass : inactiveLinkClass}`}>
-              {item.label}
-            </Link>
-          ))}
+        {/* Search for anyone in today's clinic, then the page links */}
+        <div className="flex min-w-0 items-center gap-3">
+          {user?.token && <SearchBar />}
+          <div className="flex flex-wrap items-center gap-1" data-tour="nav">
+            {NAVIGATION.filter(item => canAccessPage(user, item.href)).map(item => (
+              <Link key={item.href} href={item.href}
+                className={`${linkBaseClass} ${isActive(item.href) || (item.href === "/pharmacy" && pathname.startsWith("/pharmacy/")) ? activeLinkClass : inactiveLinkClass}`}>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* Refresh Button */}

@@ -2,8 +2,7 @@
 
 The admin can change the choices offered in the station forms, for example the
 Snellen readings (20/20, 20/40, ...) for each eye at Triage. Open it with **Edit station
-data** at the top right of the Triage, Consult or Partner NGO page (beside the queue
-search), or from the user menu (**Station data**).
+data** at the top right of the Triage, Consult or Partner NGO page, or from the user menu (**Station data**).
 
 | List | Used in |
 | --- | --- |

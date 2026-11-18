@@ -1,4 +1,4 @@
-// Opening a station page with ?visit=<id> (from the queue search) selects that patient.
+// Opening a station page with ?visit=<id> (from the clinic search) selects that patient.
 const React = require('react');
 const { act, create } = require('react-test-renderer');
 const replace = jest.fn();
@@ -18,7 +18,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 global.requestAnimationFrame = callback => callback();
 global.document = { querySelector: () => null };
 
-describe('Station page opened from the queue search', () => {
+describe('Station page opened from the clinic search', () => {
   let renderer, log;
   const render = async onSelectPatient => {
     await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'seva', onSelectPatient })); });
