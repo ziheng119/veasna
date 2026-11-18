@@ -3,7 +3,8 @@
 import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import { QueuedPatient } from "@/lib/types/patient";
 import { StationId } from "@/constants/stations";
-import { PAGE_SHELL, PANEL_GRID } from "@/lib/pageLayout";
+import { PAGE_SHELL } from "@/lib/pageLayout";
+import SplitDivider, { useQueueShare } from "./SplitDivider";
 import { cn } from "@/lib/utils";
 import QueuePatientPicker from "./QueuePatientPicker";
 import NoPatientSelected from "./NoPatientSelected";
@@ -33,6 +34,9 @@ interface Props {
  */
 export default function StationSurface({ station, selectedPatient, onSelectPatient, refreshKey, actions, children }: Props) {
   const workRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  // How wide the open queue is, set by dragging the line between the columns.
+  const [queueShare, setQueueShare, rememberQueueShare] = useQueueShare();
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const visitId = selectedPatient?.visit_id;
@@ -62,8 +66,13 @@ export default function StationSurface({ station, selectedPatient, onSelectPatie
     <div data-station-surface className={cn(PAGE_SHELL, "lg:h-full lg:min-h-[480px]")}>
       {/* overflow-clip, not hidden, so the sticky patient bar and buttons still stick when the page
           itself scrolls (below lg). */}
-      <div className={cn(PANEL_GRID, "gap-0 overflow-clip rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:flex-1 lg:grid-rows-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
-        "lg:rounded-none lg:border-0 lg:shadow-none")}>
+      <div ref={gridRef} style={{ "--queue-col": `${queueShare}%` } as CSSProperties}
+        className={cn("group/split grid grid-cols-1 gap-0 overflow-clip rounded-xl border border-border bg-card shadow-sm",
+        "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-rows-1 lg:rounded-none lg:border-0 lg:shadow-none",
+        // Two columns from lg: the queue at the width it was dragged to (SplitDivider), or a narrow
+        // strip while folded. Two tracks either way, so the columns glide; not while dragging.
+        "lg:grid-cols-[minmax(0,var(--queue-col))_minmax(0,1fr)] lg:[&:has(>[data-queue-compact])]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]",
+        "lg:transition-[grid-template-columns] lg:duration-250 lg:ease-out lg:data-resizing:transition-none motion-reduce:transition-none")}>
         <QueuePatientPicker
           embedded
           autoFold={false}
@@ -73,10 +82,11 @@ export default function StationSurface({ station, selectedPatient, onSelectPatie
           refreshKey={refreshKey}
           footer={actions}
         />
+        <SplitDivider gridRef={gridRef} share={queueShare} onChange={setQueueShare} onCommit={rememberQueueShare} />
         <div
           ref={workRef}
           data-tour="station-work"
-          className="flex min-w-0 scroll-mt-4 flex-col xl:col-span-8 lg:min-h-0 lg:overflow-y-auto lg:[scrollbar-gutter:stable]"
+          className="flex min-w-0 scroll-mt-4 flex-col lg:col-start-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:[scrollbar-gutter:stable]"
           style={{ "--patient-bar": `${headerHeight}px` } as CSSProperties}
         >
           {!selectedPatient ? (

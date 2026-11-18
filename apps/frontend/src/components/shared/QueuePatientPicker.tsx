@@ -253,7 +253,7 @@ export default function QueuePatientPicker({
       tour="station-queue"
       // Set apart from the forms beside it: a bolder border, tinted with the app colour, and a lift.
       className={embedded
-        ? "xl:col-span-4 rounded-none border-0 border-b bg-muted/40 shadow-none lg:min-h-0 lg:max-h-full lg:border-b-0 lg:border-r"
+        ? "rounded-none border-0 border-b bg-muted/40 shadow-none lg:min-h-0 lg:max-h-full lg:border-b-0 lg:border-r"
         : "xl:col-span-4 border-2 border-primary/25 shadow-md"}
       data={{ "data-queue-compact": compact ? "" : undefined }}
       footer={footer && (

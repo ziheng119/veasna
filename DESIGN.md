@@ -239,9 +239,12 @@ narrow strip while a patient is open (`QUEUE_FOLD` in `src/lib/pageLayout.ts`). 
 `xl`, panes stack.
 
 Every station but Pharmacy goes further, as one surface (`StationSurface`): the queue is a tinted column beside the open patient
-from `lg` (1024px, tablets in landscape), and stays open (it folds only with **<<**). Split like
-this, the surface runs edge to edge with no border, radius or shadow; the line between the
-columns is its only edge. Buttons for the station's whole day (Print referrals, Referral list) sit
+from `lg` (1024px, tablets in landscape), and stays open (it folds only with **<<**). Split like this, the surface runs edge to edge with no
+border, radius or shadow; the line between the columns is its only edge, and it can be dragged
+(`SplitDivider`): on hover it lights brand blue, with a small white grip halfway down. Arrow keys
+move it (Shift for bigger steps), Home and End go to the narrowest (256px) and widest queue
+(leaving the patient 448px), a double-click resets it to the default (27% of the width), and the width is remembered on
+the device for every station. A folded queue is a 10rem strip and hides the divider. Buttons for the station's whole day (Print referrals, Referral list) sit
 in a bar at the bottom of the queue column, level with the form's sticky buttons, so both columns
 end on one line; folded, they show as icons. Stacked below `lg`, it is a card again. The
 patient's column scrolls as one: a sticky patient bar on top, registration's vitals and the
