@@ -4,7 +4,7 @@ import { KeyboardEvent, PointerEvent, RefObject, useCallback, useEffect, useStat
 
 // The queue's share of a station surface's width, in percent, while it is open (not folded): about
 // a quarter, room for a card's number, names and actions, leaving the rest to the patient.
-export const DEFAULT_QUEUE_SHARE = 27;
+export const DEFAULT_QUEUE_SHARE = 29;
 // Neither column gets narrower than this.
 const MIN_QUEUE_PX = 256;
 const MIN_WORK_PX = 448;
