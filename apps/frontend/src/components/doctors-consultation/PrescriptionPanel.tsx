@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Pill, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,13 +29,15 @@ interface Props {
   visitId: number;
   // Free-text prescription saved before prescribing was linked to the pharmacy; shown read-only.
   legacyPrescription?: string;
+  // How many prescriptions this visit has that aren't cancelled, for the form's visit summary.
+  onCountChange?: (count: number) => void;
 }
 
 /**
  * Prescribe from the pharmacy. Prescribing reserves the stock at once, so it is no
  * longer available to anyone else; the pharmacy dispenses it, or it can be cancelled to release it.
  */
-export default function PrescriptionPanel({ visitId, legacyPrescription }: Props) {
+export default function PrescriptionPanel({ visitId, legacyPrescription, onCountChange }: Props) {
   const { confirm, dialog } = useConfirm();
   const token = useUserStore((state) => state.user?.token);
   // Cancelling releases reserved stock: the "Pharmacy stock" permission.
@@ -52,6 +54,8 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
   }, [visitId, token]);
   const { data: drugs, refresh: refreshDrugs } = useLiveList(loadDrugs);
   const { data: prescriptions, refresh: refreshPrescriptions } = useLiveList(loadPrescriptions);
+  const activeCount = prescriptions.filter((p) => p.status !== "cancelled").length;
+  useEffect(() => onCountChange?.(activeCount), [activeCount, onCountChange]);
 
   const [query, setQuery] = useState("");
   const [showMatches, setShowMatches] = useState(false);

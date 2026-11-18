@@ -10,8 +10,17 @@ On a wide screen, the left column shows the **Patient Snapshot** and **Triage
 Summary** (each scrolls separately). **Consultation Notes** fills the rest. On smaller
 screens, the notes appear below the summaries.
 
-Below the notes, **Save consultation notes** is on the left and **Create referral** is
-on the right. It reads **Edit referral** once the visit has a saved referral. Each
+The notes and the conditions addressed save themselves a moment after you stop typing or
+ticking; the line beside **Save & next** says "Saving…", then "Saved" with the time. If the
+host laptop can't be reached it says so, keeps what you typed on this device and tries again.
+Opening another patient first still saves what you typed.
+
+Below the notes, **Create referral** is on the left. It reads **Edit referral** once the
+visit has a saved referral. On the right, **Save & next** finishes the patient: it saves
+anything not yet saved and sends them on. Above it, **This visit** lists what the visit
+has so far (prescriptions, Physiotherapy, the hospital referral), and what is still
+needed to finish: notes, and the conditions ticked (or **None of the listed
+conditions**). Each
 visit has at most one referral. Switching to another patient starts a fresh form, so
 a draft never carries over to the wrong patient.
 
