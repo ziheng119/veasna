@@ -13,6 +13,7 @@ jest.mock('../src/components/doctors-consultation/DentalSummary', () => ({ __esM
 jest.mock('../src/components/doctors-consultation/SendToPhysiotherapy', () => ({ __esModule: true, default: () => null }));
 const { getConsultation } = require('../src/lib/api/visit/doctors-consultation/getConsultation');
 const { postConsultation } = require('../src/lib/api/visit/doctors-consultation/postConsultation');
+const { StationFlowProvider } = require('../src/components/shared/StationFlow');
 const DoctorsNotesContainer = require('../src/components/doctors-consultation/DoctorsNotesContainer').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -69,12 +70,19 @@ test('loads and saves condition selections, including an explicit none choice', 
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   let renderer;
   try {
-    await act(async () => { renderer = create(React.createElement(DoctorsNotesContainer, {patient:{visit_id:2,patient_id:1}})); });
+    // In the station's flow, so Save & next shows.
+    await act(async () => { renderer = create(React.createElement(StationFlowProvider, { station: 'consultation', onSelectPatient: () => {} },
+      React.createElement(DoctorsNotesContainer, {patient:{visit_id:2,patient_id:1}}))); });
     const boxes=()=>renderer.root.findAllByType('input').filter(node=>node.props.type==='checkbox');
     expect(boxes()).toHaveLength(8);
     expect(boxes()[0].props.checked).toBe(true);
+    // Green only once saved: blue while a change waits to save.
+    const ready=()=>renderer.root.findAll(node=>node.props.variant==='success').length>0;
+    expect(ready()).toBe(true);
     await act(async()=>boxes()[1].props.onChange({target:{checked:true}}));
+    expect(ready()).toBe(false);
     await autosave();
+    expect(ready()).toBe(true);
     expect(postConsultation).toHaveBeenLastCalledWith(expect.objectContaining({conditionCategories:['diabetes','hypertension']}),2);
     await act(async()=>boxes()[7].props.onChange({target:{checked:true}}));
     expect(boxes().slice(0,7).every(node=>!node.props.checked)).toBe(true);

@@ -185,7 +185,8 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   useEffect(() => () => pendingOnLeave.current?.(), []);
 
   const needed = missing(values);
-  // Finished at Consult: notes and conditions saved, with nothing typed since.
+  // Finished at Consult: notes and conditions saved, with nothing typed since. Only then is Save &
+  // next green: while a change is waiting to save, or saving, it stays blue.
   const finished = saved && !unsaved && needed === null;
   const summary = [
     prescriptionCount > 0 && `${prescriptionCount} prescription${prescriptionCount === 1 ? "" : "s"}`,
@@ -234,7 +235,7 @@ export default function DoctorsNotesContainer({ patient }: Props) {
         )}
         {/* Prescribe and tick Physiotherapy first: the patient goes to whatever is next on their route. */}
         <SaveAndNextButton patient={patient} onSave={() => handleSave()} primary
-          ready={finished || (editable && needed === null)} locked={saved && !editable}
+          ready={finished} locked={saved && !editable}
           disabled={saving || !loaded || (!editable && !saved)}
           hint={needed ?? undefined} />
       </div>

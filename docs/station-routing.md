@@ -71,7 +71,9 @@ A patient is **done** at a station once everything needed there is saved:
 - At Consult, prescribe and tick **Refer to physiotherapy station** before **Save & next**,
   so the patient goes to the right place. Consult has no separate Save: the notes autosave,
   **Save & next** is the one finish, and the what-is-missing line is written beside it
-  rather than only on hover. It shows no **Done at Consult** prompt above the form.
+  rather than only on hover. **Save & next** turns green only once the notes and conditions
+  are saved: it goes back to blue while a change is waiting to save. It shows no **Done at
+  Consult** prompt above the form.
 - A form that is already saved can be saved again by anyone, for example when the doctor
   finds more later. **Save & next** then saves the changes and sends the patient on.
 - **Next** on the patient's queue card (and **Send to next station**) also saves first:
