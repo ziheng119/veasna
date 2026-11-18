@@ -243,9 +243,13 @@ export default function QueuePatientPicker({
     flow?.registerQueue(sortedPatients, loadQueue);
   }, [flow, sortedPatients, loadQueue]);
 
+  // Waiting means not yet seen: the open patient isn't counted.
+  const waiting = patients.filter((patient) => patient.visit_id !== selectedVisitId).length;
+
   return (
     <PageCard
-      title={<StationTitle station={station} mark={!compact}>{stationLabel(station)} Queue</StationTitle>}
+      // Folded, the strip is narrow: the station's name alone, so it stays on one line.
+      title={<StationTitle station={station} mark={!compact}>{stationLabel(station)}{!compact && " Queue"}</StationTitle>}
       tour="station-queue"
       // Set apart from the forms beside it: a bolder border, tinted with the app colour, and a lift.
       className={embedded
@@ -267,7 +271,7 @@ export default function QueuePatientPicker({
             compact ? "max-w-0 opacity-0" : "max-w-48 opacity-100",
           )}>
             <StationDataButton station={station} />
-            <Badge variant="inactive" className="whitespace-nowrap">{patients.length} waiting</Badge>
+            <Badge variant="inactive" className="whitespace-nowrap">{waiting} waiting</Badge>
           </span>
           {!!selectedVisitId && (
             <Button
@@ -294,7 +298,7 @@ export default function QueuePatientPicker({
             <span className="rounded-full border border-border bg-background px-2 py-0.5 font-medium text-foreground">
               {mode === "arrival" ? "By arrival time" : "By queue number"}
             </span>
-            <span>{patients.length} waiting</span>
+            <span>{waiting} waiting</span>
           </span>
         </Collapse>
         <Collapse open={!compact}>
@@ -358,7 +362,7 @@ export default function QueuePatientPicker({
                 aria-pressed={isSelected}
                 disabled={grouping}
                 onClick={() => onSelectPatient(patient)}
-                className={cn("flex min-w-[8rem] flex-1 items-start text-left disabled:cursor-default", compact ? "min-w-0 gap-2" : "gap-3")}
+                className={cn("flex min-w-[8rem] flex-1 items-start rounded-md text-left disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card", compact ? "min-w-0 gap-2" : "gap-3")}
               >
                 {/* Queue number first and large: it is what staff call out. */}
                 <span className="flex shrink-0 flex-col items-center gap-1">
@@ -380,7 +384,7 @@ export default function QueuePatientPicker({
                   {patient.family && <FamilyBadge family={patient.family} />}
                 </span>
                 <span className={cn("min-w-0 flex-1 border-l border-border", compact ? "pl-2" : "pl-3")}>
-                  <span className={cn("block font-medium text-foreground", compact ? "truncate text-sm" : "break-words")}>{patient.english_name || "Unknown name"}</span>
+                  <span title={compact ? patient.english_name || undefined : undefined} className={cn("block font-medium text-foreground", compact ? "truncate text-sm" : "break-words")}>{patient.english_name || "Unknown name"}</span>
                   <Collapse open={!compact}>
                   {patient.khmer_name?.trim() && <span className={cn("block break-words text-sm", subtle)}>{patient.khmer_name}</span>}
                   <span className={cn("mt-1 block text-xs", subtle)}>{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
@@ -432,7 +436,7 @@ export default function QueuePatientPicker({
                     type="button"
                     variant="ghost"
                     disabled={routeLocked}
-                    className={cn(CARD_ACTION, "text-muted-foreground hover:text-foreground")}
+                    className={cn(CARD_ACTION, subtle, "hover:text-foreground")}
                     title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
                     aria-label={`Send ${patient.english_name || "patient"} to another station`}
                     onClick={() => setEditingPatient(patient)}
@@ -444,7 +448,7 @@ export default function QueuePatientPicker({
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(CARD_ACTION, "text-muted-foreground hover:text-destructive")}
+                  className={cn(CARD_ACTION, subtle, "hover:text-destructive")}
                   title="Discharge patient from every queue"
                   onClick={() => handleRemovePatient(patient)}
                 >
