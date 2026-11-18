@@ -56,11 +56,15 @@ export default function StationSurface({ station, selectedPatient, onSelectPatie
   }, [visitId]);
 
   return (
-    <div className={cn(PAGE_SHELL, "lg:h-full lg:min-h-[480px]")}>
-      {actions && <div className="flex flex-wrap items-center justify-end gap-3">{actions}</div>}
+    // Split screen from lg: the surface fills the page edge to edge (the main layout drops its padding
+    // and max width for data-station-surface), so the line between the columns is the only edge. Page
+    // buttons keep a strip of page background above it. Below lg, queue above patient, it is a card.
+    <div data-station-surface className={cn(PAGE_SHELL, "lg:h-full lg:min-h-[480px] lg:gap-3")}>
+      {actions && <div className="flex flex-wrap items-center justify-end gap-3 lg:px-6 lg:pt-3">{actions}</div>}
       {/* overflow-clip, not hidden, so the sticky patient bar and buttons still stick when the page
           itself scrolls (below lg). */}
-      <div className={cn(PANEL_GRID, "gap-0 overflow-clip rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:flex-1 lg:grid-rows-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]")}>
+      <div className={cn(PANEL_GRID, "gap-0 overflow-clip rounded-xl border border-border bg-card shadow-sm lg:h-full lg:min-h-0 lg:flex-1 lg:grid-rows-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]",
+        "lg:rounded-none lg:border-x-0 lg:border-b-0 lg:shadow-none", !actions && "lg:border-t-0")}>
         <QueuePatientPicker
           embedded
           autoFold={false}

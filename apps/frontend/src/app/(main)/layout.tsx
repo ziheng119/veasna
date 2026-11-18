@@ -23,8 +23,10 @@ export default async function MainLayout({
           <TopNav/>
           <RealtimeConnection />
           <ClockWarning />
-          <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5">
-            <div className="mx-auto w-full max-w-[1600px] lg:h-full">
+          {/* A station page split into queue and patient (StationSurface) fills the page edge to edge
+              from lg, so drops the padding and max width. */}
+          <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5 lg:has-[[data-station-surface]]:p-0">
+            <div className="mx-auto w-full max-w-[1600px] lg:h-full lg:has-[[data-station-surface]]:max-w-none">
               <PageTransition><GuidePage>{children}</GuidePage></PageTransition>
             </div>
           </main>
