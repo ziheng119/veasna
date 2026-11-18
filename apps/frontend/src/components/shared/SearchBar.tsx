@@ -23,7 +23,8 @@ const UPCOMING_COUNT = 6
 const MAX_RESULTS = 10
 
 // Widths of the field: closed it is a round button in the top bar, open it is a search box.
-const CLOSED_WIDTH = "2.5rem"
+// Closed, a circle the size of the Guide button (size-9) beside it.
+const CLOSED_WIDTH = "2.25rem"
 const OPEN_WIDTH = "18rem"
 
 function matches(patient: QueuedPatient, query: string) {
@@ -177,8 +178,10 @@ export default function SearchBar() {
       {/* Keep one border and icon mounted so the circle expands into the field. */}
       <div
         className={cn(
-          "flex h-10 w-full items-center overflow-hidden rounded-full border bg-card transition-[box-shadow,border-color] duration-300 ease-out motion-reduce:transition-none",
-          open ? "border-primary/40 shadow-md ring-2 ring-primary/10" : "border-border",
+          "flex h-9 w-full items-center overflow-hidden rounded-full border transition-[transform,background-color,box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none",
+          // Closed, styled like the Guide button: a blue-tinted circle that lifts on hover.
+          !expanded ? "border-primary/30 bg-primary/5 hover:scale-110 hover:bg-primary/10 hover:shadow-md active:scale-95 motion-reduce:transform-none"
+            : open ? "border-primary/40 bg-card shadow-md ring-2 ring-primary/10" : "border-border bg-card",
         )}
       >
         <Button
@@ -194,7 +197,7 @@ export default function SearchBar() {
             setExpanded(true)
             setShowSuggestions(true)
           }}
-          className="size-[38px] shrink-0 rounded-full text-muted-foreground transition-transform hover:scale-105 active:scale-95 motion-reduce:transform-none"
+          className="size-[34px] shrink-0 rounded-full text-primary hover:bg-transparent hover:text-primary"
         >
           <SearchIcon className="size-4" />
         </Button>
