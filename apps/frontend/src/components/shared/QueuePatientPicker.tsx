@@ -42,6 +42,12 @@ interface QueuePatientPickerProps {
   selectedVisitId?: number;
   // Change this value to make the queue reload (e.g. after another panel edits a visit's stations).
   refreshKey?: number;
+  // Drawn as one side of a page surface (no card of its own): a tinted column whose edge is the
+  // line between the queue and the open patient.
+  embedded?: boolean;
+  // Fold to the narrow strip whenever a patient is opened (default). When false the whole queue
+  // stays open beside the patient; << still folds it, and that choice is kept between patients.
+  autoFold?: boolean;
 }
 
 export default function QueuePatientPicker({
@@ -49,6 +55,8 @@ export default function QueuePatientPicker({
   onSelectPatient,
   selectedVisitId,
   refreshKey,
+  embedded = false,
+  autoFold = true,
 }: QueuePatientPickerProps) {
   const { confirm, dialog } = useConfirm();
   const { mode, setMode } = useQueueSort(station);
@@ -189,11 +197,11 @@ export default function QueuePatientPicker({
 
   // With a patient open the queue folds to a narrow strip (numbers and names, nothing to press) so
   // their forms get the room; >> unfolds it. Opening another patient folds it again.
-  const [unfolded, setUnfolded] = useState(false);
+  const [unfolded, setUnfolded] = useState(!autoFold);
   const [foldedFor, setFoldedFor] = useState(selectedVisitId);
   if (foldedFor !== selectedVisitId) {
     setFoldedFor(selectedVisitId);
-    setUnfolded(false);
+    if (autoFold) setUnfolded(false);
   }
   const compact = !!selectedVisitId && !unfolded && !grouping;
 
@@ -227,10 +235,12 @@ export default function QueuePatientPicker({
       title={`${stationLabel(station)} Queue`}
       tour="station-queue"
       // Set apart from the forms beside it: a bolder border, tinted with the app colour, and a lift.
-      className="xl:col-span-4 border-2 border-primary/25 shadow-md"
+      className={embedded
+        ? "xl:col-span-4 rounded-none border-0 border-b bg-muted/40 shadow-none lg:min-h-0 lg:max-h-full lg:border-b-0 lg:border-r"
+        : "xl:col-span-4 border-2 border-primary/25 shadow-md"}
       data={{ "data-queue-compact": compact ? "" : undefined }}
       headerClassName={cn("transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4")}
-      contentClassName={cn("px-7 pt-3 pb-4 transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4 pt-4")}
+      contentClassName={cn("px-7 pt-3 pb-4 transition-[padding] duration-250 ease-out motion-reduce:transition-none", compact && "px-4 pt-4", embedded && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto")}
       action={
         <span className="flex shrink-0 items-center gap-1.5">
           {/* Slides away when folded, leaving the name and >>. */}

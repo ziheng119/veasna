@@ -228,6 +228,12 @@ Station pages pair a queue card with the open patient's forms. From the `xl` bre
 narrow strip while a patient is open (`QUEUE_FOLD` in `src/lib/pageLayout.ts`). Below
 `xl`, panes stack.
 
+Triage goes further, as one surface: the queue is a tinted column beside the open patient
+from `lg` (1024px, tablets in landscape), and stays open (it folds only with **<<**). The
+patient's column scrolls as one: a sticky patient bar on top, registration's vitals and the
+TB line scrolling away, sticky section tabs under the bar, and each section's buttons sticky
+at the bottom.
+
 Spacing follows Tailwind's 4px steps. Cards use 20px vertical and 24px horizontal padding,
 controls sit 8–12px apart, and badges and chips use 4px gaps.
 

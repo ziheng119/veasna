@@ -24,7 +24,7 @@ export default async function MainLayout({
           <RealtimeConnection />
           <ClockWarning />
           <main className="flex-1 min-h-0 w-full overflow-y-auto bg-background px-6 py-5">
-            <div className="mx-auto w-full max-w-[1600px] xl:h-full">
+            <div className="mx-auto w-full max-w-[1600px] lg:h-full">
               <PageTransition><GuidePage>{children}</GuidePage></PageTransition>
             </div>
           </main>

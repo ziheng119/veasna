@@ -76,7 +76,7 @@ test('sent on from another device: typing is saved, the form closes, and the pan
   await act(async () => next.props.onClick());
   await queueBecomes([]);
   expect(open).toBeNull();
-  expect(shown()).toContain('No Patient Selected');
+  expect(shown()).toContain('No one open yet');
   expect(shown()).not.toContain('from another device');
 });
 
