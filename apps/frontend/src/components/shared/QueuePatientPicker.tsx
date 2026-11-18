@@ -253,7 +253,7 @@ export default function QueuePatientPicker({
         : "xl:col-span-4 border-2 border-primary/25 shadow-md"}
       data={{ "data-queue-compact": compact ? "" : undefined }}
       footer={footer && (
-        <div className={cn("-mb-5 mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-border py-3", compact ? "px-4" : "px-5")}>
+        <div className={cn("-mb-5 mt-auto flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border py-3", compact ? "px-4" : "px-5")}>
           {footer}
         </div>
       )}
