@@ -48,6 +48,10 @@ interface QueuePatientPickerProps {
   autoFold?: boolean;
 }
 
+// The actions on a queue card (Clear TB, Next, Send to, Discharge): stacked down the card's right
+// edge, each an icon and its label on one line, so the card stays as tall as the patient's details.
+const CARD_ACTION = "h-8 w-full justify-start gap-1.5 px-2 text-xs font-normal";
+
 export default function QueuePatientPicker({
   station,
   onSelectPatient,
@@ -289,6 +293,8 @@ export default function QueuePatientPicker({
           const sticker = findSticker(stickerColours, patient.sticker_colour);
           // Folded, or grouping: only the patient is shown, nothing to press.
           const bare = compact || grouping;
+          // Secondary text, darker on the tinted selected card so it stays readable (4.5:1).
+          const subtle = isSelected ? "text-foreground/75" : "text-muted-foreground";
           return (
             <div
               key={`${patient.visit_id}-${patient.queue_no}`}
@@ -312,14 +318,15 @@ export default function QueuePatientPicker({
                     : "border-border bg-card hover:bg-accent/60",
               )}
             >
-              <div className="flex items-center gap-2">
+              {/* On a very narrow card the actions drop under the name rather than squeezing it. */}
+              <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 aria-label={`Select ${patient.english_name || "patient"}, queue ${patient.queue_no}${stickerLabel(sticker)}${tbFlagged ? ", suspected TB" : ""}`}
                 aria-pressed={isSelected}
                 disabled={grouping}
                 onClick={() => onSelectPatient(patient)}
-                className={cn("flex min-w-0 flex-1 items-start text-left disabled:cursor-default", compact ? "gap-2" : "gap-3")}
+                className={cn("flex min-w-[8rem] flex-1 items-start text-left disabled:cursor-default", compact ? "min-w-0 gap-2" : "gap-3")}
               >
                 {/* Queue number first and large: it is what staff call out. */}
                 <span className="flex shrink-0 flex-col items-center gap-1">
@@ -342,9 +349,9 @@ export default function QueuePatientPicker({
                 <span className={cn("min-w-0 flex-1 border-l border-border", compact ? "pl-2" : "pl-3")}>
                   <span className={cn("block font-medium text-foreground", compact ? "truncate text-sm" : "break-words")}>{patient.english_name || "Unknown name"}</span>
                   <Collapse open={!compact}>
-                  {patient.khmer_name?.trim() && <span className="block break-words text-sm text-muted-foreground">{patient.khmer_name}</span>}
-                  <span className="mt-1 block text-xs text-muted-foreground">{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {patient.khmer_name?.trim() && <span className={cn("block break-words text-sm", subtle)}>{patient.khmer_name}</span>}
+                  <span className={cn("mt-1 block text-xs", subtle)}>{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
+                  <span className={cn("mt-0.5 block text-xs", subtle)}>
                     {next ? `Next: ${stationLabel(next)}` : "Last station"}
                   </span>
                   {patient.family_waiting ? (
@@ -363,7 +370,7 @@ export default function QueuePatientPicker({
               <div
                 inert={bare || undefined}
                 className={cn(
-                  "flex shrink-0 items-center overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                  "ml-auto flex w-28 shrink-0 flex-col items-stretch gap-0.5 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
                   bare ? "pointer-events-none max-w-0 opacity-0" : "max-w-64 opacity-100",
                 )}
               >
@@ -372,14 +379,14 @@ export default function QueuePatientPicker({
                   <ClearTbButton
                     patient={patient}
                     onCleared={(currentStation) => handleTbCleared(patient, currentStation)}
-                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal"
+                    className={CARD_ACTION}
                   />
                 )}
                 {canMove && <>
                 <Button
                     type="button"
                     variant="ghost"
-                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-primary"
+                    className={cn(CARD_ACTION, "text-muted-foreground hover:text-primary")}
                     title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
                     onClick={() => handleCompleteStation(patient)}
                   >
@@ -391,7 +398,7 @@ export default function QueuePatientPicker({
                     type="button"
                     variant="ghost"
                     disabled={routeLocked}
-                    className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-foreground"
+                    className={cn(CARD_ACTION, "text-muted-foreground hover:text-foreground")}
                     title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
                     aria-label={`Send ${patient.english_name || "patient"} to another station`}
                     onClick={() => setEditingPatient(patient)}
@@ -403,7 +410,7 @@ export default function QueuePatientPicker({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-auto w-14 shrink-0 flex-col gap-0.5 px-0 py-0.5 text-[10px] leading-none font-normal text-muted-foreground hover:text-destructive"
+                  className={cn(CARD_ACTION, "text-muted-foreground hover:text-destructive")}
                   title="Discharge patient from every queue"
                   onClick={() => handleRemovePatient(patient)}
                 >
