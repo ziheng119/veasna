@@ -176,6 +176,9 @@ identity, plus a fixed vocabulary of meaning colours.
 - **Station tones** (Tailwind 100 fill with 700/800 text): Triage blue, Consult emerald,
   Dental cyan, Physiotherapy amber, Partner NGO violet, Pharmacy rose. Each station has one
   icon too (heart pulse, stethoscope, smile, activity, eye, pill).
+  On its own page a station's mark (its icon on its tone, `StationMark` / `StationTitle`) leads
+  the queue title and the station's own form card, and each queue card shows the next station's
+  icon in that station's ink beside **Next:**. That is wayfinding, never an action.
 - **Family tones** (Tailwind 100 badge, 500 stripe and border): sky, amber, violet, emerald,
   pink, teal, cycled by family letter.
 - **Sticker colours**: set by the admin on Station data to match the physical stickers. They

@@ -21,6 +21,7 @@ import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
+import { STATION_ICONS, STATION_INK, StationTitle } from "./StationBadge";
 import { useUserStore } from "@/stores/useUserStore";
 import { canEditSavedData } from "@/lib/permissions";
 import { Check, ChevronRight, ChevronsLeft, ChevronsRight, CircleCheck, History, Hourglass, ListChecks, X } from "lucide-react";
@@ -239,7 +240,7 @@ export default function QueuePatientPicker({
 
   return (
     <PageCard
-      title={`${stationLabel(station)} Queue`}
+      title={<StationTitle station={station} mark={!compact}>{stationLabel(station)} Queue</StationTitle>}
       tour="station-queue"
       // Set apart from the forms beside it: a bolder border, tinted with the app colour, and a lift.
       className={embedded
@@ -371,8 +372,9 @@ export default function QueuePatientPicker({
                   <Collapse open={!compact}>
                   {patient.khmer_name?.trim() && <span className={cn("block break-words text-sm", subtle)}>{patient.khmer_name}</span>}
                   <span className={cn("mt-1 block text-xs", subtle)}>{patient.station_arrival_time ? `Arrived ${patient.station_arrival_time}` : `Registered ${patient.timestamp}`}</span>
-                  <span className={cn("mt-0.5 block text-xs", subtle)}>
-                    {next ? `Next: ${stationLabel(next)}` : "Last station"}
+                  {/* The next station's icon in its own colour, as on its page and badges. */}
+                  <span className={cn("mt-0.5 flex items-center gap-1 text-xs", subtle)}>
+                    {next ? <>{(() => { const Icon = STATION_ICONS[next]; return <Icon className={cn("size-3.5 shrink-0", STATION_INK[next])} aria-hidden="true" />; })()}Next: {stationLabel(next)}</> : "Last station"}
                   </span>
                   {patient.family_waiting ? (
                     <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
