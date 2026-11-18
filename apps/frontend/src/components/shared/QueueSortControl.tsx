@@ -11,7 +11,7 @@ export default function QueueSortControl({ mode, onChange }: {
   return (
     <div className="w-full space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground">Sort queue by</p>
-      <div role="group" aria-label="Queue sort order" className="relative isolate grid w-full grid-cols-2 gap-1 rounded-full bg-muted/30 p-1 backdrop-blur-md">
+      <div role="group" aria-label="Queue sort order" className="relative isolate grid w-full grid-cols-2 gap-1 rounded-full border border-border bg-muted/30 p-1 backdrop-blur-md">
         {/* One persistent highlight slides between equal-width options without delaying sorting. It is
             filled like a queue number on Registration (brand blue at 14%), with the label in blue. */}
         <span

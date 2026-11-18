@@ -347,7 +347,7 @@ export default function QueuePatientPicker({
                   ? tbCardClass(isSelected)
                   : isSelected
                     ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:bg-accent/60",
+                    : "border-border bg-card hover:bg-accent",
               )}
             >
               {/* On a very narrow card the actions drop under the name rather than squeezing it. */}
@@ -365,10 +365,11 @@ export default function QueuePatientPicker({
                   <span className="relative flex">
                     <span
                       data-queue-no
+                      // Like Registration's queue: brand blue at 14%, solid blue on the open patient.
                       className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
                         tbFlagged
                           ? "bg-red-600 text-white"
-                          : isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                          : isSelected ? "bg-primary text-primary-foreground" : "bg-primary/14 text-primary"
                       }`}
                     >
                       {patient.queue_no}
