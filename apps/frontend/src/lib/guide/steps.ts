@@ -43,9 +43,9 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: "Search everyone here today by name, number or family. It opens them at the station they're waiting for.",
   },
   {
-    chapter: "Getting started", path: "/", target: "connection", side: "bottom",
+    chapter: "Getting started", path: "/",
     title: "Live updates",
-    body: "Changes show up live. If this turns amber, the host can't be reached: keep typing, and save when it's back.",
+    body: "Changes show up live. If an amber bar appears, the host can't be reached: keep typing, and save once it's gone.",
   },
   {
     chapter: "Registration", path: "/", target: "registration", side: "left", tab: "patient-info",

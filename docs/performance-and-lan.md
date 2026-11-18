@@ -245,8 +245,8 @@ Anything that fails comes with a suggested fix.
 Veasna never needs the internet: everything runs between the devices, the Decos and the
 host laptop. What a weak or dropping Wi-Fi link to the host does, and what keeps working:
 
-- **The status bar turns amber** with "Can't reach the host laptop since 10:42" while
-  live updates are lost. It goes back to normal by itself when the host answers.
+- **An amber bar appears** under the top bar with "Can't reach the host laptop since 10:42"
+  while live updates are lost. It goes away by itself when the host answers.
 - **Typing is never lost.** Every station form, the registration form and the referral
   details keep unsaved typing on the device (drafts), through a dropped connection, a
   sign-out or a reload.
