@@ -284,7 +284,7 @@ Tactile and confident, but small: 36px tall, 14px medium text.
 - **Destructive:** Alarm Red with white text. Always opens a confirm dialog first.
 - **Outline / Secondary / Ghost:** white with a hairline border; quiet wash; or transparent with a wash on hover.
 - **Hover / Focus:** rises 1px with a medium shadow; focus shows a 3px ring in the brand blue at 50%. Press scales to 0.97.
-- **Glass button:** a round frosted pill for secondary actions (Edit station data, consultation actions).
+- **Glass button:** a round frosted pill for secondary actions (Print referrals, Referral list, consultation actions).
 
 ### Chips / Badges
 - **Style:** full pills, 12px medium text, 2–4px vertical padding, an optional 14px icon.

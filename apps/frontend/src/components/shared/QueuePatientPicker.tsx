@@ -21,6 +21,7 @@ import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
+import StationDataButton from "./StationDataButton";
 import { STATION_ICONS, STATION_INK, StationTitle } from "./StationBadge";
 import { useUserStore } from "@/stores/useUserStore";
 import { canEditSavedData } from "@/lib/permissions";
@@ -253,9 +254,10 @@ export default function QueuePatientPicker({
         <span className="flex shrink-0 items-center gap-1.5">
           {/* Slides away when folded, leaving the name and >>. */}
           <span className={cn(
-            "flex overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
-            compact ? "max-w-0 opacity-0" : "max-w-32 opacity-100",
+            "flex items-center gap-1.5 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+            compact ? "max-w-0 opacity-0" : "max-w-48 opacity-100",
           )}>
+            <StationDataButton station={station} />
             <Badge variant="inactive" className="whitespace-nowrap">{patients.length} waiting</Badge>
           </span>
           {!!selectedVisitId && (
