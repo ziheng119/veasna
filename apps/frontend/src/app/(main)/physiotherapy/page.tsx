@@ -1,44 +1,27 @@
 "use client"
 
-import PhysiotherapyNotesContainer from "@/components/physiotherapy/PhysiotherapyNotesContainer";
-import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
-import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import SearchBar from "@/components/shared/SearchBar";
-import { QueuedPatient } from "@/lib/types/patient";
 import { useState } from "react";
-import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import PhysiotherapyNotesContainer from "@/components/physiotherapy/PhysiotherapyNotesContainer";
+import PatientContext from "@/components/shared/PatientContext";
+import StationSurface from "@/components/shared/StationSurface";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
+import { QueuedPatient } from "@/lib/types/patient";
 
 export default function Physiotherapy() {
-
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
-
 
   return (
     <StationFlowProvider station="physiotherapy" onSelectPatient={setSelectedPatient}>
-      <div className={PAGE_SHELL}>
-        <SearchBar station="physiotherapy" onSelectPatient={setSelectedPatient} />
-        <div className={PANEL_GRID}>
-          <QueuePatientPicker
-            station="physiotherapy"
-            onSelectPatient={setSelectedPatient}
-            selectedVisitId={selectedPatient?.visit_id}
-          />
-          <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
-            {!selectedPatient ? (
-              <NoPatientSelected />
-            ) : (
-              <div className={PANEL_GRID}>
-                <PatientContainer selectedPatient = {selectedPatient}/>
-                <TriageContainer selectedPatient = {selectedPatient}/>
-                <PhysiotherapyNotesContainer patient={selectedPatient} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Like Dental: the queue beside the open patient, whose column reads down from what
+          Registration and Triage recorded to the physiotherapy notes and body chart. */}
+      <StationSurface station="physiotherapy" selectedPatient={selectedPatient} onSelectPatient={setSelectedPatient}>
+        {(patient) => (
+          <>
+            <PatientContext patient={patient} />
+            <PhysiotherapyNotesContainer key={patient.visit_id} patient={patient} />
+          </>
+        )}
+      </StationSurface>
     </StationFlowProvider>
-  )
+  );
 }

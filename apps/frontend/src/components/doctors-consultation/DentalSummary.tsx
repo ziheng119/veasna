@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { Smile } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
+import { FileText, Smile } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { STATION_INK } from "@/components/shared/StationBadge";
 import { DentalNotes, getDental } from "@/lib/api/visit/dental";
 import { ENTER_FAST } from "@/lib/motion";
 import { useVisitChanges } from "@/hooks/useVisitChanges";
 
+interface Props {
+  visitId: number;
+  // Opens the referral, starting from the Dental notes. Offered when Dental asked for a referral.
+  onRefer?: (notes: string) => void;
+  // The visit already has a referral: the button opens it instead.
+  referralWritten?: boolean;
+}
+
 /**
  * What the Dental station recorded for this visit: whether the students ticked "Referral needed",
- * and their notes, so the doctor can refer the patient on (Create referral). Read-only here; it is
- * changed at the Dental station.
+ * and their notes, so the doctor can refer the patient on from here. Read-only here; it is changed
+ * at the Dental station.
  */
-export default function DentalSummary({ visitId }: { visitId: number }) {
-  const id = useId();
+export default function DentalSummary({ visitId, onRefer, referralWritten = false }: Props) {
   const [dental, setDental] = useState<DentalNotes | null>(null);
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
   // A save at Dental (another device) reloads this quietly.
@@ -33,22 +41,18 @@ export default function DentalSummary({ visitId }: { visitId: number }) {
 
   return (
     <section className="space-y-3 rounded-xl border border-border p-4" aria-label="Dental notes" aria-busy={state === "loading"}>
-      <h3 className="flex items-center gap-2 font-semibold">
-        <Smile className="size-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-        Dental notes
-      </h3>
-      <div className="flex items-start gap-2">
-        {/* Shows the Dental station's answer; it can't be ticked here. */}
-        <Checkbox id={id} checked={referralNeeded} disabled aria-readonly="true"
-          className="mt-0.5 disabled:cursor-default disabled:opacity-100" />
-        <div>
-          <Label htmlFor={id} className="font-semibold">Referral required from Dental</Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {state === "loaded" && !dental ? "Not seen at Dental yet."
-              : referralNeeded ? "Ticked at Dental. Write it with Create referral below."
-              : "Ticked at the Dental station when the patient needs a referral."}
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-semibold">
+          <Smile className={cn("size-4", STATION_INK.dental)} aria-hidden="true" />
+          Dental notes
+        </h3>
+        {/* The Dental station's answer, as a status rather than a checkbox that can't be ticked. */}
+        {state === "loaded" && (
+          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium",
+            referralNeeded ? "bg-warning-tint text-warning-ink" : "bg-muted text-muted-foreground")}>
+            {!dental ? "Not seen at Dental yet" : referralNeeded ? "Referral needed" : "No referral needed"}
+          </span>
+        )}
       </div>
       {state === "loading" && <div className="h-12 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />}
       {state === "failed" && <p role="alert" className="text-xs text-destructive">Unable to load dental notes. Switch patients and try again.</p>}
@@ -56,6 +60,13 @@ export default function DentalSummary({ visitId }: { visitId: number }) {
         <p key={visitId} className={`whitespace-pre-wrap rounded-lg bg-muted/40 p-3 ${ENTER_FAST}`}>
           {dental.notes.trim() || <span className="text-muted-foreground">No notes written.</span>}
         </p>
+      )}
+      {/* Dental asked for a referral: write it from here, starting from their notes. */}
+      {referralNeeded && onRefer && (
+        <Button type="button" variant="outline" size="sm" onClick={() => onRefer(dental?.notes.trim() ?? "")}>
+          <FileText aria-hidden="true" />
+          {referralWritten ? "Open the referral" : "Write referral from these notes"}
+        </Button>
       )}
     </section>
   );

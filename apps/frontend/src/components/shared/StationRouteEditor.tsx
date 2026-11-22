@@ -56,7 +56,7 @@ export default function StationRouteEditor({ route, completed, onChange, disable
           <span className="mr-1 font-medium">Done</span>
           {done.map((station) => (
             <span key={station} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-              <Check className="size-3 text-emerald-600" aria-hidden="true" />
+              <Check className="size-3 text-success" aria-hidden="true" />
               {stationLabel(station)}
             </span>
           ))}
@@ -174,7 +174,7 @@ export default function StationRouteEditor({ route, completed, onChange, disable
 
 const TAG_TONES = {
   primary: "bg-primary/10 text-primary",
-  amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  amber: "bg-warning-tint text-warning-ink",
 } as const;
 
 function Tag({ tone, icon: Icon, children }: { tone: keyof typeof TAG_TONES; icon?: ComponentType<{ className?: string }>; children: ReactNode }) {

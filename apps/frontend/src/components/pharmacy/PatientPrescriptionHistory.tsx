@@ -9,8 +9,8 @@ import { useUserStore } from "@/stores/useUserStore";
 import { cn } from "@/lib/utils";
 
 const STATUS_TONES: Record<Prescription["status"], string> = {
-  pending: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  dispensed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  pending: "bg-warning-tint text-warning-ink",
+  dispensed: "bg-success-tint text-success-ink",
   cancelled: "bg-muted text-muted-foreground",
 };
 
@@ -70,7 +70,7 @@ export default function PatientPrescriptionHistory() {
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {p.dispensed_count} dispensed
-                    {p.pending_count > 0 && <span className="font-medium text-amber-700"> · {p.pending_count} waiting</span>}
+                    {p.pending_count > 0 && <span className="font-medium text-warning-ink"> · {p.pending_count} waiting</span>}
                     {p.cancelled_count > 0 && ` · ${p.cancelled_count} cancelled`}
                   </span>
                 </button>

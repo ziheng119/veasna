@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Pill, X } from "lucide-react";
+import { PillBottle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLiveList } from "@/hooks/useLiveList";
@@ -20,8 +20,8 @@ const MAX_MATCHES = 8;
 const available = (drug: Drug) => drug.available_count ?? drug.stock_count;
 
 const STATUS_TONES: Record<Prescription["status"], string> = {
-  pending: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  dispensed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  pending: "bg-warning-tint text-warning-ink",
+  dispensed: "bg-success-tint text-success-ink",
   cancelled: "bg-muted text-muted-foreground line-through",
 };
 
@@ -29,13 +29,15 @@ interface Props {
   visitId: number;
   // Free-text prescription saved before prescribing was linked to the pharmacy; shown read-only.
   legacyPrescription?: string;
+  // How many prescriptions this visit has that aren't cancelled, for the form's visit summary.
+  onCountChange?: (count: number) => void;
 }
 
 /**
  * Prescribe from the pharmacy. Prescribing reserves the stock at once, so it is no
  * longer available to anyone else; the pharmacy dispenses it, or it can be cancelled to release it.
  */
-export default function PrescriptionPanel({ visitId, legacyPrescription }: Props) {
+export default function PrescriptionPanel({ visitId, legacyPrescription, onCountChange }: Props) {
   const { confirm, dialog } = useConfirm();
   const token = useUserStore((state) => state.user?.token);
   // Cancelling releases reserved stock: the "Pharmacy stock" permission.
@@ -52,6 +54,8 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
   }, [visitId, token]);
   const { data: drugs, refresh: refreshDrugs } = useLiveList(loadDrugs);
   const { data: prescriptions, refresh: refreshPrescriptions } = useLiveList(loadPrescriptions);
+  const activeCount = prescriptions.filter((p) => p.status !== "cancelled").length;
+  useEffect(() => onCountChange?.(activeCount), [activeCount, onCountChange]);
 
   const [query, setQuery] = useState("");
   const [showMatches, setShowMatches] = useState(false);
@@ -114,7 +118,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
   return (
     <section className="space-y-3" aria-labelledby={`${listId}-title`}>
       <h3 id={`${listId}-title`} className="flex items-center gap-2 font-semibold">
-        <Pill className="size-4" aria-hidden="true" /> Prescription
+        <PillBottle className="size-4" aria-hidden="true" /> Prescription
       </h3>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_6rem]">
@@ -134,7 +138,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription }: Props
             <ul id={`${listId}-drugs`} role="listbox" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
               {matches.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-muted-foreground">
-                  {drugs.length === 0 ? "No drugs in the pharmacy yet." : "No drug matches this search."}
+                  {drugs.length === 0 ? "No drugs in the pharmacy yet. Pharmacy adds them on the Pharmacy page; until then, write the prescription in the notes." : "No drug matches this search."}
                 </li>
               ) : matches.map((d) => {
                 const left = available(d);

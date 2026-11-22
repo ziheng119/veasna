@@ -47,7 +47,8 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 cur.station AS current_station,
                 -- Done here and waiting for the rest of the family at this station.
                 cur.family_ready_at IS NOT NULL AS family_waiting,
-                tb.status AS tb_status,
+                -- Red flags only observed at registration are not a TB flag.
+                NULLIF(tb.status, 'observed') AS tb_status,
                 -- Visits before this one (other trips or days): the card then offers Past visits.
                 (SELECT COUNT(*)::int FROM visits pv
                   WHERE pv.patient_id = p.id AND pv.id <> v.id
@@ -55,13 +56,15 @@ router.get('/', authenticateToken, requireRole(['any']), async (req, res) => {
                 ) AS previous_visits,
                 -- Suspected TB: shown in red in every queue so doctors can attend to the patient.
                 COALESCE(tb.status IN ('suspected', 'tb_likely'), FALSE) AS tb_flagged,
-                -- Done at the current station: its form is saved (every Triage section), or at
-                -- Pharmacy nothing is left to dispense. The app then offers to send the patient on.
+                -- Done at the current station: its form is saved (every Triage section; at Consult
+                -- notes and the conditions addressed, as the form autosaves while the doctor types),
+                -- or at Pharmacy nothing is left to dispense. The app then offers to send the patient on.
                 CASE cur.station
                     WHEN 'triage' THEN EXISTS (SELECT 1 FROM visual_acuity x WHERE x.visit_id = v.id)
                         AND EXISTS (SELECT 1 FROM presenting_complaint x WHERE x.visit_id = v.id)
                         AND EXISTS (SELECT 1 FROM history x WHERE x.visit_id = v.id)
-                    WHEN 'consultation' THEN EXISTS (SELECT 1 FROM consultation x WHERE x.visit_id = v.id)
+                    WHEN 'consultation' THEN EXISTS (SELECT 1 FROM consultation x WHERE x.visit_id = v.id
+                        AND btrim(coalesce(x.notes, '')) <> '' AND x.condition_categories IS NOT NULL)
                     WHEN 'physiotherapy' THEN EXISTS (SELECT 1 FROM physiotherapy x WHERE x.visit_id = v.id)
                     WHEN 'dental' THEN EXISTS (SELECT 1 FROM dental x WHERE x.visit_id = v.id)
                     WHEN 'seva' THEN EXISTS (SELECT 1 FROM seva x WHERE x.visit_id = v.id)

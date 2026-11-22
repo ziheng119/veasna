@@ -1,20 +1,15 @@
 "use client"
 
-import SearchBar from "@/components/shared/SearchBar";
-import PatientDetails from "@/components/shared/read-only/patient-container/PatientDetails";
+import RegistrationSummary from "@/components/shared/RegistrationSummary";
 import { QueuedPatient } from "@/lib/types/patient";
-import { useState } from "react";
-import NoPatientSelected from "@/components/shared/NoPatientSelected";
 import { TriageTabs } from "@/components/triage/TriageTabs";
 import TbFlagPanel from "@/components/triage/TbFlagPanel";
-import { PageCard } from "@/components/shared/PageCard";
-import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
 import { StationId } from "@/constants/stations";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
-import StationDataButton from "@/components/shared/StationDataButton";
+import StationSurface from "@/components/shared/StationSurface";
+import { useState } from "react";
 
-export default function Traige() {
+export default function Triage() {
 
   const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
   const [queueVersion, setQueueVersion] = useState(0);
@@ -40,52 +35,22 @@ export default function Traige() {
 
 
 
-    return (
-      <StationFlowProvider station="triage" onSelectPatient={setSelectedPatient}>
-        <div className={PAGE_SHELL}>
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1"><SearchBar station="triage" onSelectPatient={setSelectedPatient} /></div>
-            <StationDataButton station="triage" />
-          </div>
-          <div className={PANEL_GRID}>
-            <QueuePatientPicker
-              station="triage"
-              onSelectPatient={setSelectedPatient}
-              selectedVisitId={selectedPatient?.visit_id}
-              refreshKey={queueVersion}
-            />
-            <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
-              {!selectedPatient ? (
-                <NoPatientSelected />
-              ) : (
-                <div className={PANEL_GRID}>
-                  <PageCard
-                    title="Patient Details"
-                    className="xl:col-span-4"
-                    contentClassName="space-y-4"
-                  >
-                    <PatientDetails patient={selectedPatient} />
-                  </PageCard>
-                  <div className={`${PANEL_WRAPPER} flex flex-col xl:col-span-8`}>
-                    <TbFlagPanel
-                      key={`tb-${selectedPatient.visit_id}`}
-                      visitId={selectedPatient.visit_id}
-                      onFlagged={handleTbFlagged}
-                    />
-                    <div className="min-h-0 flex-1">
-                      <TriageTabs patient={selectedPatient} patient_id={selectedPatient.patient_id!}
-                        key={selectedPatient.visit_id}
-                        visit_id={selectedPatient.visit_id}
-                        stations={selectedPatient.stations}
-                        onStationsChanged={handleStationsChanged}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </StationFlowProvider>
-    )
+  return (
+    <StationFlowProvider station="triage" onSelectPatient={setSelectedPatient}>
+      <StationSurface station="triage" selectedPatient={selectedPatient} onSelectPatient={setSelectedPatient} refreshKey={queueVersion}>
+        {(patient) => (
+          <TriageTabs patient={patient} patient_id={patient.patient_id!}
+            key={patient.visit_id}
+            visit_id={patient.visit_id}
+            stations={patient.stations}
+            onStationsChanged={handleStationsChanged}
+            context={<>
+              <RegistrationSummary patient={patient} />
+              <TbFlagPanel visitId={patient.visit_id} onFlagged={handleTbFlagged} />
+            </>}
+          />
+        )}
+      </StationSurface>
+    </StationFlowProvider>
+  );
 }

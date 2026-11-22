@@ -6,6 +6,8 @@ interface PageCardProps {
   title: React.ReactNode;
   action?: React.ReactNode;
   headerExtra?: React.ReactNode;
+  // Below the content, at the card's bottom edge (e.g. the queue's page buttons).
+  footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   headerClassName?: string;
@@ -20,6 +22,7 @@ export function PageCard({
   title,
   action,
   headerExtra,
+  footer,
   children,
   className,
   headerClassName,
@@ -37,6 +40,7 @@ export function PageCard({
         {headerExtra}
       </CardHeader>
       <CardContent className={cn("xl:min-h-0 xl:flex-1 xl:overflow-y-auto", contentClassName)}>{children}</CardContent>
+      {footer}
     </Card>
   );
 }

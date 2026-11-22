@@ -49,7 +49,7 @@ export default function AccountMenu({ username, items }: { username: string; ite
       <Menu.Trigger asChild>
         <button type="button"
           className={cn(
-            "group inline-flex h-9 items-center gap-2 rounded-lg bg-accent/60 px-3 text-sm font-semibold text-foreground outline-none",
+            "group inline-flex h-9 items-center gap-2 rounded-lg bg-muted px-3 text-sm font-semibold text-foreground outline-none",
             "transition-[background-color,transform] duration-200 hover:bg-accent active:scale-95 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
             // The open menu's top row takes its place.
             "data-[state=open]:invisible",

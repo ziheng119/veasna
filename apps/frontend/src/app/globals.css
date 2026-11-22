@@ -31,11 +31,42 @@
   background-color: var(--muted-foreground);
 }
 
+/* TeX Gyre Heros (a free Helvetica lookalike, GUST Font License) is served from public/fonts by
+   the host, so every LAN device shows the same font without internet. */
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TeX Gyre Heros";
+  src: url("/fonts/tex-gyre-heros/texgyreheros-bolditalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
-  /* Installed system fonts keep builds and LAN clients independent of font CDNs. */
-  --font-geist-sans: Arial, Helvetica, sans-serif;
-  --font-geist-mono: Consolas, "Courier New", monospace;
-  --font-inter: Arial, Helvetica, sans-serif;
+  /* Every font is the bundled TeX Gyre Heros; the rest only cover a failed font download. */
+  --font-geist-sans: "TeX Gyre Heros", Helvetica, Arial, sans-serif;
+  --font-geist-mono: var(--font-geist-sans);
+  --font-inter: var(--font-geist-sans);
   --radius: 0.65rem;
   --background: oklch(0.97 0.004 286.2);
   --foreground: oklch(0.141 0.005 285.823);
@@ -43,45 +74,57 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.623 0.214 259.815);
+  --primary: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --primary-foreground: oklch(0.97 0.014 254.604);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  --muted-foreground: oklch(0.53 0.016 285.938); /* 4.8:1 on the canvas, so placeholders pass AA */
+  /* Hover and keyboard-highlight wash: a whisper of the brand blue, lighter than a selected item
+     (primary at 10%), with deep blue ink. It says "you can press this". */
+  --accent: oklch(0.965 0.014 262.8);
+  --accent-foreground: oklch(0.36 0.1 262.8);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --ring: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
+  /* Meaning colours (DESIGN.md). Each has a solid (bars, dots, filled buttons), an ink (text and
+     icons, at least 4.5:1 on white and on its own soft and tint), a soft fill (banners and panels),
+     a tint (chips and badges) and a line (borders). Light only: Veasna has no dark theme. */
+  --success: oklch(0.596 0.145 163.225); /* Done Green, #059669 */
+  --success-ink: oklch(0.432 0.095 166.913);
+  --success-soft: oklch(0.979 0.021 166.113);
+  --success-tint: oklch(0.95 0.052 163.051);
+  --success-line: oklch(0.845 0.143 164.978);
+  --warning: oklch(0.769 0.188 70.08); /* Caution Amber */
+  --warning-ink: oklch(0.414 0.112 45.904); /* caution-amber-ink, #78350F */
+  --warning-soft: oklch(0.987 0.022 95.277); /* caution-amber, #FFFBEB */
+  --warning-tint: oklch(0.962 0.059 95.617);
+  --warning-line: oklch(0.879 0.169 91.605);
+  --info: oklch(0.685 0.169 237.323);
+  --info-ink: oklch(0.391 0.09 240.876);
+  --info-soft: oklch(0.977 0.013 236.62);
+  --info-tint: oklch(0.951 0.026 236.824);
+  --info-line: oklch(0.828 0.111 230.318);
+  --tb: oklch(0.577 0.245 27.325); /* TB Red, #DC2626 */
+  --tb-ink: oklch(0.505 0.213 27.518);
+  --tb-soft: oklch(0.971 0.013 17.38);
+  --tb-tint: oklch(0.936 0.032 17.717);
+  --tb-line: oklch(0.637 0.237 25.331);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
   --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
   --sidebar-accent: oklch(0.967 0.001 286.375);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-  --color-blue-default: oklch(0.56 0.2 258);
-  --color-green-default: oklch(0.66 0.16 151);
-  --color-beige-default: oklch(0.96 0.02 88);
-  --color-white-default: oklch(1 0 0);
+  --sidebar-ring: oklch(0.461 0.122 262.8); /* Project Battambang blue, #32559C */
 }
 
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-blue-default: var(--color-blue-default);
-  --color-green-default: var(--color-green-default);
-  --color-beige-default: var(--color-beige-default);
-  --color-white-default: var(--color-white-default);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -92,11 +135,26 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --color-success: var(--success);
+  --color-success-ink: var(--success-ink);
+  --color-success-soft: var(--success-soft);
+  --color-success-tint: var(--success-tint);
+  --color-success-line: var(--success-line);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-tint: var(--warning-tint);
+  --color-warning-line: var(--warning-line);
+  --color-info: var(--info);
+  --color-info-ink: var(--info-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-tint: var(--info-tint);
+  --color-info-line: var(--info-line);
+  --color-tb: var(--tb);
+  --color-tb-ink: var(--tb-ink);
+  --color-tb-soft: var(--tb-soft);
+  --color-tb-tint: var(--tb-tint);
+  --color-tb-line: var(--tb-line);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -130,9 +188,9 @@
 
 /* "Save & next" turning green when the form is complete: a short pop with a fading glow. */
 @keyframes ready-pop {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklch, var(--success) 55%, transparent); }
   40% { transform: scale(1.06); }
-  100% { transform: scale(1); box-shadow: 0 0 0 10px rgb(16 185 129 / 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 10px color-mix(in oklch, var(--success) 0%, transparent); }
 }
 .ready-pop { animation: ready-pop 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
@@ -162,7 +220,7 @@
   inset: 0;
   pointer-events: none;
 }
-.guide-dim { background: rgb(2 6 23 / 0.5); }
+.guide-dim { background: color-mix(in oklch, var(--foreground) 50%, transparent); }
 .guide-blur {
   opacity: 0;
   transition: opacity 90ms ease-out;

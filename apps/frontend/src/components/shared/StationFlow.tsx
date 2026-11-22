@@ -37,6 +37,13 @@ interface Draft {
   save: () => Promise<boolean>;
 }
 
+// A form's check before its patient is sent on from the queue card, e.g. Triage asking about sections
+// that aren't saved. Resolves to false to keep the patient here.
+interface LeaveCheck {
+  visitId: number;
+  check: () => Promise<boolean>;
+}
+
 // The patient who was open here when they were moved on from another device.
 export interface Departure {
   visitId: number;
@@ -66,6 +73,10 @@ interface StationFlow {
   registerDraft: (draft: Draft) => () => void;
   // Saves the visit's forms that have unsaved changes; resolves to false if any save failed.
   saveDrafts: (visitId: number) => Promise<boolean>;
+  // Adds a check run before Next on the queue card; returns a function that removes it again.
+  registerLeaveCheck: (check: LeaveCheck) => () => void;
+  // Runs the visit's checks; resolves to false when one of them keeps the patient here.
+  confirmLeave: (visitId: number) => Promise<boolean>;
 }
 
 const StationFlowContext = createContext<StationFlow | null>(null);
@@ -96,6 +107,18 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
   const saveDrafts = useCallback(async (visitId: number) => {
     for (const draft of Array.from(drafts.current)) {
       if (draft.visitId === visitId && draft.unsaved() && !(await draft.save())) return false;
+    }
+    return true;
+  }, []);
+
+  const leaveChecks = useRef(new Set<LeaveCheck>());
+  const registerLeaveCheck = useCallback((check: LeaveCheck) => {
+    leaveChecks.current.add(check);
+    return () => { leaveChecks.current.delete(check); };
+  }, []);
+  const confirmLeave = useCallback(async (visitId: number) => {
+    for (const check of Array.from(leaveChecks.current)) {
+      if (check.visitId === visitId && !(await check.check())) return false;
     }
     return true;
   }, []);
@@ -136,8 +159,8 @@ export function StationFlowProvider({ station, onSelectPatient, children }: Prov
     await queue.current.refresh?.();
   }, [onSelectPatient, station, token]);
 
-  const value = useMemo(() => ({ station, advance, registerQueue, registerDraft, saveDrafts, departure, patientLeft, clearDeparture, closeDeparted }),
-    [station, advance, registerQueue, registerDraft, saveDrafts, departure, patientLeft, clearDeparture, closeDeparted]);
+  const value = useMemo(() => ({ station, advance, registerQueue, registerDraft, saveDrafts, registerLeaveCheck, confirmLeave, departure, patientLeft, clearDeparture, closeDeparted }),
+    [station, advance, registerQueue, registerDraft, saveDrafts, registerLeaveCheck, confirmLeave, departure, patientLeft, clearDeparture, closeDeparted]);
   return <StationFlowContext.Provider value={value}>{children}</StationFlowContext.Provider>;
 }
 
@@ -172,11 +195,11 @@ export function StationDepartureNotice({ className }: { className?: string }) {
   if (!flow || !departure || departure.draft === "failed") return null;
   return (
     <div key={departure.visitId} role="status"
-      className={cn("flex items-start gap-3 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2.5 text-left text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST, className)}>
+      className={cn("flex items-start gap-3 rounded-lg border border-info-line bg-info-soft px-3 py-2.5 text-left text-sm text-info-ink", ENTER_FAST, className)}>
       <LogOut className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span>
         <span className="block font-medium">{departureMessage(departure, flow.station)}</span>
-        <span className="block text-sky-800/90 dark:text-sky-200/80">
+        <span className="block text-info-ink/90">
           {departure.draft === "saved" ? "What you had typed for them was saved first. " : ""}Choose the next patient from the queue.
         </span>
       </span>
@@ -201,6 +224,18 @@ export function useSaveBeforeNext(visitId: number, savedVersion: string | null, 
     unsaved: () => baseline.current !== null && baseline.current.values !== latest.current.current,
     save: () => latest.current.save(),
   }), [registerDraft, visitId, baseline]);
+}
+
+/**
+ * Lets the open patient's form ask before Next on their queue card sends them on, e.g. when parts of
+ * the station's work aren't saved. `check` resolves to false to keep them here; the latest one is used.
+ */
+export function useLeaveCheck(visitId: number, check: () => Promise<boolean>) {
+  const flow = useStationFlow();
+  const latest = useRef(check);
+  latest.current = check;
+  const registerLeaveCheck = flow?.registerLeaveCheck;
+  useEffect(() => registerLeaveCheck?.({ visitId, check: () => latest.current() }), [registerLeaveCheck, visitId]);
 }
 
 /**
@@ -229,10 +264,12 @@ interface SaveAndNextProps {
   // Shown on hover while not ready, e.g. what is still missing.
   hint?: string;
   disabled?: boolean;
+  // The form's main button (blue) while not ready, e.g. on a station's last section.
+  primary?: boolean;
 }
 
 /** Beside a form's Save: saves, sends the patient to their next station, and opens the next patient. */
-export function SaveAndNextButton({ patient, onSave, ready = false, locked = false, hint, disabled = false }: SaveAndNextProps) {
+export function SaveAndNextButton({ patient, onSave, ready = false, locked = false, hint, disabled = false, primary = false }: SaveAndNextProps) {
   const flow = useStationFlow();
   const [busy, setBusy] = useState(false);
   if (!flow) return null;
@@ -249,7 +286,7 @@ export function SaveAndNextButton({ patient, onSave, ready = false, locked = fal
   };
 
   return (
-    <Button type="button" variant={ready ? "success" : "outline"} disabled={disabled || busy} onClick={saveAndNext}
+    <Button type="button" variant={ready ? "success" : primary ? "default" : "outline"} disabled={disabled || busy} onClick={saveAndNext}
       // Re-mounting the class replays the pop each time the form becomes complete.
       key={ready ? "ready" : "not-ready"} className={cn("group/next", ready && "ready-pop")}
       title={ready ? `Ready: ${locked ? "send" : "save and send"} the patient to their next station` : hint}>
@@ -298,7 +335,7 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
 
   if (patient.family_waiting) {
     return (
-      <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+      <div role="status" className="flex items-center gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm font-medium text-warning-ink">
         <Hourglass className="size-4" aria-hidden="true" />
         Done at {stationLabel(flow.station)}: waiting for the rest of family {patient.family} here. They move on together.
       </div>
@@ -306,8 +343,8 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
   }
 
   return (
-    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/50 bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-500/10">
-      <span className="flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-300">
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success-line bg-success-soft px-3 py-2 text-sm">
+      <span className="flex items-center gap-2 font-medium text-success-ink">
         <CircleCheck className="size-4" aria-hidden="true" />
         Done at {stationLabel(flow.station)}: everything needed here is saved.
       </span>

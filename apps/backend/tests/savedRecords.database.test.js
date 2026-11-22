@@ -196,6 +196,14 @@ const db = require("../config/db");
       expect((await save("/triage/visual-acuity", { visit_id: 1, left_without_pinhole: "20/40", left_with_glasses: "20 / 25" })).status).toBe(200);
       expect((await client.query("SELECT left_without_pinhole, left_with_glasses, right_with_glasses FROM visual_acuity")).rows[0])
         .toEqual({ left_without_pinhole: "20/40", left_with_glasses: "20/25", right_with_glasses: null });
+      // "Refer to optician": false by default, saved when sent, kept when a save leaves it out.
+      expect((await client.query("SELECT refer_optician FROM visual_acuity")).rows[0].refer_optician).toBe(false);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, refer_optician: "yes" })).status).toBe(400);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_without_pinhole: "20/40", refer_optician: true })).status).toBe(200);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, left_without_pinhole: "20/50" })).status).toBe(200);
+      expect((await client.query("SELECT refer_optician FROM visual_acuity")).rows[0].refer_optician).toBe(true);
+      expect((await save("/triage/visual-acuity", { visit_id: 1, refer_optician: false })).status).toBe(200);
+      expect((await client.query("SELECT refer_optician FROM visual_acuity")).rows[0].refer_optician).toBe(false);
       expect((await save("/visits/seva/1", { diagnosis: "Cataract", right_with_glasses_new: "20/30" })).status).toBe(200);
       const seva = (await request(app).get("/visits/seva/1").set("Authorization", "Bearer " + token("admin"))).body;
       expect(seva).toMatchObject({ right_with_glasses_new: "20/30", left_with_glasses_new: null });

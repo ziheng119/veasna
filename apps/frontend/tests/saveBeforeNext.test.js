@@ -14,11 +14,15 @@ jest.mock('../src/components/ui/button', () => ({ Button: props => React.createE
 jest.mock('../src/components/ui/input', () => ({ Input: props => React.createElement('input', props) }));
 let queue = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: queue, refresh: jest.fn() }) }));
+// The confirmation pop-up as plain buttons, so tests can answer it.
+jest.mock('../src/components/shared/ConfirmDialog', () => ({ __esModule: true, default: ({ open, title, confirmLabel, onConfirm, onCancel }) => open
+  ? React.createElement('div', { role: 'dialog', title }, React.createElement('button', { onClick: onConfirm }, confirmLabel), React.createElement('button', { onClick: onCancel }, 'Cancel'))
+  : null }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
 jest.mock('../src/lib/api/queue/stations', () => ({ completeStation: jest.fn(async () => ({ held: false, next_station: 'consultation', family_moved: [], waiting_for: [] })) }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 const { completeStation } = require('../src/lib/api/queue/stations');
-const { StationFlowProvider, useSaveBeforeNext } = require('../src/components/shared/StationFlow');
+const { StationFlowProvider, useSaveBeforeNext, useLeaveCheck } = require('../src/components/shared/StationFlow');
 const QueuePatientPicker = require('../src/components/shared/QueuePatientPicker').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -37,6 +41,13 @@ function Form({ visitId }) {
   return null;
 }
 
+// A form asking before its patient is sent on (Triage with sections not saved).
+const leave = jest.fn();
+function AskingForm({ visitId }) {
+  useLeaveCheck(visitId, leave);
+  return null;
+}
+
 let renderer;
 const mount = async (formVisit = 1) => {
   await act(async () => {
@@ -47,7 +58,7 @@ const mount = async (formVisit = 1) => {
 };
 beforeEach(() => {
   global.window = Object.assign(new EventTarget(), { confirm: jest.fn(() => true) });
-  queue = [patient(1), patient(2, { previous_visits: 2 })]; save.mockReset(); save.mockResolvedValue(true);
+  queue = [patient(1), patient(2, { previous_visits: 2, station_done: true })]; save.mockReset(); save.mockResolvedValue(true);
 });
 afterEach(async () => { if (renderer) await act(async () => renderer.unmount()); renderer = null; delete global.window; jest.clearAllMocks(); });
 const nextOn = visitId => renderer.root.findAll(node => node.props['data-visit-id'] === visitId)[0]
@@ -94,4 +105,52 @@ test('Past visits shows only for a returning patient and opens their record, com
   await act(async () => button('Past visits').props.onClick());
   expect(save).toHaveBeenCalledTimes(1);
   expect(push).toHaveBeenCalledWith(`/patient-details?id=102&from=${encodeURIComponent('/dental?visit=2')}`);
+});
+
+test('the open form can ask first: cancelling keeps the patient, before anything is saved', async () => {
+  const order = [];
+  leave.mockImplementation(async () => { order.push('ask'); return false; });
+  save.mockImplementation(async () => { order.push('save'); return true; });
+  await act(async () => {
+    renderer = create(React.createElement(StationFlowProvider, { station: 'dental', onSelectPatient: jest.fn() },
+      React.createElement(Form, { visitId: 1 }),
+      React.createElement(AskingForm, { visitId: 1 }),
+      React.createElement(QueuePatientPicker, { station: 'dental', onSelectPatient: jest.fn(), selectedVisitId: 1 })));
+  });
+  await act(async () => setNotes('Half done'));
+  await act(async () => nextOn(1).props.onClick());
+  expect(order).toEqual(['ask']);
+  expect(completeStation).not.toHaveBeenCalled();
+  // Confirmed: what was typed is saved, then the patient moves on.
+  leave.mockImplementation(async () => { order.push('ask'); return true; });
+  await act(async () => nextOn(1).props.onClick());
+  expect(order).toEqual(['ask', 'ask', 'save']);
+  expect(completeStation).toHaveBeenCalledWith(1, 'dental', 't');
+  // Another patient's Next doesn't ask this form.
+  leave.mockClear();
+  await act(async () => nextOn(2).props.onClick());
+  expect(leave).not.toHaveBeenCalled();
+});
+
+test('Next on another patient whose work here is not saved asks first; Done here goes straight on', async () => {
+  queue = [patient(1), patient(2, { station_done: false }), patient(3, { station_done: true })];
+  await mount();
+  const dialog = () => renderer.root.findAll(node => node.props.role === 'dialog');
+  // A button inside the confirmation pop-up.
+  const answer = text => dialog()[0].findAllByType('button').find(node => label(node) === text);
+  let pending;
+  await act(async () => { pending = nextOn(2).props.onClick(); });
+  expect(dialog()[0].props.title).toBe('Send P2 on without finishing Dental?');
+  await act(async () => answer('Cancel').props.onClick());
+  await act(async () => pending);
+  expect(completeStation).not.toHaveBeenCalled();
+  await act(async () => { pending = nextOn(2).props.onClick(); });
+  await act(async () => answer('Send on anyway').props.onClick());
+  await act(async () => pending);
+  expect(completeStation).toHaveBeenCalledWith(2, 'dental', 't');
+  // Done here: no question.
+  completeStation.mockClear();
+  await act(async () => nextOn(3).props.onClick());
+  expect(dialog()).toHaveLength(0);
+  expect(completeStation).toHaveBeenCalledWith(3, 'dental', 't');
 });

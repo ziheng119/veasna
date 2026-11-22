@@ -303,7 +303,43 @@ function ensureNssf() {
   return nssfPromise;
 }
 
+// tb_screening.status 'observed': red flags noted at registration below the TB threshold.
+let tbObservedPromise;
+function ensureTbObserved() {
+  if (!tbObservedPromise) {
+    tbObservedPromise = ensureTbFlag()
+      .then(() => runMigration('030_tb_observed.sql'))
+      .catch(err => { tbObservedPromise = null; throw err; });
+  }
+  return tbObservedPromise;
+}
+
+// Partner NGO referral types: any id on the editable "seva_referrals" list, not two fixed ones.
+let editableSevaReferralsPromise;
+function ensureEditableSevaReferrals() {
+  if (!editableSevaReferralsPromise) {
+    editableSevaReferralsPromise = ensureSevaReferral()
+      .then(() => runMigration('031_editable_seva_referrals.sql'))
+      .catch(err => { editableSevaReferralsPromise = null; throw err; });
+  }
+  return editableSevaReferralsPromise;
+}
+
+// visual_acuity.refer_optician (ticked at Triage), and Optician off the referral destinations.
+let referOpticianPromise;
+function ensureReferOptician() {
+  if (!referOpticianPromise) {
+    referOpticianPromise = ensureDayAccountsAndFormOptions()
+      .then(() => runMigration('032_refer_optician.sql'))
+      .catch(err => { referOpticianPromise = null; throw err; });
+  }
+  return referOpticianPromise;
+}
+
 module.exports = {
+  ensureReferOptician,
+  ensureEditableSevaReferrals,
+  ensureTbObserved,
   ensureNssf,
   ensureAccountPermissions,
   ensureLocationsRemoved,

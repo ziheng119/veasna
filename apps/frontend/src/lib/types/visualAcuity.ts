@@ -7,4 +7,6 @@ export interface VisualAcuity {
     left_with_glasses: string;
     right_with_glasses: string;
     notes?: string;
+    // Ticked at Triage: the patient should see an optician (listed on Analytics).
+    refer_optician?: boolean;
 }

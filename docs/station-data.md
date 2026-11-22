@@ -1,9 +1,8 @@
 # Station data
 
 The admin can change the choices offered in the station forms, for example the
-Snellen readings (20/20, 20/40, ...) for each eye at Triage. Open it with **Edit station
-data** at the top right of the Triage, Consult or Partner NGO page (beside the queue
-search), or from the user menu (**Station data**).
+Snellen readings (20/20, 20/40, ...) for each eye at Triage. Open it with the **Edit station data** icon (sliders) in the queue's header on the Triage,
+Consult or Partner NGO page, beside the waiting count, or from the user menu (**Station data**).
 
 | List | Used in |
 | --- | --- |
@@ -13,6 +12,7 @@ search), or from the user menu (**Station data**).
 | Conditions addressed | Consult notes, and the condition charts on Analytics |
 | Referral destinations | Consult referrals (printed on the letter): places patients go outside the screening on referral days |
 | Doctors on referral letters | Consult referrals: **Doctor's name**, printed under the signature |
+| Referral types | Partner NGO form (**Referral needed**), its **Referral list** pop-up, and **Partner NGO referrals** on Analytics. Built in: Cataract surgery, Partner NGO (general) |
 
 For each list you can rename a choice, drag it by its grip (⋮⋮) to a new place (or focus
 the grip and use the arrow keys), remove it (after confirming) or add one, then
@@ -31,8 +31,9 @@ press **Save**. Every device uses the new list from the next page it opens (or a
 - Each sticker colour has a swatch: click it to pick the colour shown in the queues.
   Renaming a colour keeps its internal id, so patients already given that sticker keep it.
   A removed colour still shows (in grey) on visits that were given it.
-- Partner NGO referral outcomes (cataract surgery, general) are fixed, because the
-  database only accepts those two.
+- Renaming a Partner NGO referral type keeps its internal id, so patients already
+  referred stay under the new name. A removed type still shows on the visits saved with
+  it, in the Referral list and on Analytics (after the listed types).
 - Medicines are edited on the Pharmacy dashboard; accounts and their permissions on
   **Accounts**.
 
@@ -48,3 +49,6 @@ press **Save**. Every device uses the new list from the next page it opens (or a
 - A visit's sticker is `visits.sticker_colour` (migration `021_glasses_sticker_colour.sql`),
   the id of a sticker colour. It is checked against the current list when saved.
 - Saving consultation conditions checks the ids against the current list.
+- `seva.referral` is the id of a Partner NGO referral type (list `seva_referrals`). Saving
+  checks it against the current list, or the type the visit was already saved with.
+  Migration `031_editable_seva_referrals.sql` removed the old fixed check on the column.

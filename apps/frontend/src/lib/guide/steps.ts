@@ -38,14 +38,19 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: `One page per station, in clinic order: Triage, Dental, Consult, then Physiotherapy, ${PARTNER_NGO_NAME} or Pharmacy.`,
   },
   {
-    chapter: "Getting started", path: "/", target: "connection", side: "bottom",
+    chapter: "Getting started", path: "/", target: "clinic-search", side: "bottom",
+    title: "Find anyone in the clinic",
+    body: "Search everyone here today by name, number or family. It opens them at the station they're waiting for.",
+  },
+  {
+    chapter: "Getting started", path: "/",
     title: "Live updates",
-    body: "Changes show up live. If this turns amber, the host can't be reached: keep typing, and save when it's back.",
+    body: "Changes show up live. If an amber bar appears, the host can't be reached: keep typing, and save once it's gone.",
   },
   {
     chapter: "Registration", path: "/", target: "registration", side: "left", tab: "patient-info",
     title: "Register each patient here",
-    body: "New patients start here, in three tabs: Patient Info, Vitals and HEF.",
+    body: "New patients start here, in three tabs: Patient Info, Vitals, then HEF, TB & stations.",
   },
   {
     chapter: "Registration", path: "/", target: "reg-name", side: "bottom", tab: "patient-info",
@@ -83,14 +88,9 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: "Patients waiting here, in order; for now, just the sample patient. Choose one to open them. Next sends them on.",
   },
   {
-    chapter: "Triage", path: withSample("/triage"), target: "station-search", side: "bottom",
-    title: "Find a patient",
-    body: "Search by name or queue number.",
-  },
-  {
     chapter: "Triage", path: withSample("/triage"), target: "station-work", side: "left",
     title: "Triage",
-    body: `Vision, complaint and history. Flag suspected TB here, or send a suspected cataract to ${PARTNER_NGO_NAME}. Save & next moves them on.`,
+    body: `Vision, complaint, then history. Flag suspected TB, or send a cataract to ${PARTNER_NGO_NAME}. Save & next on History moves them on.`,
   },
   {
     chapter: "Dental", path: withSample("/dental"), target: "station-work", side: "left",

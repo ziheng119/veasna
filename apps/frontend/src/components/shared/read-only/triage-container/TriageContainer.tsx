@@ -1,3 +1,4 @@
+import { StationTitle } from "@/components/shared/StationBadge";
 import { QueuedPatient } from "@/lib/types/patient";
 import PresentingComplaintsDetails from "./PresentingComplaintsDetails";
 import SnellensTestDetails from "./SnellensTestDetails";
@@ -12,7 +13,7 @@ interface Props {
 export default function TriageContainer({ selectedPatient, compact = false }: Props) {
   return (
     <PageCard
-      title="Triage Summary"
+      title={<StationTitle station="triage">Triage Summary</StationTitle>}
       className={compact ? COMPACT_SUMMARY_CARD : "xl:col-span-4"}
       headerClassName={compact ? COMPACT_SUMMARY_HEADER : undefined}
       contentClassName={compact ? COMPACT_SUMMARY_CONTENT : "space-y-4"}

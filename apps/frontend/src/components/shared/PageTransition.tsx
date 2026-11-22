@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 export default function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   return (
-    <div key={pathname} className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none xl:h-full">
+    <div key={pathname} className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none lg:h-full">
       {children}
     </div>
   );

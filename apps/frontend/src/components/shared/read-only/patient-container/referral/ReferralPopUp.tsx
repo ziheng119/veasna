@@ -17,6 +17,7 @@ interface Props {
   showPopUp: boolean;
   onSaved?: (referral: Referral) => void;
   onDeleted?: () => void;
+  prefill?: { reason?: string; referralType?: string[] };
 }
 
 export default function ReferralPopUp({ 
@@ -26,11 +27,15 @@ export default function ReferralPopUp({
   setShowPopUp,
   showPopUp,
   onSaved,
-  onDeleted
+  onDeleted,
+  prefill,
 }: Props) {
   return (
     <Dialog open={showPopUp} onOpenChange={setShowPopUp}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border-border bg-card p-0">
+      {/* Focus the dialog itself, not its first field (the referral date), so the date isn't the
+          first thing typed into. */}
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border-border bg-card p-0"
+        onOpenAutoFocus={event => { event.preventDefault(); (event.currentTarget as HTMLElement | null)?.focus(); }}>
         <VisuallyHidden>
           <DialogTitle>Referral Form</DialogTitle>
         </VisuallyHidden>
@@ -41,6 +46,7 @@ export default function ReferralPopUp({
           patient={patient}
           patientInfo={patientInfo}
           retrievedReferral={retrievedReferral}
+          prefill={prefill}
           onClose={() => setShowPopUp(false)}
         />
       </DialogContent>

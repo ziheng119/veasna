@@ -54,7 +54,7 @@ export function DrugTableRow({ drug, onStockCountChange, onDrugNameChange, onDel
                   autoFocus
                   className="px-2 py-1 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
-                <button onClick={handleSaveName} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
+                <button onClick={handleSaveName} className="p-1 text-success hover:bg-success-soft rounded">
                   <Check className="h-4 w-4" />
                 </button>
                 <button onClick={handleCancelEdit} className="p-1 text-muted-foreground hover:bg-muted rounded">

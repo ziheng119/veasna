@@ -74,18 +74,13 @@ export default function RealtimeConnection() {
     };
   }, [token]);
 
-  if (status !== "offline") {
-    return (
-      <div role="status" data-tour="connection" className="px-6 py-1 text-xs text-muted-foreground bg-card border-b">
-        {status === "live" ? "Live queue, patient list and form updates" : "Connecting to live updates…"}
-      </div>
-    );
-  }
+  // Live (or connecting): nothing to show; lists and forms just update.
+  if (status !== "offline") return null;
   // The host can't be reached (weak Wi-Fi, or the host is restarting). What still works, so staff
   // can carry on: typing is kept as a draft, and everything reloads once the host answers again.
   const since = offlineSince === null ? "" : ` since ${new Date(offlineSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   return (
-    <div role="status" data-tour="connection" className="px-6 py-1 text-xs border-b border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+    <div role="status" data-tour="connection" className="px-6 py-1 text-xs border-b border-warning-line bg-warning-soft text-warning-ink">
       Can&apos;t reach the host laptop{since}. Lists may be out of date. What you type is kept on this
       device; save once this bar is back to normal. Reconnecting by itself; avoid reloading the page.
     </div>

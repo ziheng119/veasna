@@ -57,13 +57,16 @@ describe('groupReferralLists', () => {
     await client.query(`SET search_path TO pg_temp;
       CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
       INSERT INTO users (id, role, is_active) VALUES (1,'admin',TRUE),(2,'user',TRUE);
-      CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, phone_number TEXT, address TEXT);
+      CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, phone_number TEXT, address TEXT, family TEXT);
       INSERT INTO patients VALUES
         (1,'Ben','បេន','M','1990-10-22','012 345 678','Village A'),
         (2,'Bob',NULL,'M',NULL,NULL,NULL),
         (3,'Beb',NULL,'F','2030-01-01',NULL,NULL),
         (4,'Other day',NULL,'F',NULL,NULL,NULL);
-      CREATE TEMP TABLE visits (id INT, patient_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT, patient_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP, sticker_colour TEXT);
+      CREATE TEMP TABLE tb_screening (visit_id INT, status TEXT);
+      INSERT INTO tb_screening VALUES (1,'observed'),(2,'flagged');
+      UPDATE patients SET family = 'A' WHERE id = 1;
       INSERT INTO visits VALUES
         (1,1,'3','2026-10-21','2026-10-21 09:00'),(2,2,'1','2026-10-21','2026-10-21 08:00'),
         (3,3,'7','2026-10-21','2026-10-21 08:30'),(4,4,'2','2026-10-19','2026-10-19 08:00');
@@ -73,6 +76,18 @@ describe('groupReferralLists', () => {
         (2,'Preah Ang Duong Hospital',NULL,'','',NULL),
         (3,'Optician',NULL,'','',NULL),
         (4,'Optician',NULL,'','',NULL);
+      CREATE TEMP TABLE seva (visit_id INT, referral TEXT, date_of_referral DATE, diagnosis TEXT);
+      INSERT INTO seva VALUES
+        (1,'cataract_surgery','2026-11-02','Cataract, left eye'),
+        (2,NULL,NULL,'No referral'),
+        (3,'old_choice',NULL,''),
+        (4,'cataract_surgery',NULL,'');
+      CREATE TEMP TABLE visual_acuity (visit_id INT, refer_optician BOOLEAN, left_without_pinhole TEXT, right_without_pinhole TEXT,
+        left_with_pinhole TEXT, right_with_pinhole TEXT, left_with_glasses TEXT, right_with_glasses TEXT, notes TEXT);
+      INSERT INTO visual_acuity VALUES
+        (1,TRUE,'20/200','20/40','20/100','20/30',NULL,NULL,'Struggles to read'),
+        (2,FALSE,'20/20','20/20',NULL,NULL,NULL,NULL,''),
+        (4,TRUE,'20/70','20/70',NULL,NULL,NULL,NULL,'');
     `);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express(); app.use(require('../routes/analytics'));
@@ -109,7 +124,10 @@ describe('groupReferralLists', () => {
       visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', khmerName: 'បេន',
       sex: 'M', age: 35, phone: '012 345 678', address: 'Village A', referralDate: '2026-10-21',
       condition: 'Cataract', reason: 'Needs surgery', signed: true,
+      // Red flags only noted at registration are not a TB flag.
+      family: 'A', stickerColour: null, tbStatus: null,
     });
+    expect(byLabel['Preah Ang Duong Hospital'][0].tbStatus).toBe('flagged');
     expect(byLabel['Preah Ang Duong Hospital'][0]).toMatchObject({ signed: false, age: null });
   });
 
@@ -118,5 +136,42 @@ describe('groupReferralLists', () => {
     expect(week.body.destinations.find(group => group.label === 'Optician').patients.map(p => p.englishName)).toEqual(['Other day', 'Beb', 'Ben']);
     expect((await get(token(), { date: '2026-10-21', period: 'year' })).status).toBe(400);
     expect((await get(token(), {})).status).toBe(400);
+  });
+
+  test('Partner NGO referrals: grouped by type in list order, with the referral date', async () => {
+    const getNgo = query => request(app).get('/partner-ngo').query(query).set('Authorization', `Bearer ${token()}`);
+    expect((await request(app).get('/partner-ngo').query({ date: '2026-10-21' }).set('Authorization', `Bearer ${token(2, 'user')}`)).status).toBe(403);
+    const { body, headers } = await getNgo({ date: '2026-10-21' });
+    expect(headers['cache-control']).toBe('no-store');
+    // Every type on the built-in list, then an id since removed from it.
+    expect(body.types.map(type => [type.id, type.listed, type.patients.map(p => p.englishName)])).toEqual([
+      ['cataract_surgery', true, ['Ben']],
+      ['seva_general', true, []],
+      ['old_choice', false, ['Beb']],
+    ]);
+    expect(body.types[0].label).toBe('Cataract surgery');
+    expect(body.types[0].patients[0]).toMatchObject({
+      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', referralDate: '2026-11-02',
+      diagnosis: 'Cataract, left eye', sex: 'M', dateOfBirth: '1990-10-22', phone: '012 345 678', family: 'A', tbStatus: null,
+    });
+    const week = await getNgo({ date: '2026-10-21', period: 'week' });
+    expect(week.body.types[0].patients.map(p => p.englishName)).toEqual(['Ben', 'Other day']);
+    expect((await getNgo({ date: 'nope' })).status).toBe(400);
+  });
+
+  test('optician referrals: patients ticked at Triage, newest first, with their readings', async () => {
+    const getOptician = query => request(app).get('/optician').query(query).set('Authorization', `Bearer ${token()}`);
+    expect((await request(app).get('/optician').query({ date: '2026-10-21' }).set('Authorization', `Bearer ${token(2, 'user')}`)).status).toBe(403);
+    const { body, headers } = await getOptician({ date: '2026-10-21' });
+    expect(headers['cache-control']).toBe('no-store');
+    expect(body.patients.map(p => p.englishName)).toEqual(['Ben']);
+    expect(body.patients[0]).toMatchObject({
+      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', sex: 'M', dateOfBirth: '1990-10-22',
+      phone: '012 345 678', address: 'Village A', leftWithoutPinhole: '20/200', rightWithoutPinhole: '20/40',
+      leftWithPinhole: '20/100', rightWithPinhole: '20/30', leftWithGlasses: null, notes: 'Struggles to read', family: 'A',
+    });
+    const week = await getOptician({ date: '2026-10-21', period: 'week' });
+    expect(week.body.patients.map(p => p.englishName)).toEqual(['Ben', 'Other day']);
+    expect(week.body.more).toBe(false);
   });
 });

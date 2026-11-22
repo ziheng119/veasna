@@ -7,7 +7,6 @@ jest.mock('../src/stores/useUserStore', () => {
 jest.mock('../src/components/shared/PageCard', () => ({ PageCard: ({ action, headerExtra, children }) => React.createElement('section', null, action, headerExtra, children) }));
 jest.mock('../src/components/ui/badge', () => ({ Badge: ({ children }) => React.createElement('span', { 'data-badge': true }, children) }));
 jest.mock('../src/components/ui/button', () => ({ Button: props => React.createElement('button', props) }));
-jest.mock('../src/components/ui/input', () => ({ Input: props => React.createElement('input', props) }));
 let stationPatients = [];
 jest.mock('../src/hooks/useLiveList', () => ({ useLiveList: () => ({ data: stationPatients, refresh: jest.fn() }) }));
 jest.mock('../src/components/shared/EditStationsDialog', () => ({ __esModule: true, default: () => null }));
@@ -15,7 +14,7 @@ const QueuePatientPicker = require('../src/components/shared/QueuePatientPicker'
 const { PatientQueue } = require('../src/components/home/PatientQueue');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-test('Home toggle survives search and live list replacement without changing source rows', async () => {
+test('Home toggle survives live list replacement without changing source rows', async () => {
   const values = new Map(); global.localStorage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v) }; global.window = new EventTarget();
   const log = jest.spyOn(console, 'error').mockImplementation(() => {});
   const patients = [
@@ -30,8 +29,6 @@ test('Home toggle survives search and live list replacement without changing sou
     expect(numbers()).toEqual(['2', '10']);
     await act(async () => toggle().props.onClick()); expect(toggle().props['aria-pressed']).toBe(true);
     expect(numbers()).toEqual(['10', '2']);
-    await act(async () => renderer.root.findByType('input').props.onChange({ target: { value: 'Bob' } })); expect(numbers()).toEqual(['2']);
-    await act(async () => renderer.root.findByType('input').props.onChange({ target: { value: '' } }));
     await act(async () => renderer.update(React.createElement(PatientQueue, { patients: [...patients, { visit_id: 3, queue_no: '1', english_name: 'Carol' }] })));
     expect(numbers()).toEqual(['10', '2', '1']); expect(patients.map(p => p.queue_no)).toEqual(['10', '2']);
   } finally {
@@ -64,8 +61,6 @@ test('station queue defaults to arrival, shows station time, and keeps number mo
     expect(renderer.root.findAllByType('span').some(n => n.children.join('') === 'Arrived 09:00 AM')).toBe(true);
     const toggle = renderer.root.findAllByType('button').find(n => n.children.join('') === 'Queue number');
     await act(async () => toggle.props.onClick()); expect(numbers()).toEqual(['2', '10']);
-    await act(async () => renderer.root.findByType('input').props.onChange({ target: { value: 'Alice' } })); expect(numbers()).toEqual(['10']);
-    await act(async () => renderer.root.findByType('input').props.onChange({ target: { value: '' } }));
     stationPatients = [...stationPatients, { visit_id: 3, queue_no: '1', english_name: 'Carol', timestamp: '11:00 AM' }];
     await act(async () => renderer.update(React.createElement(QueuePatientPicker, props)));
     expect(numbers()).toEqual(['1', '2', '10']);

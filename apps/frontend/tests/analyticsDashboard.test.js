@@ -3,14 +3,28 @@ const { act, create } = require('react-test-renderer');
 jest.mock('next/link', () => ({ __esModule: true, default: props => React.createElement('a', props) }));
 jest.mock('../src/stores/useUserStore', () => ({ useUserStore: selector => selector({ user: { token: 'test' } }) }));
 jest.mock('../src/lib/api/analytics', () => ({ getAnalytics: jest.fn(), getAnalyticsTrend: jest.fn(),
-  getAnalyticsReferrals: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', destinations: [] })) }));
-const { getAnalytics, getAnalyticsTrend } = require('../src/lib/api/analytics');
+  getAnalyticsReferrals: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', destinations: [] })),
+  getAnalyticsFollowUp: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z',
+    notDischarged: [{ visitId: 9, patientId: 4, queueNo: '12', visitDate: date, englishName: 'Sok Dara', khmerName: null, stickerColour: null, family: 'B', tbStatus: 'flagged', station: 'triage' }],
+    notDischargedMore: false, unsignedReferrals: [], unsignedReferralsMore: false })),
+  getAnalyticsPartnerNgo: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', more: false, types: [
+    { id: 'cataract_surgery', label: 'Cataract surgery', listed: true, patients: [{ visitId: 7, patientId: 3, queueNo: '4', visitDate: date,
+      referral: 'cataract_surgery', referralDate: '2026-11-02', diagnosis: 'Cataract, left eye', englishName: 'Chan Mony', khmerName: null,
+      sex: 'F', dateOfBirth: '1960-01-05', phone: null, stickerColour: null, family: null, tbStatus: null }] },
+    { id: 'seva_general', label: 'Partner NGO (general)', listed: true, patients: [] },
+  ] })),
+  getAnalyticsOptician: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', more: false, patients: [
+    { visitId: 8, patientId: 5, queueNo: '6', visitDate: date, englishName: 'Keo Sophea', khmerName: null, sex: 'F', dateOfBirth: null,
+      phone: '012 111 222', address: 'Village B', leftWithoutPinhole: '20/200', rightWithoutPinhole: '20/40', leftWithPinhole: null,
+      rightWithPinhole: null, leftWithGlasses: null, rightWithGlasses: null, notes: 'Lost her glasses', stickerColour: null, family: null, tbStatus: null },
+  ] })) }));
+const { getAnalytics, getAnalyticsTrend, getAnalyticsPartnerNgo } = require('../src/lib/api/analytics');
 const conditionCounts = ids => Object.fromEntries(['diabetes','hypertension','musculoskeletal','gastrointestinal','respiratory','vision','skin'].map(id => [id, ids.includes(id) ? 2 : 0]));
-const trend = (date, range) => ({ range, date, generatedAt: '2026-10-21T01:00:00Z', buckets: [
+const trend = (date, period) => ({ range: null, period, unit: 'day', date, generatedAt: '2026-10-21T01:00:00Z', buckets: [
   { startDate: '2026-10-20', endDate: '2026-10-20', visits: 3, people: 3, consultedPeople: 2, conditions: conditionCounts(['diabetes']) },
   { startDate: '2026-10-21', endDate: '2026-10-21', visits: 5, people: 4, consultedPeople: 3, conditions: conditionCounts(['diabetes','skin']) },
 ] });
-beforeEach(() => getAnalyticsTrend.mockImplementation((date, range) => Promise.resolve(trend(date, range))));
+beforeEach(() => getAnalyticsTrend.mockImplementation((date, period) => Promise.resolve(trend(date, period))));
 const Dashboard = require('../src/components/analytics/AnalyticsDashboard').default;
 const sample = date => ({
   date, generatedAt: '2026-10-21T01:00:00Z',
@@ -96,16 +110,19 @@ test('no draft labels remain and there is no location to choose: one clinic', as
  } finally {if(renderer) await act(async()=>renderer.unmount());log.mockRestore();}
 });
 
-test('trend chart switches range and metric, and condition mix shows a pie of recorded conditions', async () => {
+test('the trend chart follows the page period, switches metric, and condition mix shows a pie of recorded conditions', async () => {
  const log=jest.spyOn(console,'error').mockImplementation(()=>{});
- getAnalytics.mockImplementation(date=>Promise.resolve({...sample(date),conditions:[{id:'diabetes',label:'Diabetes',count:3},{id:'skin',label:'Skin conditions',count:1}]}));
+ getAnalytics.mockImplementation((date,_t,_s,period)=>Promise.resolve({...sample(date),period,conditions:[{id:'diabetes',label:'Diabetes',count:3},{id:'skin',label:'Skin conditions',count:1}]}));
  let renderer;
  try {
   await act(async()=>{renderer=create(React.createElement(Dashboard));});
-  expect(getAnalyticsTrend.mock.calls.at(-1)[1]).toBe('30d');
+  expect(getAnalyticsTrend.mock.calls.at(-1)[1]).toBe('day');
   expect(JSON.stringify(renderer.toJSON())).toContain('Patients reached and consulted per day');
-  await act(async()=>renderer.root.findByProps({label:'Trend range'}).props.onChange('12m'));
-  expect(getAnalyticsTrend.mock.calls.at(-1)[1]).toBe('12m');
+  // No range of its own: the chart covers what the numbers above it cover.
+  expect(renderer.root.findAllByProps({label:'Trend range'})).toHaveLength(0);
+  await act(async()=>renderer.root.findByProps({label:'Time period'}).props.onChange('trip'));
+  expect(getAnalyticsTrend.mock.calls.at(-1)[1]).toBe('trip');
+  expect(getAnalytics.mock.calls.at(-1)[3]).toBe('trip');
   await act(async()=>renderer.root.findByProps({'aria-label':'Trend metric'}).props.onChange({target:{value:'conditions'}}));
   expect(renderer.root.findAllByType('polyline')).toHaveLength(7);
   await act(async()=>renderer.root.findByProps({'aria-label':'Trend metric'}).props.onChange({target:{value:'skin'}}));
@@ -125,6 +142,11 @@ test('trend failures show an error without hiding the rest of the dashboard', as
   const text=JSON.stringify(renderer.toJSON());
   expect(text).toContain('Unable to load trends');
   expect(text).toContain('Patients consulted');
+  // The trend error has its own retry.
+  getAnalyticsTrend.mockImplementation((date, period) => Promise.resolve(trend(date, period)));
+  const trends=renderer.root.findByProps({id:'trends'});
+  await act(async()=>trends.findByProps({role:'alert'}).findAllByType('button')[0].props.onClick());
+  expect(JSON.stringify(renderer.toJSON())).not.toContain('Unable to load trends');
  } finally {if(renderer) await act(async()=>renderer.unmount());log.mockRestore();}
 });
 
@@ -171,4 +193,64 @@ test('guide can be dismissed and empty results offer a wider view', async () => 
   await act(async()=>wider.props.onClick());
   expect(getAnalytics.mock.calls.at(-1)[3]).toBe('all');
  } finally {if(renderer) await act(async()=>renderer.unmount());log.mockRestore();}
+});
+
+test('a headline sums up the period and follow-up names who is still open', async () => {
+ const log=jest.spyOn(console,'error').mockImplementation(()=>{});
+ getAnalytics.mockImplementation((date,_t,_s,period)=>Promise.resolve({...sample(date),period}));
+ let renderer;
+ try {
+  await act(async()=>{renderer=create(React.createElement(Dashboard));});
+  const text=JSON.stringify(renderer.toJSON());
+  // Today's Day view: open visits are still in the clinic; Station workload says Waiting.
+  const words=node=>typeof node==='string'?node:(node.children||[]).map(words).join('');
+  const headline=words(renderer.root.findByProps({id:'overview'}).findAllByType('p')[0]);
+  expect(headline).toBe('Today, 4 patients were reached and 2 consulted; 2 visits have a referral (1 unsigned); 3 still in the clinic.');
+  expect(text).toContain('Still in the clinic');
+  expect(text).toContain('Sok Dara');
+  expect(text).toContain('Waiting');
+  await act(async()=>renderer.root.findByType('input').props.onChange({target:{value:'2026-10-20'}}));
+  const past=JSON.stringify(renderer.toJSON());
+  expect(words(renderer.root.findByProps({id:'overview'}).findAllByType('p')[0])).toContain('3 visits not discharged');
+  expect(past).not.toContain('Still in the clinic');
+  expect(past).toContain('Not discharged');
+ } finally {if(renderer) await act(async()=>renderer.unmount());log.mockRestore();}
+});
+
+test('headlineSentence reads naturally for one patient and for a trip', () => {
+ const { headlineSentence } = require('../src/components/analytics/AnalyticsDashboard');
+ const one = { ...sample('2026-10-21'), summary: { ...sample('2026-10-21').summary, people: 1, consultedPeople: 1, visits: 1, dischargedVisits: 1, referralVisits: 1, unsignedReferrals: 0 },
+   days: [{ date: '2026-10-20' }, { date: '2026-10-21' }] };
+ expect(headlineSentence(one, 'trip', false, '20 – 21 Oct 2026')).toBe('This trip (20 – 21 Oct 2026, 2 clinic days), 1 patient was reached and 1 consulted; 1 visit has a referral; every visit was discharged.');
+});
+
+test('Partner NGO referrals show each patient with the referral type and date, for the page period', async () => {
+  getAnalytics.mockImplementation(date => Promise.resolve(sample(date)));
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(Dashboard)); });
+  const section = renderer.root.find(node => node.type === 'section' && node.props.id === 'partner-ngo');
+  const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join(' ');
+  const rows = section.findAllByType('tbody')[0].findAllByType('tr');
+  expect(rows).toHaveLength(1);
+  const row = text(rows[0]);
+  expect(row).toContain('Cataract surgery');
+  expect(row).toContain('2 Nov 2026');
+  expect(row).toContain('Cataract, left eye');
+  // Types with no patients get no empty table.
+  expect(section.findAllByType('table')).toHaveLength(1);
+  expect(getAnalyticsPartnerNgo).toHaveBeenLastCalledWith(expect.any(String), 'day', 'test', expect.anything());
+});
+
+test('optician referrals list who Triage ticked, with details and the readings taken', async () => {
+  getAnalytics.mockImplementation(date => Promise.resolve(sample(date)));
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(Dashboard)); });
+  const section = renderer.root.find(node => node.type === 'section' && node.props.id === 'optician');
+  const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join(' ');
+  const rows = section.findAllByType('tbody')[0].findAllByType('tr');
+  expect(rows).toHaveLength(1);
+  const row = text(rows[0]);
+  for (const part of ['Keo Sophea', '012 111 222', 'Village B', 'Without pinhole', 'L 20/200 · R 20/40', 'Lost her glasses']) expect(row).toContain(part);
+  // Readings not taken are left out.
+  expect(row).not.toContain('With glasses');
 });

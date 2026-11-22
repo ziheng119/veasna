@@ -10,18 +10,35 @@ On a wide screen, the left column shows the **Patient Snapshot** and **Triage
 Summary** (each scrolls separately). **Consultation Notes** fills the rest. On smaller
 screens, the notes appear below the summaries.
 
-Below the notes, **Save consultation notes** is on the left and **Create referral** is
-on the right. It reads **Edit referral** once the visit has a saved referral. Each
+The notes and the conditions addressed save themselves a moment after you stop typing or
+ticking; the line beside **Save & next** says "Saving…", then "Saved" with the time. If the
+host laptop can't be reached it says so, keeps what you typed on this device and tries again.
+Opening another patient first still saves what you typed.
+
+Below the notes, **Create referral** is on the left. It reads **Edit referral** once the
+visit has a saved referral. On the right, **Save & next** finishes the patient: it saves
+anything not yet saved and sends them on. Above it, **This visit** lists what the visit
+has so far (prescriptions, Physiotherapy, the hospital referral), and what is still
+needed to finish: notes, and the conditions ticked (or **None of the listed
+conditions**). Each
 visit has at most one referral. Switching to another patient starts a fresh form, so
 a draft never carries over to the wrong patient.
+
+When Dental ticked **Referral needed**, the Dental notes card says so and has **Write
+referral from these notes**: it opens a new referral with the Dental notes as the reason
+(and ticks a dental destination, if the Station data page lists one). Once the visit has
+a referral it reads **Open the referral**.
 
 ## Writing, signing and printing a referral
 
 1. Press **Create referral** (or **Edit referral**). Choose the destinations and fill
    in the details. New referrals are dated today; you can change the date.
    The destinations are the places patients are sent outside the screening on referral
-   days: **Preah Ang Duong Hospital**, **Samdech Ov Referral Hospital** and **Optician**
-   (changed on the [Station data](station-data.md) page). Physiotherapy isn't a
+   days: **Preah Ang Duong Hospital** and **Samdech Ov Referral Hospital** (changed on the
+   [Station data](station-data.md) page). An optician is not a destination here: Triage
+   ticks **Refer to optician** under the visual acuity, and those patients are listed under
+   **Optician referrals** on [Analytics](analytics.md). Saved referrals that name Optician
+   keep it. Physiotherapy isn't a
    destination: it is part of the screening, so the doctor ticks **Refer to physiotherapy
    station** on the Consult page instead. Dental and the partner NGO are indicated at
    Triage.
@@ -84,9 +101,8 @@ Printing referrals, one or many at once, is for the **admin** and accounts with 
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
 prints every saved referral for that day. You don't need to select a patient first.
 
-On **Analytics**, hover over the **Visits with referrals** card (or tap or click it)
-and press **Print referrals**. There you can also choose **A period** (both days
-included) or **All dates**.
+On **Analytics**, press **Print referral letters** on the **Visits with referrals** card.
+There you can also choose **A period** (both days included) or **All dates**.
 
 - Referrals are kept in the database, so any day's can be printed later.
 - It includes discharged patients and unsigned drafts. Drafts are clearly marked

@@ -54,7 +54,7 @@ export default function ClearTbButton({ patient, onCleared, className }: Props) 
         title="Doctor has seen this patient: clear the TB flag. They stay at Consult until you press Finish."
         aria-label={`Clear TB flag for ${name}`}
         onClick={() => setConfirming(true)}
-        className={cn("text-red-700 hover:text-red-800 dark:text-red-300", className)}
+        className={cn("text-tb-ink hover:text-tb-ink/80", className)}
       >
         <ShieldCheck className="size-3.5" aria-hidden="true" />
         Clear TB

@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 // darker, instead of taking the blue highlight other cards use.
 export function tbCardClass(selected = false): string {
   return selected
-    ? "border-2 border-red-600 bg-red-100 ring-2 ring-red-500 dark:border-red-400 dark:bg-red-500/25"
-    : "border-2 border-red-500 bg-red-50 hover:bg-red-100 dark:border-red-500/80 dark:bg-red-500/10 dark:hover:bg-red-500/20";
+    ? "border-2 border-tb bg-tb-tint ring-2 ring-tb-line"
+    : "border-2 border-tb-line bg-tb-soft hover:bg-tb-tint";
 }
 
 export default function TbBadge({ className }: { className?: string }) {
@@ -16,7 +16,7 @@ export default function TbBadge({ className }: { className?: string }) {
       title="Suspected TB"
       aria-label="Suspected TB"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold tracking-wide text-white",
+        "inline-flex shrink-0 items-center gap-1 rounded-full bg-tb px-2 py-0.5 text-xs font-bold tracking-wide text-white",
         className,
       )}
     >

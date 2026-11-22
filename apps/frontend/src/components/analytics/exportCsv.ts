@@ -6,7 +6,8 @@ export type Cell = string | number | boolean | null | undefined;
 
 // Long format (one value per row) so the file filters and pivots cleanly in a spreadsheet.
 // `conditions`: the Consult form's current list, for the trend columns.
-export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { period: string },
+// scope.openLabel: what the last station column means ("Waiting" today, "Not discharged" otherwise).
+export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null, scope: { period: string; openLabel?: string },
   conditions: readonly { id: string; label: string }[] = CONSULTATION_CONDITIONS) {
   const rows: Cell[][] = [["Section", "Item", "Measure", "Value"]];
   const add = (section: string, item: string, measure: string, value: Cell) => rows.push([section, item, measure, value]);
@@ -31,9 +32,15 @@ export function buildAnalyticsCsv(data: Analytics, trend: AnalyticsTrend | null,
     const row = data.stations.find(item => item.station === station.id);
     add("Station workload", station.label, "Assigned", row?.assigned ?? 0);
     add("Station workload", station.label, "Completed", row?.completed ?? 0);
-    add("Station workload", station.label, "Waiting", row?.waiting ?? 0);
+    add("Station workload", station.label, scope.openLabel ?? "Waiting", row?.waiting ?? 0);
   });
   data.destinations.forEach(d => add("Referral destinations", d.label, "Visits", d.count));
+  data.days?.forEach(day => {
+    const item = day.accounts.length ? `${day.date} (${day.accounts.join(", ")})` : day.date;
+    add("By clinic day", item, "Unique patients", day.people);
+    add("By clinic day", item, "Patients consulted", day.consultedPeople);
+    add("By clinic day", item, "Visits with referrals", day.referralVisits);
+  });
   add("Documentation", "Non-empty consultation notes", "Visits", s.notesSaved);
   add("Documentation", "Unsigned saved referrals", "Visits", s.unsignedReferrals);
 

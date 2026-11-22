@@ -1,10 +1,8 @@
 "use client";
 
 import { Badge } from "../ui/badge";
-import { useRef, useState } from "react";
-import { Input } from "../ui/input";
+import { useRef } from "react";
 import { Button } from "../ui/button";
-import { SearchIcon } from "@/assets/icons";
 import { useConfirm } from "@/hooks/useConfirm";
 import toast from "react-hot-toast";
 
@@ -38,7 +36,6 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
   const { confirm, dialog } = useConfirm();
   const router = useRouter();
   const { mode, setMode } = useQueueSort("home");
-  const [searchQuery, setSearchQuery] = useState("");
   const stickerColours = useStickerColours();
   const token = useUserStore((state) => state.user?.token);
   // Discharging moves the patient and grouping changes the patient: "Edit today's queue". Without
@@ -50,23 +47,8 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
   const groupState = useFamilyGrouping(patients, token, onFamilyChanged);
   const { grouping, onPointerDown } = groupState;
 
-  const filteredPatients = groupState.shown.filter((patient) => {
-    if (!searchQuery) return true;
-
-    const query = searchQuery.toLowerCase();
-
-    const engName = patient.english_name?.toLowerCase() || "";
-    const khmerName = patient.khmer_name?.toLowerCase() || "";
-    const queueNo = patient.queue_no ? patient.queue_no.toString().toLowerCase() : "";
-
-    return (
-      engName.includes(query) ||
-      khmerName.includes(query) ||
-      queueNo.includes(query)
-    );
-  });
-
-  const sortedPatients = sortQueuePatients(filteredPatients, mode);
+  // Finding a patient is the top bar's clinic search (SearchBar).
+  const sortedPatients = sortQueuePatients(groupState.shown, mode);
   const blocks = toBlocks(sortedPatients);
   // The host's date: the day this queue belongs to.
   const today = new Date(`${hostToday()}T00:00:00`).toLocaleDateString();
@@ -114,7 +96,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
           <span className="flex shrink-0 flex-col items-center gap-1">
             <span className="relative flex">
               <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+                patient.tb_flagged ? "bg-tb text-white" : "bg-primary/14 text-primary"
               }`}>
                 {patient.queue_no}
               </span>
@@ -146,7 +128,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
               aria-hidden={grouping || undefined}
               className={cn(
                 "flex overflow-hidden transition-[max-width,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
-                grouping ? "pointer-events-none -ml-3 max-w-0 opacity-0" : "max-w-6 opacity-100",
+                grouping ? "pointer-events-none -ml-3 max-w-0 opacity-0" : "max-w-10 opacity-100",
               )}
             >
             <Button
@@ -154,7 +136,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
               type="button"
               variant="ghost"
               size="icon"
-              className="size-6 text-muted-foreground hover:text-destructive"
+              className="-my-2 size-10 text-muted-foreground hover:text-destructive"
               title="Discharge patient"
               onClick={async () => {
                 if (!await confirm({
@@ -165,7 +147,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
                 onRemovePatient(patient.visit_id);
               }}
             >
-              <X className="size-3.5" />
+              <X className="size-4" />
             </Button>
             </span>
           )}
@@ -186,21 +168,12 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
           {canMove && onFamilyChanged && (
             <GroupFamiliesPanel state={groupState} disabled={patients.length === 0} />
           )}
-          <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search by name or queue number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-background border-input text-foreground placeholder-muted-foreground"
-          />
-          </div>
         </div>
       }
     >
         {sortedPatients.length === 0 ? (
           <p className="text-muted-foreground text-center">
-            {searchQuery ? "No patients found matching search" : "No patients in queue today"}
+            No one is queued yet today. Patients appear here once you register them.
           </p>
         ) : (
           <FamilyBlocks

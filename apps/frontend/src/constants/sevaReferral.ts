@@ -1,14 +1,17 @@
-// Referral outcomes the partner NGO station can record for a patient. Must match
-// apps/backend/routes/visits.js. The stored ids keep their original names.
-import { PARTNER_NGO_NAME } from "./partnerNgo";
+// Referral types the partner NGO station can record ("Referral needed"). They are the
+// "seva_referrals" list on the Station data page (defaults in shared/formOptions.json); forms save
+// the id, so a renamed type keeps matching the visits saved with it.
+import type { FormOption } from "@/lib/types/formOptions";
 
-export const SEVA_REFERRALS = [
-  { id: "cataract_surgery", label: "Cataract surgery" },
-  { id: "seva_general", label: `${PARTNER_NGO_NAME} (general)` },
-] as const;
+export type SevaReferral = string;
 
-export type SevaReferral = (typeof SEVA_REFERRALS)[number]["id"];
+/** The name for a saved id from the current list; an id since removed from it shows as itself. */
+export function sevaReferralLabel(id: string | null | undefined, options: FormOption[]): string {
+  if (!id) return "";
+  return options.find((option) => option.id === id)?.label ?? id;
+}
 
-export function sevaReferralLabel(id?: string | null): string {
-  return SEVA_REFERRALS.find((referral) => referral.id === id)?.label ?? "";
+/** The list's choices, plus the saved id when it has been removed, so an older record still shows it. */
+export function sevaReferralChoices(options: FormOption[], saved?: string | null): FormOption[] {
+  return saved && !options.some((option) => option.id === saved) ? [...options, { id: saved, label: saved }] : options;
 }

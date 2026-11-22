@@ -83,11 +83,11 @@ test('a selected TB card is highlighted in red only, not with the blue selection
   stationPatients = [tbPatient, { ...tbPatient, visit_id: 6, queue_no: '8', tb_flagged: false, tb_status: null }];
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 5 })); });
   const card = id => renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === id).props.className;
-  expect(card(5)).toMatch(/ring-red-500/);
+  expect(card(5)).toMatch(/ring-tb-line/);
   expect(card(5)).not.toMatch(/primary/);
   // Unselected TB cards still change on hover, like other cards.
   await act(async () => renderer.update(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 6 })));
-  expect(card(5)).toMatch(/hover:bg-red-100/);
+  expect(card(5)).toMatch(/hover:bg-tb-tint/);
   expect(card(5)).not.toMatch(/ring/);
   expect(card(6)).toMatch(/border-primary bg-primary\/10/);
 });
@@ -182,9 +182,9 @@ test('with a patient open the station queue folds (sort order and count only, no
   await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 5 })));
   expect(folded()).toBe(true);
   expect(toggle().props['aria-label']).toBe('Show the whole queue');
-  // Folded, the strip still says how it is sorted and how many are waiting.
+  // Folded, the strip still says how it is sorted and how many are waiting: not the open patient.
   expect(label(renderer.root)).toMatch(/By (queue number|arrival time)/);
-  expect(label(renderer.root)).toContain('1 waiting');
+  expect(label(renderer.root)).toContain('0 waiting');
   await act(async () => toggle().props.onClick());
   expect(folded()).toBe(false);
   expect(toggle().props['aria-label']).toBe('Fold the queue');

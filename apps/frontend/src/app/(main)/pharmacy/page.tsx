@@ -1,5 +1,6 @@
 "use client"
 
+import { StationTitle } from "@/components/shared/StationBadge";
 import React, { useEffect, useRef, useState } from "react"
 import { Drug, PharmacyStats } from "@/lib/types/drug"
 import { getDrugs, getPharmacyStats, dispenseDrug } from "@/lib/api/pharmacy/pharmacy"
@@ -100,7 +101,7 @@ export default function Pharmacy() {
       <div className={PAGE_SHELL}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <DrugIcon className="h-8 w-8 text-blue-600" />
+            <DrugIcon className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold text-foreground">Pharmacy</h1>
           </div>
           <Link
@@ -128,7 +129,7 @@ export default function Pharmacy() {
                 />
                 <div data-tour="pharmacy-prescriptions" className={`${PANEL_WRAPPER} xl:col-span-8`}>
                   <PageCard
-                    title={selectedPatient ? `Prescriptions for ${selectedPatient.english_name || "this patient"}` : "Prescriptions to dispense"}
+                    title={<StationTitle station="pharmacy">{selectedPatient ? `Prescriptions for ${selectedPatient.english_name || "this patient"}` : "Prescriptions to dispense"}</StationTitle>}
                     action={selectedPatient && (
                       <button type="button" className="text-sm text-primary underline" onClick={() => setSelectedPatient(null)}>Show all</button>
                     )}

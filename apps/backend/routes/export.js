@@ -24,7 +24,7 @@ router.get('/patients', authenticateToken, async (req, res) => {
       h.know_of_hef, h.has_hef, h.has_nssf, h.uses_hef_nssf, h.notes AS hef_notes,
       va.left_without_pinhole, va.left_with_pinhole, va.left_with_glasses,
       va.right_without_pinhole, va.right_with_pinhole, va.right_with_glasses,
-      va.notes AS visual_acuity_notes,
+      va.refer_optician, va.notes AS visual_acuity_notes,
       pc.history AS complaint_history, pc.red_flags AS complaint_red_flags,
       pc.systems_review AS complaint_systems_review, pc.drug_allergies,
       hist.past AS past_history, hist.drug_and_treatment, hist.family AS family_history,

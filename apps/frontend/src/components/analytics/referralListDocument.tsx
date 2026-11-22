@@ -2,6 +2,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { LETTERHEAD } from "@/constants/letterhead";
 import type { ReferralList, ReferredPatient } from "@/lib/api/analytics";
+import { readableDate } from "./dates";
 
 export interface ReferralListPrintOptions {
   // e.g. "21 Oct 2026" or "15 Oct – 21 Oct 2026".
@@ -37,7 +38,7 @@ function ListPage({ list, dateRange, logoUrl }: { list: ReferralList } & Referra
         <td>{ageSex(patient)}</td>
         <td>{dash(patient.phone)}</td>
         <td>{dash(patient.address)}</td>
-        <td>{patient.visitDate}<div>Queue {dash(patient.queueNo)}</div></td>
+        <td>{readableDate(patient.visitDate)}<div>Queue {dash(patient.queueNo)}</div></td>
         <td>{[patient.condition, patient.reason].filter(text => text?.trim()).join(": ") || "–"}</td>
       </tr>)}</tbody>
     </table>

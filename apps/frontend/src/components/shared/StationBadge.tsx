@@ -1,4 +1,4 @@
-import { ComponentType } from "react";
+import { ComponentType, ReactNode } from "react";
 import { Activity, Eye, HeartPulse, Pill, Smile, Stethoscope } from "lucide-react";
 import { StationId, stationLabel } from "@/constants/stations";
 import { cn } from "@/lib/utils";
@@ -15,14 +15,46 @@ export const STATION_ICONS: Record<StationId, Icon> = {
   pharmacy: Pill,
 };
 
-const STATION_TONES: Record<StationId, string> = {
-  triage: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-  seva: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  physiotherapy: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  consultation: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  dental: "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/15 dark:text-cyan-300",
-  pharmacy: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+// Each station's fill (100) and ink (700/800, at least 4.5:1 on the fill and on white).
+const STATION_FILL: Record<StationId, string> = {
+  triage: "bg-blue-100",
+  seva: "bg-violet-100",
+  physiotherapy: "bg-amber-100",
+  consultation: "bg-emerald-100",
+  dental: "bg-cyan-100",
+  pharmacy: "bg-rose-100",
 };
+export const STATION_INK: Record<StationId, string> = {
+  triage: "text-blue-700",
+  seva: "text-violet-700",
+  physiotherapy: "text-amber-800",
+  consultation: "text-emerald-700",
+  dental: "text-cyan-800",
+  pharmacy: "text-rose-700",
+};
+const STATION_TONES = Object.fromEntries(
+  (Object.keys(STATION_FILL) as StationId[]).map((id) => [id, `${STATION_FILL[id]} ${STATION_INK[id]}`]),
+) as Record<StationId, string>;
+
+/** The station's icon on its colour: marks the station's own queue and forms, so staff see where they are. */
+export function StationMark({ station, className }: { station: StationId; className?: string }) {
+  const Icon = STATION_ICONS[station];
+  return (
+    <span aria-hidden="true" className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", STATION_TONES[station], className)}>
+      <Icon className="size-4" />
+    </span>
+  );
+}
+
+/** A card title led by the station's mark, e.g. "Dental Notes" on the Dental page. `mark={false}` leaves it out where room is short. */
+export function StationTitle({ station, mark = true, children }: { station: StationId; mark?: boolean; children: ReactNode }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {mark && <StationMark station={station} />}
+      <span className="min-w-0">{children}</span>
+    </span>
+  );
+}
 
 /** Pill naming the station a patient is waiting at; "All done" when no station is left. */
 export default function StationBadge({ station, className }: { station: StationId | null | undefined; className?: string }) {

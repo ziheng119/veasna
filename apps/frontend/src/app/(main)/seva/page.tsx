@@ -1,50 +1,29 @@
 "use client"
 
+import { useState } from "react";
 import SevaNotesContainer from "@/components/seva/SevaNotesContainer";
 import SevaReferralListDialog from "@/components/seva/SevaReferralListDialog";
-import NoPatientSelected from "@/components/shared/NoPatientSelected";
-import PatientContainer from "@/components/shared/read-only/patient-container/PatientContainer";
-import TriageContainer from "@/components/shared/read-only/triage-container/TriageContainer";
-import StationDataButton from "@/components/shared/StationDataButton";
-import SearchBar from "@/components/shared/SearchBar";
-import { QueuedPatient } from "@/lib/types/patient";
-import { useState } from "react";
-import QueuePatientPicker from "@/components/shared/QueuePatientPicker";
-import { PAGE_SHELL, PANEL_GRID, PANEL_WRAPPER } from "@/lib/pageLayout";
+import PatientContext from "@/components/shared/PatientContext";
+import StationSurface from "@/components/shared/StationSurface";
 import { StationFlowProvider } from "@/components/shared/StationFlow";
+import { QueuedPatient } from "@/lib/types/patient";
 
 export default function Seva() {
-    
-    const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<QueuedPatient | null>(null);
 
-
-    return (
-        <StationFlowProvider station="seva" onSelectPatient={setSelectedPatient}>
-          <div className={PAGE_SHELL}>
-              <div className="flex items-center gap-3">
-                <SearchBar station="seva" onSelectPatient={setSelectedPatient} />
-                <SevaReferralListDialog />
-                <StationDataButton station="seva" />
-              </div>
-              <div className={PANEL_GRID}>
-                <QueuePatientPicker
-                  station="seva"
-                  onSelectPatient={setSelectedPatient}
-                  selectedVisitId={selectedPatient?.visit_id}
-                />
-                <div data-tour="station-work" className={`${PANEL_WRAPPER} xl:col-span-8`}>
-                  {!selectedPatient ? (
-                    <NoPatientSelected />
-                  ) : (
-                    <div className={PANEL_GRID}>
-                      <PatientContainer selectedPatient = {selectedPatient}/>
-                      <TriageContainer selectedPatient = {selectedPatient}/>
-                      <SevaNotesContainer patient={selectedPatient}/>
-                    </div>
-                  )}
-                </div>
-              </div>
-          </div>
-        </StationFlowProvider>
-    )
+  return (
+    <StationFlowProvider station="seva" onSelectPatient={setSelectedPatient}>
+      {/* Like Dental: the queue beside the open patient, whose column reads down from what
+          Registration and Triage recorded (the Snellen's test among it) to the partner NGO's notes. */}
+      <StationSurface station="seva" selectedPatient={selectedPatient} onSelectPatient={setSelectedPatient}
+        actions={<SevaReferralListDialog />}>
+        {(patient) => (
+          <>
+            <PatientContext patient={patient} />
+            <SevaNotesContainer key={patient.visit_id} patient={patient} />
+          </>
+        )}
+      </StationSurface>
+    </StationFlowProvider>
+  );
 }

@@ -10,7 +10,7 @@ Patients go through the stations they need in this order:
 | Dental | Ticked at registration |
 | Consult | Ticked at registration |
 | Physiotherapy | Only the doctor, with **Refer to physiotherapy station** on the Consult page |
-| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected |
+| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected (**Refer to optician**, under it, only records the referral for Analytics and adds no station) |
 | Pharmacy | Only when the doctor prescribes something at Consult |
 
 - **Dental** comes before Consult so the doctor already has the dental notes and can
@@ -43,7 +43,8 @@ A patient is **done** at a station once everything needed there is saved:
 | Station | Done when |
 | --- | --- |
 | Triage | All three sections are saved: Visual Acuity, Presenting Complaints and Medical History |
-| Dental, Consult, Physiotherapy, Partner NGO | The station's notes are saved |
+| Dental, Physiotherapy, Partner NGO | The station's notes are saved |
+| Consult | Notes are saved with the conditions addressed ticked (or None). The notes autosave as the doctor types, so a saved record alone isn't done |
 | Pharmacy | Nothing is left to dispense (every prescription dispensed or cancelled) |
 
 - Their card in the station queue then shows a green **Done here**, and the form shows
@@ -68,7 +69,11 @@ A patient is **done** at a station once everything needed there is saved:
   with something typed in, then names any section still empty instead of moving the
   patient on.
 - At Consult, prescribe and tick **Refer to physiotherapy station** before **Save & next**,
-  so the patient goes to the right place.
+  so the patient goes to the right place. Consult has no separate Save: the notes autosave,
+  **Save & next** is the one finish, and the what-is-missing line is written beside it
+  rather than only on hover. **Save & next** turns green only once the notes and conditions
+  are saved: it goes back to blue while a change is waiting to save. It shows no **Done at
+  Consult** prompt above the form.
 - A form that is already saved can be saved again by anyone, for example when the doctor
   finds more later. **Save & next** then saves the changes and sends the patient on.
 - **Next** on the patient's queue card (and **Send to next station**) also saves first:
@@ -148,7 +153,9 @@ there. Veasna follows that:
 
 1. **Flag:** tick **3 or more** TB red flags at registration, or press **Flag suspected
    TB** at Triage and tick 3 or more. With fewer, the patient isn't flagged and goes
-   through their stations as usual; the form shows how many are ticked.
+   through their stations as usual; the form shows how many are ticked. Red flags ticked at
+   registration are still saved, with any TB notes, as noted symptoms: Triage sees them, ticked
+   already when it opens **Flag suspected TB**, and they show on Patient Details.
 2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
    red with a **TB** label in every queue. Consult is their only station: any others
    (Triage, Dental, Partner NGO) are taken off their route, the registration form doesn't

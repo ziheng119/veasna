@@ -44,9 +44,10 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
         visit_id INT PRIMARY KEY, red_flags TEXT[], flag_notes TEXT, status TEXT, flagged_by INT,
         reviewed_by INT, reviewed_at TIMESTAMP, last_updated_by INT, last_updated_at TIMESTAMP DEFAULT NOW()
       );
-      -- Station forms, for whether the patient is done at their station (only visit_id is read).
+      -- Station forms, for whether the patient is done at their station (only visit_id is read, and
+      -- at Consult the notes and conditions).
       CREATE TEMP TABLE visual_acuity (visit_id INT); CREATE TEMP TABLE presenting_complaint (visit_id INT);
-      CREATE TEMP TABLE history (visit_id INT); CREATE TEMP TABLE consultation (visit_id INT);
+      CREATE TEMP TABLE history (visit_id INT); CREATE TEMP TABLE consultation (visit_id INT, notes TEXT, condition_categories TEXT[]);
       CREATE TEMP TABLE physiotherapy (visit_id INT); CREATE TEMP TABLE dental (visit_id INT);
       CREATE TEMP TABLE seva (visit_id INT); CREATE TEMP TABLE prescriptions (visit_id INT, status TEXT);
     `);
@@ -179,6 +180,14 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     expect(res.body.error).toMatch(/only go to Consult/);
     expect(await pending()).toEqual(['seva', 'consultation']);
   });
+
+  test('red flags only observed at registration are not a TB flag: the route can change and the queue shows no TB', async () => {
+    await client.query("INSERT INTO tb_screening (visit_id, red_flags, status) VALUES (1, '{fever}', 'observed')");
+    expect((await indicate('physiotherapy', true)).status).toBe(200);
+    expect(await pending()).toEqual(['seva', 'consultation', 'physiotherapy']);
+    const res = await request(app).get('/api/queue').query({ station: 'seva' }).set('Authorization', `Bearer ${token}`);
+    expect(res.body.find(row => row.visit_id === 1)).toMatchObject({ tb_status: null, tb_flagged: false });
+  });
   test('the queue says when a patient is done at their station: its form is saved, or nothing is left to dispense', async () => {
     const done = async station => {
       await client.query('UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 1 AND completed_at IS NULL');
@@ -195,7 +204,16 @@ describeDatabase('Station routing against PostgreSQL temporary tables', () => {
     expect(await done('triage')).toBe(false);
     await client.query('INSERT INTO history VALUES (1)');
     expect(await done('triage')).toBe(true);
-    for (const [station, table] of [['consultation', 'consultation'], ['physiotherapy', 'physiotherapy'], ['dental', 'dental']]) {
+    // Consult needs notes and the conditions addressed (none is an answer): the form autosaves, so a
+    // saved row alone isn't finished.
+    expect(await done('consultation')).toBe(false);
+    await client.query("INSERT INTO consultation (visit_id, notes) VALUES (1, '  ')");
+    expect(await done('consultation')).toBe(false);
+    await client.query("UPDATE consultation SET notes = 'Cough for two weeks'");
+    expect(await done('consultation')).toBe(false);
+    await client.query("UPDATE consultation SET condition_categories = '{}'");
+    expect(await done('consultation')).toBe(true);
+    for (const [station, table] of [['physiotherapy', 'physiotherapy'], ['dental', 'dental']]) {
       expect(await done(station)).toBe(false);
       await client.query(`INSERT INTO ${table} VALUES (1)`);
       expect(await done(station)).toBe(true);

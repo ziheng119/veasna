@@ -13,7 +13,7 @@ export default function HorizontalLabelInputPair({ label, bolded=true, value="",
       </div>
       <div className="w-full h-full">
         <textarea 
-          className={`bg-white-default border-[1px] rounded-sm w-full h-full item p-2 text-black`}
+          className={`bg-background border border-input rounded-sm w-full h-full item p-2 text-foreground`}
           {...(readOnly
             ? { value, readOnly: true }
             : { defaultValue: value })}

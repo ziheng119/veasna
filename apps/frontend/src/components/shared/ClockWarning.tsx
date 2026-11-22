@@ -17,7 +17,7 @@ export default function ClockWarning() {
   // A positive offset means the host is ahead, so this device is behind.
   const direction = offsetMs > 0 ? "behind" : "ahead of";
   return (
-    <div role="alert" className="border-b border-amber-300 bg-amber-50 px-6 py-1 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300">
+    <div role="alert" className="border-b border-warning-line bg-warning-soft px-6 py-1 text-xs text-warning-ink">
       This device&apos;s clock is {clockDifferenceText(offsetMs)} {direction} the host laptop. VEASNA uses the host&apos;s date,
       but please correct this device&apos;s date and time.
     </div>

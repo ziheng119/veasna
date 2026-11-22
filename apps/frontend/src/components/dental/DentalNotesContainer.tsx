@@ -6,7 +6,7 @@ import SaveButton from "../shared/SaveButton";
 import { SaveAndNextButton, StationDonePrompt, useSaveBeforeNext } from "../shared/StationFlow";
 import { LiveRecordNotice, useLiveRecord } from "../shared/LiveRecord";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
-import { PageCard } from "../shared/PageCard";
+import StationForm from "../shared/StationForm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,8 +61,16 @@ export default function DentalNotesContainer({ patient }: Props) {
     } },
   });
 
-  return (
-    <PageCard title="Dental Notes" className="xl:col-span-4" contentClassName="space-y-4">
+  const buttons = (
+    <>
+      <SaveButton onClick={handleSave} disabled={!editable} />
+      <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== ""} locked={saved && !editable}
+        disabled={!editable && !saved} hint="Write what was done to finish" />
+    </>
+  );
+
+  const form = (
+    <>
       <StationDonePrompt patient={patient} done={saved} />
       <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
@@ -85,12 +93,14 @@ export default function DentalNotesContainer({ patient }: Props) {
           <Label htmlFor={referralId}>Referral needed</Label>
         </div>
         <p className="text-xs text-muted-foreground">The doctor sees these notes at Consult and refers the patient to a hospital if needed.</p>
-        <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} disabled={!editable} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== ""} locked={saved && !editable}
-            disabled={!editable && !saved} hint="Write what was done to finish" />
-        </div>
       </SavedRecordFields>
-    </PageCard>
+    </>
+  );
+
+  // In the open patient's column on the Dental page (StationSurface), under what was recorded before.
+  return (
+    <StationForm station="dental" title="Dental Notes" footer={buttons} footerDisabled={!editable}>
+      {form}
+    </StationForm>
   );
 }

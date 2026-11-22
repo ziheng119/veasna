@@ -9,6 +9,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { useSavedSignatureStore } from "@/stores/useSavedSignatureStore";
 import { useCallback, useId, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { Button } from "@/components/ui/button";
 import GlassButton from "../shared/GlassButton";
 import SignaturePad from "./SignaturePad";
 import { referralDocumentHtml } from "./ReferralDocument";
@@ -42,13 +43,15 @@ interface Props {
   onClose: () => void;
   onSaved?: (referral: Referral) => void;
   onDeleted?: () => void;
+  // For a new referral: what to start from, e.g. the Dental notes when Dental asked for a referral.
+  prefill?: { reason?: string; referralType?: string[] };
 }
 
-export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved, onDeleted }: Props) {
+export default function ReferralForm({ patient, patientInfo, retrievedReferral, onClose, onSaved, onDeleted, prefill }: Props) {
 
   const [referralDate, setReferralDate] = useState<string>(() => referralFields(retrievedReferral).referralDate)
   const [referralType, setReferralType] = useState<string[]>(
-    retrievedReferral?.referralType ?? []
+    retrievedReferral?.referralType ?? prefill?.referralType ?? []
   );
   // Destinations from the Station data page, plus any this referral was saved with that are no
   // longer listed, so they stay ticked.
@@ -56,7 +59,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const destinations = [...listedDestinations, ...referralType.filter(item => !listedDestinations.includes(item))];
   const [illness, setIllness] = useState<string>(retrievedReferral? retrievedReferral.illness : "")
   const [duration, setDuration] = useState<string>(retrievedReferral ? retrievedReferral.duration : "")
-  const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : "")
+  const [reason, setReason] = useState<string>(retrievedReferral ? retrievedReferral.reason : prefill?.reason ?? "")
   // The doctor printed under the signature. Choices come from the Station data page; a name this
   // referral was saved with stays selectable if it has since been taken off the list.
   const [doctorName, setDoctorName] = useState<string>(retrievedReferral?.doctorName ?? "");
@@ -256,7 +259,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             }}>
               <DialogTrigger asChild>
                 <GlassButton type="button" disabled={saving}
-                  className="mr-auto bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                  className="mr-auto bg-none bg-destructive/10 text-destructive ring-destructive/20 hover:bg-destructive/15">
                   Delete referral
                 </GlassButton>
               </DialogTrigger>
@@ -276,12 +279,13 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
                 <DialogFooter>
                   <GlassButton ref={cancelDeleteRef} type="button" disabled={saving} onClick={() => setConfirmDelete(false)}>Cancel</GlassButton>
                   <GlassButton type="button" disabled={saving} onClick={() => void handleDelete()}
-                    className="bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                    className="bg-none bg-destructive/10 text-destructive ring-destructive/20 hover:bg-destructive/15">
                     {saving ? "Deleting..." : "Confirm deletion"}
                   </GlassButton>
                 </DialogFooter>
               </DialogContent>
             </Dialog>}
+            <Button type="button" variant="ghost" disabled={saving} onClick={onClose}>Cancel</Button>
             <GlassButton type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving..." : "Save referral"}</GlassButton>
             {/* Printing referrals needs the "Print and download" permission. */}
             {canPrint && <GlassButton type="button" disabled={saving} onClick={() => void handleSave(true)}>Save &amp; print referral</GlassButton>}

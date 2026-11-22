@@ -114,6 +114,7 @@ export interface VisitVisualAcuity {
     right_without_pinhole: string | null;
     left_with_glasses?: string | null;
     right_with_glasses?: string | null;
+    refer_optician?: boolean;
     notes: string | null;
 }
 

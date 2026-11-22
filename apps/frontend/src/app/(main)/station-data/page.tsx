@@ -47,6 +47,9 @@ export default function StationDataPage() {
         placeholder="e.g. Dr Sok Dara" />
 
       <h2 id="seva" className={SECTION_TITLE}>{PARTNER_NGO_NAME}</h2>
+      <OptionListEditor listKey="seva_referrals" kind="id" title="Referral types"
+        description={`"Referral needed" on the ${PARTNER_NGO_NAME} form. Patients are grouped by these in the Referral list and on the Analytics page.`}
+        placeholder="e.g. Glasses" />
       <p className="text-sm text-muted-foreground">
         The visual acuity readings are shared with Triage: <Link className="underline" href="#snellen">edit them above</Link>.
       </p>

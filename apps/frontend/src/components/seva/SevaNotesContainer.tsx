@@ -14,7 +14,7 @@ import { QueuedPatient } from "@/lib/types/patient";
 import { getSeva } from "@/lib/api/visit/seva/getSeva";
 import { postSeva } from "@/lib/api/visit/seva/postSeva";
 import formatDate from "@/helper/format_date";
-import { PageCard } from "../shared/PageCard";
+import StationForm from "../shared/StationForm";
 import EyeReadingsGrid, { EMPTY_EYE_READINGS, EYE_READING_FIELDS, EyeReadingField, EyeReadings, REQUIRED_EYE_READING_FIELDS } from "../shared/EyeReadingsGrid";
 import {
   Select,
@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
+import { SevaReferral, sevaReferralChoices } from "@/constants/sevaReferral";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { useRecordLoad } from "@/hooks/useRecordLoad";
 
@@ -45,7 +46,7 @@ function sevaFormValues(data: Seva | null) {
     readings: Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, data?.[sevaKey(field)] ?? ""])) as EyeReadings,
     diagnosis: data?.diagnosis ?? "",
     dateOfReferral: data?.dateOfReferral ? formatDate(data.dateOfReferral) : "",
-    referral: (data?.referral ?? "") as SevaReferral | "",
+    referral: (data?.referral ?? "") as SevaReferral,
     additionalNotes: data?.notes ?? "",
   };
 }
@@ -55,7 +56,9 @@ export default function SevaNotesContainer({ patient }: Props) {
   const [readings, setReadings] = useState<EyeReadings>(EMPTY_EYE_READINGS);
   const [diagnosis, setDiagnosis] = useState<string>("");
   const [dateOfReferral, setDateOfReferral] = useState<string>("");
-  const [referral, setReferral] = useState<SevaReferral | "">("");
+  const [referral, setReferral] = useState<SevaReferral>("");
+  // Editable on the Station data page; a type saved on this visit stays a choice if since removed.
+  const referralOptions = sevaReferralChoices(useFormOptions("seva_referrals"), referral);
   const [additionalNotes, setAdditionalNotes] = useState<string>("");
 
   const load = useCallback(() => getSeva(patient.visit_id), [patient.visit_id]);
@@ -120,12 +123,17 @@ export default function SevaNotesContainer({ patient }: Props) {
   // With glasses is optional, so only the pinhole readings are needed to finish.
   const eyeReadingsComplete = REQUIRED_EYE_READING_FIELDS.every((field) => Boolean(readings[field]));
 
+  const buttons = (
+    <>
+      <SaveButton onClick={handleSave} disabled={!editable} />
+      <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
+        locked={saved && !editable} disabled={!editable && !saved} hint="Take the eye readings without and with pinhole, and write a diagnosis, to finish" />
+    </>
+  );
+
+  // In the open patient's column on the partner NGO page (StationSurface), under what was recorded before.
   return (
-    <PageCard
-      title={`${PARTNER_NGO_NAME} Notes`}
-      className="xl:col-span-4"
-      contentClassName="space-y-4"
-    >
+    <StationForm station="seva" title={`${PARTNER_NGO_NAME} Notes`} footer={buttons} footerDisabled={!editable}>
       <StationDonePrompt patient={patient} done={saved} />
       <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
@@ -144,7 +152,7 @@ export default function SevaNotesContainer({ patient }: Props) {
           <Select
             value={referral || NO_REFERRAL}
             onValueChange={(value) =>
-              setReferral(value === NO_REFERRAL ? "" : (value as SevaReferral))
+              setReferral(value === NO_REFERRAL ? "" : value)
             }
           >
             <SelectTrigger className="w-full">
@@ -156,7 +164,7 @@ export default function SevaNotesContainer({ patient }: Props) {
               className="bg-popover border-border"
             >
               <SelectItem value={NO_REFERRAL}>No referral</SelectItem>
-              {SEVA_REFERRALS.map((option) => (
+              {referralOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   {option.label}
                 </SelectItem>
@@ -190,13 +198,7 @@ export default function SevaNotesContainer({ patient }: Props) {
             <EyeReadingsGrid values={readings} onChange={(field, value) => setReadings((previous) => ({ ...previous, [field]: value }))} />
           </div>
         </details>
-
-        <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} disabled={!editable} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || (eyeReadingsComplete && diagnosis.trim() !== "")}
-            locked={saved && !editable} disabled={!editable && !saved} hint="Take the eye readings without and with pinhole, and write a diagnosis, to finish" />
-        </div>
       </SavedRecordFields>
-    </PageCard>
+    </StationForm>
   );
 }

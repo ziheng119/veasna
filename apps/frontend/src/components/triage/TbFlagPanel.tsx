@@ -8,11 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import TbBadge from "@/components/shared/TbBadge";
-import { meetsTbThreshold, tbRedFlagLabel, tbThresholdHint } from "@/constants/tb";
+import { meetsTbThreshold, TB_MIN_RED_FLAGS, tbRedFlagLabel, tbThresholdHint } from "@/constants/tb";
 import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { getTbScreening, setTbFlag, TbScreening } from "@/lib/api/tb/tb";
 import { useUserStore } from "@/stores/useUserStore";
 import { StationId, stationLabel } from "@/constants/stations";
+import { cn } from "@/lib/utils";
 
 interface Props {
   visitId: number;
@@ -30,17 +31,24 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
   const [redFlags, setRedFlags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     setLoaded(false);
+    setLoadFailed(false);
     getTbScreening(visitId, token)
       .then((data) => { if (!cancelled) setScreening(data); })
-      .catch((err) => { if (!cancelled) console.error("Failed to load TB flag:", err); })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load TB flag:", err);
+        setLoadFailed(true);
+      })
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
-  }, [visitId, token]);
+  }, [visitId, token, retry]);
 
   const flagged = Boolean(screening?.flagged);
 
@@ -54,7 +62,11 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
       setOpen(false);
       onFlagged(station);
       const where = station ? ` The patient is in the ${stationLabel(station)} queue.` : "";
-      toast.error(`Flagged for suspected TB and marked red in every queue.${where}`, { duration: 6000 });
+      // Done, but serious: a red shield rather than the usual tick.
+      toast(`Flagged for suspected TB and marked red in every queue.${where}`, {
+        duration: 6000,
+        icon: <ShieldAlert className="size-5 shrink-0 text-tb" aria-hidden="true" />,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update TB flag");
     } finally {
@@ -64,11 +76,22 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
 
   if (!loaded) return null;
 
+  // Without the TB status the strip can't say whether they are flagged, so it says so instead.
+  if (loadFailed) {
+    return (
+      <p role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-warning-ink">
+        <ShieldAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
+        Couldn&apos;t load this patient&apos;s TB status from the host.
+        <Button type="button" variant="outline" size="sm" onClick={() => setRetry((value) => value + 1)}>Try again</Button>
+      </p>
+    );
+  }
+
   if (flagged && screening) {
     return (
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border-2 border-red-500 bg-red-50 p-3 dark:bg-red-500/10">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border-2 border-tb-line bg-tb-soft p-3">
         <div className="min-w-0 space-y-1 text-sm">
-          <p className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-300">
+          <p className="flex items-center gap-2 font-semibold text-tb-ink">
             <TbBadge /> Suspected TB
           </p>
           {screening.red_flags.length > 0 && (
@@ -81,23 +104,40 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
     );
   }
 
+  // Red flags noted at registration, below the threshold: shown here and ticked when the panel opens.
+  const observed = screening?.status === "observed" ? screening : null;
+  const openPanel = () => {
+    if (observed && redFlags.length === 0 && notes === "") {
+      setRedFlags(observed.red_flags);
+      setNotes(observed.flag_notes ?? "");
+    }
+    setOpen(true);
+  };
+
+  // Closed: one line, so the form keeps the room. What registration noted shows here in full on
+  // hover, and in the panel once opened.
   if (!open) {
+    const noted = observed?.red_flags.map((id) => tbRedFlagLabel(id, tbRedFlags)) ?? [];
+    const summary = noted.length
+      ? `TB red flags noted at registration: ${noted.join(" · ")}${observed?.flag_notes ? `. ${observed.flag_notes}` : ""}`
+      : `No TB red flags noted. ${TB_MIN_RED_FLAGS} or more send the patient to Consult only.`;
     return (
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
-        <span className="flex items-center gap-2 text-muted-foreground">
-          <ShieldAlert className="size-4 text-red-600" aria-hidden="true" />
-          TB red flags? Flag the patient to send them to Consult only, marked red in every queue.
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className={cn("flex min-w-0 items-center gap-2", noted.length ? "text-foreground" : "text-muted-foreground")} title={summary}>
+          <ShieldAlert className="size-4 shrink-0 text-tb" aria-hidden="true" />
+          <span className="line-clamp-2">{summary}</span>
         </span>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-          Flag suspected TB
+        {/* Red edge like the TB shield beside it: this opens the TB checklist. */}
+        <Button type="button" variant="outline" size="sm" className="shrink-0 border-tb" onClick={openPanel}>
+          Review TB red flags
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="mb-4 space-y-3 rounded-lg border-2 border-red-500/60 bg-red-50/60 p-3 dark:bg-red-500/10">
-      <p className="text-sm font-semibold text-red-700 dark:text-red-300">Flag suspected TB</p>
+    <div className="space-y-3 rounded-lg border-2 border-tb-line/60 bg-tb-soft/60 p-3">
+      <p className="text-sm font-semibold text-tb-ink">TB red flags: tick {TB_MIN_RED_FLAGS} or more to flag suspected TB</p>
       <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         {tbRedFlags.map((flag) => (
           <div key={flag.id} className="flex items-center space-x-2">
@@ -111,9 +151,9 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
                     : prev.filter((id) => id !== flag.id)
                 )
               }
-              className="border-border bg-background data-[state=checked]:border-destructive data-[state=checked]:bg-destructive"
+              className="bg-background data-[state=checked]:border-destructive data-[state=checked]:bg-destructive"
             />
-            <Label htmlFor={`triage-tb-${flag.id}`} className="text-muted-foreground">{flag.label}</Label>
+            <Label htmlFor={`triage-tb-${flag.id}`} className="font-normal">{flag.label}</Label>
           </div>
         ))}
       </div>

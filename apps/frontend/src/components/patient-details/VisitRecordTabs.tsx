@@ -14,7 +14,7 @@ import type { PatientInfo } from "@/lib/types/patient";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { parseReferralDestinations } from "@/constants/referral";
-import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
+import { sevaReferralChoices } from "@/constants/sevaReferral";
 import { TB_MIN_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
@@ -49,7 +49,7 @@ type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doct
 type AcuityDraft = {
   left_with_pinhole: string; left_without_pinhole: string;
   right_with_pinhole: string; right_without_pinhole: string;
-  left_with_glasses: string; right_with_glasses: string; notes: string;
+  left_with_glasses: string; right_with_glasses: string; notes: string; refer_optician: boolean;
 };
 type ComplaintDraft = { history: string; red_flags: string; systems_review: string; drug_allergies: string };
 type HistoryDraft = { past: string; drug_and_treatment: string; family: string; social: string; systems_review: string };
@@ -70,7 +70,6 @@ const TB_STATUS_OPTIONS: FieldOption[] = (["suspected", "tb_likely", "cleared"] 
   value: status,
   label: TB_STATUS_LABELS[status],
 }));
-const SEVA_REFERRAL_OPTIONS: FieldOption[] = SEVA_REFERRALS.map((r) => ({ value: r.id, label: r.label }));
 const toFieldOptions = (items: FormOption[]): FieldOption[] => items.map((item) => ({ value: item.id, label: item.label }));
 
 const VITALS_FIELDS: FieldSpec<VitalsDraft>[] = [
@@ -97,6 +96,7 @@ const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
   { key: "right_with_pinhole", label: "Right (with pinhole)", kind: "snellen" },
   { key: "left_with_glasses", label: "Left (with glasses)", kind: "snellen" },
   { key: "right_with_glasses", label: "Right (with glasses)", kind: "snellen" },
+  { key: "refer_optician", label: "Refer to optician", kind: "boolean" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const COMPLAINT_FIELDS: FieldSpec<ComplaintDraft>[] = [
@@ -112,7 +112,8 @@ const HISTORY_FIELDS: FieldSpec<HistoryDraft>[] = [
   { key: "social", label: "Social History", kind: "textarea", wide: true },
   { key: "systems_review", label: "Systems Review", kind: "textarea", wide: true },
 ];
-const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
+// A referral type saved earlier stays a choice even if it has since been taken off the list.
+const sevaFields = (referralTypes: FormOption[], savedType: string): FieldSpec<SevaDraft>[] => [
   { key: "left_without_pinhole_new", label: "Left (without pinhole)", kind: "snellen" },
   { key: "right_without_pinhole_new", label: "Right (without pinhole)", kind: "snellen" },
   { key: "left_with_pinhole_new", label: "Left (with pinhole)", kind: "snellen" },
@@ -120,7 +121,7 @@ const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
   { key: "left_with_glasses_new", label: "Left (with glasses)", kind: "snellen" },
   { key: "right_with_glasses_new", label: "Right (with glasses)", kind: "snellen" },
   { key: "diagnosis", label: "Diagnosis", kind: "textarea", wide: true },
-  { key: "referral", label: "Referral Needed", kind: "select", options: SEVA_REFERRAL_OPTIONS, allowBlank: "No referral" },
+  { key: "referral", label: "Referral Needed", kind: "select", options: toFieldOptions(sevaReferralChoices(referralTypes, savedType)), allowBlank: "No referral" },
   { key: "date_of_referral", label: "Date of Referral", kind: "date" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
@@ -268,7 +269,12 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const doctorItems = optionLists.referral_doctors.items;
   const savedDoctor = visit.referrals[0]?.doctor_name ?? "";
   const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
-  const tbSpec = useMemo(() => tbFields(redFlagItems), [redFlagItems]);
+  // Red flags only noted at registration (below the threshold) are not a flag: no status to set.
+  const referralTypeItems = optionLists.seva_referrals.items;
+  const savedReferralType = visit.seva?.referral ?? "";
+  const sevaSpec = useMemo(() => sevaFields(referralTypeItems, savedReferralType), [referralTypeItems, savedReferralType]);
+  const tbObserved = visit.tb?.status === "observed";
+  const tbSpec = useMemo(() => (tbObserved ? tbNoteFields(redFlagItems) : tbFields(redFlagItems)), [redFlagItems, tbObserved]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
   const drafts = useMemo(() => {
@@ -290,7 +296,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
         right_with_pinhole: text(va.right_with_pinhole), right_without_pinhole: text(va.right_without_pinhole),
         left_with_glasses: text(va.left_with_glasses), right_with_glasses: text(va.right_with_glasses),
-        notes: text(va.notes),
+        notes: text(va.notes), refer_optician: va.refer_optician === true,
       } as AcuityDraft),
       complaint: pc && ({ ...pc } as ComplaintDraft),
       history: history && ({ ...history } as HistoryDraft),
@@ -345,7 +351,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const tab = (value: string, label: string, icon: SegmentedTab["icon"], hasData: boolean): SegmentedTab =>
     ({ value, label, icon, marked: hasData, disabled: !canEdit && !hasData });
   const tabs: SegmentedTab[] = [
-    ...(visit.tb ? [tab("tb", "TB Flag", ShieldAlert, true)] : []),
+    ...(visit.tb ? [tab("tb", tbObserved ? "TB red flags" : "TB Flag", ShieldAlert, true)] : []),
     tab("registration", "Registration", ClipboardList, hasRegistration),
     tab("triage", "Triage", STATION_ICONS.triage, hasTriage),
     // Clinic order (constants/stations.ts).
@@ -365,14 +371,16 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
       {visit.tb && drafts.tb && (
         <StationPanel value="tb">
           <EditableRecordSection
-            title="Suspected TB"
+            title={tbObserved ? "TB red flags noted at registration" : "Suspected TB"}
             record={drafts.tb}
             fields={tbSpec}
             canEdit={canEdit}
-            readOnlyItems={[
-              { label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" },
-            ]}
-            editHint="Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."
+            readOnlyItems={tbObserved
+              ? [{ label: "TB flag", value: `Not flagged (fewer than ${TB_MIN_RED_FLAGS} red flags). Flag at Triage if more appear.` }]
+              : [{ label: "Last reviewed", value: visit.tb.reviewed_at ? new Date(visit.tb.reviewed_at).toLocaleString() : "Not yet" }]}
+            editHint={tbObserved
+              ? "These symptoms were noted at registration; the patient was not flagged for suspected TB."
+              : "Set the TB flag to Removed if TB is ruled out; the patient's red queue marker goes away."}
             validate={(d: TbDraft) => {
               // Same rule as the server: only a change to the flags or status is checked.
               const original = drafts.tb!;
@@ -443,7 +451,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
           record={drafts.acuity}
           fields={ACUITY_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", left_with_glasses: "", right_with_glasses: "", notes: "" }}
+          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", left_with_glasses: "", right_with_glasses: "", notes: "", refer_optician: false }}
           onSave={saved((d: AcuityDraft) => saveVisualAcuity({ visit_id: visitId, ...d }))}
         />
         <EditableRecordSection
@@ -472,7 +480,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
         <EditableRecordSection
           title={`${PARTNER_NGO_NAME} Notes`}
           record={drafts.seva}
-          fields={SEVA_FIELDS}
+          fields={sevaSpec}
           canEdit={canEdit}
           emptyDraft={{
             left_with_pinhole_new: "", left_without_pinhole_new: "", right_with_pinhole_new: "", right_without_pinhole_new: "",
@@ -488,7 +496,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
             rightWithGlassesNew: d.right_with_glasses_new,
             diagnosis: d.diagnosis,
             dateOfReferral: d.date_of_referral,
-            referral: d.referral as SevaReferral | "",
+            referral: d.referral,
             notes: d.notes,
           }, visitId))}
         />

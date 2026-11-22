@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import toast from "react-hot-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,13 @@ import { useUserStore } from "@/stores/useUserStore";
  * the patient's route in clinic order straight away, so they join the Physiotherapy queue after
  * Consult; unticking takes it off again.
  */
-export default function SendToPhysiotherapy({ patient }: { patient: QueuedPatient }) {
+interface Props {
+  patient: QueuedPatient;
+  // Whether the patient goes (or went) to Physiotherapy, for the form's visit summary.
+  onReferredChange?: (referred: boolean) => void;
+}
+
+export default function SendToPhysiotherapy({ patient, onReferredChange }: Props) {
   const token = useUserStore((state) => state.user?.token);
   const id = useId();
   const stations = patient.stations ?? [];
@@ -24,6 +30,7 @@ export default function SendToPhysiotherapy({ patient }: { patient: QueuedPatien
   const [saving, setSaving] = useState(false);
   // A TB patient only goes to Consult (and Pharmacy).
   const tbPatient = patient.tb_status != null;
+  useEffect(() => onReferredChange?.(done || queued), [done, queued, onReferredChange]);
 
   const toggle = async (needed: boolean) => {
     if (!token) return;

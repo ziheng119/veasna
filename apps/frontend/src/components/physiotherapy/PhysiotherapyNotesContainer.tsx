@@ -13,7 +13,7 @@ import { getPhysiotherapy } from "@/lib/api/visit/physiotherapy/getPhysiotherapy
 import { QueuedPatient } from "@/lib/types/patient";
 import toast from "react-hot-toast";
 import { postPhysiotherapy } from "@/lib/api/visit/physiotherapy/postPhysiotherapy";
-import { PageCard } from "../shared/PageCard";
+import StationForm from "../shared/StationForm";
 import { useRecordLoad } from "@/hooks/useRecordLoad";
 
 interface Props {
@@ -65,12 +65,17 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
     } },
   });
 
+  const buttons = (
+    <>
+      <SaveButton onClick={handleSave} disabled={!editable} />
+      <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== "" || painpoints.length > 0}
+        locked={saved && !editable} disabled={!editable && !saved} hint="Write notes or mark the body chart to finish" />
+    </>
+  );
+
+  // In the open patient's column on the Physiotherapy page (StationSurface), under what was recorded before.
   return (
-    <PageCard
-      title="Physiotherapy Notes"
-      className="xl:col-span-4"
-      contentClassName="space-y-4"
-    >
+    <StationForm station="physiotherapy" title="Physiotherapy Notes" footer={buttons} footerDisabled={!editable}>
       <StationDonePrompt patient={patient} done={saved} />
       <LiveRecordNotice live={live} />
       <SavedRecordFields locked={!editable}>
@@ -78,9 +83,9 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
           <VerticalLabelInputPair onChangeFunction={setNotes} value={notes} />
         </div>
 
-        <div>
-          <h2 className="text-[20px] font-semibold">Body Chart Indication</h2>
-          <div className="flex flex-row w-full">
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">Body Chart Indication</h3>
+          <div className="flex w-full flex-row">
             <DottedImage
               imageUrl="/bodychart.jpg"
               onClickFunction={setPainpoints}
@@ -88,13 +93,7 @@ export default function PhysiotherapyNotesContainer({ patient }: Props) {
             />
           </div>
         </div>
-
-        <div className="flex items-center justify-end gap-2">
-          <SaveButton onClick={handleSave} disabled={!editable} />
-          <SaveAndNextButton patient={patient} onSave={handleSave} ready={saved || notes.trim() !== "" || painpoints.length > 0}
-            locked={saved && !editable} disabled={!editable && !saved} hint="Write notes or mark the body chart to finish" />
-        </div>
       </SavedRecordFields>
-    </PageCard>
+    </StationForm>
   );
 }

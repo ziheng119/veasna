@@ -154,7 +154,8 @@ export function GroupFamiliesPanel({ state, disabled }: {
             "h-7 px-2 text-xs transition-[opacity,scale] duration-200 motion-reduce:transition-none",
             grouping ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-90",
           )}
-          disabled={saving || !grouping}
+          // Not disabled while hidden: disabled:opacity-50 would win over opacity-0 and show it.
+          disabled={saving}
           onClick={state.cancel}
         >
           Cancel

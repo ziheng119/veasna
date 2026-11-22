@@ -26,19 +26,20 @@ export function StationCheckboxes({ idPrefix, selected, onChange, locked = [], o
   };
 
   return (
-    <div className="flex flex-wrap gap-x-6 gap-y-3">
+    <div className="flex flex-wrap gap-x-6">
       {shown.map((station) => {
         const isLocked = locked.includes(station.id);
         return (
-          <div key={station.id} className="flex items-center space-x-2">
+          // Each row is at least 40px tall, the label filling it, so it is easy to tap on a tablet.
+          <div key={station.id} className="flex min-h-10 items-center space-x-2">
             <Checkbox
               id={`${idPrefix}-${station.id}`}
               checked={isLocked || selected.includes(station.id)}
               disabled={isLocked}
               onCheckedChange={(checked) => toggle(station.id, checked === true)}
-              className="border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              className="bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
             />
-            <Label htmlFor={`${idPrefix}-${station.id}`} className="text-muted-foreground">
+            <Label htmlFor={`${idPrefix}-${station.id}`} className="self-stretch cursor-pointer pr-2 font-normal">
               {station.label}
               {isLocked ? " (done)" : ""}
             </Label>
