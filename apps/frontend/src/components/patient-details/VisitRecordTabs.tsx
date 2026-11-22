@@ -49,7 +49,7 @@ type TbDraft = { status: TbStatus; red_flags: string[]; flag_notes: string; doct
 type AcuityDraft = {
   left_with_pinhole: string; left_without_pinhole: string;
   right_with_pinhole: string; right_without_pinhole: string;
-  left_with_glasses: string; right_with_glasses: string; notes: string;
+  left_with_glasses: string; right_with_glasses: string; notes: string; refer_optician: boolean;
 };
 type ComplaintDraft = { history: string; red_flags: string; systems_review: string; drug_allergies: string };
 type HistoryDraft = { past: string; drug_and_treatment: string; family: string; social: string; systems_review: string };
@@ -96,6 +96,7 @@ const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
   { key: "right_with_pinhole", label: "Right (with pinhole)", kind: "snellen" },
   { key: "left_with_glasses", label: "Left (with glasses)", kind: "snellen" },
   { key: "right_with_glasses", label: "Right (with glasses)", kind: "snellen" },
+  { key: "refer_optician", label: "Refer to optician", kind: "boolean" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
 const COMPLAINT_FIELDS: FieldSpec<ComplaintDraft>[] = [
@@ -269,10 +270,10 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const savedDoctor = visit.referrals[0]?.doctor_name ?? "";
   const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
   // Red flags only noted at registration (below the threshold) are not a flag: no status to set.
-  const tbObserved = visit.tb?.status === "observed";
   const referralTypeItems = optionLists.seva_referrals.items;
   const savedReferralType = visit.seva?.referral ?? "";
   const sevaSpec = useMemo(() => sevaFields(referralTypeItems, savedReferralType), [referralTypeItems, savedReferralType]);
+  const tbObserved = visit.tb?.status === "observed";
   const tbSpec = useMemo(() => (tbObserved ? tbNoteFields(redFlagItems) : tbFields(redFlagItems)), [redFlagItems, tbObserved]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
@@ -295,7 +296,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
         left_with_pinhole: text(va.left_with_pinhole), left_without_pinhole: text(va.left_without_pinhole),
         right_with_pinhole: text(va.right_with_pinhole), right_without_pinhole: text(va.right_without_pinhole),
         left_with_glasses: text(va.left_with_glasses), right_with_glasses: text(va.right_with_glasses),
-        notes: text(va.notes),
+        notes: text(va.notes), refer_optician: va.refer_optician === true,
       } as AcuityDraft),
       complaint: pc && ({ ...pc } as ComplaintDraft),
       history: history && ({ ...history } as HistoryDraft),
@@ -450,7 +451,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
           record={drafts.acuity}
           fields={ACUITY_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", left_with_glasses: "", right_with_glasses: "", notes: "" }}
+          emptyDraft={{ left_with_pinhole: "", left_without_pinhole: "", right_with_pinhole: "", right_without_pinhole: "", left_with_glasses: "", right_with_glasses: "", notes: "", refer_optician: false }}
           onSave={saved((d: AcuityDraft) => saveVisualAcuity({ visit_id: visitId, ...d }))}
         />
         <EditableRecordSection

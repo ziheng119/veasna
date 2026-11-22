@@ -171,3 +171,40 @@ export interface AnalyticsPartnerNgo {
 export function getAnalyticsPartnerNgo(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsPartnerNgo> {
   return request("/partner-ngo", { date, period }, token, signal, "Unable to load the Partner NGO referrals. Please try again.");
 }
+
+/** A patient Triage ticked "Refer to optician" for: one visit, with the Snellen readings (null if not taken). */
+export interface OpticianReferral {
+  visitId: number;
+  patientId: number;
+  queueNo: string;
+  visitDate: string;
+  englishName: string | null;
+  khmerName: string | null;
+  sex: string | null;
+  dateOfBirth: string | null;
+  phone: string | null;
+  address: string | null;
+  leftWithoutPinhole: string | null;
+  rightWithoutPinhole: string | null;
+  leftWithPinhole: string | null;
+  rightWithPinhole: string | null;
+  leftWithGlasses: string | null;
+  rightWithGlasses: string | null;
+  notes: string | null;
+  stickerColour?: string | null;
+  family?: string | null;
+  tbStatus?: string | null;
+}
+
+export interface AnalyticsOptician {
+  period: AnalyticsPeriod;
+  date: string;
+  generatedAt: string;
+  patients: OpticianReferral[];
+  // True when the list was cut short (over 500 patients).
+  more: boolean;
+}
+
+export function getAnalyticsOptician(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsOptician> {
+  return request("/optician", { date, period }, token, signal, "Unable to load the optician referrals. Please try again.");
+}

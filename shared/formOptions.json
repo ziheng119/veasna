@@ -22,8 +22,7 @@
   ],
   "referral_destinations": [
     { "id": "Preah Ang Duong Hospital", "label": "Preah Ang Duong Hospital" },
-    { "id": "Samdech Ov Referral Hospital", "label": "Samdech Ov Referral Hospital" },
-    { "id": "Optician", "label": "Optician" }
+    { "id": "Samdech Ov Referral Hospital", "label": "Samdech Ov Referral Hospital" }
   ],
   "referral_doctors": [
     { "id": "Dr Lim Huai Yang", "label": "Dr Lim Huai Yang" },

@@ -205,6 +205,7 @@ CREATE TABLE visual_acuity (
     right_without_pinhole VARCHAR(15), -- Snellen fraction, e.g. 20/40; NULL until taken
     left_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     right_with_glasses VARCHAR(15), -- with the patient's own glasses; NULL if not taken
+    refer_optician BOOLEAN NOT NULL DEFAULT FALSE, -- ticked at Triage: the patient should see an optician
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,

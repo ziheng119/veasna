@@ -389,6 +389,44 @@ router.get('/partner-ngo', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/analytics/optician?date=YYYY-MM-DD&period=...
+// Patients Triage ticked "Refer to optician" for in the period, newest visit first, with their
+// details and visual acuity readings, to take to the optician. Needs the analytics permission.
+const OPTICIAN_LIMIT = 500;
+router.get('/optician', authenticateToken, async (req, res) => {
+  const filters = parsePeriod(req.query);
+  if (!filters) return res.status(400).json({ error: FILTER_ERROR });
+  const { date, period } = filters;
+  try {
+    if (!await activeAccount(req, res)) return;
+    const startDate = await periodStart(period, date);
+    const { rows } = await db.query(
+      `SELECT v.id AS "visitId", p.id AS "patientId", v.queue_no AS "queueNo",
+          TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate",
+          p.english_name AS "englishName", p.khmer_name AS "khmerName", p.sex,
+          TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS "dateOfBirth", p.phone_number AS phone, p.address,
+          va.left_without_pinhole AS "leftWithoutPinhole", va.right_without_pinhole AS "rightWithoutPinhole",
+          va.left_with_pinhole AS "leftWithPinhole", va.right_with_pinhole AS "rightWithPinhole",
+          va.left_with_glasses AS "leftWithGlasses", va.right_with_glasses AS "rightWithGlasses",
+          NULLIF(va.notes, '') AS notes,
+          v.sticker_colour AS "stickerColour", p.family, NULLIF(tb.status, 'observed') AS "tbStatus"
+        FROM visual_acuity va
+        JOIN visits v ON v.id = va.visit_id
+        JOIN patients p ON p.id = v.patient_id
+        LEFT JOIN tb_screening tb ON tb.visit_id = v.id
+        WHERE va.refer_optician
+          AND v.visit_date <= $1::date AND ($2::date IS NULL OR v.visit_date >= $2::date)
+        ORDER BY v.visit_date DESC, v.created_at DESC, v.id DESC
+        LIMIT ${OPTICIAN_LIMIT + 1}`, [date, startDate]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ date, period, startDate, endDate: date, generatedAt: new Date().toISOString(),
+      patients: rows.slice(0, OPTICIAN_LIMIT), more: rows.length > OPTICIAN_LIMIT });
+  } catch (error) {
+    console.error('Analytics optician referrals retrieval failed:', error);
+    res.status(500).json({ error: 'Unable to load the optician referrals. Please try again.' });
+  }
+});
+
 // [{ id, label, listed, patients }]: every current type (even with no patients), then saved ids no
 // longer on the list. Exported for tests.
 function groupPartnerNgoReferrals(rows, options) {

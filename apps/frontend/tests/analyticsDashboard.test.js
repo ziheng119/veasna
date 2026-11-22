@@ -12,6 +12,11 @@ jest.mock('../src/lib/api/analytics', () => ({ getAnalytics: jest.fn(), getAnaly
       referral: 'cataract_surgery', referralDate: '2026-11-02', diagnosis: 'Cataract, left eye', englishName: 'Chan Mony', khmerName: null,
       sex: 'F', dateOfBirth: '1960-01-05', phone: null, stickerColour: null, family: null, tbStatus: null }] },
     { id: 'seva_general', label: 'Partner NGO (general)', listed: true, patients: [] },
+  ] })),
+  getAnalyticsOptician: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', more: false, patients: [
+    { visitId: 8, patientId: 5, queueNo: '6', visitDate: date, englishName: 'Keo Sophea', khmerName: null, sex: 'F', dateOfBirth: null,
+      phone: '012 111 222', address: 'Village B', leftWithoutPinhole: '20/200', rightWithoutPinhole: '20/40', leftWithPinhole: null,
+      rightWithPinhole: null, leftWithGlasses: null, rightWithGlasses: null, notes: 'Lost her glasses', stickerColour: null, family: null, tbStatus: null },
   ] })) }));
 const { getAnalytics, getAnalyticsTrend, getAnalyticsPartnerNgo } = require('../src/lib/api/analytics');
 const conditionCounts = ids => Object.fromEntries(['diabetes','hypertension','musculoskeletal','gastrointestinal','respiratory','vision','skin'].map(id => [id, ids.includes(id) ? 2 : 0]));
@@ -234,4 +239,18 @@ test('Partner NGO referrals show each patient with the referral type and date, f
   // Types with no patients get no empty table.
   expect(section.findAllByType('table')).toHaveLength(1);
   expect(getAnalyticsPartnerNgo).toHaveBeenLastCalledWith(expect.any(String), 'day', 'test', expect.anything());
+});
+
+test('optician referrals list who Triage ticked, with details and the readings taken', async () => {
+  getAnalytics.mockImplementation(date => Promise.resolve(sample(date)));
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(Dashboard)); });
+  const section = renderer.root.find(node => node.type === 'section' && node.props.id === 'optician');
+  const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join(' ');
+  const rows = section.findAllByType('tbody')[0].findAllByType('tr');
+  expect(rows).toHaveLength(1);
+  const row = text(rows[0]);
+  for (const part of ['Keo Sophea', '012 111 222', 'Village B', 'Without pinhole', 'L 20/200 · R 20/40', 'Lost her glasses']) expect(row).toContain(part);
+  // Readings not taken are left out.
+  expect(row).not.toContain('With glasses');
 });

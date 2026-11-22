@@ -249,6 +249,7 @@ router.get(
           va.right_without_pinhole,
           va.left_with_glasses,
           va.right_with_glasses,
+          va.refer_optician,
           va.notes AS visual_acuity_notes,
           
           -- Presenting Complaint
@@ -431,6 +432,7 @@ router.get(
                 right_without_pinhole: visit.right_without_pinhole,
                 left_with_glasses: visit.left_with_glasses,
                 right_with_glasses: visit.right_with_glasses,
+                refer_optician: visit.refer_optician,
                 notes: visit.visual_acuity_notes,
               }
             : null,

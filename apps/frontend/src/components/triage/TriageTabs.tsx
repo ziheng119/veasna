@@ -55,6 +55,7 @@ const sectionLabel = (id: SectionId) => SECTIONS.find((section) => section.id ==
 const acuityValues = (acuity: VisualAcuity | null): VisualAcuity => ({
     ...Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, acuity?.[field] ?? ""])) as EyeReadings,
     notes: acuity?.notes ?? "",
+    refer_optician: acuity?.refer_optician ?? false,
 });
 const complaintValues = (complaint: PresentingComplaint | null): PresentingComplaint => ({
     history: complaint?.history ?? "", red_flags: complaint?.red_flags ?? "", systems_review: complaint?.systems_review ?? "", drug_allergies: complaint?.drug_allergies ?? "",
@@ -64,6 +65,8 @@ const historyValues = (history: MedicalHistory | null): MedicalHistory => ({
 });
 // True when any field has something in it.
 const anyFilled = (values: object) => Object.values(values).some((value) => String(value ?? "").trim() !== "");
+// The readings and notes, or a ticked "Refer to optician" (an unticked box is not an entry).
+const acuityFilled = ({ refer_optician, ...rest }: VisualAcuity) => Boolean(refer_optician) || anyFilled(rest);
 
 // The free-text boxes of Presenting Complaints and Medical History, in order. Required ones (*) make
 // the section complete; the rest are filled in when there is something to say. Each hint says what
@@ -155,7 +158,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         setPresentingComplaint(complaintValues(complaint));
         setMedicalHistory(historyValues(history));
         setSavedSections({ acuity: acuity !== null, complaint: complaint !== null, history: history !== null });
-        setSavedFilled({ acuity: anyFilled(acuityValues(acuity)), complaint: anyFilled(complaintValues(complaint)), history: anyFilled(historyValues(history)) });
+        setSavedFilled({ acuity: acuityFilled(acuityValues(acuity)), complaint: anyFilled(complaintValues(complaint)), history: anyFilled(historyValues(history)) });
         setLoadedVisit(visit_id);
         setLoadCount(count => count + 1);
       }).catch(() => { if (!cancelled) setLoadError(true); });
@@ -196,16 +199,16 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     // Each section's save resolves to whether it was saved.
     const handleSaveVisualAcuity = async (): Promise<boolean> => {
         if (locked("acuity")) return false;
-        const { notes, ...readings } = visualAcuity;
+        const { notes, refer_optician: referOptician = false, ...readings } = visualAcuity;
         const fractions = normalizeSnellenFields(readings);
         if (!fractions) {
             toast.error(SNELLEN_ERROR);
             return false;
         }
-        setVisualAcuity({ ...fractions, notes });
+        setVisualAcuity({ ...fractions, notes, refer_optician: referOptician });
         setIsLoading(true);
-        const promise = saveVisualAcuity({ ...fractions, notes, visit_id: visit_id }).then(async () => {
-            saved("acuity", anyFilled({ ...fractions, notes }));
+        const promise = saveVisualAcuity({ ...fractions, notes, refer_optician: referOptician, visit_id: visit_id }).then(async () => {
+            saved("acuity", acuityFilled({ ...fractions, notes, refer_optician: referOptician }));
             if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
             // The server places the partner NGO in clinic order, keeping any custom route.
             onStationsChanged?.(await setStationNeeded(visit_id, "seva", sendToSeva, token));
@@ -249,7 +252,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     const liveAcuity = useLiveRecord({
         visitId: visit_id, savedVersion: sectionVersion("acuity"), values: visualAcuity, valuesOf: acuityValues,
         load: () => getTriageRecord<VisualAcuity>("visual-acuity", patient_id, visit_id),
-        apply: (data) => { setVisualAcuity(acuityValues(data)); showSaved("acuity", data !== null, anyFilled(acuityValues(data))); },
+        apply: (data) => { setVisualAcuity(acuityValues(data)); showSaved("acuity", data !== null, acuityFilled(acuityValues(data))); },
         draft: { form: "triage-acuity", restore: setVisualAcuity },
     });
     const liveComplaint = useLiveRecord({
@@ -317,7 +320,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     const readyHint = notReady.length ? `Still to fill in: ${listWords(notReady)} (fields marked *).` : undefined;
     // Unsaved sections with something typed in, so "Save & next" can save them too.
     const hasContent: Record<SectionId, boolean> = {
-        acuity: anyFilled(visualAcuity), complaint: anyFilled(presentingComplaint), history: anyFilled(medicalHistory),
+        acuity: acuityFilled(visualAcuity), complaint: anyFilled(presentingComplaint), history: anyFilled(medicalHistory),
     };
 
     // "Save & next" (on Medical History, the last section; the earlier ones step through with
@@ -410,25 +413,42 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                 <TabsContent value="visual-acuity" className="mt-0"><SavedRecordFields locked={locked("acuity")}>
                     <section className="space-y-5">
                         <EyeReadingsGrid values={visualAcuity} onChange={(field, value) => setVisualAcuity(p => ({ ...p, [field]: value }))} />
-                        {stations && (
-                            <div className="flex items-start space-x-2">
+                        {/* Where the eye readings send the patient next. */}
+                        <div className="space-y-3 rounded-lg border border-border p-3">
+                            {stations && (
+                                <div className="flex items-start gap-2">
+                                    <Checkbox
+                                        id="send-to-seva"
+                                        checked={sevaDone || sendToSeva}
+                                        disabled={sevaDone}
+                                        onCheckedChange={(checked) => setSendToSeva(checked === true)}
+                                        className="mt-0.5 bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                    />
+                                    <div>
+                                        <Label htmlFor="send-to-seva">Suspected cataract: send to {PARTNER_NGO_NAME}</Label>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {sevaDone
+                                                ? `This patient has already been seen at ${PARTNER_NGO_NAME}.`
+                                                : `Adds ${PARTNER_NGO_NAME} to this patient's stations when the visual acuity is saved.`}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex items-start gap-2">
                                 <Checkbox
-                                    id="send-to-seva"
-                                    checked={sevaDone || sendToSeva}
-                                    disabled={sevaDone}
-                                    onCheckedChange={(checked) => setSendToSeva(checked === true)}
+                                    id="refer-optician"
+                                    checked={visualAcuity.refer_optician === true}
+                                    onCheckedChange={(checked) => setVisualAcuity(p => ({ ...p, refer_optician: checked === true }))}
                                     className="mt-0.5 bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                 />
                                 <div>
-                                    <Label htmlFor="send-to-seva">Suspected cataract: send to {PARTNER_NGO_NAME}</Label>
+                                    <Label htmlFor="refer-optician">Refer to optician</Label>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        {sevaDone
-                                            ? `This patient has already been seen at ${PARTNER_NGO_NAME}.`
-                                            : `Adds ${PARTNER_NGO_NAME} to this patient's stations when the visual acuity is saved.`}
+                                        Saved with the visual acuity. Patients to refer are listed on the Analytics page.
                                     </p>
                                 </div>
                             </div>
-                        )}
+                        </div>
                         <div>
                             <Label htmlFor="triage-visualAcuity-notes">Notes</Label>
                             <Textarea id="triage-visualAcuity-notes" value={visualAcuity.notes} onChange={(e) => setVisualAcuity(p => ({...p, notes: e.target.value}))} rows={3} className="mt-2" />

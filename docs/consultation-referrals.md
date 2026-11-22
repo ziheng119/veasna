@@ -34,8 +34,11 @@ a referral it reads **Open the referral**.
 1. Press **Create referral** (or **Edit referral**). Choose the destinations and fill
    in the details. New referrals are dated today; you can change the date.
    The destinations are the places patients are sent outside the screening on referral
-   days: **Preah Ang Duong Hospital**, **Samdech Ov Referral Hospital** and **Optician**
-   (changed on the [Station data](station-data.md) page). Physiotherapy isn't a
+   days: **Preah Ang Duong Hospital** and **Samdech Ov Referral Hospital** (changed on the
+   [Station data](station-data.md) page). An optician is not a destination here: Triage
+   ticks **Refer to optician** under the visual acuity, and those patients are listed under
+   **Optician referrals** on [Analytics](analytics.md). Saved referrals that name Optician
+   keep it. Physiotherapy isn't a
    destination: it is part of the screening, so the doctor ticks **Refer to physiotherapy
    station** on the Consult page instead. Dental and the partner NGO are indicated at
    Triage.

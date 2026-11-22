@@ -82,6 +82,12 @@ describe('groupReferralLists', () => {
         (2,NULL,NULL,'No referral'),
         (3,'old_choice',NULL,''),
         (4,'cataract_surgery',NULL,'');
+      CREATE TEMP TABLE visual_acuity (visit_id INT, refer_optician BOOLEAN, left_without_pinhole TEXT, right_without_pinhole TEXT,
+        left_with_pinhole TEXT, right_with_pinhole TEXT, left_with_glasses TEXT, right_with_glasses TEXT, notes TEXT);
+      INSERT INTO visual_acuity VALUES
+        (1,TRUE,'20/200','20/40','20/100','20/30',NULL,NULL,'Struggles to read'),
+        (2,FALSE,'20/20','20/20',NULL,NULL,NULL,NULL,''),
+        (4,TRUE,'20/70','20/70',NULL,NULL,NULL,NULL,'');
     `);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express(); app.use(require('../routes/analytics'));
@@ -151,5 +157,21 @@ describe('groupReferralLists', () => {
     const week = await getNgo({ date: '2026-10-21', period: 'week' });
     expect(week.body.types[0].patients.map(p => p.englishName)).toEqual(['Ben', 'Other day']);
     expect((await getNgo({ date: 'nope' })).status).toBe(400);
+  });
+
+  test('optician referrals: patients ticked at Triage, newest first, with their readings', async () => {
+    const getOptician = query => request(app).get('/optician').query(query).set('Authorization', `Bearer ${token()}`);
+    expect((await request(app).get('/optician').query({ date: '2026-10-21' }).set('Authorization', `Bearer ${token(2, 'user')}`)).status).toBe(403);
+    const { body, headers } = await getOptician({ date: '2026-10-21' });
+    expect(headers['cache-control']).toBe('no-store');
+    expect(body.patients.map(p => p.englishName)).toEqual(['Ben']);
+    expect(body.patients[0]).toMatchObject({
+      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', sex: 'M', dateOfBirth: '1990-10-22',
+      phone: '012 345 678', address: 'Village A', leftWithoutPinhole: '20/200', rightWithoutPinhole: '20/40',
+      leftWithPinhole: '20/100', rightWithPinhole: '20/30', leftWithGlasses: null, notes: 'Struggles to read', family: 'A',
+    });
+    const week = await getOptician({ date: '2026-10-21', period: 'week' });
+    expect(week.body.patients.map(p => p.englishName)).toEqual(['Ben', 'Other day']);
+    expect(week.body.more).toBe(false);
   });
 });

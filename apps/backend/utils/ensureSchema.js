@@ -325,7 +325,19 @@ function ensureEditableSevaReferrals() {
   return editableSevaReferralsPromise;
 }
 
+// visual_acuity.refer_optician (ticked at Triage), and Optician off the referral destinations.
+let referOpticianPromise;
+function ensureReferOptician() {
+  if (!referOpticianPromise) {
+    referOpticianPromise = ensureDayAccountsAndFormOptions()
+      .then(() => runMigration('032_refer_optician.sql'))
+      .catch(err => { referOpticianPromise = null; throw err; });
+  }
+  return referOpticianPromise;
+}
+
 module.exports = {
+  ensureReferOptician,
   ensureEditableSevaReferrals,
   ensureTbObserved,
   ensureNssf,

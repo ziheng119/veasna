@@ -22,10 +22,15 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: acuity.error });
     }
     const { left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, left_with_glasses, right_with_glasses } = acuity.values;
+    // "Refer to optician": true or false; left out (an older client), a saved record keeps its value.
+    const referOptician = req.body.refer_optician ?? null;
+    if (referOptician !== null && typeof referOptician !== 'boolean') {
+        return res.status(400).json({ error: 'refer_optician must be true or false' });
+    }
     const last_updated_by = req.user.id;
     const query = `
-        INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by, left_with_glasses, right_with_glasses)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO visual_acuity (visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, notes, last_updated_by, left_with_glasses, right_with_glasses, refer_optician)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::boolean, FALSE))
         ON CONFLICT (visit_id) DO UPDATE SET
             left_with_pinhole = EXCLUDED.left_with_pinhole,
             left_without_pinhole = EXCLUDED.left_without_pinhole,
@@ -33,6 +38,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
             right_without_pinhole = EXCLUDED.right_without_pinhole,
             left_with_glasses = EXCLUDED.left_with_glasses,
             right_with_glasses = EXCLUDED.right_with_glasses,
+            refer_optician = COALESCE($10::boolean, visual_acuity.refer_optician),
             notes = EXCLUDED.notes,
             last_updated_by = EXCLUDED.last_updated_by,
             last_updated_at = NOW()
@@ -41,7 +47,7 @@ router.post('/visual-acuity', authenticateToken, async (req, res) => {
     RETURNING *;
     `;
     try {
-        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by, left_with_glasses, right_with_glasses]);
+        const { rows } = await db.query(query, [visit_id, left_with_pinhole, left_without_pinhole, right_with_pinhole, right_without_pinhole, textOrEmpty(notes), last_updated_by, left_with_glasses, right_with_glasses, referOptician]);
         if (!rows.length) return res.status(403).json({ error: 'This account cannot edit saved records.' });
         res.status(200).json(rows[0]);
     } catch (err) {

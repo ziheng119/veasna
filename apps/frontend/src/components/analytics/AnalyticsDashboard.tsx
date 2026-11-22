@@ -23,6 +23,7 @@ import TrendSection from "./TrendSection";
 import ReferralListsSection from "./ReferralListsSection";
 import FollowUpSection from "./FollowUpSection";
 import PartnerNgoSection from "./PartnerNgoSection";
+import OpticianSection from "./OpticianSection";
 import { buildAnalyticsCsv, downloadFile } from "./exportCsv";
 import { analyticsReportDocumentHtml } from "./analyticsReportDocument";
 import { daysCovered, periodRangeText, readableDate } from "./dates";
@@ -47,6 +48,7 @@ const SECTIONS = [
   { id: "conditions", label: "Conditions" },
   { id: "referrals", label: "Referrals" },
   { id: "partner-ngo", label: "Partner NGO" },
+  { id: "optician", label: "Optician" },
   { id: "operations", label: "Clinic operations" },
 ];
 
@@ -453,6 +455,8 @@ export default function AnalyticsDashboard() {
         date={date} period={period} dateRange={range} token={token} refresh={refresh} delay={225} />}
 
       {token && <PartnerNgoSection id="partner-ngo" date={date} period={period} token={token} refresh={refresh} delay={250} />}
+
+      {token && <OpticianSection id="optician" date={date} period={period} token={token} refresh={refresh} delay={275} />}
 
       <section id="operations" aria-label="Clinic operations" className={cn(SECTION_SCROLL, "grid gap-5 lg:grid-cols-2")}>
         <h2 className="sr-only">Clinic operations</h2>

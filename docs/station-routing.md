@@ -10,7 +10,7 @@ Patients go through the stations they need in this order:
 | Dental | Ticked at registration |
 | Consult | Ticked at registration |
 | Physiotherapy | Only the doctor, with **Refer to physiotherapy station** on the Consult page |
-| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected |
+| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected (**Refer to optician**, under it, only records the referral for Analytics and adds no station) |
 | Pharmacy | Only when the doctor prescribes something at Consult |
 
 - **Dental** comes before Consult so the doctor already has the dental notes and can

@@ -246,7 +246,7 @@ with a message that the screening has ended. See [accounts](../../docs/user-role
 ### Triage and Seva
 
 **POST** `triage/visual-acuity`
-Save the Snellen's test for a visit. Body: `visit_id`, `left_without_pinhole`, `right_without_pinhole`, `left_with_pinhole`, `right_with_pinhole`, `left_with_glasses`, `right_with_glasses` (with the patient's own glasses; optional), optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"20/20"` or `"20/40"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields, including `left_with_glasses_new` and `right_with_glasses_new`.
+Save the Snellen's test for a visit. Body: `visit_id`, `left_without_pinhole`, `right_without_pinhole`, `left_with_pinhole`, `right_with_pinhole`, `left_with_glasses`, `right_with_glasses` (with the patient's own glasses; optional), optional `notes`, and optional `refer_optician` (`true`/`false`, "Refer to optician"; left out, a saved record keeps its value; migration `032_refer_optician.sql`). Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"20/20"` or `"20/40"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields, including `left_with_glasses_new` and `right_with_glasses_new`.
 
 `POST visits/seva/{visit_id}` also takes `referral`: the id of a type on the `seva_referrals` form list (built in: `"cataract_surgery"`, `"seva_general"`), the type the visit was already saved with, or blank/`null` for no referral.
 
