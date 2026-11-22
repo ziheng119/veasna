@@ -6,11 +6,15 @@ import { cn } from "@/lib/utils";
 // Dependency-free SVG charts so analytics renders on an offline host without a
 // chart library. Colors are passed in per entity; text always uses theme ink.
 
-export interface ChartSeries { id: string; label: string; color: string; values: number[] }
+// dash: an SVG stroke-dasharray, so lines differ by more than colour ("" or missing: solid).
+export interface ChartSeries { id: string; label: string; color: string; values: number[]; dash?: string }
 
-const GRID = "#e1e0d9";
-const AXIS = "#c3c2b7";
-const MUTED = "#898781";
+// Chart ink comes from the theme (globals.css), so charts change with it. Values are CSS custom
+// properties in style, since SVG presentation attributes don't read var().
+const GRID = "var(--border)";
+const AXIS = "var(--muted-foreground)";
+// Axis text: Muted Slate, 4.8:1 on the white card.
+const MUTED = "var(--muted-foreground)";
 
 // Round the axis maximum up to 1/2/5 × 10ⁿ steps so ticks are whole, readable numbers.
 function niceTicks(max: number, count = 4) {
@@ -36,10 +40,11 @@ function useWidth(fallback: number) {
   return [ref, width || fallback] as const;
 }
 
-export function Legend({ items }: { items: { id: string; label: string; color: string }[] }) {
+export function Legend({ items }: { items: { id: string; label: string; color: string; dash?: string }[] }) {
   return <ul className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
     {items.map(item => <li key={item.id} className="flex items-center gap-2">
-      <span className="size-2.5 shrink-0 rounded-full" style={{ background: item.color }} aria-hidden="true" />
+      {/* A short piece of the line itself, dashes included, so the key works without colour. */}
+      <svg width="22" height="8" className="shrink-0" aria-hidden="true"><line x1="1" x2="21" y1="4" y2="4" stroke={item.color} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={item.dash || undefined} /></svg>
       <span className="text-foreground">{item.label}</span>
     </li>)}
   </ul>;
@@ -91,18 +96,18 @@ export function LineChart({ labels, tooltipLabels = labels, series, caption }: {
         tabIndex={0} onKeyDown={onKey} onBlur={() => setHover(null)} onMouseLeave={() => setHover(null)}
         className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {ticks.map(tick => <g key={tick}>
-          <line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} stroke={tick ? GRID : AXIS} strokeWidth={1} />
-          <text x={left - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill={MUTED} className="tabular-nums">{tick}</text>
+          <line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} style={{ stroke: tick ? GRID : AXIS, strokeOpacity: tick ? 1 : 0.5 }} strokeWidth={1} />
+          <text x={left - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} style={{ fill: MUTED }} className="tabular-nums">{tick}</text>
         </g>)}
         {labels.map((label, i) => showLabel(i) &&
-          <text key={i} x={x(i)} y={height - 8} textAnchor={i === labels.length - 1 && labels.length > 1 ? "end" : i === 0 ? "start" : "middle"} fontSize={11} fill={MUTED}>{label}</text>)}
-        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={top} y2={top + plotH} stroke={AXIS} strokeWidth={1} />}
+          <text key={i} x={x(i)} y={height - 8} textAnchor={i === labels.length - 1 && labels.length > 1 ? "end" : i === 0 ? "start" : "middle"} fontSize={11} style={{ fill: MUTED }}>{label}</text>)}
+        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={top} y2={top + plotH} style={{ stroke: AXIS, strokeOpacity: 0.5 }} strokeWidth={1} />}
         <g key={drawKey}>{series.map((s, index) => <g key={s.id}>
-          <polyline points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")} pathLength={1} className="chart-draw" style={{ animationDelay: `${index * 60}ms` }}
-            fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={hover !== null ? 0.9 : 1} />
+          <polyline points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")} pathLength={s.dash ? undefined : 1} className={s.dash ? undefined : "chart-draw"} style={{ animationDelay: `${index * 60}ms` }}
+            fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={s.dash || undefined} opacity={hover !== null ? 0.9 : 1} />
           {s.values.map((v, i) => (showMarkers || hover === i) &&
-            <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 4} fill={s.color} stroke="#ffffff" strokeWidth={2}
-              className="animate-in fade-in zoom-in-50 fill-mode-both duration-300 motion-reduce:animate-none" style={{ animationDelay: `${300 + i * 25}ms`, transformBox: "fill-box", transformOrigin: "center" }} />)}
+            <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 4} fill={s.color} strokeWidth={2}
+              className="animate-in fade-in zoom-in-50 fill-mode-both duration-300 motion-reduce:animate-none" style={{ stroke: "var(--card)", animationDelay: `${300 + i * 25}ms`, transformBox: "fill-box", transformOrigin: "center" }} />)}
         </g>)}</g>
         {labels.map((_, i) => <rect key={i} x={x(i) - slot / 2} y={top} width={slot} height={plotH} fill="transparent" onMouseEnter={() => setHover(i)} onClick={() => setHover(i)} />)}
       </svg>
@@ -135,11 +140,12 @@ export function DonutChart({ items, caption, centerLabel, selected, onSelect }: 
   let offset = 0;
   const percent = (count: number) => total ? `${Math.round(count / total * 100)}%` : "0%";
   const focus = hover ?? selected ?? null;
-  const active = items.find(item => item.id === focus && item.count > 0);
+  // The centre shows the total, or the slice being hovered.
+  const active = items.find(item => item.id === hover && item.count > 0);
 
   return <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
     <svg viewBox={`0 0 ${size} ${size}`} className="w-44 shrink-0 animate-in fade-in zoom-in-90 duration-500 motion-reduce:animate-none sm:w-48" role="img" aria-label={caption} onMouseLeave={() => setHover(null)}>
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={GRID} strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" style={{ stroke: GRID }} strokeWidth={stroke} />
       <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
         {visible.map(item => {
           const length = item.count / total * circumference;
@@ -155,7 +161,7 @@ export function DonutChart({ items, caption, centerLabel, selected, onSelect }: 
         })}
       </g>
       <text x={size / 2} y={size / 2 - 4} textAnchor="middle" fontSize={30} fontWeight={600} fill="currentColor">{active ? active.count : total}</text>
-      <text x={size / 2} y={size / 2 + 18} textAnchor="middle" fontSize={11} fill={MUTED}>{active ? percent(active.count) + " of selections" : centerLabel}</text>
+      <text x={size / 2} y={size / 2 + 18} textAnchor="middle" fontSize={11} style={{ fill: MUTED }}>{active ? percent(active.count) + " of selections" : centerLabel}</text>
     </svg>
     <ul className="w-full space-y-1 text-sm">
       {items.map(item => {

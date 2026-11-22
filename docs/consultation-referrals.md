@@ -98,9 +98,8 @@ Printing referrals, one or many at once, is for the **admin** and accounts with 
 pop-up. **Today** is chosen; pick **A date** to print another day's referrals. It
 prints every saved referral for that day. You don't need to select a patient first.
 
-On **Analytics**, hover over the **Visits with referrals** card (or tap or click it)
-and press **Print referrals**. There you can also choose **A period** (both days
-included) or **All dates**.
+On **Analytics**, press **Print referral letters** on the **Visits with referrals** card.
+There you can also choose **A period** (both days included) or **All dates**.
 
 - Referrals are kept in the database, so any day's can be printed later.
 - It includes discharged patients and unsigned drafts. Drafts are clearly marked

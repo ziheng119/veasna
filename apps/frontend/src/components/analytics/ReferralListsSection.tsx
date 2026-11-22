@@ -13,18 +13,19 @@ import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ageSex, referralListDocumentHtml } from "./referralListDocument";
 import { SectionCard } from "./ui";
+import { readableDate } from "./dates";
+import FamilyBadge from "@/components/shared/FamilyBadge";
+import TbBadge from "@/components/shared/TbBadge";
+import StickerTag, { findSticker, useStickerColours } from "@/components/shared/StickerTag";
 
 // Stagger the first few patients; later ones appear together so long lists stay quick.
 const MAX_STAGGERED = 8;
 
-const readable = (date: string) =>
-  new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const plural = (count: number) => `${count} ${count === 1 ? "patient" : "patients"}`;
 
 interface Props {
   id?: string;
   icon: ComponentType<{ className?: string }>;
-  tone: string;
   date: string;
   period: AnalyticsPeriod;
   // How the period reads on the printout, e.g. "15 Oct – 21 Oct 2026".
@@ -40,11 +41,12 @@ interface Props {
  * destination to list its patients; print one list or every list to take on referral days.
  * Admin only, like the rest of Analytics.
  */
-export default function ReferralListsSection({ id, icon, tone, date, period, dateRange, token, refresh, delay }: Props) {
+export default function ReferralListsSection({ id, icon, date, period, dateRange, token, refresh, delay }: Props) {
   const [data, setData] = useState<AnalyticsReferralLists | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
+  const stickers = useStickerColours();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,14 +72,14 @@ export default function ReferralListsSection({ id, icon, tone, date, period, dat
     writeAndPrint(popup, referralListDocumentHtml(printed, { dateRange, logoUrl: letterheadLogoUrl() }));
   };
 
-  return <SectionCard id={id} icon={icon} tone={tone} title="Patients by referral destination" label="Referral lists" delay={delay}
-    description="Who was referred where in this period. Pick a destination to see its patients."
+  return <SectionCard id={id} icon={icon} title="Patients by referral destination" label="Referral lists" delay={delay}
+    description="Who was referred where in this period. Pick a destination to see its patients. A referral can name several destinations, so the lists can add up to more than the visits with referrals."
     info="Each referred visit is listed once under every destination on its referral, so a patient referred to two places appears in both lists. Unsigned drafts are included. It does not confirm the patient attended."
     actions={<Button type="button" variant="outline" size="sm" disabled={!current || total === 0} onClick={() => print(lists)}>
       <Printer aria-hidden="true" />Print all lists
     </Button>}>
     <div aria-live="polite">
-      {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-destructive/10 p-4 text-sm text-destructive animate-in fade-in duration-200 motion-reduce:animate-none">
+      {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-destructive/10 p-4 text-sm text-destructive animate-in fade-in duration-200 motion-reduce:animate-none">
         <span>{error}</span>
         <button type="button" onClick={() => setRetry(value => value + 1)} className="rounded-full border border-destructive/30 px-3 py-1 font-medium transition hover:bg-destructive/10 active:scale-95">Try again</button>
       </div>}
@@ -138,9 +140,15 @@ export default function ReferralListsSection({ id, icon, tone, date, period, dat
                         {patient.englishName || "Unnamed patient"}
                       </Link>
                       {patient.khmerName && <span className="text-muted-foreground">{patient.khmerName}</span>}
+                      {/* The same markers as the queue, so the list matches the patients on the day. */}
+                      <span className="inline-flex items-center gap-1.5 self-center">
+                        {patient.tbStatus === "flagged" && <TbBadge />}
+                        {patient.family && <FamilyBadge family={patient.family} />}
+                        <StickerTag sticker={findSticker(stickers, patient.stickerColour)} />
+                      </span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {[who === "–" ? null : who, `Queue ${patient.queueNo}`, readable(patient.visitDate), patient.signed ? null : "Unsigned draft"].filter(Boolean).join(" · ")}
+                      {[who === "–" ? null : who, `Queue ${patient.queueNo}`, readableDate(patient.visitDate), patient.signed ? null : "Unsigned draft"].filter(Boolean).join(" · ")}
                     </p>
                     {(patient.phone || patient.address) && <p className="text-xs text-muted-foreground">{[patient.phone, patient.address].filter(Boolean).join(" · ")}</p>}
                     {reason && <p className="pt-1 leading-5">{reason}</p>}

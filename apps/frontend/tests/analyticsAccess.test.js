@@ -14,7 +14,7 @@ jest.mock('../src/components/shared/AccountMenu', () => ({
 jest.mock('../src/app/wrappers/AuthWrapper', () => ({ __esModule: true, default: ({ children }) => children }));
 jest.mock('../src/components/analytics/AnalyticsDashboard', () => ({ __esModule: true, default: () => React.createElement('analytics-dashboard') }));
 const TopNav = require('../src/components/shared/TopNav').default;
-const Page = require('../src/app/analytics/page').default;
+const Page = require('../src/app/(main)/analytics/page').default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 // Which menu entries each account sees: Analytics with its permission, Station data and Accounts

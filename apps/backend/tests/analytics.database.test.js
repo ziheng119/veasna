@@ -22,11 +22,14 @@ const db = require('../config/db');
       user: process.env.DB_USER, password: process.env.DB_PASSWORD, connectionTimeoutMillis: 3000 });
     await client.connect();
     await client.query(`SET search_path TO pg_temp;
-      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
+      CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[], username TEXT);
       INSERT INTO users (id, role, is_active, permissions) VALUES (1,'admin',TRUE,NULL),(2,'user',TRUE,NULL),(3,'admin',FALSE,NULL),(4,'user',TRUE,'{analytics}');
-      CREATE TEMP TABLE patients (id INT, date_of_birth DATE);
+      INSERT INTO users (id, role, is_active, screening_date, username) VALUES (5,'user',TRUE,'2026-10-21','oct21village');
+      CREATE TEMP TABLE patients (id INT, date_of_birth DATE, english_name TEXT, khmer_name TEXT, family TEXT);
       INSERT INTO patients VALUES (1,'2000-01-01'),(2,'1950-01-01'),(3,NULL),(4,'2030-01-01');
-      CREATE TEMP TABLE visits (id INT, patient_id INT, visit_date DATE, completed_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT, patient_id INT, visit_date DATE, completed_at TIMESTAMP, queue_no TEXT, sticker_colour TEXT, created_at TIMESTAMP);
+      CREATE TEMP TABLE tb_screening (visit_id INT, status TEXT);
+      INSERT INTO tb_screening VALUES (4,'flagged');
       INSERT INTO visits VALUES
         (1,1,'2026-10-21',NOW()),(2,1,'2026-10-21',NULL),(3,2,'2026-10-21',NOW()),
         (4,3,'2026-10-21',NULL),(5,4,'2026-10-21',NULL),
@@ -142,6 +145,38 @@ const db = require('../config/db');
     expect(months.body.buckets[11]).toMatchObject({ endDate: '2026-10-21', visits: 8 });
     expect((await trend({ range: '5y' })).status).toBe(400);
     expect((await request(app).get('/trend').query({ date: '2026-10-21' })).status).toBe(401);
+  });
+
+  test('a trip runs back through clinic dates a few days apart, with a row per clinic date', async () => {
+    // Clinic dates by now: 21, 20, 15 and 14 Oct, then 22 and 21 Sep. 20 → 15 Oct is too long a gap.
+    const trip = await get(token(), { date: '2026-10-21', period: 'trip' });
+    expect(trip.status).toBe(200);
+    expect(trip.body).toMatchObject({ period: 'trip', startDate: '2026-10-20', endDate: '2026-10-21' });
+    expect(trip.body.summary.visits).toBe(6);
+    expect(trip.body.days).toEqual([
+      { date: '2026-10-20', accounts: [], people: 1, consultedPeople: 1, referralVisits: 0 },
+      { date: '2026-10-21', accounts: ['oct21village'], people: 4, consultedPeople: 2, referralVisits: 2 },
+    ]);
+    // The trend follows the page's period: at least 7 days for a short trip; all time by month.
+    const trend = (period) => request(app).get('/trend').query({ date: '2026-10-21', period }).set('Authorization', `Bearer ${token()}`);
+    const tripTrend = await trend('trip');
+    expect(tripTrend.body).toMatchObject({ period: 'trip', unit: 'day' });
+    expect(tripTrend.body.buckets.map(b => b.startDate)).toEqual(['2026-10-15','2026-10-16','2026-10-17','2026-10-18','2026-10-19','2026-10-20','2026-10-21']);
+    expect((await trend('month')).body.buckets).toHaveLength(30);
+    expect((await trend('all')).body).toMatchObject({ unit: 'month' });
+    expect((await trend('year')).status).toBe(400);
+  });
+
+  test('follow-up lists name the visits not discharged and the unsigned referrals', async () => {
+    const followUp = (query) => request(app).get('/follow-up').query(query).set('Authorization', `Bearer ${token()}`);
+    const { status, body, headers } = await followUp({ date: '2026-10-21' });
+    expect(status).toBe(200);
+    expect(headers['cache-control']).toBe('no-store');
+    expect(body.notDischarged.map(v => [v.visitId, v.station, v.tbStatus])).toEqual([[2, null, null], [4, 'triage', 'flagged'], [5, 'consultation', null]]);
+    expect(body.unsignedReferrals).toEqual([expect.objectContaining({ visitId: 3, destinations: ['Dentist'] })]);
+    expect(body).toMatchObject({ notDischargedMore: false, unsignedReferralsMore: false });
+    expect((await request(app).get('/follow-up').query({ date: '2026-10-21' }).set('Authorization', `Bearer ${token(2, 'user')}`)).status).toBe(403);
+    expect((await followUp({ date: 'today' })).status).toBe(400);
   });
 
 });

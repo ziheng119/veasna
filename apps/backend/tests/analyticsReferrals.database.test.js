@@ -57,13 +57,16 @@ describe('groupReferralLists', () => {
     await client.query(`SET search_path TO pg_temp;
       CREATE TEMP TABLE users (id INT, role TEXT, is_active BOOLEAN, screening_date DATE, permissions TEXT[]);
       INSERT INTO users (id, role, is_active) VALUES (1,'admin',TRUE),(2,'user',TRUE);
-      CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, phone_number TEXT, address TEXT);
+      CREATE TEMP TABLE patients (id INT, english_name TEXT, khmer_name TEXT, sex TEXT, date_of_birth DATE, phone_number TEXT, address TEXT, family TEXT);
       INSERT INTO patients VALUES
         (1,'Ben','បេន','M','1990-10-22','012 345 678','Village A'),
         (2,'Bob',NULL,'M',NULL,NULL,NULL),
         (3,'Beb',NULL,'F','2030-01-01',NULL,NULL),
         (4,'Other day',NULL,'F',NULL,NULL,NULL);
-      CREATE TEMP TABLE visits (id INT, patient_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP);
+      CREATE TEMP TABLE visits (id INT, patient_id INT, queue_no TEXT, visit_date DATE, created_at TIMESTAMP, sticker_colour TEXT);
+      CREATE TEMP TABLE tb_screening (visit_id INT, status TEXT);
+      INSERT INTO tb_screening VALUES (1,'observed'),(2,'flagged');
+      UPDATE patients SET family = 'A' WHERE id = 1;
       INSERT INTO visits VALUES
         (1,1,'3','2026-10-21','2026-10-21 09:00'),(2,2,'1','2026-10-21','2026-10-21 08:00'),
         (3,3,'7','2026-10-21','2026-10-21 08:30'),(4,4,'2','2026-10-19','2026-10-19 08:00');
@@ -109,7 +112,10 @@ describe('groupReferralLists', () => {
       visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', khmerName: 'បេន',
       sex: 'M', age: 35, phone: '012 345 678', address: 'Village A', referralDate: '2026-10-21',
       condition: 'Cataract', reason: 'Needs surgery', signed: true,
+      // Red flags only noted at registration are not a TB flag.
+      family: 'A', stickerColour: null, tbStatus: null,
     });
+    expect(byLabel['Preah Ang Duong Hospital'][0].tbStatus).toBe('flagged');
     expect(byLabel['Preah Ang Duong Hospital'][0]).toMatchObject({ signed: false, age: null });
   });
 

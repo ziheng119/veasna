@@ -49,7 +49,7 @@ The app runs on port `3001`. Staff devices open `http://<host-IP>:3001`.
 | Partner NGO | `/seva` | Partner NGO notes and referrals (name set in `constants/partnerNgo.ts`). Laid out like Dental (above), with **Referral list** at the bottom of the queue column, like Consult's Print referrals |
 | Pharmacy | `/pharmacy` | The Pharmacy queue, dispensing prescriptions, stock, and each patient's prescription history |
 | Pharmacy Dashboard | `/pharmacy/dashboard` | Add and edit stock (needs **Pharmacy stock**) |
-| Analytics | `/analytics` | Clinic numbers, from the account menu (needs **Analytics**) |
+| Analytics | `/analytics` | Clinic numbers for a day, week, trip or all time, and who needs follow-up; from the account menu (needs **Analytics**). Filters are kept in the address (`?period=&date=`) |
 | Accounts | `/accounts` | Admin: screening-day accounts and their permissions |
 
 What each account may see and do is in `src/lib/permissions.ts` (`can`, `canAccessPage`,

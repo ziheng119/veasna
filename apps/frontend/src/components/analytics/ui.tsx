@@ -4,8 +4,10 @@ import { ComponentType, KeyboardEvent, ReactNode, useEffect, useRef, useState } 
 import { ChevronDown, Download, FileSpreadsheet, Info, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ENTER } from "@/lib/motion";
+import { buttonVariants } from "@/components/ui/button";
 
-export const panel = "rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6";
+// A card like the rest of the app (DESIGN.md: 14.4px corners, hairline border, resting shadow).
+export const panel = "rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6";
 export const enter = ENTER;
 export const fieldClass = "h-10 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -27,15 +29,29 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
 
 interface SectionCardProps {
   id?: string; title: string; icon?: ComponentType<{ className?: string }>; description?: ReactNode;
-  info?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; delay?: number; label?: string; tone?: string;
+  info?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; delay?: number; label?: string;
+  // The icon tile's colours: neutral unless the icon means something (e.g. a station's mark).
+  tone?: string;
 }
 
-export function SectionCard({ id, title, icon: Icon, description, info, actions, children, className, delay = 0, label, tone = "bg-muted text-foreground/80" }: SectionCardProps) {
+// A thin bar split into coloured parts of a whole, e.g. discharged (green) and still open (amber).
+// Decorative: the number beside it always says the same in words.
+export function Meter({ parts, total, className }: { parts: { value: number; className: string }[]; total: number; className?: string }) {
+  return <div aria-hidden="true" className={cn("flex h-1.5 overflow-hidden rounded-full bg-muted", className)}>
+    {total > 0 && parts.filter(part => part.value > 0).map((part, i) =>
+      <span key={i} className={cn("bar-grow h-full first:rounded-l-full last:rounded-r-full [&+span]:ml-px", part.className)} style={{ width: `${part.value / total * 100}%` }} />)}
+  </div>;
+}
+
+// Scroll offset for a section jumped to from the sticky page bar.
+export const SECTION_SCROLL = "scroll-mt-40";
+
+export function SectionCard({ id, title, icon: Icon, description, info, actions, children, className, delay = 0, label, tone = "bg-muted text-muted-foreground" }: SectionCardProps) {
   return <section id={id} aria-label={label ?? title} style={{ animationDelay: `${delay}ms` }}
-    className={cn(panel, enter, "scroll-mt-36 transition-shadow duration-300 hover:shadow-md", className)}>
+    className={cn(panel, enter, SECTION_SCROLL, className)}>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-3">
-        {Icon && <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", tone)} aria-hidden="true"><Icon className="size-4" /></span>}
+        {Icon && <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", tone)} aria-hidden="true"><Icon className="size-4" /></span>}
         <div className="min-w-0">
           <div className="flex items-center gap-1"><h2 className="text-base font-semibold">{title}</h2>{info && <InfoTip label={title}>{info}</InfoTip>}</div>
           {description && <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>}
@@ -60,13 +76,13 @@ export function Segmented<T extends string>({ label, value, options, onChange, c
     onChange(options[next].id);
     refs.current[next]?.focus();
   };
-  return <div role="radiogroup" aria-label={label} className={cn("inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1", className)}>
+  return <div role="radiogroup" aria-label={label} className={cn("inline-flex max-w-full gap-1 overflow-x-auto rounded-full bg-muted/60 p-1", className)}>
     {options.map((option, index) => {
       const selected = option.id === value;
       return <button key={option.id} ref={node => { refs.current[index] = node; }} type="button" role="radio" aria-checked={selected} title={option.title}
         tabIndex={selected ? 0 : -1} onClick={() => onChange(option.id)} onKeyDown={event => move(event, index)}
-        className={cn("h-8 shrink-0 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:transition-none",
-          selected ? "bg-card text-blue-700 shadow-sm ring-1 ring-blue-200" : "text-muted-foreground hover:bg-card/60 hover:text-foreground")}>
+        className={cn("h-8 shrink-0 whitespace-nowrap rounded-full px-3 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:transition-none",
+          selected ? "bg-primary/14 font-semibold text-primary" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground")}>
         {option.label}
       </button>;
     })}
@@ -89,18 +105,18 @@ export function ExportMenu({ disabled, onCsv, onPrint }: { disabled: boolean; on
 
   return <div ref={root} className="relative">
     <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen(value => !value)}
-      className="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm shadow-emerald-900/20 transition duration-200 hover:-translate-y-px hover:bg-emerald-700 hover:shadow-md active:translate-y-0 active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none">
+      className={cn(buttonVariants({ variant: "outline" }), "group")}>
       <Download className="size-4" aria-hidden="true" /><span>Export</span>
       <ChevronDown className={cn("size-4 transition-transform duration-200", open && "rotate-180")} aria-hidden="true" />
     </button>
     {open && <div role="menu" aria-label="Export options" className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1.5 shadow-lg animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-150 motion-reduce:animate-none">
       <button type="button" role="menuitem" className={item} onClick={choose(onCsv)}>
-        <FileSpreadsheet className="mt-0.5 size-4 text-emerald-700" aria-hidden="true" />
+        <FileSpreadsheet className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
         <span><span className="block text-sm font-medium">Download spreadsheet (CSV)</span><span className="block text-xs text-muted-foreground">Every number on this page; opens in Excel</span></span>
       </button>
       <button type="button" role="menuitem" className={item} onClick={choose(onPrint)}>
         <Printer className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
-        <span><span className="block text-sm font-medium">Print or save as PDF</span><span className="block text-xs text-muted-foreground">A printable copy of the charts</span></span>
+        <span><span className="block text-sm font-medium">Print report</span><span className="block text-xs text-muted-foreground">A one-page summary to print or save as PDF</span></span>
       </button>
     </div>}
   </div>;
