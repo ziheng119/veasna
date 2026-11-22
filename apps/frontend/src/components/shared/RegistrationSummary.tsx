@@ -76,9 +76,9 @@ export default function RegistrationSummary({ patient }: { patient: QueuedPatien
               {items.map(([label, value, note]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>
-                  <dd className={cn("font-medium tabular-nums", note ? "text-amber-800 dark:text-amber-300" : "text-foreground")}>
+                  <dd className={cn("font-medium tabular-nums", note ? "text-warning-ink" : "text-foreground")}>
                     {value}
-                    {note && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium dark:bg-amber-500/15">{note}</span>}
+                    {note && <span className="ml-1.5 rounded-full bg-warning-tint px-1.5 py-0.5 text-xs font-medium">{note}</span>}
                   </dd>
                 </div>
               ))}

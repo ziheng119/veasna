@@ -22,9 +22,9 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
                 <p className="text-sm text-destructive">Out of Stock</p>
                 <p className="mt-1 text-3xl font-bold text-destructive">{stats.out_of_stock}</p>
             </div>
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-5 shadow-sm">
-                <p className="text-sm text-amber-700">Low Stock</p>
-                <p className="mt-1 text-3xl font-bold text-amber-700">{stats.low_stock}</p>
+            <div className="rounded-lg border border-warning-line bg-warning-soft px-4 py-5 shadow-sm">
+                <p className="text-sm text-warning-ink">Low Stock</p>
+                <p className="mt-1 text-3xl font-bold text-warning-ink">{stats.low_stock}</p>
             </div>
         </div>
     );

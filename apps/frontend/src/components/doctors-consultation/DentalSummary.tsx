@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FileText, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { STATION_INK } from "@/components/shared/StationBadge";
 import { DentalNotes, getDental } from "@/lib/api/visit/dental";
 import { ENTER_FAST } from "@/lib/motion";
 import { useVisitChanges } from "@/hooks/useVisitChanges";
@@ -42,13 +43,13 @@ export default function DentalSummary({ visitId, onRefer, referralWritten = fals
     <section className="space-y-3 rounded-xl border border-border p-4" aria-label="Dental notes" aria-busy={state === "loading"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 font-semibold">
-          <Smile className="size-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+          <Smile className={cn("size-4", STATION_INK.dental)} aria-hidden="true" />
           Dental notes
         </h3>
         {/* The Dental station's answer, as a status rather than a checkbox that can't be ticked. */}
         {state === "loaded" && (
           <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium",
-            referralNeeded ? "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200" : "bg-muted text-muted-foreground")}>
+            referralNeeded ? "bg-warning-tint text-warning-ink" : "bg-muted text-muted-foreground")}>
             {!dental ? "Not seen at Dental yet" : referralNeeded ? "Referral needed" : "No referral needed"}
           </span>
         )}

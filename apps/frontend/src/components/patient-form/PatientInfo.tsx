@@ -90,7 +90,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         type="text"
                         value={patient.queue_no}
                         onChange={(e) => handleChange('queue_no', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 border-width-10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input border-width-10 rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -104,7 +104,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         type='text'
                         value={patient.english_name}
                         onChange={(e) => handleChange('english_name', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 border-width-10 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input border-width-10 rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -117,7 +117,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         type='text'
                         value={patient.khmer_name}
                         onChange={(e) => handleChange('khmer_name', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -140,12 +140,12 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                                     handleDateChange('');
                                 }
                             }}
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                            className="w-32 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                         />
                         <button 
                             type='button'
                             onClick={calculateAge}
-                            className='px-3 py-2 bg-blue-500 text-sm rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white'
+                            className='px-3 py-2 bg-primary text-sm rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring text-white'
                         >
                             Calculate Age
                         </button>
@@ -163,7 +163,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         pattern='[0-9]*'
                         value={patient.age}
                         onChange={(e) => handleChange('age', e.target.value)}
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-32 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -180,7 +180,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                                 value='M'
                                 checked={patient.sex === 'M'}
                                 onChange={(e) => onUpdatePatient({ sex: e.target.value as "M" | "F" })}
-                                className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                                className='w-4 h-4 text-primary focus:ring-ring border-input'
                             />
                             <span className='text-sm'>M</span>
                         </label>
@@ -192,7 +192,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                                 value='F'
                                 checked={patient.sex === 'F'}
                                 onChange={(e) => onUpdatePatient({ sex: e.target.value as "M" | "F" })}
-                                className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                                className='w-4 h-4 text-primary focus:ring-ring border-input'
                             />
                             <span className='text-sm'>F</span>
                         </label>
@@ -211,7 +211,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         pattern='[0-9]*'
                         value={patient.phone_number}
                         onChange={(e) => handleChange('phone_number', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -224,7 +224,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         type='text'
                         value={patient.address}
                         onChange={(e) => handleChange('address', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 
@@ -237,7 +237,7 @@ export default function PatientInfo({ patient, onUpdatePatient, isViewMode: requ
                         type='text'
                         value={patient.face_id}
                         onChange={(e) => handleChange('face_id', e.target.value)}
-                        className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                        className="w-64 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black"
                     />
                 </div>
 

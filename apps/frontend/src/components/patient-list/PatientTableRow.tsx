@@ -130,7 +130,7 @@ export function PatientTableRow({ patient, index = 0, allPatients, onViewPatient
                         {/* Delete Patient: admin only */}
                         {isAdmin && <button
                         onClick={() => patient.id && onDeletePatient?.(patient.id)}
-                        className={cn(POP, "text-red-600 hover:bg-red-500/10 hover:text-red-700")}
+                        className={cn(POP, "text-destructive hover:bg-destructive/10 hover:text-destructive")}
                         title="Delete Patient"
                         aria-label={`Delete ${patient.english_name || "patient"}`}
                         >

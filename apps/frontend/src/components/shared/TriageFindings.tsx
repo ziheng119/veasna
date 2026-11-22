@@ -56,7 +56,7 @@ export default function TriageFindings({ patient }: { patient: QueuedPatient }) 
         <StationMark station="triage" className="size-6" />
         From Triage
         {allergy && (
-          <span className="flex min-w-0 items-center gap-1.5 font-medium text-amber-800 group-open/triage:hidden dark:text-amber-300">
+          <span className="flex min-w-0 items-center gap-1.5 font-medium text-warning-ink group-open/triage:hidden">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
             <span className="truncate">Allergy: {allergy}</span>
           </span>
@@ -76,7 +76,7 @@ export default function TriageFindings({ patient }: { patient: QueuedPatient }) 
               return (
                 <div key={key} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>
-                  <dd className={allergy ? "flex items-start gap-1.5 font-medium text-amber-800 dark:text-amber-300" : "whitespace-pre-wrap text-foreground"}>
+                  <dd className={allergy ? "flex items-start gap-1.5 font-medium text-warning-ink" : "whitespace-pre-wrap text-foreground"}>
                     {allergy && <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
                     <span className="whitespace-pre-wrap">{allergy && <span className="sr-only">Allergy: </span>}{value}</span>
                   </dd>

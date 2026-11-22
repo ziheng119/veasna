@@ -65,7 +65,7 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
       // Done, but serious: a red shield rather than the usual tick.
       toast(`Flagged for suspected TB and marked red in every queue.${where}`, {
         duration: 6000,
-        icon: <ShieldAlert className="size-5 shrink-0 text-red-600" aria-hidden="true" />,
+        icon: <ShieldAlert className="size-5 shrink-0 text-tb" aria-hidden="true" />,
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update TB flag");
@@ -79,8 +79,8 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
   // Without the TB status the strip can't say whether they are flagged, so it says so instead.
   if (loadFailed) {
     return (
-      <p role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-amber-900 dark:text-amber-200">
-        <ShieldAlert className="size-4 shrink-0 text-amber-600" aria-hidden="true" />
+      <p role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-warning-ink">
+        <ShieldAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
         Couldn&apos;t load this patient&apos;s TB status from the host.
         <Button type="button" variant="outline" size="sm" onClick={() => setRetry((value) => value + 1)}>Try again</Button>
       </p>
@@ -89,9 +89,9 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
 
   if (flagged && screening) {
     return (
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border-2 border-red-500 bg-red-50 p-3 dark:bg-red-500/10">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border-2 border-tb-line bg-tb-soft p-3">
         <div className="min-w-0 space-y-1 text-sm">
-          <p className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-300">
+          <p className="flex items-center gap-2 font-semibold text-tb-ink">
             <TbBadge /> Suspected TB
           </p>
           {screening.red_flags.length > 0 && (
@@ -124,11 +124,11 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
     return (
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className={cn("flex min-w-0 items-center gap-2", noted.length ? "text-foreground" : "text-muted-foreground")} title={summary}>
-          <ShieldAlert className="size-4 shrink-0 text-red-600" aria-hidden="true" />
+          <ShieldAlert className="size-4 shrink-0 text-tb" aria-hidden="true" />
           <span className="line-clamp-2">{summary}</span>
         </span>
         {/* Red edge like the TB shield beside it: this opens the TB checklist. */}
-        <Button type="button" variant="outline" size="sm" className="shrink-0 border-red-600 dark:border-red-400" onClick={openPanel}>
+        <Button type="button" variant="outline" size="sm" className="shrink-0 border-tb" onClick={openPanel}>
           Review TB red flags
         </Button>
       </div>
@@ -136,8 +136,8 @@ export default function TbFlagPanel({ visitId, onFlagged }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border-2 border-red-500/60 bg-red-50/60 p-3 dark:bg-red-500/10">
-      <p className="text-sm font-semibold text-red-700 dark:text-red-300">TB red flags: tick {TB_MIN_RED_FLAGS} or more to flag suspected TB</p>
+    <div className="space-y-3 rounded-lg border-2 border-tb-line/60 bg-tb-soft/60 p-3">
+      <p className="text-sm font-semibold text-tb-ink">TB red flags: tick {TB_MIN_RED_FLAGS} or more to flag suspected TB</p>
       <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         {tbRedFlags.map((flag) => (
           <div key={flag.id} className="flex items-center space-x-2">

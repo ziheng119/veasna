@@ -259,7 +259,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
             }}>
               <DialogTrigger asChild>
                 <GlassButton type="button" disabled={saving}
-                  className="mr-auto bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                  className="mr-auto bg-none bg-destructive/10 text-destructive ring-destructive/20 hover:bg-destructive/15">
                   Delete referral
                 </GlassButton>
               </DialogTrigger>
@@ -279,7 +279,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
                 <DialogFooter>
                   <GlassButton ref={cancelDeleteRef} type="button" disabled={saving} onClick={() => setConfirmDelete(false)}>Cancel</GlassButton>
                   <GlassButton type="button" disabled={saving} onClick={() => void handleDelete()}
-                    className="bg-none bg-rose-100 text-rose-900 ring-rose-200 hover:bg-rose-200">
+                    className="bg-none bg-destructive/10 text-destructive ring-destructive/20 hover:bg-destructive/15">
                     {saving ? "Deleting..." : "Confirm deletion"}
                   </GlassButton>
                 </DialogFooter>

@@ -30,7 +30,7 @@ export default function VisitStations({ stations, completedAt }: { stations: Vis
               title={done ? `Finished at ${time(s.completed_at!)}` : s.station === current ? "Waiting here now" : "Not reached"}
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-                done ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                done ? "border-success-line bg-success-soft text-success-ink"
                   : s.station === current ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-border text-muted-foreground",
               )}>

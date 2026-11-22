@@ -70,7 +70,7 @@ export default function SegmentedTabs({ tabs, value, label, markedLabel = "Has r
           <span className="truncate">{tabLabel}</span>
           {marked && (
             <>
-              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-success" />
               <span className="sr-only">({markedLabel})</span>
             </>
           )}

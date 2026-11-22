@@ -42,7 +42,7 @@ const SECTION_TAB = "gap-1.5 data-[state=active]:bg-primary data-[state=active]:
 // On a section's tab: a tick once it is saved with something in it, a dot while typing isn't saved yet.
 function SectionMark({ saved, unsaved }: { saved: boolean; unsaved: boolean }) {
     if (saved) return <><Check aria-hidden="true" className="size-3.5" /><span className="sr-only">(saved)</span></>;
-    if (unsaved) return <><span aria-hidden="true" className="size-1.5 rounded-full bg-amber-500" /><span className="sr-only">(not saved yet)</span></>;
+    if (unsaved) return <><span aria-hidden="true" className="size-1.5 rounded-full bg-warning" /><span className="sr-only">(not saved yet)</span></>;
     return null;
 }
 
@@ -380,7 +380,7 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             <div className="space-y-3 px-5 pt-4">
                 {context}
                 {loadError && (
-                    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-ink">
                         <span className="flex items-center gap-2"><WifiOff className="size-4 shrink-0" aria-hidden="true" />Can&apos;t reach the host laptop to load the saved triage. Trying again…</span>
                         <Button type="button" size="sm" variant="outline" className="bg-background" onClick={() => setRetry(value => value + 1)}>
                             <RefreshCw className="size-4" aria-hidden="true" />Retry now

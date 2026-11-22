@@ -285,7 +285,7 @@ export default function SearchBar() {
                     >
                       <span className={cn(
                         "grid h-8 min-w-10 shrink-0 place-items-center rounded-md px-1.5 text-sm font-bold tabular-nums",
-                        patient.tb_flagged ? "bg-red-600 text-white" : "bg-muted",
+                        patient.tb_flagged ? "bg-tb text-white" : "bg-muted",
                       )}>
                         {patient.queue_no}
                       </span>

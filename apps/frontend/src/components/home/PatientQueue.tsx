@@ -96,7 +96,7 @@ export function PatientQueue({ patients, onRemovePatient, onFamilyChanged }: Pro
           <span className="flex shrink-0 flex-col items-center gap-1">
             <span className="relative flex">
               <span data-queue-no className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-                patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary/14 text-primary"
+                patient.tb_flagged ? "bg-tb text-white" : "bg-primary/14 text-primary"
               }`}>
                 {patient.queue_no}
               </span>

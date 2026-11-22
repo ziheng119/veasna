@@ -6,7 +6,7 @@ export function PageHeader() {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-3">
-        <DrugIcon className="h-8 w-8 text-blue-600" />
+        <DrugIcon className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold text-foreground">Manage Inventory</h1>
       </div>
       <Link

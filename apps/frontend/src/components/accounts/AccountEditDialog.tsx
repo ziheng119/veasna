@@ -110,7 +110,7 @@ function EditForm({ account, edit, busy, setBusy, onSave, onClose }: Omit<Props,
         <label className="flex flex-col gap-1.5 text-sm font-medium">Screening date
           <Input type="date" required autoFocus value={date} onChange={event => { setDate(event.target.value); setError(""); }} />
           {date && date < today && (
-            <span className={cn("text-xs font-normal text-amber-700 dark:text-amber-300", ENTER_FAST)}>
+            <span className={cn("text-xs font-normal text-warning-ink", ENTER_FAST)}>
               This day is over, so the account won&apos;t be able to sign in.
             </span>
           )}

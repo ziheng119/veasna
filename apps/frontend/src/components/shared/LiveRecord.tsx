@@ -173,7 +173,7 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
   if (live.notice === "updated") {
     return (
       <p key={live.seq} role="status"
-        className={cn("flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST)}>
+        className={cn("flex items-center gap-2 rounded-lg border border-info-line bg-info-soft px-3 py-2 text-sm text-info-ink", ENTER_FAST)}>
         <RefreshCw className="size-4 shrink-0 motion-safe:animate-[spin_0.6s_ease-out_1]" aria-hidden="true" />
         {label ? `${label}: updated` : "Updated"} with a save from another device.
       </p>
@@ -183,7 +183,7 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
     const restored = live.notice === "restored";
     return (
       <div key={live.seq} role="status"
-        className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST)}>
+        className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-info-line bg-info-soft px-3 py-2 text-sm text-info-ink", ENTER_FAST)}>
         <span className="flex items-center gap-2 font-medium">
           <History className="size-4 shrink-0" aria-hidden="true" />
           {label ? `${label}: ` : ""}{restored
@@ -201,7 +201,7 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
   if (live.notice === "conflict") {
     return (
       <div key={live.seq} role="alert"
-        className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200", ENTER_FAST)}>
+        className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-ink", ENTER_FAST)}>
         <span className="flex items-center gap-2 font-medium">
           <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
           {label ? `${label}: saved` : "Saved"} on another device while you were typing.

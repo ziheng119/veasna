@@ -372,7 +372,7 @@ export default function QueuePatientPicker({
                       // Like Registration's queue: brand blue at 14%, solid blue on the open patient.
                       className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
                         tbFlagged
-                          ? "bg-red-600 text-white"
+                          ? "bg-tb text-white"
                           : isSelected ? "bg-primary text-primary-foreground" : "bg-primary/14 text-primary"
                       }`}
                     >
@@ -393,11 +393,11 @@ export default function QueuePatientPicker({
                     {next ? <>{(() => { const Icon = STATION_ICONS[next]; return <Icon className={cn("size-3.5 shrink-0", STATION_INK[next])} aria-hidden="true" />; })()}Next: {stationLabel(next)}</> : "Last station"}
                   </span>
                   {patient.family_waiting ? (
-                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-tint px-2 py-0.5 text-xs font-medium text-warning-ink">
                       <Hourglass className="size-3.5" aria-hidden="true" /> Waiting for family
                     </span>
                   ) : patient.station_done && (
-                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-xs font-medium text-success-ink">
                       <CircleCheck className="size-3.5" aria-hidden="true" /> Done here
                     </span>
                   )}

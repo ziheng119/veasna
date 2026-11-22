@@ -20,8 +20,8 @@ const MAX_MATCHES = 8;
 const available = (drug: Drug) => drug.available_count ?? drug.stock_count;
 
 const STATUS_TONES: Record<Prescription["status"], string> = {
-  pending: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-  dispensed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  pending: "bg-warning-tint text-warning-ink",
+  dispensed: "bg-success-tint text-success-ink",
   cancelled: "bg-muted text-muted-foreground line-through",
 };
 

@@ -4,8 +4,8 @@ import { VisitPrescription } from "@/lib/types/visit";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<VisitPrescription["status"], { label: string; tone: string }> = {
-  pending: { label: "Waiting at Pharmacy", tone: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" },
-  dispensed: { label: "Dispensed", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  pending: { label: "Waiting at Pharmacy", tone: "bg-warning-tint text-warning-ink" },
+  dispensed: { label: "Dispensed", tone: "bg-success-tint text-success-ink" },
   cancelled: { label: "Cancelled", tone: "bg-muted text-muted-foreground" },
 };
 

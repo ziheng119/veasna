@@ -40,9 +40,9 @@ export function DrugTable({ drugs, onStockCountChange, onDrugNameChange, onDelet
                 <p className="text-xs text-destructive">Out of Stock</p>
                 <p className="font-semibold text-destructive">{stats.outOfStock}</p>
               </div>
-              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
-                <p className="text-xs text-amber-700">Low Stock</p>
-                <p className="font-semibold text-amber-700">{stats.lowStock}</p>
+              <div className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm">
+                <p className="text-xs text-warning-ink">Low Stock</p>
+                <p className="font-semibold text-warning-ink">{stats.lowStock}</p>
               </div>
             </div>
           }

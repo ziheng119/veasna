@@ -87,7 +87,7 @@ export default function SignaturePad({ value, onChange, disabled = false, saved 
       onLostPointerCapture={() => { drawing.current = null; }}
     >
       {value && <SignatureImage value={value} />}
-      {reading && <p role="status" className="absolute inset-0 grid place-items-center bg-white/80 text-sm text-neutral-600">Preparing picture…</p>}
+      {reading && <p role="status" className="absolute inset-0 grid place-items-center bg-white/80 text-sm text-muted-foreground">Preparing picture…</p>}
     </div>
     {uploadError && <p role="alert" className="text-sm text-destructive">{uploadError}</p>}
     {uploaded && <p className="text-xs text-muted-foreground">Uploaded picture. Clear it to draw instead.</p>}

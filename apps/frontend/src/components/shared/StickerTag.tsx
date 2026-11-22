@@ -45,7 +45,7 @@ export default function StickerTag({ sticker, pinned = false, className }: Props
       title={`${sticker.label} sticker`}
       data-sticker
       className={cn(
-        "sticker-tag inline-block size-[18px] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.35)] ring-1 ring-black/25 dark:ring-white/30",
+        "sticker-tag inline-block size-[18px] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.35)] ring-1 ring-black/25",
         pinned ? "absolute -right-2 -top-2 rotate-12" : "rotate-6",
         className,
       )}

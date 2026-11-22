@@ -17,20 +17,20 @@ export const STATION_ICONS: Record<StationId, Icon> = {
 
 // Each station's fill (100) and ink (700/800, at least 4.5:1 on the fill and on white).
 const STATION_FILL: Record<StationId, string> = {
-  triage: "bg-blue-100 dark:bg-blue-500/15",
-  seva: "bg-violet-100 dark:bg-violet-500/15",
-  physiotherapy: "bg-amber-100 dark:bg-amber-500/15",
-  consultation: "bg-emerald-100 dark:bg-emerald-500/15",
-  dental: "bg-cyan-100 dark:bg-cyan-500/15",
-  pharmacy: "bg-rose-100 dark:bg-rose-500/15",
+  triage: "bg-blue-100",
+  seva: "bg-violet-100",
+  physiotherapy: "bg-amber-100",
+  consultation: "bg-emerald-100",
+  dental: "bg-cyan-100",
+  pharmacy: "bg-rose-100",
 };
 export const STATION_INK: Record<StationId, string> = {
-  triage: "text-blue-700 dark:text-blue-300",
-  seva: "text-violet-700 dark:text-violet-300",
-  physiotherapy: "text-amber-800 dark:text-amber-300",
-  consultation: "text-emerald-700 dark:text-emerald-300",
-  dental: "text-cyan-800 dark:text-cyan-300",
-  pharmacy: "text-rose-700 dark:text-rose-300",
+  triage: "text-blue-700",
+  seva: "text-violet-700",
+  physiotherapy: "text-amber-800",
+  consultation: "text-emerald-700",
+  dental: "text-cyan-800",
+  pharmacy: "text-rose-700",
 };
 const STATION_TONES = Object.fromEntries(
   (Object.keys(STATION_FILL) as StationId[]).map((id) => [id, `${STATION_FILL[id]} ${STATION_INK[id]}`]),

@@ -16,11 +16,11 @@ const badgeVariants = cva(
         inactive:
           "border-border bg-muted text-muted-foreground [a&]:hover:bg-muted/80",
         success:
-          "border-emerald-300 bg-emerald-50 text-emerald-700 [a&]:hover:bg-emerald-100",
+          "border-success-line bg-success-soft text-success-ink [a&]:hover:bg-success-tint",
         warning:
-          "border-amber-300 bg-amber-50 text-amber-700 [a&]:hover:bg-amber-100",
+          "border-warning-line bg-warning-soft text-warning-ink [a&]:hover:bg-warning-tint",
         info:
-          "border-sky-300 bg-sky-50 text-sky-700 [a&]:hover:bg-sky-100",
+          "border-info-line bg-info-soft text-info-ink [a&]:hover:bg-info-tint",
         secondary:
           "border-border bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:

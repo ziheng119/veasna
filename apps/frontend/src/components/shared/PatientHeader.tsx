@@ -23,7 +23,7 @@ export default function PatientHeader({ patient }: { patient: QueuedPatient }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <span className="relative flex shrink-0">
         <span className={`min-w-[3.25rem] rounded-md px-2 py-1 text-center text-2xl font-bold leading-none tabular-nums ${
-          patient.tb_flagged ? "bg-red-600 text-white" : "bg-primary text-primary-foreground"}`}>
+          patient.tb_flagged ? "bg-tb text-white" : "bg-primary text-primary-foreground"}`}>
           {patient.queue_no}
         </span>
         <StickerTag sticker={sticker} pinned />

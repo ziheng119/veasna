@@ -15,6 +15,8 @@ colors:
   done-green: "#059669"
   caution-amber: "#fffbeb"
   caution-amber-ink: "#78350f"
+  info-sky: "oklch(0.977 0.013 236.62)"
+  info-sky-ink: "oklch(0.391 0.09 240.876)"
 typography:
   headline:
     fontFamily: "TeX Gyre Heros, Helvetica, Arial, sans-serif"
@@ -190,11 +192,42 @@ order, **Next** on a queue card), and the wash for what you could press.
   pink, teal, cycled by family letter.
 - **Sticker colours**: set by the admin on Station data to match the physical stickers. They
   are data, not tokens.
+- **Chart colours** (Analytics, `constants/consultationConditions.ts`): Patients reached in
+  brand blue, Patients consulted in slate drawn dashed, and conditions in a fixed teal, ochre,
+  violet, green, pink, sky, brown and slate order with a dash pattern each. No red (kept for
+  TB and danger) and no brand blue among the conditions.
+  Analytics meters and counts use the meaning colours: Done Green for what is finished
+  (discharged visits, station work completed, a follow-up list that is clear), Caution Amber
+  for what is still open (patients still in the clinic today, unsigned referrals), brand blue
+  for patients. The words beside them always say the same, so colour is never the only cue.
 
 The website's sky (#C7F0FF) and pale sky (#E2F6FD) belong to the wider Project Battambang
 identity but are not used in Veasna yet.
 
+### Colour tokens
+Every colour in the app comes from a token in `apps/frontend/src/app/globals.css`, used as a
+Tailwind class (`bg-success-tint`, `text-warning-ink`, `border-tb-line`). The meaning colours
+each come in five strengths:
+
+| Strength | Use | Example |
+|---|---|---|
+| solid (`success`, `warning`, `info`, `tb`) | bars, dots, filled buttons, icons | the TB badge, a meter |
+| `-ink` | text and small icons, at least 4.5:1 on white, soft and tint | "4 still in the clinic" |
+| `-soft` | banners and panels | the clock warning bar |
+| `-tint` | chips and badges | the amber Waiting count |
+| `-line` | borders | a TB card's red edge |
+
+Brand and neutrals use the shadcn tokens: `primary`, `accent`, `muted`, `muted-foreground`,
+`border`, `input`, `ring`, `destructive`. Station and family tones are fixed sets kept in
+`StationBadge.tsx` and `lib/family.ts`; sticker and condition colours are data. Veasna is light
+only, so no `dark:` classes: a device set to dark mode sees the same colours.
+
 ### Named Rules
+**The Tokens Only Rule.** Don't write a Tailwind palette class (`bg-amber-100`, `text-red-600`)
+or a hex value in a component. Use the token for the role; if no role fits, add a token to
+`globals.css` and this file first. Print documents (referral letters and lists, the Analytics
+report) keep their own greyscale print palette.
+
 **The One Blue Rule.** Project Battambang blue is the only colour that means "active" or
 "press here". Never use a station, family or status colour for an action.
 
@@ -359,6 +392,6 @@ match the card to the sticker on the patient.
 ### Don't:
 - **Don't** use a station, family or status colour for an action or for decoration.
 - **Don't** use red for anything other than suspected TB, destructive actions and invalid fields.
-- **Don't** use hard-coded Tailwind `blue-*` classes for focus or primary states. Some forms (`components/patient-form/`) and Analytics still do; move them to `primary` and `ring` when touched.
+- **Don't** use Tailwind palette classes or hex values in components (The Tokens Only Rule); use `primary`, `ring` and the meaning tokens.
 - **Don't** load fonts, icons or images from the internet. Everything is served by the host.
 - **Don't** add a second typeface.

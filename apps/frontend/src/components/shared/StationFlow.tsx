@@ -195,11 +195,11 @@ export function StationDepartureNotice({ className }: { className?: string }) {
   if (!flow || !departure || departure.draft === "failed") return null;
   return (
     <div key={departure.visitId} role="status"
-      className={cn("flex items-start gap-3 rounded-lg border border-sky-500/40 bg-sky-50 px-3 py-2.5 text-left text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200", ENTER_FAST, className)}>
+      className={cn("flex items-start gap-3 rounded-lg border border-info-line bg-info-soft px-3 py-2.5 text-left text-sm text-info-ink", ENTER_FAST, className)}>
       <LogOut className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span>
         <span className="block font-medium">{departureMessage(departure, flow.station)}</span>
-        <span className="block text-sky-800/90 dark:text-sky-200/80">
+        <span className="block text-info-ink/90">
           {departure.draft === "saved" ? "What you had typed for them was saved first. " : ""}Choose the next patient from the queue.
         </span>
       </span>
@@ -335,7 +335,7 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
 
   if (patient.family_waiting) {
     return (
-      <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+      <div role="status" className="flex items-center gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm font-medium text-warning-ink">
         <Hourglass className="size-4" aria-hidden="true" />
         Done at {stationLabel(flow.station)}: waiting for the rest of family {patient.family} here. They move on together.
       </div>
@@ -343,8 +343,8 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
   }
 
   return (
-    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/50 bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-500/10">
-      <span className="flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-300">
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success-line bg-success-soft px-3 py-2 text-sm">
+      <span className="flex items-center gap-2 font-medium text-success-ink">
         <CircleCheck className="size-4" aria-hidden="true" />
         Done at {stationLabel(flow.station)}: everything needed here is saved.
       </span>

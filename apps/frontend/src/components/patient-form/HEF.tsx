@@ -37,7 +37,7 @@ export default function HEF({patient, onUpdatePatient, isViewMode}: Props) {
                 value={opt}
                 checked={patient.know_of_hef === opt}
                 onChange={e => handleChange('know_of_hef', e.target.value)}
-                className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                className='h-4 w-4 text-primary focus:ring-ring border-input'
               />
               <label htmlFor={`knowsHEF-${opt}`} className='ml-2 text-sm'>
                 {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -62,7 +62,7 @@ export default function HEF({patient, onUpdatePatient, isViewMode}: Props) {
                 value={opt}
                 checked={patient.has_hef === opt}
                 onChange={e => handleChange('has_hef', e.target.value)}
-                className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                className='h-4 w-4 text-primary focus:ring-ring border-input'
               />
               <label htmlFor={`hasHEF-${opt}`} className='ml-2 text-sm'>
                 {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -82,7 +82,7 @@ export default function HEF({patient, onUpdatePatient, isViewMode}: Props) {
           value={patient.notes}
           onChange={e => handleChange('know_of_hef', e.target.value)}
           rows={6}
-          className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black'
+          className='w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-white text-black'
           placeholder='Insert Text'
         />
       </div>

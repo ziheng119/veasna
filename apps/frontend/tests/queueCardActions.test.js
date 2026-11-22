@@ -83,11 +83,11 @@ test('a selected TB card is highlighted in red only, not with the blue selection
   stationPatients = [tbPatient, { ...tbPatient, visit_id: 6, queue_no: '8', tb_flagged: false, tb_status: null }];
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 5 })); });
   const card = id => renderer.root.find(node => node.type === 'div' && node.props['data-visit-id'] === id).props.className;
-  expect(card(5)).toMatch(/ring-red-500/);
+  expect(card(5)).toMatch(/ring-tb-line/);
   expect(card(5)).not.toMatch(/primary/);
   // Unselected TB cards still change on hover, like other cards.
   await act(async () => renderer.update(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn(), selectedVisitId: 6 })));
-  expect(card(5)).toMatch(/hover:bg-red-100/);
+  expect(card(5)).toMatch(/hover:bg-tb-tint/);
   expect(card(5)).not.toMatch(/ring/);
   expect(card(6)).toMatch(/border-primary bg-primary\/10/);
 });
