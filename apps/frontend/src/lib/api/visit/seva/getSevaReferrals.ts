@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api/request";
 export interface SevaReferralRow {
   visit_id: number;
   patient_id: number;
-  referral: SevaReferral;
+  referral: SevaReferral; // an id on the seva_referrals list
   diagnosis: string;
   date_of_referral: string | null;
   visit_date: string;

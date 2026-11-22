@@ -76,6 +76,12 @@ describe('groupReferralLists', () => {
         (2,'Preah Ang Duong Hospital',NULL,'','',NULL),
         (3,'Optician',NULL,'','',NULL),
         (4,'Optician',NULL,'','',NULL);
+      CREATE TEMP TABLE seva (visit_id INT, referral TEXT, date_of_referral DATE, diagnosis TEXT);
+      INSERT INTO seva VALUES
+        (1,'cataract_surgery','2026-11-02','Cataract, left eye'),
+        (2,NULL,NULL,'No referral'),
+        (3,'old_choice',NULL,''),
+        (4,'cataract_surgery',NULL,'');
     `);
     db.query.mockImplementation((...args) => client.query(...args));
     app = express(); app.use(require('../routes/analytics'));
@@ -124,5 +130,26 @@ describe('groupReferralLists', () => {
     expect(week.body.destinations.find(group => group.label === 'Optician').patients.map(p => p.englishName)).toEqual(['Other day', 'Beb', 'Ben']);
     expect((await get(token(), { date: '2026-10-21', period: 'year' })).status).toBe(400);
     expect((await get(token(), {})).status).toBe(400);
+  });
+
+  test('Partner NGO referrals: grouped by type in list order, with the referral date', async () => {
+    const getNgo = query => request(app).get('/partner-ngo').query(query).set('Authorization', `Bearer ${token()}`);
+    expect((await request(app).get('/partner-ngo').query({ date: '2026-10-21' }).set('Authorization', `Bearer ${token(2, 'user')}`)).status).toBe(403);
+    const { body, headers } = await getNgo({ date: '2026-10-21' });
+    expect(headers['cache-control']).toBe('no-store');
+    // Every type on the built-in list, then an id since removed from it.
+    expect(body.types.map(type => [type.id, type.listed, type.patients.map(p => p.englishName)])).toEqual([
+      ['cataract_surgery', true, ['Ben']],
+      ['seva_general', true, []],
+      ['old_choice', false, ['Beb']],
+    ]);
+    expect(body.types[0].label).toBe('Cataract surgery');
+    expect(body.types[0].patients[0]).toMatchObject({
+      visitId: 1, patientId: 1, queueNo: '3', visitDate: '2026-10-21', referralDate: '2026-11-02',
+      diagnosis: 'Cataract, left eye', sex: 'M', dateOfBirth: '1990-10-22', phone: '012 345 678', family: 'A', tbStatus: null,
+    });
+    const week = await getNgo({ date: '2026-10-21', period: 'week' });
+    expect(week.body.types[0].patients.map(p => p.englishName)).toEqual(['Ben', 'Other day']);
+    expect((await getNgo({ date: 'nope' })).status).toBe(400);
   });
 });

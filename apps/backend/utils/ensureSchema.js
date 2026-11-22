@@ -314,7 +314,19 @@ function ensureTbObserved() {
   return tbObservedPromise;
 }
 
+// Partner NGO referral types: any id on the editable "seva_referrals" list, not two fixed ones.
+let editableSevaReferralsPromise;
+function ensureEditableSevaReferrals() {
+  if (!editableSevaReferralsPromise) {
+    editableSevaReferralsPromise = ensureSevaReferral()
+      .then(() => runMigration('031_editable_seva_referrals.sql'))
+      .catch(err => { editableSevaReferralsPromise = null; throw err; });
+  }
+  return editableSevaReferralsPromise;
+}
+
 module.exports = {
+  ensureEditableSevaReferrals,
   ensureTbObserved,
   ensureNssf,
   ensureAccountPermissions,

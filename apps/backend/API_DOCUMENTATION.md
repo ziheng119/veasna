@@ -248,7 +248,7 @@ with a message that the screening has ended. See [accounts](../../docs/user-role
 **POST** `triage/visual-acuity`
 Save the Snellen's test for a visit. Body: `visit_id`, `left_without_pinhole`, `right_without_pinhole`, `left_with_pinhole`, `right_with_pinhole`, `left_with_glasses`, `right_with_glasses` (with the patient's own glasses; optional), optional `notes`. Each acuity value is either blank (stored as `null`, reading not taken yet) or a Snellen fraction such as `"20/20"` or `"20/40"`; anything else is rejected with `400`. `POST visits/seva/{visit_id}` applies the same rule to its `*_new` acuity fields, including `left_with_glasses_new` and `right_with_glasses_new`.
 
-`POST visits/seva/{visit_id}` also takes `referral`: `"cataract_surgery"`, `"seva_general"`, or blank/`null` for no referral.
+`POST visits/seva/{visit_id}` also takes `referral`: the id of a type on the `seva_referrals` form list (built in: `"cataract_surgery"`, `"seva_general"`), the type the visit was already saved with, or blank/`null` for no referral.
 
 **GET** `visits/referrals?date=YYYY-MM-DD` (or `&from=YYYY-MM-DD&to=YYYY-MM-DD`, or `&all=true`)
 Saved referrals for printing, signed or not, oldest first: one day, a period (both days included) or every date. Needs `print`; without `view_past`, only the account's day. A referral counts on its `referral_date`, or its visit's date when it has none. Each row has the referral fields, `signature`, `signer_name`, `signed_at`, and the patient's `patient_id`, names, `sex`, `address` and `date_of_birth`. `400` unless exactly one of `date`, `from`+`to` or `all=true` is given, or when `from` is after `to`. Never cached.
@@ -256,7 +256,7 @@ Saved referrals for printing, signed or not, oldest first: one day, a period (bo
 **POST** `visits/referral/{visitId}` `signature` is either drawn strokes (`[[[x, y], ...], ...]`, each 0..1) or an uploaded picture `{ "image": "data:image/png;base64,..." }` (PNG or JPEG, at most 90,000 characters, its contents must match its type); `400` otherwise.
 
 **GET** `visits/seva-referrals`
-Patients that Seva marked for referral (any date, newest visit first), with `referral`, `diagnosis`, `visit_date` and patient details.
+Patients that Seva marked for referral (any date, newest visit first), with `referral`, `date_of_referral`, `diagnosis`, `visit_date` and patient details. The same list for an Analytics period is `GET analytics/partner-ngo` (see [docs/analytics.md](../../docs/analytics.md)).
 
 The triage, Seva, consultation and referral save endpoints accept partially filled forms: only the visit id is required. Blank dates are stored as `null` and missing text as an empty string.
 

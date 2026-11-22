@@ -14,7 +14,7 @@ import type { PatientInfo } from "@/lib/types/patient";
 import { ENTER_FAST } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { parseReferralDestinations } from "@/constants/referral";
-import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
+import { sevaReferralChoices } from "@/constants/sevaReferral";
 import { TB_MIN_RED_FLAGS, TB_STATUS_LABELS, TbStatus, isTbFlagged, meetsTbThreshold } from "@/constants/tb";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { QUEUE_NO_ERROR, isValidQueueNo } from "@/lib/queueNumber";
@@ -70,7 +70,6 @@ const TB_STATUS_OPTIONS: FieldOption[] = (["suspected", "tb_likely", "cleared"] 
   value: status,
   label: TB_STATUS_LABELS[status],
 }));
-const SEVA_REFERRAL_OPTIONS: FieldOption[] = SEVA_REFERRALS.map((r) => ({ value: r.id, label: r.label }));
 const toFieldOptions = (items: FormOption[]): FieldOption[] => items.map((item) => ({ value: item.id, label: item.label }));
 
 const VITALS_FIELDS: FieldSpec<VitalsDraft>[] = [
@@ -112,7 +111,8 @@ const HISTORY_FIELDS: FieldSpec<HistoryDraft>[] = [
   { key: "social", label: "Social History", kind: "textarea", wide: true },
   { key: "systems_review", label: "Systems Review", kind: "textarea", wide: true },
 ];
-const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
+// A referral type saved earlier stays a choice even if it has since been taken off the list.
+const sevaFields = (referralTypes: FormOption[], savedType: string): FieldSpec<SevaDraft>[] => [
   { key: "left_without_pinhole_new", label: "Left (without pinhole)", kind: "snellen" },
   { key: "right_without_pinhole_new", label: "Right (without pinhole)", kind: "snellen" },
   { key: "left_with_pinhole_new", label: "Left (with pinhole)", kind: "snellen" },
@@ -120,7 +120,7 @@ const SEVA_FIELDS: FieldSpec<SevaDraft>[] = [
   { key: "left_with_glasses_new", label: "Left (with glasses)", kind: "snellen" },
   { key: "right_with_glasses_new", label: "Right (with glasses)", kind: "snellen" },
   { key: "diagnosis", label: "Diagnosis", kind: "textarea", wide: true },
-  { key: "referral", label: "Referral Needed", kind: "select", options: SEVA_REFERRAL_OPTIONS, allowBlank: "No referral" },
+  { key: "referral", label: "Referral Needed", kind: "select", options: toFieldOptions(sevaReferralChoices(referralTypes, savedType)), allowBlank: "No referral" },
   { key: "date_of_referral", label: "Date of Referral", kind: "date" },
   { key: "notes", label: "Notes", kind: "textarea", wide: true },
 ];
@@ -270,6 +270,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
   const referralSpec = useMemo(() => referralFields(destinationItems, doctorItems, savedDoctor), [destinationItems, doctorItems, savedDoctor]);
   // Red flags only noted at registration (below the threshold) are not a flag: no status to set.
   const tbObserved = visit.tb?.status === "observed";
+  const referralTypeItems = optionLists.seva_referrals.items;
+  const savedReferralType = visit.seva?.referral ?? "";
+  const sevaSpec = useMemo(() => sevaFields(referralTypeItems, savedReferralType), [referralTypeItems, savedReferralType]);
   const tbSpec = useMemo(() => (tbObserved ? tbNoteFields(redFlagItems) : tbFields(redFlagItems)), [redFlagItems, tbObserved]);
 
   // Drafts are memoised per visit: sections reset their form whenever the record object changes.
@@ -476,7 +479,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
         <EditableRecordSection
           title={`${PARTNER_NGO_NAME} Notes`}
           record={drafts.seva}
-          fields={SEVA_FIELDS}
+          fields={sevaSpec}
           canEdit={canEdit}
           emptyDraft={{
             left_with_pinhole_new: "", left_without_pinhole_new: "", right_with_pinhole_new: "", right_without_pinhole_new: "",
@@ -492,7 +495,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
             rightWithGlassesNew: d.right_with_glasses_new,
             diagnosis: d.diagnosis,
             dateOfReferral: d.date_of_referral,
-            referral: d.referral as SevaReferral | "",
+            referral: d.referral,
             notes: d.notes,
           }, visitId))}
         />

@@ -47,5 +47,9 @@
     { "id": "pink", "label": "Pink", "colour": "#f49ac1" },
     { "id": "yellow", "label": "Yellow", "colour": "#f7d917" },
     { "id": "orange", "label": "Orange", "colour": "#f28c28" }
+  ],
+  "seva_referrals": [
+    { "id": "cataract_surgery", "label": "Cataract surgery" },
+    { "id": "seva_general", "label": "Partner NGO (general)" }
   ]
 }

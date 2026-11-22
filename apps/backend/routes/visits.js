@@ -17,11 +17,9 @@ const { textOrEmpty, dateOrNull } = require('../utils/partialFields');
 const { TB_MIN_RED_FLAGS, normalizeRedFlags, rejectUnsavableVisit, flagTb, observeTb, TB_ROUTE } = require('../utils/tb');
 const { normalizeVitals } = require('../utils/vitals');
 const { patientOnDaySql } = require('../utils/dayScope');
-const { normalizeStickerColour } = require('../utils/formOptions');
+const { normalizeStickerColour, getOptions } = require('../utils/formOptions');
 const { canEditSavedRecords } = require('../utils/permissions');
 const { rejectChangedRecord } = require('../utils/recordVersion');
-
-const SEVA_REFERRALS = ['cataract_surgery', 'seva_general'];
 
 // What POST /api/visits answers: the queued visit, as the registration desk shows it.
 function registrationResponse(visit, age) {
@@ -632,8 +630,20 @@ router.post('/seva/:visit_id', authenticateToken, async (req, res) => {
 
   // Who needs referring: null/blank means no referral.
   const referral = req.body.referral === undefined || req.body.referral === '' ? null : req.body.referral;
-  if (referral !== null && !SEVA_REFERRALS.includes(referral)) {
-    return res.status(400).json({ error: `referral must be one of: ${SEVA_REFERRALS.join(', ')}, or blank.` });
+  // A choice on the current list, or the one this visit was saved with (it may since have been
+  // renamed off the list on the Station data page).
+  if (referral !== null) {
+    let choices, saved;
+    try {
+      choices = (await getOptions('seva_referrals')).map(option => option.id);
+      saved = (await db.query('SELECT referral FROM seva WHERE visit_id = $1', [toPositiveInt(visit_id)])).rows[0]?.referral;
+    } catch (err) {
+      console.error('Error checking the Partner NGO referral:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (typeof referral !== 'string' || (!choices.includes(referral) && referral !== saved)) {
+      return res.status(400).json({ error: `referral must be one of: ${choices.join(', ')}, or blank.` });
+    }
   }
 
   const acuity = normalizeSnellenFields(req.body, [

@@ -351,7 +351,61 @@ router.get('/follow-up', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...
+// Patients the Partner NGO station marked for referral in the period, grouped by referral type in
+// the order of the editable "seva_referrals" list (types since removed from it come after, by id).
+// Each row has the referral date, diagnosis and the patient's details, so it needs the analytics
+// permission like the other lists. At most PARTNER_NGO_LIMIT patients, newest visit first.
+const PARTNER_NGO_LIMIT = 500;
+router.get('/partner-ngo', authenticateToken, async (req, res) => {
+  const filters = parsePeriod(req.query);
+  if (!filters) return res.status(400).json({ error: FILTER_ERROR });
+  const { date, period } = filters;
+  try {
+    if (!await activeAccount(req, res)) return;
+    const [startDate, options] = await Promise.all([periodStart(period, date), getOptions('seva_referrals')]);
+    const { rows } = await db.query(
+      `SELECT v.id AS "visitId", p.id AS "patientId", v.queue_no AS "queueNo",
+          TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate", s.referral,
+          TO_CHAR(s.date_of_referral, 'YYYY-MM-DD') AS "referralDate", s.diagnosis,
+          p.english_name AS "englishName", p.khmer_name AS "khmerName", p.sex,
+          TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS "dateOfBirth", p.phone_number AS phone,
+          v.sticker_colour AS "stickerColour", p.family, NULLIF(tb.status, 'observed') AS "tbStatus"
+        FROM seva s
+        JOIN visits v ON v.id = s.visit_id
+        JOIN patients p ON p.id = v.patient_id
+        LEFT JOIN tb_screening tb ON tb.visit_id = v.id
+        WHERE s.referral IS NOT NULL
+          AND v.visit_date <= $1::date AND ($2::date IS NULL OR v.visit_date >= $2::date)
+        ORDER BY v.visit_date DESC, v.created_at DESC, v.id DESC
+        LIMIT ${PARTNER_NGO_LIMIT + 1}`, [date, startDate]);
+    const patients = rows.slice(0, PARTNER_NGO_LIMIT);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ date, period, startDate, endDate: date, generatedAt: new Date().toISOString(),
+      types: groupPartnerNgoReferrals(patients, options), more: rows.length > PARTNER_NGO_LIMIT });
+  } catch (error) {
+    console.error('Analytics Partner NGO referrals retrieval failed:', error);
+    res.status(500).json({ error: 'Unable to load the Partner NGO referrals. Please try again.' });
+  }
+});
+
+// [{ id, label, listed, patients }]: every current type (even with no patients), then saved ids no
+// longer on the list. Exported for tests.
+function groupPartnerNgoReferrals(rows, options) {
+  const types = options.map(option => ({ id: option.id, label: option.label, listed: true, patients: [] }));
+  for (const row of rows) {
+    let type = types.find(t => t.id === row.referral);
+    if (!type) {
+      type = { id: row.referral, label: row.referral, listed: false, patients: [] };
+      types.push(type);
+    }
+    type.patients.push(row);
+  }
+  return types;
+}
+
 module.exports = router;
 module.exports.groupReferralLists = groupReferralLists;
 module.exports.tripStart = tripStart;
 module.exports.periodTrend = periodTrend;
+module.exports.groupPartnerNgoReferrals = groupPartnerNgoReferrals;

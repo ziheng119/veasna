@@ -6,8 +6,14 @@ jest.mock('../src/lib/api/analytics', () => ({ getAnalytics: jest.fn(), getAnaly
   getAnalyticsReferrals: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', destinations: [] })),
   getAnalyticsFollowUp: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z',
     notDischarged: [{ visitId: 9, patientId: 4, queueNo: '12', visitDate: date, englishName: 'Sok Dara', khmerName: null, stickerColour: null, family: 'B', tbStatus: 'flagged', station: 'triage' }],
-    notDischargedMore: false, unsignedReferrals: [], unsignedReferralsMore: false })) }));
-const { getAnalytics, getAnalyticsTrend } = require('../src/lib/api/analytics');
+    notDischargedMore: false, unsignedReferrals: [], unsignedReferralsMore: false })),
+  getAnalyticsPartnerNgo: jest.fn((date, period) => Promise.resolve({ date, period, generatedAt: '2026-10-21T01:00:00Z', more: false, types: [
+    { id: 'cataract_surgery', label: 'Cataract surgery', listed: true, patients: [{ visitId: 7, patientId: 3, queueNo: '4', visitDate: date,
+      referral: 'cataract_surgery', referralDate: '2026-11-02', diagnosis: 'Cataract, left eye', englishName: 'Chan Mony', khmerName: null,
+      sex: 'F', dateOfBirth: '1960-01-05', phone: null, stickerColour: null, family: null, tbStatus: null }] },
+    { id: 'seva_general', label: 'Partner NGO (general)', listed: true, patients: [] },
+  ] })) }));
+const { getAnalytics, getAnalyticsTrend, getAnalyticsPartnerNgo } = require('../src/lib/api/analytics');
 const conditionCounts = ids => Object.fromEntries(['diabetes','hypertension','musculoskeletal','gastrointestinal','respiratory','vision','skin'].map(id => [id, ids.includes(id) ? 2 : 0]));
 const trend = (date, period) => ({ range: null, period, unit: 'day', date, generatedAt: '2026-10-21T01:00:00Z', buckets: [
   { startDate: '2026-10-20', endDate: '2026-10-20', visits: 3, people: 3, consultedPeople: 2, conditions: conditionCounts(['diabetes']) },
@@ -211,4 +217,21 @@ test('headlineSentence reads naturally for one patient and for a trip', () => {
  const one = { ...sample('2026-10-21'), summary: { ...sample('2026-10-21').summary, people: 1, consultedPeople: 1, visits: 1, dischargedVisits: 1, referralVisits: 1, unsignedReferrals: 0 },
    days: [{ date: '2026-10-20' }, { date: '2026-10-21' }] };
  expect(headlineSentence(one, 'trip', false, '20 – 21 Oct 2026')).toBe('This trip (20 – 21 Oct 2026, 2 clinic days), 1 patient was reached and 1 consulted; 1 visit has a referral; every visit was discharged.');
+});
+
+test('Partner NGO referrals show each patient with the referral type and date, for the page period', async () => {
+  getAnalytics.mockImplementation(date => Promise.resolve(sample(date)));
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(Dashboard)); });
+  const section = renderer.root.find(node => node.type === 'section' && node.props.id === 'partner-ngo');
+  const text = node => typeof node === 'string' ? node : (node.children ?? []).map(text).join(' ');
+  const rows = section.findAllByType('tbody')[0].findAllByType('tr');
+  expect(rows).toHaveLength(1);
+  const row = text(rows[0]);
+  expect(row).toContain('Cataract surgery');
+  expect(row).toContain('2 Nov 2026');
+  expect(row).toContain('Cataract, left eye');
+  // Types with no patients get no empty table.
+  expect(section.findAllByType('table')).toHaveLength(1);
+  expect(getAnalyticsPartnerNgo).toHaveBeenLastCalledWith(expect.any(String), 'day', 'test', expect.anything());
 });

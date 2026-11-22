@@ -18,6 +18,8 @@ const LISTS = {
   consultation_conditions: { kind: 'id', defaults: CONDITIONS },
   // Sticker given at registration; shown as a coloured tag on the patient in every queue.
   sticker_colours: { kind: 'id', defaults: DEFAULTS_FILE.sticker_colours },
+  // "Referral needed" on the Partner NGO form (seva.referral keeps the id).
+  seva_referrals: { kind: 'id', defaults: DEFAULTS_FILE.seva_referrals },
 };
 const MAX_ITEMS = 50;
 const MAX_LABEL = 100;

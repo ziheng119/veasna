@@ -1,4 +1,4 @@
-const { tripStart, periodTrend } = require('../routes/analytics');
+const { tripStart, periodTrend, groupPartnerNgoReferrals } = require('../routes/analytics');
 
 test('a trip walks back through clinic dates at most three days apart', () => {
   const dates = ['2026-11-18', '2026-11-17', '2026-11-14', '2026-11-13', '2026-11-05'];
@@ -23,4 +23,14 @@ test('trend buckets follow the period', () => {
   expect(long.unit).toBe('week');
   expect(long.buckets.at(-1)).toEqual(['2026-11-12', '2026-11-18']);
   expect(long.buckets[0][0] <= '2026-09-01').toBe(true);
+});
+
+test('Partner NGO referral types follow the list, with removed types after', () => {
+  const options = [{ id: 'cataract_surgery', label: 'Cataract surgery' }, { id: 'glasses', label: 'Glasses' }];
+  const rows = [{ referral: 'glasses', visitId: 2 }, { referral: 'gone', visitId: 3 }, { referral: 'glasses', visitId: 1 }];
+  expect(groupPartnerNgoReferrals(rows, options).map(t => [t.id, t.label, t.listed, t.patients.map(p => p.visitId)])).toEqual([
+    ['cataract_surgery', 'Cataract surgery', true, []],
+    ['glasses', 'Glasses', true, [2, 1]],
+    ['gone', 'gone', false, [3]],
+  ]);
 });

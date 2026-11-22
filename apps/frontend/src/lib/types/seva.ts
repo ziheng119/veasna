@@ -10,6 +10,6 @@ export interface Seva {
     rightWithGlassesNew: string;
     diagnosis: string;
     dateOfReferral: string; // "YYYY-MM-DD" format
-    referral: SevaReferral | "";  // "" = no referral
+    referral: SevaReferral;  // an id on the seva_referrals list; "" = no referral
     notes?: string;
 }

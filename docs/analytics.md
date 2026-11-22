@@ -33,7 +33,12 @@ reporting on a trip afterwards.
   dates. This needs the **Print and download** permission too. See
   [printing saved referrals](consultation-referrals.md#printing-saved-referrals).
 - **Section links** under the filters jump to Summary, Follow-up, Trends, Conditions,
-  Referrals and Clinic operations, and show which one you are reading.
+  Referrals, Partner NGO and Clinic operations, and show which one you are reading.
+- **Partner NGO referrals** lists the patients the Partner NGO station marked as
+  **Referral needed** in the period, one table per referral type, with the referral date,
+  visit date, names, markers, sex, date of birth, phone and diagnosis. It is the station's
+  **Referral list** pop-up for the chosen period; the types are edited on
+  [Station data](station-data.md).
 - **Referral lists:** under **Patients by referral destination**, each destination shows
   how many patients were referred there, as a bar. Pick one to list its patients,
   numbered in the order they were seen: name (English and Khmer), TB, family and sticker
@@ -103,10 +108,15 @@ These need new or checked data before they can be shown:
   `GET /api/analytics/referrals?date=YYYY-MM-DD&period=...`
   returns `{ destinations: [{ label, listed, patients: [...] }] }`, the referral lists with
   patient details and queue markers (`stickerColour`, `family`, `tbStatus`).
+  `GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...` returns `{ types: [{ id, label,
+  listed, patients: [...] }], more }`: every type on the `seva_referrals` list, then saved
+  types no longer on it, each with its patients (newest visit first, at most 500 in all;
+  `more` says the list was cut short). Each patient has `referral`, `referralDate`,
+  `diagnosis`, visit and patient details, and the queue markers.
   `GET /api/analytics/follow-up?date=YYYY-MM-DD&period=...` returns `notDischarged` (with
   each visit's `station`) and `unsignedReferrals` (with `destinations`), at most 200 of each
   (`notDischargedMore` / `unsignedReferralsMore` say a list was cut short).
-  The referral and follow-up lists contain patient names; like the rest of Analytics they
+  The referral, Partner NGO and follow-up lists contain patient names; like the rest of Analytics they
   need the `analytics` permission. A `location_id` sent by an older app is ignored.
 - All require a signed-in, active account, check their filters, and are never cached.
 - Each total is counted in its own query, so joining several station records never

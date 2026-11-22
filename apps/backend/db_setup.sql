@@ -253,8 +253,7 @@ CREATE TABLE seva (
     right_with_glasses_new VARCHAR(15), -- with the patient's own glasses; NULL if not taken
     diagnosis TEXT NOT NULL,
     date_of_referral DATE,
-    referral VARCHAR(30)                               -- NULL = no referral
-        CHECK (referral IN ('cataract_surgery', 'seva_general')),
+    referral VARCHAR(40),                              -- id on the seva_referrals form list; NULL = no referral
     notes TEXT DEFAULT '',
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,

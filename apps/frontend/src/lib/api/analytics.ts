@@ -130,3 +130,44 @@ export interface AnalyticsFollowUp {
 export function getAnalyticsFollowUp(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsFollowUp> {
   return request("/follow-up", { date, period }, token, signal, "Unable to load the follow-up lists. Please try again.");
 }
+
+/** A patient the Partner NGO station marked for referral: one visit. */
+export interface PartnerNgoReferral {
+  visitId: number;
+  patientId: number;
+  queueNo: string;
+  visitDate: string;
+  // The id on the seva_referrals list; referralDate is the date set on the form (null if none).
+  referral: string;
+  referralDate: string | null;
+  diagnosis: string | null;
+  englishName: string | null;
+  khmerName: string | null;
+  sex: string | null;
+  dateOfBirth: string | null;
+  phone: string | null;
+  stickerColour?: string | null;
+  family?: string | null;
+  tbStatus?: string | null;
+}
+
+/** Patients of one referral type. `listed` is false for a type no longer on the Station data list. */
+export interface PartnerNgoReferralType {
+  id: string;
+  label: string;
+  listed: boolean;
+  patients: PartnerNgoReferral[];
+}
+
+export interface AnalyticsPartnerNgo {
+  period: AnalyticsPeriod;
+  date: string;
+  generatedAt: string;
+  types: PartnerNgoReferralType[];
+  // True when the list was cut short (over 500 patients).
+  more: boolean;
+}
+
+export function getAnalyticsPartnerNgo(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsPartnerNgo> {
+  return request("/partner-ngo", { date, period }, token, signal, "Unable to load the Partner NGO referrals. Please try again.");
+}

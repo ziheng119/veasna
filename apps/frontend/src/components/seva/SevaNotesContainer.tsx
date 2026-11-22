@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SEVA_REFERRALS, SevaReferral } from "@/constants/sevaReferral";
+import { SevaReferral, sevaReferralChoices } from "@/constants/sevaReferral";
+import { useFormOptions } from "@/stores/useFormOptionsStore";
 import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { useRecordLoad } from "@/hooks/useRecordLoad";
 
@@ -45,7 +46,7 @@ function sevaFormValues(data: Seva | null) {
     readings: Object.fromEntries(EYE_READING_FIELDS.map((field) => [field, data?.[sevaKey(field)] ?? ""])) as EyeReadings,
     diagnosis: data?.diagnosis ?? "",
     dateOfReferral: data?.dateOfReferral ? formatDate(data.dateOfReferral) : "",
-    referral: (data?.referral ?? "") as SevaReferral | "",
+    referral: (data?.referral ?? "") as SevaReferral,
     additionalNotes: data?.notes ?? "",
   };
 }
@@ -55,7 +56,9 @@ export default function SevaNotesContainer({ patient }: Props) {
   const [readings, setReadings] = useState<EyeReadings>(EMPTY_EYE_READINGS);
   const [diagnosis, setDiagnosis] = useState<string>("");
   const [dateOfReferral, setDateOfReferral] = useState<string>("");
-  const [referral, setReferral] = useState<SevaReferral | "">("");
+  const [referral, setReferral] = useState<SevaReferral>("");
+  // Editable on the Station data page; a type saved on this visit stays a choice if since removed.
+  const referralOptions = sevaReferralChoices(useFormOptions("seva_referrals"), referral);
   const [additionalNotes, setAdditionalNotes] = useState<string>("");
 
   const load = useCallback(() => getSeva(patient.visit_id), [patient.visit_id]);
@@ -149,7 +152,7 @@ export default function SevaNotesContainer({ patient }: Props) {
           <Select
             value={referral || NO_REFERRAL}
             onValueChange={(value) =>
-              setReferral(value === NO_REFERRAL ? "" : (value as SevaReferral))
+              setReferral(value === NO_REFERRAL ? "" : value)
             }
           >
             <SelectTrigger className="w-full">
@@ -161,7 +164,7 @@ export default function SevaNotesContainer({ patient }: Props) {
               className="bg-popover border-border"
             >
               <SelectItem value={NO_REFERRAL}>No referral</SelectItem>
-              {SEVA_REFERRALS.map((option) => (
+              {referralOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   {option.label}
                 </SelectItem>

@@ -13,6 +13,7 @@ export const DEFAULT_FORM_OPTIONS: Record<FormOptionKey, FormOption[]> = {
   referral_doctors: defaults.referral_doctors,
   consultation_conditions: conditions,
   sticker_colours: defaults.sticker_colours,
+  seva_referrals: defaults.seva_referrals,
 };
 
 const builtIn = (items: FormOption[]): FormOptionList => ({ items, customized: false, last_updated_at: null, last_updated_by: null });
@@ -33,6 +34,7 @@ export const useFormOptionsStore = create<FormOptionsState>()((set) => ({
     referral_doctors: builtIn(DEFAULT_FORM_OPTIONS.referral_doctors),
     consultation_conditions: builtIn(DEFAULT_FORM_OPTIONS.consultation_conditions),
     sticker_colours: builtIn(DEFAULT_FORM_OPTIONS.sticker_colours),
+    seva_referrals: builtIn(DEFAULT_FORM_OPTIONS.seva_referrals),
   },
   loaded: false,
   load: async () => {

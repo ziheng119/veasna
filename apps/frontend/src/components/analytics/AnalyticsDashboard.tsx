@@ -22,6 +22,7 @@ import { BarList, DonutChart } from "./charts";
 import TrendSection from "./TrendSection";
 import ReferralListsSection from "./ReferralListsSection";
 import FollowUpSection from "./FollowUpSection";
+import PartnerNgoSection from "./PartnerNgoSection";
 import { buildAnalyticsCsv, downloadFile } from "./exportCsv";
 import { analyticsReportDocumentHtml } from "./analyticsReportDocument";
 import { daysCovered, periodRangeText, readableDate } from "./dates";
@@ -45,6 +46,7 @@ const SECTIONS = [
   { id: "trends", label: "Trends" },
   { id: "conditions", label: "Conditions" },
   { id: "referrals", label: "Referrals" },
+  { id: "partner-ngo", label: "Partner NGO" },
   { id: "operations", label: "Clinic operations" },
 ];
 
@@ -449,6 +451,8 @@ export default function AnalyticsDashboard() {
 
       {token && <ReferralListsSection id="referrals" icon={Send}
         date={date} period={period} dateRange={range} token={token} refresh={refresh} delay={225} />}
+
+      {token && <PartnerNgoSection id="partner-ngo" date={date} period={period} token={token} refresh={refresh} delay={250} />}
 
       <section id="operations" aria-label="Clinic operations" className={cn(SECTION_SCROLL, "grid gap-5 lg:grid-cols-2")}>
         <h2 className="sr-only">Clinic operations</h2>

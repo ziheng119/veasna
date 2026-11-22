@@ -145,6 +145,7 @@ const SCHEMA_STEPS = [
   schema.ensureAccountPermissions,
   schema.ensureNssf,
   schema.ensureTbObserved,
+  schema.ensureEditableSevaReferrals,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.
