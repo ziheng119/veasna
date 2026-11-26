@@ -5,8 +5,8 @@ import { clearQueueCache } from "./getQueue";
 import { apiFetch, readError } from "@/lib/api/request";
 
 // Finishes a station and moves the visit to its next indicated station (next_station is null when
-// that was the last one and the visit is finished). A family member instead waits for the rest of
-// the family at this station (held), and the last one done takes them all on (family_moved).
+// that was the last one and the visit is finished). Family members waiting at this station go on
+// with the patient (family_moved).
 export async function completeStation(
   visitId: number,
   station: StationId,
@@ -30,12 +30,13 @@ export async function completeStation(
 
 // With a snapshot, saves the explicit route and permits revisits. Without one,
 // preserves legacy callers: completed stations stay completed and pending order is retained.
+// Resolves to the family members sent along with the patient (StationMove.family_moved).
 export async function updateVisitStations(
   visitId: number,
   stations: StationId[],
   token: string,
   expectedStations?: { station: StationId; completed: boolean }[]
-): Promise<void> {
+): Promise<StationMove["family_moved"]> {
   const res = await apiFetch(`${backend_url}/api/queue/${visitId}/stations`, {
     method: "PUT",
     headers: {
@@ -50,6 +51,7 @@ export async function updateVisitStations(
   }
 
   clearQueueCache();
+  return (await res.json()).family_moved ?? [];
 }
 
 // Adds one station to the visit's remaining route in clinic order, or takes it off: the partner NGO

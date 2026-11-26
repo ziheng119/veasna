@@ -10,7 +10,7 @@ const { currentVisitDate, getNextQueueNo } = require('../utils/queueNumber');
 const { STATIONS } = require('../utils/stations');
 const { planStationRoute, setStationNeeded } = require('../utils/stationRoute');
 const { isTbVisit, TB_ROUTE_LOCKED_ERROR } = require('../utils/tb');
-const { lockFamilies, visitExists, advanceVisit, releaseFamily } = require('../utils/familyMoves');
+const { lockFamilies, visitExists, advanceVisit, releaseFamily, moveFamilyAlong, tbFamilyHold } = require('../utils/familyMoves');
 
 // GET /api/queue?date=...[&station=...]
 // Without station: every visit still in the clinic. With station: only the visits currently
@@ -116,9 +116,9 @@ router.get('/next', authenticateToken, requireRole(['any']), async (req, res) =>
 
 // POST /api/queue/:visitId/stations/:station/complete - Finish a station and move the visit
 // to its next indicated station. Finishing the last station completes the visit.
-// A family member waits at the station until every member of the family there is done; then they
-// all move on together (utils/familyMoves.js). Returns { visit_id, completed_station, next_station,
-// held, waiting_for, family_moved }: held is true while waiting, waiting_for lists who is not done.
+// Family members waiting at the same station move on with the patient, to the same next station
+// (utils/familyMoves.js). Returns { visit_id, completed_station, next_station, held, waiting_for,
+// family_moved }; held (always false) and waiting_for (always empty) are kept for older clients.
 router.post('/:visitId/stations/:station/complete', authenticateToken, requireRole(['any']), async (req, res) => {
     const visitId = Number(req.params.visitId);
     const { station } = req.params;
@@ -166,31 +166,16 @@ router.post('/:visitId/stations/:station/complete', authenticateToken, requireRo
             await client.query('ROLLBACK');
             return res.status(409).json({ error: 'Patient is no longer waiting at this station. Refresh the queue.' });
         }
-
-        const { family } = visit.rows[0];
-        let body;
-        if (!family) {
-            const next = await advanceVisit(client, visitId, last_updated_by);
-            body = { visit_id: visitId, completed_station: station, next_station: next, held: false, waiting_for: [], family_moved: [] };
-        } else {
-            await client.query(
-                'UPDATE visit_stations SET family_ready_at = NOW(), last_updated_by = $1, last_updated_at = NOW() WHERE id = $2',
-                [last_updated_by, pending.rows[0].id]
-            );
-            const { moved, members } = await releaseFamily(client, visit.rows[0], family, last_updated_by);
-            const mine = moved.find((member) => member.visit_id === visitId);
-            const waitingFor = mine ? [] : members
-                .filter((member) => member.station === station && !member.ready)
-                .map(({ visit_id, queue_no, english_name }) => ({ visit_id, queue_no, english_name }));
-            body = {
-                visit_id: visitId,
-                completed_station: station,
-                next_station: mine ? mine.next_station : null,
-                held: !mine,
-                waiting_for: waitingFor,
-                family_moved: moved.filter((member) => member.visit_id !== visitId),
-            };
+        const hold = await tbFamilyHold(client, visitId);
+        if (hold) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: hold });
         }
+
+        // The family members waiting here go on with this patient (utils/familyMoves.js).
+        const next = await advanceVisit(client, visitId, last_updated_by);
+        const familyMoved = await moveFamilyAlong(client, visitId, { from: station, to: next, leave: 'finish' }, last_updated_by);
+        const body = { visit_id: visitId, completed_station: station, next_station: next, held: false, waiting_for: [], family_moved: familyMoved };
 
         await client.query('COMMIT');
         res.status(200).json(body);
@@ -236,6 +221,11 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
             await client.query('ROLLBACK');
             return res.status(409).json({ error: TB_ROUTE_LOCKED_ERROR });
         }
+        const hold = await tbFamilyHold(client, visitId);
+        if (hold) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: hold });
+        }
         const existing = await client.query('SELECT * FROM visit_stations WHERE visit_id = $1 ORDER BY position, id', [visitId]);
         const plan = planStationRoute(existing.rows, req.body);
         if (plan.error) {
@@ -271,10 +261,14 @@ router.put('/:visitId/stations', authenticateToken, requireRole(['any']), async 
             );
         }
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, userId]);
-        // Sending a family member elsewhere may leave the rest of the family at the old station all done.
+        // The family members waiting at the old station are sent along with the patient.
+        const familyMoved = previousCurrent && wanted[0] !== previousCurrent
+            ? await moveFamilyAlong(client, visitId, { from: previousCurrent, to: wanted[0], leave: wanted.includes(previousCurrent) ? 'keep' : 'drop' }, userId)
+            : [];
+        // Members of older visits who were waiting for this patient at the old station move on.
         await releaseFamily(client, visit.rows[0], visit.rows[0].family, userId);
         await client.query('COMMIT');
-        res.status(200).json({ visit_id: visitId, current_station: wanted[0], stations: [...existing.rows.filter(row => row.completed_at && !wanted.includes(row.station)).map(row => row.station), ...wanted], reopened_stations: reopened });
+        res.status(200).json({ visit_id: visitId, family_moved: familyMoved, current_station: wanted[0], stations: [...existing.rows.filter(row => row.completed_at && !wanted.includes(row.station)).map(row => row.station), ...wanted], reopened_stations: reopened });
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error updating visit stations:', err);

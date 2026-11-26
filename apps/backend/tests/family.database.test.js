@@ -178,68 +178,73 @@ const DAY = '2026-11-05';
   describe('moving together', () => {
     beforeEach(async () => { await join(2, 1); });
 
-    test('a member who is done waits for the rest of the family at the station; then they all move on', async () => {
-      const first = await done(3, 'triage');
-      expect(first.status).toBe(200);
-      expect(first.body).toMatchObject({ held: true, next_station: null, waiting_for: [{ visit_id: 4, queue_no: '4', english_name: 'Father Tan' }] });
-      expect(await stations()).toMatchObject({ 3: 'triage', 4: 'triage' });
-      // The queue shows who is waiting for family; others are not held (6 has no family).
-      const queue = await auth(request(app).get('/api/queue').query({ date: DAY, station: 'triage' }));
-      expect(queue.body.filter(p => p.family_waiting).map(p => p.visit_id)).toEqual([3]);
-      expect(queue.body.find(p => p.visit_id === 4)).toMatchObject({ family: 'A', family_waiting: false });
-      expect((await done(6, 'triage')).body).toMatchObject({ held: false, next_station: 'consultation' });
-
-      const second = await done(4, 'triage');
-      expect(second.body).toMatchObject({ held: false, next_station: 'consultation',
-        family_moved: [{ visit_id: 3, completed_station: 'triage', next_station: 'consultation' }] });
-      expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation', 6: 'consultation' });
-      // Done again at Consult: the wait starts afresh there.
-      expect((await done(4, 'consultation')).body.held).toBe(true);
+    test('finishing a member takes the family members at the same station with them', async () => {
+      const res = await done(3, 'triage');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ held: false, next_station: 'consultation',
+        family_moved: [{ visit_id: 4, queue_no: '4', next_station: 'consultation' }] });
+      // Sok (visit 6) has no family and stays.
+      expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation', 6: 'triage' });
+      const { rows } = await client.query("SELECT completed_at IS NOT NULL AS done FROM visit_stations WHERE visit_id = 4 AND station = 'triage'");
+      expect(rows[0].done).toBe(true);
+      // Finishing the last station finishes the family's visits too.
+      await done(4, 'consultation');
+      expect(await stations()).toMatchObject({ 3: 'finished', 4: 'finished' });
     });
 
-    test('a member at another station, or on another day, does not hold the family', async () => {
+    test('a member at another station, or on another day, stays where they are', async () => {
       await join(3, 1);
       await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 5 AND station = 'triage'");
       await client.query(`INSERT INTO visits (id, patient_id, queue_no, visit_date, last_updated_by) VALUES (9, 2, '1', '2026-11-04', 1);
         INSERT INTO visit_stations (visit_id, station, position, entered_at, last_updated_by) VALUES (9, 'triage', 1, NOW(), 1);`);
-      await done(3, 'triage');
-      expect((await done(4, 'triage')).body.family_moved.map(m => m.visit_id)).toEqual([3]);
+      await client.query("UPDATE visit_stations SET completed_at = NOW() WHERE visit_id = 9");
+      expect((await done(3, 'triage')).body.family_moved.map(m => m.visit_id)).toEqual([4]);
     });
 
-    test('leaving, being discharged or being sent elsewhere lets the waiting members go', async () => {
-      await done(3, 'triage'); // 1 waits for 2
-      await join(4, 1); // Sok (visit 6) joins: A is 1, 2, 4
-      await leave(2);
-      expect(await stations()).toMatchObject({ 3: 'triage', 4: 'triage' }); // still waits for Sok
-
-      await post('/api/queue/6/complete', {});
-      expect(await stations()).toMatchObject({ 3: 'consultation', 6: 'finished' });
-
-      await join(3, 1); // the child joins A (1 at Consult, 3 at Triage)
-      await join(2, 3); // and the father: 2 and 3 wait at Triage
-      await done(5, 'triage'); // the child waits for the father
-      await auth(request(app).put('/api/queue/4/stations')).send({ stations: ['consultation'] });
-      expect(await stations()).toMatchObject({ 4: 'consultation', 5: 'consultation' });
+    test('Send to sends the family members at the same station to the same station', async () => {
+      const res = await auth(request(app).put('/api/queue/4/stations')).send({
+        stations: ['consultation'], ordered: true,
+        expected_stations: [{ station: 'triage', completed: false }, { station: 'consultation', completed: false }],
+      });
+      expect(res.body.family_moved).toEqual([{ visit_id: 3, queue_no: '3', next_station: 'consultation' }]);
+      expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation', 6: 'triage' });
+      // Triage was taken off the patient's route, so off the family member's too.
+      const { rows } = await client.query("SELECT 1 FROM visit_stations WHERE visit_id = 3 AND station = 'triage'");
+      expect(rows).toHaveLength(0);
     });
 
-    test('a member flagged for TB goes to Consult alone; those waiting for them move on', async () => {
-      await done(3, 'triage'); // 1 waits for 2
+    test('a member flagged for TB takes the family in the queue straight to Consult', async () => {
+      await join(3, 1);
       const flag = await post('/api/tb/4/flag', { flagged: true, red_flags: ['cough_2_weeks', 'fever', 'night_sweats'] });
       expect(flag.body.current_station).toBe('consultation');
+      expect(flag.body.family_moved.map(m => m.visit_id).sort()).toEqual([3, 5]);
+      expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation', 5: 'consultation', 6: 'triage' });
+      // The others keep Triage, unfinished, for after Consult.
+      const { rows } = await client.query("SELECT completed_at FROM visit_stations WHERE visit_id = 3 AND station = 'triage'");
+      expect(rows[0].completed_at).toBeNull();
+    });
+
+    test('the family stays at Consult with a member flagged for TB until the flag is cleared', async () => {
+      await post('/api/tb/4/flag', { flagged: true, red_flags: ['cough_2_weeks', 'fever', 'night_sweats'] });
+      const refused = await done(3, 'consultation');
+      expect(refused.status).toBe(409);
+      expect(refused.body.error).toMatch(/4 Father Tan is flagged/);
+      const sent = await auth(request(app).put('/api/queue/3/stations')).send({
+        stations: ['triage'], ordered: true,
+        expected_stations: [{ station: 'consultation', completed: false }, { station: 'triage', completed: false }],
+      });
+      expect(sent.status).toBe(409);
       expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'consultation' });
+
+      // Cleared, the family leaves Consult together: finishing either takes the other along.
+      expect((await post('/api/tb/4/flag', { flagged: false })).status).toBe(200);
+      const res = await done(3, 'consultation');
+      expect(res.body).toMatchObject({ next_station: 'triage', family_moved: [{ visit_id: 4, next_station: null }] });
+      expect(await stations()).toMatchObject({ 3: 'triage', 4: 'finished' });
     });
 
-    test('deleting a patient dissolves a family left with one member, and lets them move on', async () => {
-      await done(3, 'triage'); // 1 waits for 2
-      const res = await request(app).delete('/api/registration/2').set('Authorization', `Bearer ${jwt.sign({ id: USER_ID, role: 'admin' }, secret)}`);
-      expect(res.status).toBe(200);
-      expect(await families()).toEqual({ 1: null, 3: null, 4: null, 5: null, 6: null });
-      expect(await stations()).toMatchObject({ 3: 'consultation' });
-      expect((await request(app).delete('/api/registration/2').set('Authorization', `Bearer ${jwt.sign({ id: USER_ID, role: 'admin' }, secret)}`)).status).toBe(404);
-    });
-
-    test('a member waiting for family whose family is dissolved moves on', async () => {
-      await done(3, 'triage'); // 1 waits for 2
+    test('a member waiting for family from an older visit moves on when the family is dissolved', async () => {
+      await client.query("UPDATE visit_stations SET family_ready_at = NOW() WHERE visit_id = 3 AND station = 'triage'");
       await leave(2); // A had two members: dissolved
       expect(await families()).toMatchObject({ 1: null, 2: null });
       expect(await stations()).toMatchObject({ 3: 'consultation', 4: 'triage' });

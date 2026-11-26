@@ -47,8 +47,8 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
     if (!patient || !token || remaining.length === 0 || !isDirty) return;
     try {
       setIsSaving(true);
-      await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
-      toast.success("Stations updated.");
+      const family = await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
+      toast.success(family.length ? `Stations updated, with family ${family.map((member) => member.queue_no).join(", ")}.` : "Stations updated.");
       onSaved();
       onClose();
     } catch (error) {

@@ -1,7 +1,7 @@
 const { updateVisitStations } = require('../src/lib/api/queue/stations');
 test('ordered saves include the original snapshot and preserve caller order', async () => {
   const original = global.fetch;
-  global.fetch = jest.fn().mockResolvedValue({ ok: true });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ family_moved: [] }) });
   try {
     const snapshot = [{ station: 'triage', completed: true }, { station: 'seva', completed: false }];
     await updateVisitStations(7, ['seva', 'triage'], 'token', snapshot);

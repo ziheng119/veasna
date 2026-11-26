@@ -102,22 +102,28 @@ A patient is **done** at a station once everything needed there is saved:
 ### Families move together
 
 Members of a family (see [queue numbers and families](queue-ordering.md#queue-numbers-and-families))
-waiting at the same station move on together:
+waiting at the same station move on together, as a unit:
 
-- When a family member is done (**Next**, **Save & next** or **Send to next station**)
-  while others in the family are still waiting at that station, they stay in the queue
-  with an amber **Waiting for family** and the toast names who is still to be seen.
-  **Save & next** opens the next patient still to be seen, usually the next family
-  member, since families sit together.
-- When the last of them is done, the whole family there moves on at once, each to
-  their own next station (or finishing their visit).
-- A family member at another station, or not in the clinic that day, doesn't hold
-  anyone up.
-- Removing a member from the family, discharging them, sending them elsewhere with
-  **Send to**, flagging them for suspected TB (which sends them to Consult) or deleting
-  the patient lets the others who were waiting for them move on. Deleting a member of a
-  two-person family also takes the other's family letter off. A patient waiting for
-  family who is removed from it moves on straight away.
+- When one of them is finished (**Next**, **Save & next** or **Send to next station**),
+  the others waiting at that station are finished there too and go with them to the
+  same next station. If that is a station only the doctor adds (Physiotherapy,
+  Pharmacy) and a member doesn't have it, that member goes to their own next station.
+  When the patient has finished all stations, the others move on to their own next one.
+- **Send to** sends the others waiting at that station to the same station; the
+  station they leave is kept for later or taken off, as it was for the patient.
+- Flagging a member for suspected TB sends them to Consult and takes every family
+  member in that day's queue straight to Consult with them. Their unfinished stations
+  are kept for after Consult. While the flagged member waits at Consult, the family
+  there can't be finished or sent on from Consult (the app says who they are waiting
+  for). Once the doctor clears the flag, finishing any of them takes the whole family
+  on together; the cleared patient follows their own route (Pharmacy if prescribed).
+- A family member at another station, a member flagged for TB (whose route is fixed),
+  or one not in the clinic that day, isn't moved.
+- Any account that may edit today's queue can group families, on Registration and in
+  each station queue.
+- Visits from before this change may still show **Waiting for family**; removing a
+  member, discharging, sending them elsewhere or deleting the patient lets those
+  waiting move on.
 
 While a patient is in the clinic, anyone signed in (user or admin) can send them to
 the next station, change which stations they still go to and in what order, or

@@ -69,7 +69,7 @@ test('every assignable role may change saved records; unknown roles may not', ()
  for (const role of [...ROLES, 'triage']) expect(canEditSavedRecords(role)).toBe(true);
  for (const role of ['invalid', undefined, '']) expect(canEditSavedRecords(role)).toBe(false);
 });
-test.each(['/visits','/registration','/patients','/triage/history','/visits/consultation/1','/visits/dental/1','/visits/referral/1','/tb/1/flag','/prescriptions','/family','/family/leave'])('saving patient records needs "edit today\'s queue": POST %s', path => {
+test.each(['/visits','/registration','/patients','/triage/history','/visits/consultation/1','/visits/dental/1','/visits/referral/1','/tb/1/flag','/prescriptions','/family','/family/group','/family/leave'])('saving patient records needs "edit today\'s queue": POST %s', path => {
  expect(user('POST', path)).toBe(true);
  expect(user('POST', path, ['view_today'])).toBe(false);
  expect(missingPermission('user', ['view_today'], 'POST', path)).toBe('edit_today');
