@@ -52,7 +52,7 @@ const inRange = (value: number, min: number, max: number) => Number.isFinite(val
 const FIELD_FOCUS: Record<string, string> = {
   english_name: "#englishName", sex: "#sex", height: "#height", weight: "#weight", bmi: "#height",
   bp_systolic: "#systolic", bp_diastolic: "#diastolic", temperature: "#temperature",
-  know_of_hef: "#knows-yes", has_hef: "#has-yes", has_nssf: "#nssf-yes", uses_hef_nssf: "#uses-yes",
+  know_of_hef: "#knows-yes", has_hef: "#has-yes", has_nssf: "#nssf-yes",
 };
 
 // A Yes/No or checkbox option: the label fills a row at least 40px tall, so the whole row is
@@ -94,7 +94,6 @@ type FormErrors = {
     know_of_hef?: string;
     has_hef?: string;
     has_nssf?: string;
-    uses_hef_nssf?: string;
 };
 
 const emptyPatientInfo: PatientFormData = {
@@ -120,7 +119,7 @@ const emptyVitals: Vitals = {
     notes: ""
 };
 
-const emptyHef: HEF = { know_of_hef: "", has_hef: "", has_nssf: "", uses_hef_nssf: "", notes: "" };
+const emptyHef: HEF = { know_of_hef: "", has_hef: "", has_nssf: "", notes: "" };
 
 const MAX_SUGGESTIONS = 8;
 const MAX_AGE = 130;
@@ -285,7 +284,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     const TAB_FIELDS: Record<string, (keyof FormErrors)[]> = {
       "patient-info": ["english_name", "sex"],
       vitals: ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"],
-      hef: ["know_of_hef", "has_hef", "has_nssf", "uses_hef_nssf"],
+      hef: ["know_of_hef", "has_hef", "has_nssf"],
     };
     const tabHasErrors = (tab: string) => TAB_FIELDS[tab].some((field) => errors[field]);
 
@@ -313,7 +312,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       if (!hef.know_of_hef) nextErrors.know_of_hef = "Please select Yes or No.";
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
       if (!hef.has_nssf) nextErrors.has_nssf = "Please select Yes or No.";
-      if (!hef.uses_hef_nssf) nextErrors.uses_hef_nssf = "Please select Yes or No.";
       return nextErrors;
     };
 
@@ -949,31 +947,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                   </div>
 
                   <div>
-                    <Label className="block mb-2">Does patient use HEF/NSSF? *</Label>
-                    <RadioGroup
-                      value={hef.uses_hef_nssf}
-                      aria-invalid={!!errors.uses_hef_nssf}
-                      aria-describedby={errors.uses_hef_nssf ? errorId("uses_hef_nssf") : undefined}
-                      onValueChange={(value) => {
-                        setHEF(prev => ({ ...prev, uses_hef_nssf: value as "yes" | "no" }));
-                        clearFieldError("uses_hef_nssf");
-                      }}
-                      className="flex gap-6"
-                    >
-                      <div className={OPTION_ROW}>
-                        <RadioGroupItem value="yes" id="uses-yes" className="text-primary bg-background" />
-                        <Label htmlFor="uses-yes" className={OPTION_LABEL}>Yes</Label>
-                      </div>
-                      <div className={OPTION_ROW}>
-                        <RadioGroupItem value="no" id="uses-no" className="text-primary bg-background" />
-                        <Label htmlFor="uses-no" className={OPTION_LABEL}>No</Label>
-                      </div>
-                    </RadioGroup>
-                    <FieldError field="uses_hef_nssf" message={errors.uses_hef_nssf} className="mt-2" />
-                  </div>
-    
-                  <div>
-                    <Label htmlFor="hefReason" className="block mb-3">Why or why not?</Label>
+                    <Label htmlFor="hefReason" className="block mb-3">Does patient use HEF/NSSF? Why or why not?</Label>
                     <Textarea
                       id="hefReason"
                       value={hef.notes}
