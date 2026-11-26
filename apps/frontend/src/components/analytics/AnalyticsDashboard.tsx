@@ -252,7 +252,7 @@ export default function AnalyticsDashboard() {
         { value: shown.summary.dischargedVisits, className: "bg-success" },
         { value: shown.summary.visits - shown.summary.dischargedVisits, className: live ? "bg-warning" : "bg-muted-foreground/40" }] },
       info: live ? "Visits marked discharged from the queue. The rest are still in the clinic today."
-        : "Visits marked discharged from the queue. On a past date, the rest were left open rather than still waiting." },
+        : "Visits discharged from the queue, including those discharged automatically when their day ended." },
   ] : [];
   const reviewed = shown?.summary.conditionReviewedVisits ?? 0;
   const consulted = shown?.summary.consultedVisits ?? 0;

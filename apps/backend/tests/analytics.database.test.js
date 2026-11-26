@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const { Client } = require('pg');
 jest.mock('../config/db', () => ({ query: jest.fn() }));
+// The fixtures' day is in the past; the sweep itself is tested in autoDischarge.database.test.js.
+jest.mock('../utils/autoDischarge', () => ({ dischargePastVisits: jest.fn().mockResolvedValue(0) }));
 const db = require('../config/db');
 
 (process.env.RUN_DB_TESTS === '1' ? describe : describe.skip)('Clinic analytics', () => {

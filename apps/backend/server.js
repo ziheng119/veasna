@@ -12,6 +12,7 @@ const db = require('./config/db');
 const { parseOrigins, createOriginCheck, lanAddresses } = require('./config/network');
 const { startMdns } = require('./config/mdns');
 const { backupStatus, scheduleBackups } = require('./utils/backup');
+const { scheduleAutoDischarge } = require('./utils/autoDischarge');
 const { attachRealtime, notifyListChanges } = require('./realtime');
 
 const app = express();
@@ -147,6 +148,7 @@ const SCHEMA_STEPS = [
   schema.ensureTbObserved,
   schema.ensureEditableSevaReferrals,
   schema.ensureReferOptician,
+  schema.ensureAutoDischarge,
 ];
 
 // A standalone host may start this service before PostgreSQL is accepting connections.
@@ -175,6 +177,7 @@ async function start() {
     }
     // The clinic host (npm start) keeps regular copies of the database; development doesn't.
     if (loadedEnv.mode === 'production') scheduleBackups();
+    scheduleAutoDischarge();
   } else {
     // Still listen, so clients get a clear 503 from /health instead of connection refused.
     console.error('Database unreachable; starting without schema checks. Restart once PostgreSQL is running.');

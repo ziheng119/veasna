@@ -336,7 +336,19 @@ function ensureReferOptician() {
   return referOpticianPromise;
 }
 
+// visits.auto_discharged: visits left open when their day ended (utils/autoDischarge.js).
+let autoDischargePromise;
+function ensureAutoDischarge() {
+  if (!autoDischargePromise) {
+    autoDischargePromise = ensureVisitsCompleted()
+      .then(() => runMigration('033_auto_discharge.sql'))
+      .catch(err => { autoDischargePromise = null; throw err; });
+  }
+  return autoDischargePromise;
+}
+
 module.exports = {
+  ensureAutoDischarge,
   ensureReferOptician,
   ensureEditableSevaReferrals,
   ensureTbObserved,

@@ -103,6 +103,8 @@ CREATE TABLE visits (
     -- One-off id the registering device sent, so a registration sent twice is saved once.
     request_id VARCHAR(64),
     completed_at TIMESTAMP NULL,
+    -- TRUE when the host discharged it because its day had ended (utils/autoDischarge.js).
+    auto_discharged BOOLEAN NOT NULL DEFAULT FALSE,
     last_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_updated_by INT NOT NULL REFERENCES users(id) ON UPDATE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()

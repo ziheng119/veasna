@@ -39,7 +39,7 @@ type VitalsDraft = {
   bp_systolic: string; bp_diastolic: string; temperature: string; notes: string;
 };
 // The NSSF answers are "yes", "no" or "" (not asked).
-type HefDraft = { know_of_hef: boolean; has_hef: boolean; has_nssf: YesNo; uses_hef_nssf: YesNo; notes: string };
+type HefDraft = { know_of_hef: boolean; has_hef: boolean; has_nssf: YesNo; notes: string };
 type YesNo = "yes" | "no" | "";
 const YES_NO_OPTIONS = [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] as const;
 const yesNo = (value: boolean | null | undefined): YesNo => (value == null ? "" : value ? "yes" : "no");
@@ -86,8 +86,7 @@ const HEF_FIELDS: FieldSpec<HefDraft>[] = [
   { key: "know_of_hef", label: "Knows of HEF", kind: "boolean" },
   { key: "has_hef", label: "Has HEF", kind: "boolean" },
   { key: "has_nssf", label: "Has NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
-  { key: "uses_hef_nssf", label: "Uses HEF/NSSF", kind: "select", options: YES_NO_OPTIONS, allowBlank: "Not asked" },
-  { key: "notes", label: "Notes", kind: "textarea", wide: true },
+  { key: "notes", label: "Does patient use HEF/NSSF? Why or why not?", kind: "textarea", wide: true },
 ];
 const ACUITY_FIELDS: FieldSpec<AcuityDraft>[] = [
   { key: "left_without_pinhole", label: "Left (without pinhole)", kind: "snellen" },
@@ -291,7 +290,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient, open
       } as VitalsDraft),
       hef: hef && ({
         know_of_hef: hef.know_of_hef, has_hef: hef.has_hef, has_nssf: yesNo(hef.has_nssf),
-        uses_hef_nssf: yesNo(hef.uses_hef_nssf), notes: text(hef.notes),
+        notes: text(hef.notes),
       } as HefDraft),
       tb: tb && ({ status: tb.status, red_flags: tb.red_flags, flag_notes: text(tb.flag_notes), doctor_notes: text(tb.doctor_notes) } as TbDraft),
       acuity: va && ({
@@ -440,9 +439,9 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient, open
           record={drafts.hef}
           fields={HEF_FIELDS}
           canEdit={canEdit}
-          emptyDraft={{ know_of_hef: false, has_hef: false, has_nssf: "", uses_hef_nssf: "", notes: "" }}
+          emptyDraft={{ know_of_hef: false, has_hef: false, has_nssf: "", notes: "" }}
           onSave={saved((d: HefDraft) => updateVisitVitals(visitId, {
-            hef: { ...d, has_nssf: fromYesNo(d.has_nssf), uses_hef_nssf: fromYesNo(d.uses_hef_nssf) },
+            hef: { ...d, has_nssf: fromYesNo(d.has_nssf) },
           }))}
         />
       </StationPanel>

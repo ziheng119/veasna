@@ -166,6 +166,8 @@ Preview of the next queue number today: `{ "queue_no": "7" }`. Numbers are seque
 **POST** `queue/{visitId}/complete`
 Discharge: remove a visit from every queue regardless of remaining stations. Sets `completed_at` and `last_updated_by` / `last_updated_at`. The visit record is kept. Idempotent if already completed. Family members who were waiting only for this visit move on. Sending a family member elsewhere with `PUT queue/{visitId}/stations` does the same.
 
+Each clinic day starts afresh: a visit still open once its day has ended (host calendar) is discharged automatically, at startup, every minute and before `GET analytics/follow-up` answers (`utils/autoDischarge.js`). It gets `completed_at` and `last_updated_at` set to that moment and `auto_discharged: true` (migration `033_auto_discharge.sql`); `last_updated_by` keeps the last person who changed the visit. The patient export has an `auto_discharged` column.
+
 **TB flag**
 Suspected TB is a flag on the visit, not a station. A flagged visit goes only to `consultation` (`TB_ROUTE`): at registration it is queued there whatever `stations` says, and flagging or clearing later removes its other unfinished stations and adds `consultation` if missing (unless Consultation is already finished or the visit is discharged). Each such move is recorded in `visit_station_route_history`. Every queue returns the visit with `tb_flagged: true`, so the app marks it in red. Its route can't be edited afterwards, even once cleared (see `PUT queue/{visitId}/stations`); finishing Consultation completes its stations, and its prescriptions stay pending for Pharmacy. (The former TB Tent station was removed by `migrations/016_tb_flag.sql`; open visits waiting there moved to their next station, keeping their flag.)
 

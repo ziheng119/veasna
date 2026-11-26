@@ -17,7 +17,7 @@ router.get('/patients', authenticateToken, async (req, res) => {
       p.address, p.phone_number,
       v.id AS visit_id, TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS visit_date, v.queue_no,
       v.sticker_colour,
-      TO_CHAR(v.completed_at, 'YYYY-MM-DD HH24:MI') AS discharged_at,
+      TO_CHAR(v.completed_at, 'YYYY-MM-DD HH24:MI') AS discharged_at, v.auto_discharged,
       (SELECT string_agg(s.station, ' > ' ORDER BY s.position, s.id) FROM visit_stations s WHERE s.visit_id = v.id) AS stations,
       vt.height, vt.weight, vt.bmi, vt.below_3rd_percentile, vt.bp_systolic, vt.bp_diastolic, vt.temperature,
       vt.notes AS vitals_notes,
