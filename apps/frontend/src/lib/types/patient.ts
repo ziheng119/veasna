@@ -1,4 +1,3 @@
-import { VisitSummary } from "./visit";
 import { StationId } from "@/constants/stations";
 import { TbStatus } from "@/constants/tb";
 
@@ -76,19 +75,3 @@ export type PatientFormData = {
     has_hef?: string;
     notes?: string;
 }
-
-export interface PatientWithVisits {
-    patient: {
-      id: number;
-      face_id: string | null;  // generated from names and date of birth
-      english_name: string;
-      khmer_name: string;
-      date_of_birth: string;
-      sex: "M" | "F" | null;
-      address?: string;
-      phone_number?: string;
-      last_updated_at: string;
-      created_at: string;
-    };
-    visits: VisitSummary[];
-  }

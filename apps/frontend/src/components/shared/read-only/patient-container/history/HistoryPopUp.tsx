@@ -10,13 +10,6 @@ import Loading from "@/components/shared/Loading";
 import NoDataAvailable from "@/components/shared/NoDataAvailable";
 import { HISTORY } from "@/constants/strings";
 
-interface History {
-  past: string;
-  drug_and_treatment: string;
-  family: string;
-  social: string;
-}
-
 interface Props {
   setShowPopUp: Dispatch<SetStateAction<boolean>>;
   popupRef: RefObject<HTMLDivElement> | null;

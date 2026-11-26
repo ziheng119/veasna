@@ -17,8 +17,6 @@ import { useConfirm } from "@/hooks/useConfirm";
 
 export default function PharmacyDashboard() {
   const { confirm, dialog } = useConfirm();
-    const [isLoading, setIsLoading] = useState<boolean>(true)
-
     const [drugs, setDrugs] = useState<Drug[]>([])
     const [searchTerm, setSearchTerm] = useState<string>("")
     const [showAddTab, setShowAddTab] = useState<boolean>(false)
@@ -31,8 +29,6 @@ export default function PharmacyDashboard() {
         setDrugs(await getDrugs())
       } catch {
         toast.error("Failed to load pharmacy stock.")
-      } finally {
-        setIsLoading(false)
       }
     }
 

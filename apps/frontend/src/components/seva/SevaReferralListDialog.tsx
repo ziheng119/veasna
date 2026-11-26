@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import toast from "react-hot-toast";
-import { Button } from "@/components/ui/button";
 import GlassButton from "@/components/shared/GlassButton";
 import {
   Dialog,

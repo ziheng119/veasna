@@ -4,7 +4,7 @@ import formatDate from "@/helper/format_date";
 import { Consultation, Referral } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch } from "@/lib/api/request";
-import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
+import { noteVersion } from "@/lib/api/recordVersions";
 
 // Cache for consultation per visitId
 const cachedConsultation: Record<number, Consultation | null> = {};

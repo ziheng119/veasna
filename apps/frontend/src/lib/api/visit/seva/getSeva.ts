@@ -2,7 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { Seva } from "@/lib/types/seva";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch } from "@/lib/api/request";
-import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
+import { noteVersion } from "@/lib/api/recordVersions";
 
 // Cache for SEVA per visitId
 const cachedSeva: Record<number, Seva | null> = {};
