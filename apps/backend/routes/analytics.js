@@ -351,7 +351,8 @@ router.get('/follow-up', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...
+// GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...[&from=YYYY-MM-DD]
+// An optional `from` (on or before `date`) replaces the period's start, for a chosen range.
 // Patients the Partner NGO station marked for referral in the period, grouped by referral type in
 // the order of the editable "seva_referrals" list (types since removed from it come after, by id).
 // Each row has the referral date, diagnosis and the patient's details, so it needs the analytics
@@ -361,9 +362,13 @@ router.get('/partner-ngo', authenticateToken, async (req, res) => {
   const filters = parsePeriod(req.query);
   if (!filters) return res.status(400).json({ error: FILTER_ERROR });
   const { date, period } = filters;
+  const from = req.query.from;
+  if (from !== undefined && (!parseFilters({ date: from }) || from > date)) {
+    return res.status(400).json({ error: 'The period must start on or before the day it ends.' });
+  }
   try {
     if (!await activeAccount(req, res)) return;
-    const [startDate, options] = await Promise.all([periodStart(period, date), getOptions('seva_referrals')]);
+    const [startDate, options] = await Promise.all([from ?? periodStart(period, date), getOptions('seva_referrals')]);
     const { rows } = await db.query(
       `SELECT v.id AS "visitId", p.id AS "patientId", v.queue_no AS "queueNo",
           TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate", s.referral,

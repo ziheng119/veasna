@@ -454,7 +454,7 @@ export default function AnalyticsDashboard() {
       {token && <ReferralListsSection id="referrals" icon={Send}
         date={date} period={period} dateRange={range} token={token} refresh={refresh} delay={225} />}
 
-      {token && <PartnerNgoSection id="partner-ngo" date={date} period={period} token={token} refresh={refresh} delay={250} />}
+      {token && <PartnerNgoSection id="partner-ngo" token={token} refresh={refresh} delay={250} />}
 
       {token && <OpticianSection id="optician" date={date} period={period} token={token} refresh={refresh} delay={275} />}
 
