@@ -2,7 +2,7 @@ import { backend_url } from "@/constants/env_variable";
 import { Physiotherapy } from "@/lib/types/physiotherapy";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch } from "@/lib/api/request";
-import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
+import { noteVersion } from "@/lib/api/recordVersions";
 
 const cachedPhysio: Record<number, Physiotherapy | null> = {};
 const cachedETags: Record<number, string> = {};

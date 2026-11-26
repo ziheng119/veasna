@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FilePenLine, FilePlus2, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import GlassButton from "@/components/shared/GlassButton";
@@ -17,11 +17,13 @@ interface Props {
   hasReferral: boolean;
   // Called after the referral was saved or deleted, to reload the visit.
   onChanged: () => void | Promise<unknown>;
+  // Opens the form as soon as the button shows (Analytics, "Sign in record").
+  autoOpen?: boolean;
 }
 
 // Opens the same referral form as at Consult (with signature and printing) for one visit, so a
 // referral can be added, re-signed or printed after the patient has left the queue.
-export default function ReferralFormButton({ visitId, patient, hasReferral, onChanged }: Props) {
+export default function ReferralFormButton({ visitId, patient, hasReferral, onChanged, autoOpen = false }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [referral, setReferral] = useState<Referral | null>(null);
@@ -41,6 +43,9 @@ export default function ReferralFormButton({ visitId, patient, hasReferral, onCh
       setLoading(false);
     }
   };
+  // Once, when mounted with autoOpen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (autoOpen) void start(); }, []);
 
   return (
     <>

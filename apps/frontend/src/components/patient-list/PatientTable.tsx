@@ -71,7 +71,7 @@ export function PatientTable({ patients, allPatients = patients, onViewPatient, 
                       <button
                         type="button"
                         onClick={() => setSort(nextPatientSort(sort, key))}
-                        title={active ? `Sorted by ${label}, ${describeSort(sort)}. Click to reverse.` : `Sort by ${label}`}
+                        title={active ? "Reverse order" : `Sort by ${label}`}
                         className={cn(
                           HEADER_TEXT,
                           'flex w-full cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 transition-[color,background-color,box-shadow] duration-200',

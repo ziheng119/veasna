@@ -92,7 +92,7 @@ function isRecordSave(method, path) {
   return (
     ["/registration", "/patients", "/visits", "/triage/visual-acuity", "/triage/presenting-complaint", "/triage/history",
       // Grouping today's patients into a family, or taking one out (routes/family.js).
-      "/family", "/family/leave",
+      "/family", "/family/group", "/family/leave",
       // Prescribing is a first entry (it reserves stock); dispensing needs the pharmacy permission.
       "/prescriptions"].includes(path) ||
     /^\/visits\/(seva|physiotherapy|dental|consultation|referral)\/\d+$/.test(path) ||

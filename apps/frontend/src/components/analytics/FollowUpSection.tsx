@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { CheckCircle2, ClipboardList } from "lucide-react";
+import { CheckCircle2, ClipboardList, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FamilyBadge from "@/components/shared/FamilyBadge";
 import StationBadge from "@/components/shared/StationBadge";
 import StickerTag, { findSticker, useStickerColours } from "@/components/shared/StickerTag";
 import TbBadge from "@/components/shared/TbBadge";
-import { STATIONS, StationId } from "@/constants/stations";
+import { STATIONS, StationId, stationPageHref } from "@/constants/stations";
 import { AnalyticsFollowUp, AnalyticsPeriod, FollowUpPatient, getAnalyticsFollowUp } from "@/lib/api/analytics";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "./ui";
@@ -29,7 +29,11 @@ const isStation = (station: string | null): station is StationId => STATIONS.som
 
 /**
  * Who still needs something before the day (or trip) can be closed: visits not discharged, at the
- * station they are at, and referrals saved without a signature. Names link to the patient's record.
+ * station they are at, and referrals saved without a signature. Names link to the patient's record;
+ * an unsigned referral links to where it can be signed: Consult with the referral open while the
+ * patient is waiting there today, otherwise that visit's Consultation tab in the patient's record
+ * with the referral form open. The card's border
+ * pulses red while either list has anyone on it.
  */
 export default function FollowUpSection({ id, date, period, live, token, refresh, delay }: Props) {
   const [data, setData] = useState<AnalyticsFollowUp | null>(null);
@@ -51,10 +55,10 @@ export default function FollowUpSection({ id, date, period, live, token, refresh
   const multiDay = period !== "day";
   const openTitle = live ? "Still in the clinic" : "Not discharged";
 
-  const name = (patient: FollowUpPatient, extra?: ReactNode) => <>
+  const name = (patient: FollowUpPatient, extra?: ReactNode, href = `/patient-details?id=${patient.patientId}`) => <>
     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
       <span className="w-10 shrink-0 tabular-nums text-muted-foreground">#{patient.queueNo}</span>
-      <Link href={`/patient-details?id=${patient.patientId}`} className="min-w-0 truncate rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link href={href} className="min-w-0 truncate rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {patient.englishName || patient.khmerName || "Unnamed patient"}
       </Link>
       {patient.tbStatus === "flagged" && <TbBadge />}
@@ -79,7 +83,17 @@ export default function FollowUpSection({ id, date, period, live, token, refresh
     {more && <p className="mt-2 text-xs text-muted-foreground">Showing the first 200. Pick a shorter period to see the rest.</p>}
   </div>;
 
+  const outstanding = !!data && current && (data.notDischarged.length > 0 || data.unsignedReferrals.length > 0);
+  // Where an unsigned referral is signed: Consult while the patient is waiting there today.
+  const signAt = (visitId: number, patientId: number) => {
+    const atConsult = live && data?.notDischarged.some(item => item.visitId === visitId && item.station === "consultation");
+    return atConsult
+      ? { href: `${stationPageHref("consultation", visitId)}&signReferral=${visitId}`, label: "Sign at Consult" }
+      : { href: `/patient-details?id=${patientId}&visit=${visitId}&signReferral=1`, label: "Sign in record" };
+  };
+
   return <SectionCard id={id} icon={ClipboardList} title="Needs follow-up" label="Needs follow-up" delay={delay}
+    className={cn(outstanding && "attention-glow")}
     description={live ? "Before closing the day: who is still in the clinic, and referrals that still need a signature." : "Visits in this period that were never discharged, and referrals saved without a signature."}
     info={<>{openTitle} lists visits not marked discharged, with the station they are at. {live ? "" : "On a past date these are visits that were left open, not patients still waiting. "}Unsigned referrals are saved referral forms with no signature yet.</>}>
     {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
@@ -95,10 +109,16 @@ export default function FollowUpSection({ id, date, period, live, token, refresh
           {name(patient, <StationBadge station={isStation(patient.station) ? patient.station : null} />)}
         </li>))}
       {list("Unsigned referrals", "Every saved referral is signed.", data.unsignedReferralsMore,
-        data.unsignedReferrals.map(patient => <li key={patient.visitId} className="space-y-1 px-3 py-2 text-sm">
-          {name(patient)}
+        data.unsignedReferrals.map(patient => {
+          const sign = signAt(patient.visitId, patient.patientId);
+          return <li key={patient.visitId} className="space-y-1 px-3 py-2 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            {name(patient, <Link href={sign.href} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <PenLine className="size-3.5" aria-hidden="true" />{sign.label}</Link>, sign.href)}
+          </div>
           {patient.destinations.length > 0 && <p className="pl-12 text-xs text-muted-foreground">{patient.destinations.join(" · ")}</p>}
-        </li>))}
+        </li>;
+        }))}
     </div>}
   </SectionCard>;
 }

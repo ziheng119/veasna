@@ -74,12 +74,12 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const readOnly = !canEditSavedData(user);
   const admin = isAdmin(user?.role);
   const canPrint = can(user, "print");
-  // A signature this user saved earlier in the session fills in on each new referral.
+  // A signature this user saved earlier in the session fills in on each new or still-unsigned referral.
   const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
   const saveSignature = useSavedSignatureStore((state) => state.save);
   const forgetSignature = useSavedSignatureStore((state) => state.forget);
   const [signature, setSignature] = useState<Signature | null>(
-    () => retrievedReferral ? retrievedReferral.signature ?? null : savedSignature,
+    () => retrievedReferral?.signature ?? savedSignature,
   );
   const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);
@@ -102,6 +102,11 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       setShownVersion(version => version + 1);
     },
   });
+  // The letter shows the visit's HEF / NSSF answers; printed without them if they can't be loaded.
+  const printReferral = async (popup: Window, referral: Referral) => {
+    const hef = (await getConsultation(patient.visit_id).catch(() => null))?.hef;
+    writeAndPrint(popup, referralDocumentHtml(referral, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl(), hef }));
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
@@ -146,9 +151,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
       const savedReferral: Referral = { ...data, signature: saved.signature, signerName: saved.signer_name, signerId: saved.signer_id, signedAt: saved.signed_at };
       onSaved?.(savedReferral);
       toast.success("Referral saved");
-      if (printWindow) {
-        writeAndPrint(printWindow, referralDocumentHtml(savedReferral, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
-      }
+      if (printWindow) await printReferral(printWindow, savedReferral);
       onClose();
     } catch (error) {
       console.error("Referral save error:", error)
@@ -175,7 +178,7 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
         {canPrint && retrievedReferral && <GlassButton type="button" onClick={() => {
           const popup = window.open("", "_blank");
           if (!popup) { toast.error("Allow pop-ups to print this referral."); return; }
-          writeAndPrint(popup, referralDocumentHtml(retrievedReferral!, patientInfo, patient.visit_id, { logoUrl: letterheadLogoUrl() }));
+          void printReferral(popup, retrievedReferral!);
         }}>Print saved referral</GlassButton>}
       </div>}
       <form onSubmit={event => event.preventDefault()}>

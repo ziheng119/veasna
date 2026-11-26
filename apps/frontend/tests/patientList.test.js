@@ -85,7 +85,7 @@ describe('the table', () => {
     expect(names()).toEqual(['Cy', 'Bo', 'Ann']);
     expect(header('Last Seen').props['aria-sort']).toBe('descending');
     expect(header('Last Seen').findByType('button').props.className).toMatch(/font-semibold/);
-    expect(header('Last Seen').findByType('button').props.title).toBe('Sorted by Last Seen, most recent first. Click to reverse.');
+    expect(header('Last Seen').findByType('button').props.title).toBe('Reverse order');
     expect(text(renderer.root.findByType('caption'))).toBe('Patients sorted by Last Seen, most recent first');
     await act(async () => header('English Name').findByType('button').props.onClick());
     expect(names()).toEqual(['Ann', 'Bo', 'Cy']);

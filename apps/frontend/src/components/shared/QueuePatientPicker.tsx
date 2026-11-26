@@ -21,7 +21,6 @@ import ClearTbButton from "./ClearTbButton";
 import DisabledActionHint from "./DisabledActionHint";
 import { TB_ROUTE_LOCKED_HINT } from "@/constants/tb";
 import EditStationsDialog from "./EditStationsDialog";
-import StationDataButton from "./StationDataButton";
 import { STATION_ICONS, STATION_INK, StationTitle } from "./StationBadge";
 import { useUserStore } from "@/stores/useUserStore";
 import { canEditSavedData } from "@/lib/permissions";
@@ -87,14 +86,18 @@ export default function QueuePatientPicker({
   // station's queue has loaded. The parameter is then removed so a reload does not reselect it.
   const router = useRouter();
   const pathname = usePathname();
-  const requestedVisitId = Number(useSearchParams().get("visit")) || null;
+  const searchParams = useSearchParams();
+  const requestedVisitId = Number(searchParams.get("visit")) || null;
   useEffect(() => {
     if (!requestedVisitId || !loaded || !token) return;
     const requested = patients.find((patient) => patient.visit_id === requestedVisitId);
     if (requested) onSelectPatient(requested);
     else toast(`That patient is no longer waiting at ${stationLabel(station)}.`);
-    router.replace(pathname, { scroll: false });
-  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station]);
+    // Other parameters stay for the opened form (e.g. signReferral, read by the Consult notes).
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("visit");
+    router.replace(rest.size ? `${pathname}?${rest}` : pathname, { scroll: false });
+  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station, searchParams]);
 
   // Bring the selected patient into view however they were chosen (clinic search, link, click).
   useEffect(() => {
@@ -270,7 +273,6 @@ export default function QueuePatientPicker({
             "flex items-center gap-1.5 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
             compact ? "max-w-0 opacity-0" : "max-w-48 opacity-100",
           )}>
-            <StationDataButton station={station} />
             <Badge variant="inactive" className="whitespace-nowrap">{waiting} waiting</Badge>
           </span>
           {!!selectedVisitId && (
@@ -280,8 +282,8 @@ export default function QueuePatientPicker({
               size="icon"
               className="size-7 animate-in fade-in zoom-in-75 duration-150"
               aria-expanded={!compact}
-              aria-label={compact ? "Show the whole queue" : "Fold the queue"}
-              title={compact ? "Show the whole queue" : "Fold the queue"}
+              aria-label={compact ? "Show queue" : "Fold queue"}
+              title={compact ? "Show queue" : "Fold queue"}
               disabled={grouping}
               onClick={() => setUnfolded(compact)}
             >
@@ -326,6 +328,8 @@ export default function QueuePatientPicker({
           const tbFlagged = !!patient.tb_flagged;
           // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
           const routeLocked = patient.tb_status != null;
+          // At the last station, Discharge waits until its work is saved ("Done here").
+          const dischargeLocked = !next && !patient.station_done;
           const sticker = findSticker(stickerColours, patient.sticker_colour);
           // Folded, or grouping: only the patient is shown, nothing to press.
           const bare = compact || grouping;
@@ -421,23 +425,27 @@ export default function QueuePatientPicker({
                   />
                 )}
                 {canMove && <>
-                <Button
+                {/* The last station has no Next: the patient is discharged once its work is done. */}
+                <DisabledActionHint disabled={!next} message="Last station. Discharge when done.">
+                  <Button
                     type="button"
                     variant="ghost"
+                    disabled={!next}
                     className={cn(CARD_ACTION, "font-medium text-primary hover:text-primary")}
-                    title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
+                    title={next ? `Move to ${stationLabel(next)}` : undefined}
                     onClick={() => handleCompleteStation(patient)}
                   >
                     <Check className="size-3.5" />
                     {next ? "Next" : "Finish"}
                   </Button>
+                </DisabledActionHint>
                 <DisabledActionHint disabled={routeLocked} message={TB_ROUTE_LOCKED_HINT}>
                   <Button
                     type="button"
                     variant="ghost"
                     disabled={routeLocked}
                     className={cn(CARD_ACTION, subtle, "hover:text-foreground")}
-                    title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
+                    title={routeLocked ? undefined : "Choose next stations"}
                     aria-label={`Send ${patient.english_name || "patient"} to another station`}
                     onClick={() => setEditingPatient(patient)}
                   >
@@ -445,16 +453,19 @@ export default function QueuePatientPicker({
                     Send to
                   </Button>
                 </DisabledActionHint>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn(CARD_ACTION, subtle, "hover:text-destructive")}
-                  title="Discharge patient from every queue"
-                  onClick={() => handleRemovePatient(patient)}
-                >
-                  <X className="size-3.5" />
-                  Discharge
-                </Button>
+                <DisabledActionHint disabled={dischargeLocked} message={`Save ${stationLabel(station)} first`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={dischargeLocked}
+                    className={cn(CARD_ACTION, subtle, "hover:text-destructive")}
+                    title={dischargeLocked ? undefined : "Remove from all queues"}
+                    onClick={() => handleRemovePatient(patient)}
+                  >
+                    <X className="size-3.5" />
+                    Discharge
+                  </Button>
+                </DisabledActionHint>
                 </>}
               </div>
               </div>

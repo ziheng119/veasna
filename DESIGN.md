@@ -324,6 +324,7 @@ Tactile and confident, but small: 36px tall, 14px medium text.
 - **Destructive:** Alarm Red with white text. Always opens a confirm dialog first.
 - **Outline / Secondary / Ghost:** white with a hairline border; quiet wash; or transparent with a wash on hover.
 - **Hover / Focus:** rises 1px with a medium shadow; focus shows a 3px ring in the brand blue at 50%. Press scales to 0.97.
+- **Hover messages:** give an element a `title`; `AppTooltips` (root layout) shows it as a dark styled tooltip instead of the browser's, on hover or keyboard focus. A disabled button gets no hover events, so wrap it in `DisabledActionHint` to say why it is greyed out.
 - **Glass button:** a round frosted pill for secondary actions (Print referrals, Referral list, consultation actions).
 
 ### Chips / Badges
@@ -343,7 +344,7 @@ Tactile and confident, but small: 36px tall, 14px medium text.
 ### Inputs / Fields
 - **Style:** filled with Mist Canvas on the white card, 1px hairline stroke, 8.4px corners, 36px tall, 14px text, a tiny inner shadow.
 - **Labels:** Slate Ink, 14px medium, above the field. Help text below in Muted Slate at 12px. Never grey labels: the label and the placeholder must not share a colour.
-- **Section headings in a form** (TB red flags, Stations for this visit, Health coverage): Slate Ink, 14px bold.
+- **Section headings in a form** (TB red flags, Health coverage): Slate Ink, 14px bold.
 - **Choices** (radio and checkbox labels): Slate Ink, 14px regular. Unticked controls have a Muted Slate border (at least 3:1).
 - **Computed values** (queue number, BMI, Category, Age from date of birth, Unique ID): a dashed hairline outline with no fill, so they line up with fields but don't look typeable.
 - **Focus:** the border turns brand blue with a 3px blue ring at 50%.
@@ -362,7 +363,7 @@ options, filled like a Registration queue number (brand blue at 14%) with its la
 blue semibold. Used for sort order (Queue number / Arrival time).
 
 ### Form Tabs
-The registration form's sections (Patient Info / Vitals / HEF, TB & stations) use the plain tab
+The registration form's sections (Patient Info / Vitals / HEF & TB) use the plain tab
 list: a muted track with the selected section filled brand blue. A tab with fields to fix shows a
 small red dot with a white ring.
 

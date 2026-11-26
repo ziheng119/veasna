@@ -47,8 +47,8 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
     if (!patient || !token || remaining.length === 0 || !isDirty) return;
     try {
       setIsSaving(true);
-      await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
-      toast.success("Stations updated.");
+      const family = await updateVisitStations(patient.visit_id, remaining, token, patient.stations ?? []);
+      toast.success(family.length ? `Stations updated, with family ${family.map((member) => member.queue_no).join(", ")}.` : "Stations updated.");
       onSaved();
       onClose();
     } catch (error) {
@@ -97,7 +97,7 @@ export default function EditStationsDialog({ patient, onClose, onSaved }: EditSt
               type="button"
               onClick={handleSave}
               disabled={isSaving || !isDirty || remaining.length === 0}
-              title={remaining.length === 0 ? "Add at least one stop, or discharge the patient instead." : undefined}
+              title={remaining.length === 0 ? "Add a station, or discharge" : undefined}
               className={cn(
                 "group gap-1.5 rounded-full px-5 shadow-sm transition duration-200 hover:-translate-y-px hover:shadow-md motion-reduce:transform-none",
                 PRESS,

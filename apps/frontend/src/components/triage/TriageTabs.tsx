@@ -17,12 +17,13 @@ import { normalizeSnellenFields, SNELLEN_ERROR } from "@/lib/snellen";
 import { PresentingComplaint } from "@/lib/types/medicalHistory";
 import { MedicalHistory } from "@/lib/types/medicalHistory";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
+import { StationCheckboxes } from "@/components/shared/StationCheckboxes";
 import { QueuedPatient } from "@/lib/types/patient";
-import { StationId } from "@/constants/stations";
+import { StationId, TRIAGE_NEXT_STATION_IDS } from "@/constants/stations";
 import { setStationNeeded } from "@/lib/api/queue/stations";
 import { useUserStore } from "@/stores/useUserStore";
 import { canEditSavedData } from "@/lib/permissions";
-import { PARTNER_NGO_NAME } from "@/constants/partnerNgo";
 import { SaveAndNextButton, StationDonePrompt, useLeaveCheck, useSaveBeforeNext } from "@/components/shared/StationFlow";
 import { LiveRecordNotice, useLiveRecord } from "@/components/shared/LiveRecord";
 import { LOAD_RETRY_DELAYS_MS } from "@/hooks/useRecordLoad";
@@ -37,7 +38,7 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 // Each section's tab.
 const SECTION_TABS: Record<SectionId, string> = { acuity: "visual-acuity", complaint: "presenting-complaint", history: "medical-history" };
-const SECTION_TAB = "gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
+const SECTION_TAB ="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
 
 // On a section's tab: a tick once it is saved with something in it, a dot while typing isn't saved yet.
 function SectionMark({ saved, unsaved }: { saved: boolean; unsaved: boolean }) {
@@ -118,7 +119,7 @@ interface TriageTabsProps {
     patient: QueuedPatient;
     visit_id: number;
     patient_id: number;
-    // Stations indicated for the visit; lets triage send the patient to Seva.
+    // Stations indicated for the visit; Triage chooses the patient's next stations.
     stations?: QueuedPatient["stations"];
     // Called with the visit's remaining stations after triage changes them.
     onStationsChanged?: (remaining: StationId[]) => void;
@@ -171,15 +172,60 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
       return () => clearTimeout(timer);
     }, [loadError, retry]);
     const token = useUserStore((state) => state.user?.token);
-    const remainingStations = (stations ?? []).filter((s) => !s.completed).map((s) => s.station);
-    const sevaQueued = remainingStations.includes("seva");
-    const sevaDone = (stations ?? []).some((s) => s.station === "seva" && s.completed);
-    // Seva is only for patients suspected of cataracts after the Snellen's test.
-    const [sendToSeva, setSendToSeva] = useState(sevaQueued);
+    // The stations the patient goes to after Triage (Dental, Consult, the partner NGO), chosen at the
+    // end of Triage. None is ticked for a new patient; one already on the route shows ticked, and one
+    // already finished can't be changed.
+    const queuedNext = TRIAGE_NEXT_STATION_IDS.filter((id) => (stations ?? []).some((s) => s.station === id && !s.completed));
+    const doneNext = TRIAGE_NEXT_STATION_IDS.filter((id) => (stations ?? []).some((s) => s.station === id && s.completed));
+    const [nextStations, setNextStations] = useState<StationId[]>(queuedNext);
+    // Puts the ticked stations on the route and takes unticked ones off; resolves to whether it worked.
+    const applyNextStations = async (): Promise<boolean> => {
+        if (!stations || !token) return true;
+        const changes = TRIAGE_NEXT_STATION_IDS.filter((id) => !doneNext.includes(id) && nextStations.includes(id) !== queuedNext.includes(id));
+        if (!changes.length) return true;
+        try {
+            let remaining: StationId[] = [];
+            // The server places each station in clinic order, keeping any custom route.
+            for (const id of changes) remaining = await setStationNeeded(visit_id, id, nextStations.includes(id), token);
+            onStationsChanged?.(remaining);
+            return true;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not save the next stations.");
+            return false;
+        }
+    };
+    // Nothing ticked and nowhere else to go: sending the patient on finishes their visit, so ask first.
+    const confirmNoNextStation = async (): Promise<boolean> => {
+        const goesOn = (stations ?? []).some((s) => !s.completed && s.station !== "triage");
+        if (!stations || nextStations.length || goesOn) return true;
+        return confirm({
+            title: `Finish ${patient.english_name || "the patient"}'s visit after Triage?`,
+            description: "No next station is ticked, so sending them on ends their visit. Cancel to tick Dental, Consult or the partner NGO.",
+            confirmLabel: "Finish visit",
+            destructive: false,
+        });
+    };
 
     const [isLoading, setIsLoading] = useState(false);
 
     const [visualAcuity, setVisualAcuity] = useState<VisualAcuity>({ ...EMPTY_EYE_READINGS, notes: "" });
+
+    // "Suspected cataract" (Visual Acuity): send to the partner NGO (ticks it under Next stations),
+    // refer to an optician (saved as refer_optician), or both.
+    const [cataractOpen, setCataractOpen] = useState(false);
+    useEffect(() => { setCataractOpen(false); }, [visit_id]);
+    const sendToNgo = cataractOpen && nextStations.includes("seva");
+    const suspectedCataract = cataractOpen || visualAcuity.refer_optician === true;
+    // Unticking takes the partner NGO off Next stations only if it wasn't already on the route.
+    const setNgo = (on: boolean) => {
+        const keep = on || queuedNext.includes("seva") || doneNext.includes("seva");
+        setNextStations(p => keep ? (p.includes("seva") ? p : [...p, "seva"]) : p.filter(id => id !== "seva"));
+    };
+    const setOptician = (on: boolean) => setVisualAcuity(p => ({ ...p, refer_optician: on }));
+    const setSuspectedCataract = (on: boolean) => {
+        setCataractOpen(on);
+        if (!on) { setNgo(false); setOptician(false); }
+    };
 
     const [presentingComplaint, setPresentingComplaint] = useState<PresentingComplaint>({
         history: "",
@@ -209,9 +255,6 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
         setIsLoading(true);
         const promise = saveVisualAcuity({ ...fractions, notes, refer_optician: referOptician, visit_id: visit_id }).then(async () => {
             saved("acuity", acuityFilled({ ...fractions, notes, refer_optician: referOptician }));
-            if (!stations || !token || sevaDone || sendToSeva === sevaQueued) return;
-            // The server places the partner NGO in clinic order, keeping any custom route.
-            onStationsChanged?.(await setStationNeeded(visit_id, "seva", sendToSeva, token));
         });
         return settle(promise, 'Saving Visual Acuity data...');
     };
@@ -239,9 +282,11 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     // Next on the queue card saves every section with unsaved changes first, one by one.
     const sectionVersion = (section: SectionId) =>
         loadedVisit === visit_id ? `${visit_id}:${loadCount}:${saveCounts[section] ?? 0}` : null;
-    useSaveBeforeNext(visit_id, sectionVersion("acuity"), { visualAcuity, sendToSeva }, handleSaveVisualAcuity);
+    useSaveBeforeNext(visit_id, sectionVersion("acuity"), visualAcuity, handleSaveVisualAcuity);
     useSaveBeforeNext(visit_id, sectionVersion("complaint"), presentingComplaint, handleSavePresentingComplaint);
     useSaveBeforeNext(visit_id, sectionVersion("history"), medicalHistory, handleSaveMedicalHistory);
+    // The ticked next stations count as saved once they match the route.
+    useSaveBeforeNext(visit_id, stations ? `${visit_id}:${queuedNext.join()}` : null, nextStations, applyNextStations);
 
     // Saves made for this visit on another device show here too, one section at a time.
     const showSaved = (section: SectionId, exists: boolean, filled: boolean) => {
@@ -276,6 +321,37 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     // the tabs, instead of part-way down.
     const tabsTop = useRef<HTMLDivElement>(null);
     const tabsBar = useRef<HTMLDivElement>(null);
+    // Medical History scrolls inside its own section, so the patient column itself doesn't scroll and
+    // everything above the section (registration details, Next stations, the tabs) stays where it is:
+    // the fields get the column's height left below where they start, above the buttons. Below 1024px,
+    // where the page scrolls as one with the queue above, the section isn't limited.
+    const contextArea = useRef<HTMLDivElement>(null);
+    const historyScroll = useRef<HTMLElement>(null);
+    const historyFooter = useRef<HTMLDivElement>(null);
+    const [historyMaxHeight, setHistoryMaxHeight] = useState<number | null>(null);
+    useEffect(() => {
+        const section = historyScroll.current, footer = historyFooter.current, above = contextArea.current;
+        if (activeTab !== "medical-history" || !section || !footer || !above || typeof ResizeObserver === "undefined") return;
+        const scroller = section.closest<HTMLElement>("[data-tour='station-work']");
+        if (!scroller) return;
+        const stacked = window.matchMedia?.("(max-width: 1023.98px)");
+        const fit = () => {
+            if (stacked?.matches) return setHistoryMaxHeight(null);
+            // Where the section starts in the column's content, whatever it is scrolled to.
+            const start = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+            // 24px: the footer's top margin.
+            const room = scroller.clientHeight - start - footer.offsetHeight - 24;
+            setHistoryMaxHeight(Math.max(160, Math.floor(room)));
+        };
+        fit();
+        // Opened after scrolling down a longer section: back to the top, so nothing above is cut off.
+        if (!stacked?.matches) scroller.scrollTop = 0;
+        // Refit when the column is resized or anything above the section changes height.
+        const observer = new ResizeObserver(fit);
+        [scroller, above, footer].forEach((element) => observer.observe(element));
+        stacked?.addEventListener?.("change", fit);
+        return () => { observer.disconnect(); stacked?.removeEventListener?.("change", fit); };
+    }, [activeTab]);
     const openTab = (tab: string) => {
         setActiveTab(tab);
         const top = tabsTop.current, bar = tabsBar.current;
@@ -345,21 +421,22 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             toast.error(`Save ${listWords(missing.map((other) => other.label))} too before sending the patient on.`);
             return false;
         }
-        return true;
+        return (await confirmNoNextStation()) && applyNextStations();
     };
 
-    // Next on the queue card: anything typed is saved first; sections left empty and unsaved are
-    // asked about, as Save & next would refuse them.
+    // Next on the queue card (or Send to next station): anything typed is saved first; sections left
+    // empty and unsaved are asked about, as Save & next would refuse them, and so is sending the
+    // patient on with no next station ticked.
     useLeaveCheck(visit_id, async () => {
         if (loadedVisit !== visit_id) return true;
         const missing = SECTIONS.filter((section) => !savedSections[section.id] && !hasContent[section.id]);
-        if (!missing.length) return true;
-        return confirm({
+        if (!missing.length) return confirmNoNextStation();
+        return (await confirm({
             title: `Send ${patient.english_name || "the patient"} on without ${listWords(missing.map((section) => section.label))}?`,
             description: "Triage isn't finished: those sections aren't saved. Send them on only if they declined or it doesn't apply.",
             confirmLabel: "Send on anyway",
             destructive: false,
-        });
+        })) && confirmNoNextStation();
     });
 
     // Fills every empty box in a section with "None", for a patient with nothing to report.
@@ -369,9 +446,10 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             ...Object.fromEntries(fields.filter((field) => !String(previous[field.key] ?? "").trim())
                 .map((field) => [field.key, NOTHING_TO_REPORT])),
         }));
+    // A faint outline, with the app's hover message.
     const fillBlanksButton = (onClick: () => void, any: boolean) => (
-        <Button type="button" variant="ghost" className="mr-auto text-muted-foreground" disabled={!any || isLoading}
-            title={`Writes "${NOTHING_TO_REPORT}" in every empty box, for a patient with nothing to report`} onClick={onClick}>
+        <Button type="button" variant="outline" className="mr-auto self-center border-input/50 leading-none text-muted-foreground shadow-none"
+            disabled={!any || isLoading} title={`Fills empty boxes with "${NOTHING_TO_REPORT}"`} onClick={onClick}>
             Fill blanks with &ldquo;{NOTHING_TO_REPORT}&rdquo;
         </Button>
     );
@@ -380,8 +458,21 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
     return (
         <Tabs value={activeTab} onValueChange={openTab} className="flex flex-col">
             {dialog}
-            <div className="space-y-3 px-5 pt-4">
+            <div ref={contextArea} className="space-y-3 px-5 pt-4">
                 {context}
+                {/* Where the patient goes after Triage, with what Registration recorded. In the page's
+                    normal flow (scrolls away with it), so it never covers the form or its buttons. */}
+                {stations && (
+                    <fieldset className="flex flex-wrap items-center gap-x-4 border-t border-border pt-3">
+                        <legend className="sr-only">Next stations</legend>
+                        <span aria-hidden="true" className="text-sm font-semibold">Next stations</span>
+                        <StationCheckboxes idPrefix="triage-next" options={TRIAGE_NEXT_STATION_IDS}
+                            selected={nextStations} locked={doneNext} onChange={setNextStations} />
+                        <p className="basis-full text-xs text-muted-foreground">
+                            Tick where the patient goes after Triage. They queue in clinic order once sent on.
+                        </p>
+                    </fieldset>
+                )}
                 {loadError && (
                     <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-ink">
                         <span className="flex items-center gap-2"><WifiOff className="size-4 shrink-0" aria-hidden="true" />Can&apos;t reach the host laptop to load the saved triage. Trying again…</span>
@@ -413,41 +504,38 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                 <TabsContent value="visual-acuity" className="mt-0"><SavedRecordFields locked={locked("acuity")}>
                     <section className="space-y-5">
                         <EyeReadingsGrid values={visualAcuity} onChange={(field, value) => setVisualAcuity(p => ({ ...p, [field]: value }))} />
-                        {/* Where the eye readings send the patient next. */}
-                        <div className="space-y-3 rounded-lg border border-border p-3">
-                            {stations && (
-                                <div className="flex items-start gap-2">
-                                    <Checkbox
-                                        id="send-to-seva"
-                                        checked={sevaDone || sendToSeva}
-                                        disabled={sevaDone}
-                                        onCheckedChange={(checked) => setSendToSeva(checked === true)}
-                                        className="mt-0.5 bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                                    />
-                                    <div>
-                                        <Label htmlFor="send-to-seva">Suspected cataract: send to {PARTNER_NGO_NAME}</Label>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            {sevaDone
-                                                ? `This patient has already been seen at ${PARTNER_NGO_NAME}.`
-                                                : `Adds ${PARTNER_NGO_NAME} to this patient's stations when the visual acuity is saved.`}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="rounded-lg border border-border p-3">
                             <div className="flex items-start gap-2">
                                 <Checkbox
-                                    id="refer-optician"
-                                    checked={visualAcuity.refer_optician === true}
-                                    onCheckedChange={(checked) => setVisualAcuity(p => ({ ...p, refer_optician: checked === true }))}
+                                    id="suspected-cataract"
+                                    checked={suspectedCataract}
+                                    onCheckedChange={(checked) => setSuspectedCataract(checked === true)}
                                     className="mt-0.5 bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                 />
                                 <div>
-                                    <Label htmlFor="refer-optician">Refer to optician</Label>
+                                    <Label htmlFor="suspected-cataract">Suspected cataract</Label>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Saved with the visual acuity. Patients to refer are listed on the Analytics page.
+                                        Send to the {PARTNER_NGO_NAME} today, refer to an optician (listed on the Analytics page), or both.
                                     </p>
                                 </div>
                             </div>
+                            {suspectedCataract && (
+                                <fieldset className="mt-3 flex flex-wrap gap-x-6 gap-y-2 pl-6">
+                                    <legend className="sr-only">Suspected cataract: where to send</legend>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox id="cataract-ngo" checked={sendToNgo} disabled={!stations}
+                                            onCheckedChange={(checked) => setNgo(checked === true)}
+                                            className="bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+                                        <Label htmlFor="cataract-ngo">Send to {PARTNER_NGO_NAME}</Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox id="cataract-optician" checked={visualAcuity.refer_optician === true}
+                                            onCheckedChange={(checked) => setOptician(checked === true)}
+                                            className="bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+                                        <Label htmlFor="cataract-optician">Refer to optician</Label>
+                                    </div>
+                                </fieldset>
+                            )}
                         </div>
                         <div>
                             <Label htmlFor="triage-visualAcuity-notes">Notes</Label>
@@ -473,13 +561,16 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
                 </SavedRecordFields></TabsContent>
 
                 <TabsContent value="medical-history" className="mt-0"><SavedRecordFields locked={locked("history")}>
-                    <section className="space-y-5">
+                    {/* Scrolls on its own when the fields are taller than the space left in the column. The
+                        padding keeps the fields' focus rings inside the scroll area. */}
+                    <section ref={historyScroll} style={historyMaxHeight ? { maxHeight: historyMaxHeight } : undefined}
+                        className="-mx-1 space-y-5 overflow-y-auto px-1 pb-1 [scrollbar-gutter:stable]">
                         {HISTORY_FIELDS.map((field) => (
                             <NoteBox key={field.key} form="medicalHistory" field={field} values={medicalHistory}
                                 onChange={(key, value) => setMedicalHistory(p => ({ ...p, [key]: value }))} />
                         ))}
                     </section>
-                    <div className={SECTION_FOOTER}>
+                    <div ref={historyFooter} className={SECTION_FOOTER}>
                         {fillBlanksButton(fillBlanks(HISTORY_FIELDS, setMedicalHistory), hasBlank(HISTORY_FIELDS, medicalHistory))}
                         {/* What Save & next still needs, in words (not only in its tooltip). */}
                         {!triageDone && !triageReady && readyHint && (

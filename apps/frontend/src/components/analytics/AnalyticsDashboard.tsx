@@ -31,11 +31,11 @@ import { enter, ExportMenu, fieldClass, InfoTip, Meter, panel, Segmented, Sectio
 import { hostToday, isoDate } from "@/stores/useHostClockStore";
 
 const PERIODS: { id: AnalyticsPeriod; label: string; title: string }[] = [
-  { id: "day", label: "Day", title: "Only the selected date" },
-  { id: "week", label: "Week", title: "The selected date and the 6 days before it" },
-  { id: "month", label: "30 days", title: "The selected date and the 29 days before it" },
-  { id: "trip", label: "This trip", title: "The clinic dates leading up to the selected date, with no more than 3 days between them" },
-  { id: "all", label: "Overall", title: "Every recorded date up to the selected date" },
+  { id: "day", label: "Day", title: "Selected date only" },
+  { id: "week", label: "Week", title: "Last 7 days" },
+  { id: "month", label: "30 days", title: "Last 30 days" },
+  { id: "trip", label: "This trip", title: "Clinic days of this trip" },
+  { id: "all", label: "Overall", title: "All dates so far" },
 ];
 const PERIOD_NAMES: Record<AnalyticsPeriod, string> = { day: "Single day", week: "Past week", month: "Past 30 days", trip: "This trip", all: "Overall" };
 const PERIOD_OFFSET: Partial<Record<AnalyticsPeriod, number>> = { week: 6, month: 29 };
@@ -296,7 +296,7 @@ export default function AnalyticsDashboard() {
         <p className="mt-1 text-sm text-muted-foreground">Totals for a day, a week, a trip or all time, and who still needs follow-up.</p>
       </div>
       <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="icon" aria-label="Refresh data" title="Reload the latest saved data" className="group size-10" disabled={loading || !date} onClick={() => setRefresh(value => value + 1)}>
+        <Button type="button" variant="outline" size="icon" aria-label="Refresh data" title="Reload data" className="group size-10" disabled={loading || !date} onClick={() => setRefresh(value => value + 1)}>
           <RefreshCw className={cn("size-4 transition-transform duration-500", loading ? "animate-spin motion-reduce:animate-none" : "group-hover:rotate-90")} aria-hidden="true" />
         </Button>
         <ExportMenu disabled={!shown || !current} onCsv={exportCsv} onPrint={printReport} />
@@ -454,7 +454,7 @@ export default function AnalyticsDashboard() {
       {token && <ReferralListsSection id="referrals" icon={Send}
         date={date} period={period} dateRange={range} token={token} refresh={refresh} delay={225} />}
 
-      {token && <PartnerNgoSection id="partner-ngo" date={date} period={period} token={token} refresh={refresh} delay={250} />}
+      {token && <PartnerNgoSection id="partner-ngo" token={token} refresh={refresh} delay={250} />}
 
       {token && <OpticianSection id="optician" date={date} period={period} token={token} refresh={refresh} delay={275} />}
 

@@ -211,7 +211,7 @@ export default function PrescriptionPanel({ visitId, legacyPrescription, onCount
                   variant="ghost"
                   size="sm"
                   className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
-                  title="Cancel and release the reserved stock"
+                  title="Cancel and free the stock"
                   onClick={() => cancel(p)}
                 >
                   <X className="size-3.5" aria-hidden="true" /> Cancel

@@ -28,10 +28,9 @@ import { calculateAge } from "@/helper/calculate_age";
 import { PageCard } from "../shared/PageCard";
 import { ExistingPatientDialog } from "./ExistingPatientDialog";
 import { useFormOptions } from "@/stores/useFormOptionsStore";
-import { StationCheckboxes } from "../shared/StationCheckboxes";
 import FilteredInput from "../shared/FilteredInput";
 import { generateFaceId } from "@/lib/faceId";
-import { DEFAULT_STATION_IDS, REGISTRATION_STATION_IDS, StationId, stationLabel } from "@/constants/stations";
+import { REGISTRATION_ROUTE, stationLabel } from "@/constants/stations";
 import { useRealtimeStore } from "@/stores/useRealtimeStore";
 import { TB_MIN_RED_FLAGS, TB_STATIONS, meetsTbThreshold, tbObservedHint } from "@/constants/tb";
 import { ShieldAlert } from "lucide-react";
@@ -54,7 +53,6 @@ const FIELD_FOCUS: Record<string, string> = {
   english_name: "#englishName", sex: "#sex", height: "#height", weight: "#weight", bmi: "#height",
   bp_systolic: "#systolic", bp_diastolic: "#diastolic", temperature: "#temperature",
   know_of_hef: "#knows-yes", has_hef: "#has-yes", has_nssf: "#nssf-yes", uses_hef_nssf: "#uses-yes",
-  stations: "[id^='station-']",
 };
 
 // A Yes/No or checkbox option: the label fills a row at least 40px tall, so the whole row is
@@ -97,7 +95,6 @@ type FormErrors = {
     has_hef?: string;
     has_nssf?: string;
     uses_hef_nssf?: string;
-    stations?: string;
 };
 
 const emptyPatientInfo: PatientFormData = {
@@ -215,8 +212,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
 
     const [hef, setHEF] = useState<HEF>(emptyHef);
 
-    // Stations this visit is indicated for; the patient queues at each one in order.
-    const [stations, setStations] = useState<StationId[]>(DEFAULT_STATION_IDS);
     // Colour of the sticker handed to the patient (sticker_colours on Station data); "" for none.
     const [stickerColour, setStickerColour] = useState("");
     // TB red flags. With TB_MIN_RED_FLAGS or more the patient is flagged for suspected TB: they go
@@ -231,10 +226,10 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     // reload, Submit returns that registration instead of queuing the patient twice.
     const userId = useUserStore((state) => state.user?.id);
     const requestId = registrationId.current.get();
-    const draftValues = { patientInfo, linkedPatient, vitals, hef, stations, stickerColour, tbRedFlags, tbNotes, requestId };
+    const draftValues = { patientInfo, linkedPatient, vitals, hef, stickerColour, tbRedFlags, tbNotes, requestId };
     const emptyForm: typeof draftValues = {
       patientInfo: emptyPatientInfo, linkedPatient: null, vitals: emptyVitals, hef: emptyHef,
-      stations: DEFAULT_STATION_IDS, stickerColour: "", tbRedFlags: [], tbNotes: "", requestId,
+      stickerColour: "", tbRedFlags: [], tbNotes: "", requestId,
     };
     const fillForm = (values: typeof draftValues) => {
       setPatientInfo(values.patientInfo);
@@ -242,7 +237,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       setVitals(values.vitals);
       // Drafts kept before the NSSF questions were added lack them.
       setHEF({ ...emptyHef, ...values.hef });
-      setStations(values.stations);
       setStickerColour(values.stickerColour);
       setTbRedFlags(values.tbRedFlags);
       setTbNotes(values.tbNotes);
@@ -291,7 +285,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
     const TAB_FIELDS: Record<string, (keyof FormErrors)[]> = {
       "patient-info": ["english_name", "sex"],
       vitals: ["height", "weight", "bmi", "bp_systolic", "bp_diastolic", "temperature"],
-      hef: ["know_of_hef", "has_hef", "has_nssf", "uses_hef_nssf", "stations"],
+      hef: ["know_of_hef", "has_hef", "has_nssf", "uses_hef_nssf"],
     };
     const tabHasErrors = (tab: string) => TAB_FIELDS[tab].some((field) => errors[field]);
 
@@ -320,7 +314,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
       if (!hef.has_hef) nextErrors.has_hef = "Please select Yes or No.";
       if (!hef.has_nssf) nextErrors.has_nssf = "Please select Yes or No.";
       if (!hef.uses_hef_nssf) nextErrors.uses_hef_nssf = "Please select Yes or No.";
-      if (!tbFlagged && stations.length === 0) nextErrors.stations = "Select at least one station.";
       return nextErrors;
     };
 
@@ -453,8 +446,9 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
               patientInfo: completePatientInfo,
               vitals,
               hef,
-              // The server also queues a TB patient only at Consult.
-              stations: tbFlagged ? TB_STATIONS : stations,
+              // Every patient goes to Triage, which chooses their other stations. The server also
+              // queues a TB patient only at Consult.
+              stations: tbFlagged ? TB_STATIONS : REGISTRATION_ROUTE,
               sticker_colour: stickerColour,
               // Red flags below the threshold are saved too, as noted symptoms (not a TB flag).
               tb: tbRedFlags.length > 0 ? { red_flags: tbRedFlags, notes: tbNotes } : null,
@@ -545,9 +539,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
               <TabsTrigger
                  value="hef" data-tour-tab="hef" 
                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  {/* The full name doesn't fit a phone-width tab. */}
-                  <span className="sm:hidden">HEF &amp; TB</span>
-                  <span className="hidden sm:inline">HEF, TB &amp; stations</span>
+                  HEF &amp; TB
                   {tabHasErrors("hef") && <TabErrorDot />}
               </TabsTrigger>
 
@@ -1040,33 +1032,6 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
                     </div>
                   )}
                 </div>
-
-                <div className="border-t border-border pt-4" data-tour="reg-stations">
-                  <Label className="block mb-1 font-semibold">Stations for this visit *</Label>
-                  {!tbFlagged && (
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Queued in clinic order. The doctor adds Physiotherapy and Pharmacy later.
-                    </p>
-                  )}
-                  {tbFlagged ? (
-                    // The ticked stations are kept, in case the red flags are unticked again.
-                    <p className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive" role="status">
-                      <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-                      Suspected TB: the patient goes to Consult only (then Pharmacy for any prescriptions). Other stations can&apos;t be chosen.
-                    </p>
-                  ) : (
-                    <StationCheckboxes
-                      idPrefix="station"
-                      options={REGISTRATION_STATION_IDS}
-                      selected={stations}
-                      onChange={(next) => {
-                        setStations(next);
-                        clearFieldError("stations");
-                      }}
-                    />
-                  )}
-                  <FieldError field="stations" message={errors.stations} className="mt-2" />
-                </div>
               </TabsContent>
             </div>
           </Tabs>
@@ -1095,8 +1060,7 @@ export function PatientForm({ existingPatients, onSubmit }: PatientFormProps) {
             )}
             {activeTab === "vitals" && (
               <Button type="button" className="px-8" onClick={() => goToNextTab("vitals", "hef")}>
-                <span className="sm:hidden">Next: HEF &amp; TB</span>
-                <span className="hidden sm:inline">Next: HEF, TB &amp; stations</span>
+                Next: HEF &amp; TB
               </Button>
             )}
             {activeTab === "hef" && (

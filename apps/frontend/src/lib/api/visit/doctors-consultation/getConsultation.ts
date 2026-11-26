@@ -4,7 +4,7 @@ import formatDate from "@/helper/format_date";
 import { Consultation, Referral } from "@/lib/types/consultation";
 import { useUserStore } from "@/stores/useUserStore";
 import { apiFetch } from "@/lib/api/request";
-import { expectedVersion, noteVersion, saveError } from "@/lib/api/recordVersions";
+import { noteVersion } from "@/lib/api/recordVersions";
 
 // Cache for consultation per visitId
 const cachedConsultation: Record<number, Consultation | null> = {};
@@ -95,7 +95,8 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
       notes: json.notes ?? "",
       prescription: json.prescription ?? "",
       requireReferral: json.require_referral ?? modified_referral !== null,
-      referral:  modified_referral
+      referral:  modified_referral,
+      hef: { hasHef: json.has_hef ?? null, hasNssf: json.has_nssf ?? null },
     };
 
     // Update cache + ETag

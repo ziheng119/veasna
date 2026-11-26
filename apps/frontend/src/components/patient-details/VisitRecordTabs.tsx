@@ -254,12 +254,14 @@ interface Props {
   onSaved: () => Promise<void>;
   // The visit's patient, for the referral form; without it the form can't be opened here.
   patient?: PatientInfo;
+  // Opens on Consultation with the referral form open (Analytics, "Sign in record").
+  openReferral?: boolean;
 }
 
 /** Every record of one visit, grouped by station. Each section can be corrected or added. */
-export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Props) {
+export default function VisitRecordTabs({ visit, canEdit, onSaved, patient, openReferral = false }: Props) {
   // A visit flagged for suspected TB opens on its TB record.
-  const [activeTab, setActiveTab] = useState(isTbFlagged(visit.tb?.status) ? "tb" : "registration");
+  const [activeTab, setActiveTab] = useState(openReferral ? "consult" : isTbFlagged(visit.tb?.status) ? "tb" : "registration");
   const visitId = visit.visit_id;
   const optionLists = useFormOptionsStore((state) => state.lists);
   const conditionItems = optionLists.consultation_conditions.items;
@@ -555,6 +557,7 @@ export default function VisitRecordTabs({ visit, canEdit, onSaved, patient }: Pr
               patient={patient}
               hasReferral={visit.referrals.length > 0}
               onChanged={onSaved}
+              autoOpen={openReferral}
             />
           )}
           onSave={saved((d: ReferralDraft) => postReferral({

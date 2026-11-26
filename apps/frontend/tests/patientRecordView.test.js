@@ -50,7 +50,7 @@ test('stations show the route in order, what was finished, and where the patient
   const shown = await render(React.createElement(VisitStations, { stations, completedAt: null }));
   expect(shown.indexOf('Triage')).toBeLessThan(shown.indexOf('Consult'));
   expect(shown).toContain('In the clinic, at Consult');
-  expect(renderer.root.findAllByType('li').map(li => li.props.title)).toEqual([expect.stringMatching(/^Finished at/), 'Waiting here now', 'Not reached']);
+  expect(renderer.root.findAllByType('li').map(li => li.props.title)).toEqual([expect.stringMatching(/^Done at/), 'Waiting here', 'Not reached']);
   expect(visitStatusText(stations, '2026-06-01T05:00:00Z')).toMatch(/^Visit finished at/);
   await act(async () => renderer.unmount()); renderer = null;
   expect(await render(React.createElement(VisitStations, { stations: [], completedAt: null }))).toBe('');

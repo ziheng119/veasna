@@ -224,7 +224,7 @@ test('headlineSentence reads naturally for one patient and for a trip', () => {
  expect(headlineSentence(one, 'trip', false, '20 – 21 Oct 2026')).toBe('This trip (20 – 21 Oct 2026, 2 clinic days), 1 patient was reached and 1 consulted; 1 visit has a referral; every visit was discharged.');
 });
 
-test('Partner NGO referrals show each patient with the referral type and date, for the page period', async () => {
+test('Partner NGO referrals show each patient with the referral type and date, for this week by default', async () => {
   getAnalytics.mockImplementation(date => Promise.resolve(sample(date)));
   let renderer;
   await act(async () => { renderer = create(React.createElement(Dashboard)); });
@@ -238,7 +238,8 @@ test('Partner NGO referrals show each patient with the referral type and date, f
   expect(row).toContain('Cataract, left eye');
   // Types with no patients get no empty table.
   expect(section.findAllByType('table')).toHaveLength(1);
-  expect(getAnalyticsPartnerNgo).toHaveBeenLastCalledWith(expect.any(String), 'day', 'test', expect.anything());
+  // The section has its own dates (This week to start), not the page's period.
+  expect(getAnalyticsPartnerNgo).toHaveBeenLastCalledWith(expect.any(String), 'week', 'test', expect.anything(), undefined);
 });
 
 test('optician referrals list who Triage ticked, with details and the readings taken', async () => {

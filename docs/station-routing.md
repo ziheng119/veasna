@@ -6,13 +6,20 @@ Patients go through the stations they need in this order:
 
 | Station | Who sends the patient there |
 | --- | --- |
-| Triage | Ticked at registration |
-| Dental | Ticked at registration |
-| Consult | Ticked at registration |
+| Triage | Every patient, at registration (except suspected TB, below) |
+| Dental | Ticked under **Next stations** at the end of Triage |
+| Consult | Ticked under **Next stations** at the end of Triage |
 | Physiotherapy | Only the doctor, with **Refer to physiotherapy station** on the Consult page |
-| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected (**Refer to optician**, under it, only records the referral for Analytics and adds no station) |
+| Partner NGO | Ticked under **Next stations** at the end of Triage, or by **Suspected cataract** → **Send to Partner NGO** on Visual Acuity (its other option, **Refer to optician**, which can be ticked as well, only records the referral for Analytics and adds no station) |
 | Pharmacy | Only when the doctor prescribes something at Consult |
 
+- **Registration doesn't choose stations.** Every patient is queued at Triage only. Under the
+  registration details (height, weight and so on) at the top of the Triage form, Triage ticks the patient's **Next stations** (Dental, Consult, Partner
+  NGO); none is ticked to start with. The ticked stations are added to the route, in clinic
+  order, when the patient is sent on (**Save & next**, **Send to next station** or **Next** on
+  the queue card); unticking one already on the route takes it off. A station the patient has
+  already finished shows as done. Sending a patient on with nothing ticked (and no other
+  station left) asks first, since it finishes their visit.
 - **Dental** comes before Consult so the doctor already has the dental notes and can
   refer the patient on. It shows the patient's triage notes, where tooth problems found at Triage are
   written. The students note what they did and tick **Referral needed** if the patient
@@ -28,8 +35,8 @@ Patients go through the stations they need in this order:
   patient has already been to Pharmacy (for example, sent back to Consult) a new
   prescription puts Pharmacy back on their route. A prescription for a visit that is
   already finished stays on the Pharmacy page's pending list. Picking a
-  patient shows only their prescriptions; once they are dispensed, press **Finish** to
-  complete the visit. A patient with no prescription finishes at their last station. If
+  patient shows only their prescriptions; once they are dispensed, press **Discharge** to
+  complete the visit. A patient with no prescription finishes at their last station: there **Finish** is greyed out, and **Discharge** unlocks once the station is done. If
   every prescription is cancelled before the patient reaches Pharmacy, Pharmacy comes off
   their stations again.
 - A station added later (Physiotherapy, Partner NGO, Pharmacy) goes in its place in this
@@ -95,22 +102,28 @@ A patient is **done** at a station once everything needed there is saved:
 ### Families move together
 
 Members of a family (see [queue numbers and families](queue-ordering.md#queue-numbers-and-families))
-waiting at the same station move on together:
+waiting at the same station move on together, as a unit:
 
-- When a family member is done (**Next**, **Save & next** or **Send to next station**)
-  while others in the family are still waiting at that station, they stay in the queue
-  with an amber **Waiting for family** and the toast names who is still to be seen.
-  **Save & next** opens the next patient still to be seen, usually the next family
-  member, since families sit together.
-- When the last of them is done, the whole family there moves on at once, each to
-  their own next station (or finishing their visit).
-- A family member at another station, or not in the clinic that day, doesn't hold
-  anyone up.
-- Removing a member from the family, discharging them, sending them elsewhere with
-  **Send to**, flagging them for suspected TB (which sends them to Consult) or deleting
-  the patient lets the others who were waiting for them move on. Deleting a member of a
-  two-person family also takes the other's family letter off. A patient waiting for
-  family who is removed from it moves on straight away.
+- When one of them is finished (**Next**, **Save & next** or **Send to next station**),
+  the others waiting at that station are finished there too and go with them to the
+  same next station. If that is a station only the doctor adds (Physiotherapy,
+  Pharmacy) and a member doesn't have it, that member goes to their own next station.
+  When the patient has finished all stations, the others move on to their own next one.
+- **Send to** sends the others waiting at that station to the same station; the
+  station they leave is kept for later or taken off, as it was for the patient.
+- Flagging a member for suspected TB sends them to Consult and takes every family
+  member in that day's queue straight to Consult with them. Their unfinished stations
+  are kept for after Consult. While the flagged member waits at Consult, the family
+  there can't be finished or sent on from Consult (the app says who they are waiting
+  for). Once the doctor clears the flag, finishing any of them takes the whole family
+  on together; the cleared patient follows their own route (Pharmacy if prescribed).
+- A family member at another station, a member flagged for TB (whose route is fixed),
+  or one not in the clinic that day, isn't moved.
+- Any account that may edit today's queue can group families, on Registration and in
+  each station queue.
+- Visits from before this change may still show **Waiting for family**; removing a
+  member, discharging, sending them elsewhere or deleting the patient lets those
+  waiting move on.
 
 While a patient is in the clinic, anyone signed in (user or admin) can send them to
 the next station, change which stations they still go to and in what order, or
@@ -158,8 +171,7 @@ there. Veasna follows that:
    already when it opens **Flag suspected TB**, and they show on Patient Details.
 2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
    red with a **TB** label in every queue. Consult is their only station: any others
-   (Triage, Dental, Partner NGO) are taken off their route, the registration form doesn't
-   offer them, and the doctor can't send them to Physiotherapy. If the doctor prescribes,
+   (Triage, Dental, Partner NGO) are taken off their route, they skip Triage, and the doctor can't send them to Physiotherapy. If the doctor prescribes,
    Pharmacy is added after Consult as for any patient.
 3. **Clear:** the doctor who sees them in the TB tent presses **Clear TB** on the
    patient's card in the **Consult** queue and confirms in the pop-up. The red marker
@@ -167,10 +179,10 @@ there. Veasna follows that:
    Triage or in other queues.
 4. **Next:** the doctor writes the consultation notes, prescribes, and presses **Next**.
    The patient moves to the Pharmacy queue for their prescriptions (or, with nothing
-   prescribed, **Finish** ends their visit).
+   prescribed, **Discharge** ends their visit once the notes are saved).
 
 A TB patient's stations can't be changed, before or after the flag is cleared, so
-**Send to** is greyed out on their card. **Finish** and **Discharge** still work.
+**Send to** is greyed out on their card. **Next** and **Discharge** still work.
 
 Good to know:
 
@@ -182,7 +194,7 @@ Good to know:
 - If two people clear the same patient, the second press changes nothing.
 - Anyone can change the red flags or notes of an existing flag (on **Patient Details**).
   That never moves the patient.
-- A patient flagged by mistake still goes to Consult only. The doctor can **Finish**
+- A patient flagged by mistake still goes to Consult only. The doctor can **Discharge**
   them; register a new visit if they need other stations.
 
 ## Technical details

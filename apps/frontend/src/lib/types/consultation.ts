@@ -28,4 +28,11 @@ export interface Consultation {
     prescription: string;
     requireReferral: boolean;
     referral: Referral | null
+    // The visit's registration answers, printed on the referral letter; null when not recorded.
+    hef?: HefStatus;
+}
+
+export interface HefStatus {
+    hasHef: boolean | null;
+    hasNssf: boolean | null;
 }

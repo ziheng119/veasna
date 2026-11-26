@@ -145,7 +145,7 @@ export default function SortableList<T>({
           <button
             type="button"
             aria-label={`Drag to move ${label}`}
-            title={disabled ? undefined : "Drag to reorder (or use the arrow keys)"}
+            title={disabled ? undefined : "Drag to reorder"}
             aria-roledescription="sortable"
             disabled={disabled}
             onPointerDown={(event) => start(event, index)}

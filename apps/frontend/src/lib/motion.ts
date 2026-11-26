@@ -26,10 +26,3 @@ export const LIFT =
 // font and hover/press feel. Put `group` on the button and data-state="open" while its menu is open.
 export const MENU_TRIGGER =
   "group h-9 gap-2 rounded-md border-border bg-background px-3 text-sm font-semibold text-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent";
-
-// The chevron in a MENU_TRIGGER: nudges down on hover and turns over while the menu is open.
-export const MENU_CHEVRON =
-  "size-4 transition-[translate,rotate] duration-300 ease-out group-hover:translate-y-0.5 group-data-[state=open]:rotate-180 group-data-[state=open]:translate-y-0 motion-reduce:transition-none";
-
-// A menu panel opening below its button.
-export const MENU_PANEL = "animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 motion-reduce:animate-none";

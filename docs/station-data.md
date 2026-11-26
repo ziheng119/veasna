@@ -1,8 +1,8 @@
 # Station data
 
 The admin can change the choices offered in the station forms, for example the
-Snellen readings (20/20, 20/40, ...) for each eye at Triage. Open it with the **Edit station data** icon (sliders) in the queue's header on the Triage,
-Consult or Partner NGO page, beside the waiting count, or from the user menu (**Station data**).
+Snellen readings (20/20, 20/40, ...) for each eye at Triage. Open it from the user menu
+(**Station data**).
 
 | List | Used in |
 | --- | --- |

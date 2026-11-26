@@ -4,7 +4,6 @@ import { Badge } from "../ui/badge";
 import { useRef } from "react";
 import { Button } from "../ui/button";
 import { useConfirm } from "@/hooks/useConfirm";
-import toast from "react-hot-toast";
 
 import { X } from "lucide-react";
 import { stationLabel, stationPageHref } from "@/constants/stations";

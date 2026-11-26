@@ -190,7 +190,7 @@ export default function SearchBar() {
           variant="ghost"
           size="icon"
           aria-label="Search everyone in today's clinic"
-          title="Search everyone in today's clinic"
+          title="Search today's patients"
           aria-expanded={expanded}
           aria-controls={searchId}
           onClick={() => {

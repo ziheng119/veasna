@@ -86,7 +86,7 @@ export default function DottedImage({ imageUrl, positions: initialPositions, onC
               left: `${pos.xCoord}%`,
               top: `${pos.yCoord}%`,
             }}
-            title={readOnly ? undefined : "Click to remove this dot"}
+            title={readOnly ? undefined : "Click to remove"}
           />
         ))}
       </div>

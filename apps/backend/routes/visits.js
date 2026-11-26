@@ -66,15 +66,17 @@ router.get('/referrals', authenticateToken, async (req, res) => {
         TO_CHAR(r.referral_date, 'YYYY-MM-DD') AS referral_date,
         r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
         p.id AS patient_id, p.english_name, p.khmer_name, p.sex, p.address,
-        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth
+        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth, h.has_hef, h.has_nssf
       FROM referral r
       JOIN visits v ON v.id = r.visit_id
       JOIN patients p ON p.id = v.patient_id
+      LEFT JOIN hef h ON h.visit_id = v.id
       WHERE ($1::date IS NULL OR COALESCE(r.referral_date, v.visit_date) >= $1::date)
         AND ($2::date IS NULL OR COALESCE(r.referral_date, v.visit_date) <= $2::date)
         AND ($3::date IS NULL OR v.visit_date = $3::date)
+        AND ($4::int[] IS NULL OR r.visit_id = ANY($4::int[]))
       ORDER BY COALESCE(r.referral_date, v.visit_date) ASC, v.created_at ASC, v.id ASC
-    `, [filter.from, filter.to, req.user.scope_date ?? null]);
+    `, [filter.from, filter.to, req.user.scope_date ?? null, filter.visitIds ?? null]);
     res.setHeader('Cache-Control', 'no-store');
     res.json(rows);
   } catch (error) {
@@ -927,9 +929,11 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
       r.reason,
       r.referral_date,
       r.signature, r.signer_name, r.signer_id, r.signed_at, r.doctor_name,
-      r.last_updated_at AS referral_updated_at
+      r.last_updated_at AS referral_updated_at,
+      h.has_hef, h.has_nssf, h.last_updated_at AS hef_updated_at
     FROM consultation c
     FULL JOIN referral r ON r.visit_id = c.visit_id
+    LEFT JOIN hef h ON h.visit_id = COALESCE(c.visit_id, r.visit_id)
     WHERE COALESCE(c.visit_id, r.visit_id) = $1;
   `;
 
@@ -943,7 +947,7 @@ router.get("/consultation/:visit_id", authenticateToken, async (req, res) => {
     const row = rows[0];
 
     // Optional: generate a weak ETag based on last_updated_at + id
-    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}-${new Date(row.referral_updated_at).getTime()}"`;
+    const etag = `"${row.id}-${new Date(row.last_updated_at).getTime()}-${new Date(row.referral_updated_at).getTime()}-${new Date(row.hef_updated_at).getTime()}"`;
     if (req.headers["if-none-match"] === etag) {
       return res.status(304).end();
     }

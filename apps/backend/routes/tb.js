@@ -11,7 +11,7 @@ const { authenticateToken, requireRole } = require('../routes/auth');
 const { TB_FLAGGED_STATUSES, TB_MIN_RED_FLAGS, TB_MIN_RED_FLAGS_ERROR, normalizeRedFlags, flagTb, clearTbFlag, sendToConsultation } = require('../utils/tb');
 const { textOrEmpty } = require('../utils/partialFields');
 const { canEditSavedRecords } = require('../utils/permissions');
-const { lockFamilies, releaseVisitFamily } = require('../utils/familyMoves');
+const { lockFamilies, releaseVisitFamily, moveFamilyAlong } = require('../utils/familyMoves');
 
 // GET /api/tb/:visitId - TB screening for a visit, or null when the visit was never flagged
 router.get('/:visitId', authenticateToken, requireRole(['any']), async (req, res) => {
@@ -115,10 +115,15 @@ router.post('/:visitId/flag', authenticateToken, requireRole(['any']), async (re
         const currentStation = flagged && wasFlagged ? undefined : await sendToConsultation(client, visitId, req.user.id);
         // Family members waiting for this patient at the station they just left move on.
         if (currentStation !== undefined) await releaseVisitFamily(client, visitId, req.user.id);
+        // A new flag takes the patient's family in the queue to Consult with them, keeping the
+        // stations they were waiting at for afterwards.
+        const familyMoved = flagged && !wasFlagged && currentStation === 'consultation'
+            ? await moveFamilyAlong(client, visitId, { from: null, to: 'consultation', leave: 'keep' }, req.user.id)
+            : [];
         await client.query('UPDATE visits SET last_updated_by = $2, last_updated_at = NOW() WHERE id = $1', [visitId, req.user.id]);
         await client.query('COMMIT');
         // current_station is left out when only a flag's details were edited.
-        res.status(200).json({ ...screening, flagged: TB_FLAGGED_STATUSES.includes(screening.status), current_station: currentStation });
+        res.status(200).json({ ...screening, flagged: TB_FLAGGED_STATUSES.includes(screening.status), current_station: currentStation, family_moved: familyMoved });
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('Error updating TB flag:', err);

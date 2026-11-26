@@ -5,11 +5,13 @@ import type { Signature } from "@/lib/types/consultation";
 import type { PatientInfo } from "@/lib/types/patient";
 import { apiFetch, readError } from "@/lib/api/request";
 
-// Which saved referrals to print: one day, a period (both days included) or every date.
+// Which saved referrals to print: one day, a period (both days included), every date, or the
+// referrals of the given visits (one destination's list on Analytics).
 export type ReferralRange =
   | { kind: "date"; date: string }
   | { kind: "period"; from: string; to: string }
-  | { kind: "all" };
+  | { kind: "all" }
+  | { kind: "visits"; visitIds: number[] };
 
 interface ReferralRow {
   visit_id: number;
@@ -29,6 +31,8 @@ interface ReferralRow {
   signer_id: number | null;
   signed_at: string | null;
   doctor_name?: string | null;
+  has_hef?: boolean | null;
+  has_nssf?: boolean | null;
 }
 
 // Saved referrals in the range, oldest first, ready to print.
@@ -38,6 +42,7 @@ export async function getReferrals(range: ReferralRange): Promise<PrintableRefer
   const params = new URLSearchParams();
   if (range.kind === "date") params.set("date", range.date);
   else if (range.kind === "period") { params.set("from", range.from); params.set("to", range.to); }
+  else if (range.kind === "visits") params.set("visit_ids", range.visitIds.join(","));
   else params.set("all", "true");
   const response = await apiFetch(`${backend_url}/api/visits/referrals?${params}`, {
     headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
@@ -58,5 +63,6 @@ export async function getReferrals(range: ReferralRange): Promise<PrintableRefer
       signature: row.signature, signerName: row.signer_name, signerId: row.signer_id, signedAt: row.signed_at,
       doctorName: row.doctor_name ?? null,
     },
+    hef: { hasHef: row.has_hef ?? null, hasNssf: row.has_nssf ?? null },
   }));
 }

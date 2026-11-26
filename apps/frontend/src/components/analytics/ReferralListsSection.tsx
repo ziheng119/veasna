@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { ComponentType, useEffect, useState } from "react";
+import { printSavedReferrals } from "@/components/shared/PrintReferralsDialog";
 import toast from "react-hot-toast";
-import { Printer } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PRIMARY_SERIES_COLOR } from "@/constants/consultationConditions";
 import { letterheadLogoUrl } from "@/constants/letterhead";
@@ -46,6 +47,7 @@ export default function ReferralListsSection({ id, icon, date, period, dateRange
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [chosen, setChosen] = useState<string | null>(null);
+  const [printingReferrals, setPrintingReferrals] = useState(false);
   const stickers = useStickerColours();
 
   useEffect(() => {
@@ -70,6 +72,14 @@ export default function ReferralListsSection({ id, icon, date, period, dateRange
     const popup = window.open("", "_blank");
     if (!popup) { toast.error("Allow pop-ups to print referral lists."); return; }
     writeAndPrint(popup, referralListDocumentHtml(printed, { dateRange, logoUrl: letterheadLogoUrl() }));
+  };
+
+  // The saved referral letters of the patients on one destination's list, one per page.
+  const printReferrals = async (list: ReferralList) => {
+    if (printingReferrals) return;
+    setPrintingReferrals(true);
+    try { await printSavedReferrals({ kind: "visits", visitIds: list.patients.map(patient => patient.visitId) }); }
+    finally { setPrintingReferrals(false); }
   };
 
   return <SectionCard id={id} icon={icon} title="Patients by referral destination" label="Referral lists" delay={delay}
@@ -121,9 +131,15 @@ export default function ReferralListsSection({ id, icon, date, period, dateRange
               <h3 className="truncate text-sm font-semibold">{selected.label}</h3>
               <p className="text-xs text-muted-foreground">{plural(selected.patients.length)}</p>
             </div>
-            <Button type="button" variant="outline" size="sm" disabled={selected.patients.length === 0} onClick={() => print([selected])}>
-              <Printer aria-hidden="true" />Print list
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={selected.patients.length === 0} onClick={() => print([selected])}>
+                <Printer aria-hidden="true" />Print list
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={selected.patients.length === 0 || printingReferrals}
+                title={`Print ${selected.label} letters`} onClick={() => void printReferrals(selected)}>
+                <FileText aria-hidden="true" />{printingReferrals ? "Preparing..." : "Print referrals"}
+              </Button>
+            </div>
           </div>
           {selected.patients.length === 0
             ? <p className="px-4 py-10 text-center text-sm text-muted-foreground">No patients referred to {selected.label} in this period.</p>

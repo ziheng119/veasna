@@ -31,13 +31,13 @@ function ListPage({ list, dateRange, logoUrl }: { list: ReferralList } & Referra
     <h2>{list.label}</h2>
     <p className="count">{list.patients.length} {list.patients.length === 1 ? "patient" : "patients"}</p>
     <table>
-      <thead><tr><th>#</th><th>Patient</th><th>Age / Sex</th><th>Phone</th><th>Address</th><th>Visit</th><th>Reason for referral</th></tr></thead>
+      <thead><tr><th>#</th><th>Patient</th><th>Age / Sex</th><th>Phone</th><th>Date of birth</th><th>Visit</th><th>Reason for referral</th></tr></thead>
       <tbody>{list.patients.map((patient, index) => <tr key={patient.visitId}>
         <td>{index + 1}</td>
         <td><strong>{dash(patient.englishName)}</strong>{patient.khmerName && <div>{patient.khmerName}</div>}</td>
         <td>{ageSex(patient)}</td>
         <td>{dash(patient.phone)}</td>
-        <td>{dash(patient.address)}</td>
+        <td>{patient.dateOfBirth ? readableDate(patient.dateOfBirth) : "–"}</td>
         <td>{readableDate(patient.visitDate)}<div>Queue {dash(patient.queueNo)}</div></td>
         <td>{[patient.condition, patient.reason].filter(text => text?.trim()).join(": ") || "–"}</td>
       </tr>)}</tbody>

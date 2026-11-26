@@ -27,7 +27,7 @@ export default function VisitStations({ stations, completedAt }: { stations: Vis
           const done = s.completed_at !== null;
           return (
             <li key={s.station}
-              title={done ? `Finished at ${time(s.completed_at!)}` : s.station === current ? "Waiting here now" : "Not reached"}
+              title={done ? `Done at ${time(s.completed_at!)}` : s.station === current ? "Waiting here" : "Not reached"}
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
                 done ? "border-success-line bg-success-soft text-success-ink"

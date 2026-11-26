@@ -50,7 +50,7 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Registration", path: "/", target: "registration", side: "left", tab: "patient-info",
     title: "Register each patient here",
-    body: "New patients start here, in three tabs: Patient Info, Vitals, then HEF, TB & stations.",
+    body: "New patients start here, in three tabs: Patient Info, Vitals, then HEF & TB. Every patient goes to Triage first.",
   },
   {
     chapter: "Registration", path: "/", target: "reg-name", side: "bottom", tab: "patient-info",
@@ -66,11 +66,6 @@ export const GUIDE_STEPS: GuideStep[] = [
     chapter: "Registration", path: "/", target: "reg-tb", side: "left", tab: "hef",
     title: "Suspected TB",
     body: `Tick any TB red flags. With ${TB_MIN_RED_FLAGS} or more, they go straight to Consult and show in red. Keep them apart from others.`,
-  },
-  {
-    chapter: "Registration", path: "/", target: "reg-stations", side: "left", tab: "hef",
-    title: "Choose their stations",
-    body: "Tick the stations they need. They queue at each one in clinic order.",
   },
   {
     chapter: "Registration", path: "/", target: "reg-actions", side: "top", tab: "hef",
@@ -90,7 +85,7 @@ export const GUIDE_STEPS: GuideStep[] = [
   {
     chapter: "Triage", path: withSample("/triage"), target: "station-work", side: "left",
     title: "Triage",
-    body: `Vision, complaint, then history. Flag suspected TB, or send a cataract to ${PARTNER_NGO_NAME}. Save & next on History moves them on.`,
+    body: `Vision, complaint, then history. Tick their next stations at the top, flag suspected TB if needed. Save & next on History moves them on.`,
   },
   {
     chapter: "Dental", path: withSample("/dental"), target: "station-work", side: "left",

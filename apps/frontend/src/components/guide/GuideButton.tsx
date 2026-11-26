@@ -24,7 +24,7 @@ export default function GuideButton() {
 
   return (
     <button type="button" onClick={open} data-tour="guide-button" aria-label="Open the guide"
-      title="Guide: how a patient moves through the clinic"
+      title="How the clinic works"
       className={cn(
         // size-9 like the other buttons in the bar, so they line up.
         "group relative grid size-9 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/5 text-base font-bold leading-none text-primary",

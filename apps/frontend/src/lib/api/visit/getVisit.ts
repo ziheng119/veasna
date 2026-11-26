@@ -64,14 +64,3 @@ export function clearVisitCache(visitId: number) {
   delete cachedVisitETags[visitId];
   console.log(`Cleared cache for visit ${visitId}`);
 }
-
-// Clear all visit cache
-export function clearAllVisitCache() {
-  Object.keys(cachedVisits).forEach(key => {
-    delete cachedVisits[Number(key)];
-  });
-  Object.keys(cachedVisitETags).forEach(key => {
-    delete cachedVisitETags[Number(key)];
-  });
-  console.log('Cleared all visit cache');
-}

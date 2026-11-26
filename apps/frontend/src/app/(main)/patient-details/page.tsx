@@ -98,6 +98,24 @@ export default function PatientDetailsPage() {
     }
   };
 
+  // Opened with &visit=<id> (and &signReferral=1, from Analytics "Sign in record"): that visit opens,
+  // on Consultation with the referral form open. The parameters are removed so a reload doesn't redo it.
+  const openVisitId = Number(searchParams.get('visit')) || null;
+  const signReferral = searchParams.get('signReferral') === '1';
+  const [referralVisitId, setReferralVisitId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!openVisitId || !patientData) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('visit');
+    params.delete('signReferral');
+    router.replace(`/patient-details?${params}`);
+    const visit = patientData.visits.find(item => item.visit_id === openVisitId);
+    if (!visit) return;
+    if (signReferral) setReferralVisitId(visit.visit_id);
+    void handleVisitClick(visit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openVisitId, patientData]);
+
   // After an edit, reload the visit and the visit list (queue number, date and badges).
   const reloadSelectedVisit = useCallback(async () => {
     if (!token || selectedVisitId === null) return;
@@ -122,6 +140,7 @@ export default function PatientDetailsPage() {
   const handleBackToVisitList = () => {
     setSelectedVisitId(null);
     setVisitDetails(null);
+    setReferralVisitId(null);
   };
 
   // Admin only: removes the selected visit (e.g. registered by mistake) and returns to the list.
@@ -309,7 +328,8 @@ export default function PatientDetailsPage() {
                     ))}
                   </div>
                 ) : visitDetails ? (
-                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} patient={patient} />
+                  <VisitRecordTabs visit={visitDetails} canEdit={canEditVisit} onSaved={reloadSelectedVisit} patient={patient}
+                    openReferral={referralVisitId === visitDetails.visit_id} />
                 ) : (
                   <div className="flex items-center justify-center py-12">
                     <p className="text-muted-foreground">Failed to load visit details</p>

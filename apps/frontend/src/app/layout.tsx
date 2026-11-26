@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Toaster } from "react-hot-toast";
+import AppToaster from "@/components/shared/AppToaster";
+import AppTooltips from "@/components/shared/AppTooltips";
 
 export const metadata: Metadata = {
   title: "Veasna",
@@ -16,7 +17,8 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         {children}
-        <Toaster position="top-center" />
+        <AppToaster />
+        <AppTooltips />
       </body>
     </html>
   );

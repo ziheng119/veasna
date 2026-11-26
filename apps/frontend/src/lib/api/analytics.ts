@@ -162,14 +162,16 @@ export interface PartnerNgoReferralType {
 export interface AnalyticsPartnerNgo {
   period: AnalyticsPeriod;
   date: string;
+  startDate: string | null;
   generatedAt: string;
   types: PartnerNgoReferralType[];
   // True when the list was cut short (over 500 patients).
   more: boolean;
 }
 
-export function getAnalyticsPartnerNgo(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal): Promise<AnalyticsPartnerNgo> {
-  return request("/partner-ngo", { date, period }, token, signal, "Unable to load the Partner NGO referrals. Please try again.");
+// `from` (optional) replaces the period's start, for a chosen range ending on `date`.
+export function getAnalyticsPartnerNgo(date: string, period: AnalyticsPeriod, token: string, signal: AbortSignal, from?: string): Promise<AnalyticsPartnerNgo> {
+  return request("/partner-ngo", { date, period, ...(from && { from }) }, token, signal, "Unable to load the Partner NGO referrals. Please try again.");
 }
 
 /** A patient Triage ticked "Refer to optician" for: one visit, with the Snellen readings (null if not taken). */

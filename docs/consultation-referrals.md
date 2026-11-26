@@ -36,7 +36,7 @@ a referral it reads **Open the referral**.
    The destinations are the places patients are sent outside the screening on referral
    days: **Preah Ang Duong Hospital** and **Samdech Ov Referral Hospital** (changed on the
    [Station data](station-data.md) page). An optician is not a destination here: Triage
-   ticks **Refer to optician** under the visual acuity, and those patients are listed under
+   ticks **Suspected cataract** → **Refer to optician** under the visual acuity, and those patients are listed under
    **Optician referrals** on [Analytics](analytics.md). Saved referrals that name Optician
    keep it. Physiotherapy isn't a
    destination: it is part of the screening, so the doctor ticks **Refer to physiotherapy
@@ -130,7 +130,8 @@ referrals, one or many at once, or delete one. See
 
 - `GET /api/visits/referrals` (the `print` permission) returns referrals for batch
   printing, oldest first, and is never cached: one of `date=YYYY-MM-DD`,
-  `from=...&to=...` or `all=true` (`utils/referralFilter.js`). Without `view_past`, only
+  `from=...&to=...`, `all=true`, or `visit_ids=1,2,...` alone (one Analytics destination's
+  patients) (`utils/referralFilter.js`). Without `view_past`, only
   the account's day.
 - `DELETE /api/visits/referral/:visit_id` removes the referral and signature and clears
   the consultation's referral flag in one statement. It records who deleted it and

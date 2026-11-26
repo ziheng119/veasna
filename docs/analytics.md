@@ -28,6 +28,10 @@ reporting on a trip afterwards.
   and the referrals saved without a signature, with the same TB, family and sticker
   markers as the queue. Pressing a name opens the patient's record. Today these patients
   are *still in the clinic*; on a past date they are visits that were *not discharged*.
+  While either list has anyone on it, the card's border pulses red. An unsigned referral
+  links to where it is signed: **Sign at Consult** (the patient is waiting at Consult today;
+  their referral opens) or **Sign in record** (that visit's Consultation tab in the patient's record, with the referral form open). The
+  referral form fills in the account's saved signature when the referral has none.
 - **Printing referral letters:** press **Print referral letters** on the **Visits with
   referrals** card to print saved referral letters for today, a date, a period or all
   dates. This needs the **Print and download** permission too. See
@@ -35,11 +39,13 @@ reporting on a trip afterwards.
 - **Section links** under the filters jump to Summary, Follow-up, Trends, Conditions,
   Referrals, Partner NGO, Optician and Clinic operations, and show which one you are reading.
 - **Partner NGO referrals** lists the patients the Partner NGO station marked as
-  **Referral needed** in the period, one table per referral type, with the referral date,
-  visit date, names, markers, sex, date of birth, phone and diagnosis. It is the station's
-  **Referral list** pop-up for the chosen period; the types are edited on
+  **Referral needed**, one table per referral type, with the referral date,
+  visit date, names, markers, sex, date of birth, phone and diagnosis. It has its own dates,
+  separate from the page's time period: **Today**, **This week** (today and the 6 days
+  before), **All time**, or **Choose dates** (from and to, by visit date). It is the
+  station's **Referral list** pop-up for those dates; the types are edited on
   [Station data](station-data.md).
-- **Optician referrals** lists the patients Triage ticked **Refer to optician** for (under
+- **Optician referrals** lists the patients Triage marked **Suspected cataract** → **Refer to optician** for (under
   the visual acuity), newest visit first: name, markers, sex, date of birth, phone,
   address, and the Snellen readings taken (L left eye, R right eye) with the Triage notes.
 - **Referral lists:** under **Patients by referral destination**, each destination shows
@@ -47,6 +53,7 @@ reporting on a trip afterwards.
   numbered in the order they were seen: name (English and Khmer), TB, family and sticker
   markers, age and sex, queue number, visit date, phone, address and the reason for
   referral. Unsigned drafts are marked. **Print list** prints the chosen destination;
+  **Print referrals** prints the saved referral letters of the patients on it, one per page;
   **Print all lists** prints every destination with patients, one per page, to take on
   referral days. Every current destination is listed, even with no patients; names saved
   on older referrals that are no longer on the list appear after them.
@@ -111,7 +118,8 @@ These need new or checked data before they can be shown:
   `GET /api/analytics/referrals?date=YYYY-MM-DD&period=...`
   returns `{ destinations: [{ label, listed, patients: [...] }] }`, the referral lists with
   patient details and queue markers (`stickerColour`, `family`, `tbStatus`).
-  `GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...` returns `{ types: [{ id, label,
+  `GET /api/analytics/partner-ngo?date=YYYY-MM-DD&period=...[&from=YYYY-MM-DD]` (`from`, on
+  or before `date`, replaces the period's start) returns `{ types: [{ id, label,
   listed, patients: [...] }], more }`: every type on the `seva_referrals` list, then saved
   types no longer on it, each with its patients (newest visit first, at most 500 in all;
   `more` says the list was cut short). Each patient has `referral`, `referralDate`,

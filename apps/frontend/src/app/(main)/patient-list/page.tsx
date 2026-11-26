@@ -107,7 +107,7 @@ export default function PatientListPage() {
               className="w-auto"
             />
           ) : (
-            <span className="text-sm text-muted-foreground" title="Seeing earlier days needs the &quot;See past patients&quot; permission">
+            <span className="text-sm text-muted-foreground" title="Needs &quot;See past patients&quot; permission">
               Patients queued {formatDayLabel(screeningDate || hostToday())}
             </span>
           )}

@@ -94,12 +94,12 @@ export default function SignaturePad({ value, onChange, disabled = false, saved 
     <div className="flex flex-wrap gap-2">
       <GlassButton type="button" disabled={disabled} onClick={() => { drawing.current = null; setUploadError(""); onChange(null); }}>Clear signature</GlassButton>
       {onSave && <GlassButton type="button" disabled={disabled || !value || saved}
-        title="Use this signature on the referrals you write next, until you sign out or close this tab"
+        title="Reuse until you sign out"
         onClick={() => value && onSave(value)}>
         <BookmarkCheck className="size-4" aria-hidden="true" />{saved ? "Signature saved" : "Save signature"}
       </GlassButton>}
       <GlassButton type="button" disabled={disabled || reading} onClick={() => fileInput.current?.click()}
-        title="PNG, JPEG or WebP picture of your signature, up to 5 MB">
+        title="PNG, JPEG or WebP, max 5 MB">
         <Upload className="size-4" aria-hidden="true" />Upload signature
       </GlassButton>
       <input ref={fileInput} type="file" accept={SIGNATURE_FILE_TYPES} className="hidden" aria-label="Signature picture"

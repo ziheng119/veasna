@@ -78,14 +78,14 @@ describe('Registering a suspected TB patient', () => {
     expect(tbSaved()).toEqual([]);
   });
 
-  test('registration offers Triage, Dental, Consult and the partner NGO, defaulting to the first three', async () => {
+  test('registration accepts Triage, Dental, Consult and the partner NGO, defaulting to Triage only', async () => {
     for (const station of ['physiotherapy', 'pharmacy']) {
       const res = await register({ stations: ['triage', station] });
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/Physiotherapy is chosen at Consultation and Pharmacy is added on prescribing/);
     }
     await register({});
-    expect(queued().map(([station]) => station)).toEqual(['triage', 'dental', 'consultation']);
+    expect(queued().map(([station]) => station)).toEqual(['triage']);
   });
 
   test('the sticker colour is saved on the visit, and must be on the sticker colours list', async () => {
