@@ -47,6 +47,7 @@ reporting on a trip afterwards.
   numbered in the order they were seen: name (English and Khmer), TB, family and sticker
   markers, age and sex, queue number, visit date, phone, address and the reason for
   referral. Unsigned drafts are marked. **Print list** prints the chosen destination;
+  **Print referrals** prints the saved referral letters of the patients on it, one per page;
   **Print all lists** prints every destination with patients, one per page, to take on
   referral days. Every current destination is listed, even with no patients; names saved
   on older referrals that are no longer on the list appear after them.

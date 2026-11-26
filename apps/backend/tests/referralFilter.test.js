@@ -24,3 +24,11 @@ test.each([
 test('a period that ends before it starts is refused with its own message', () => {
   expect(parseReferralFilter({ from: '2026-11-05', to: '2026-11-01' }).error).toMatch(/start on or before/);
 });
+
+test('visit_ids alone gives those visits on any date', () => {
+  expect(parseReferralFilter({ visit_ids: '3,12' })).toEqual({ from: null, to: null, visitIds: [3, 12] });
+});
+
+test.each([['empty', { visit_ids: '' }], ['not ids', { visit_ids: '1,x' }], ['with a date', { visit_ids: '1', date: '2026-11-05' }]])('refuses visit_ids %s', (_, query) => {
+  expect(parseReferralFilter(query).error).toBeTruthy();
+});

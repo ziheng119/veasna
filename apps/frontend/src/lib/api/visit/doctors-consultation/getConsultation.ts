@@ -95,7 +95,8 @@ export async function getConsultation(visitId: number): Promise<Consultation | n
       notes: json.notes ?? "",
       prescription: json.prescription ?? "",
       requireReferral: json.require_referral ?? modified_referral !== null,
-      referral:  modified_referral
+      referral:  modified_referral,
+      hef: { hasHef: json.has_hef ?? null, hasNssf: json.has_nssf ?? null },
     };
 
     // Update cache + ETag

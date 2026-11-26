@@ -35,8 +35,36 @@ const readable = (date: string) =>
 // How the chosen range reads in messages: "today", "on 3 Nov 2026", "from 1 to 5 Nov 2026"...
 export function rangeText(range: ReferralRange, today = hostToday()): string {
   if (range.kind === "all") return "on any date";
+  if (range.kind === "visits") return "for these patients";
   if (range.kind === "date") return range.date === today ? "today" : `on ${readable(range.date)}`;
   return range.from === range.to ? `on ${readable(range.from)}` : `from ${readable(range.from)} to ${readable(range.to)}`;
+}
+
+/**
+ * Prints the saved referrals in the range, each on its own page, in one print window. Call it
+ * straight from a click so the browser allows the pop-up. Resolves true once printing starts.
+ */
+export async function printSavedReferrals(range: ReferralRange, today = hostToday()): Promise<boolean> {
+  const popup = window.open("", "_blank");
+  if (!popup) { toast.error("Allow pop-ups to print referrals."); return false; }
+  popup.document.title = "Preparing referrals";
+  popup.document.body.textContent = "Loading saved referrals...";
+  try {
+    const referrals = await getReferrals(range);
+    if (popup.closed) return false;
+    if (!referrals.length) {
+      popup.close();
+      toast(`No saved referrals ${rangeText(range, today)}.`);
+      return false;
+    }
+    writeAndPrint(popup, referralBatchDocumentHtml(referrals, { logoUrl: letterheadLogoUrl() }));
+    return true;
+  } catch (error) {
+    popup.close();
+    console.error("Referral printing failed:", error);
+    toast.error(error instanceof Error ? error.message : "Unable to prepare referrals. Please try again.");
+    return false;
+  }
 }
 
 interface Props {
@@ -82,27 +110,10 @@ function PrintReferralsForm({ choices = ["today", "date"], initialDate, busy, se
 
   const print = async () => {
     if (!range || pending.current) return;
-    // Opened straight from the click, so the browser doesn't block it as an unwanted pop-up.
-    const popup = window.open("", "_blank");
-    if (!popup) { toast.error("Allow pop-ups to print referrals."); return; }
-    popup.document.title = "Preparing referrals";
-    popup.document.body.textContent = "Loading saved referrals...";
     pending.current = true;
     setBusy(true);
     try {
-      const referrals = await getReferrals(range);
-      if (popup.closed) return;
-      if (!referrals.length) {
-        popup.close();
-        toast(`No saved referrals ${rangeText(range, today)}.`);
-        return;
-      }
-      writeAndPrint(popup, referralBatchDocumentHtml(referrals, { logoUrl: letterheadLogoUrl() }));
-      onDone();
-    } catch (error) {
-      popup.close();
-      console.error("Referral printing failed:", error);
-      toast.error(error instanceof Error ? error.message : "Unable to prepare referrals. Please try again.");
+      if (await printSavedReferrals(range, today)) onDone();
     } finally {
       pending.current = false;
       setBusy(false);

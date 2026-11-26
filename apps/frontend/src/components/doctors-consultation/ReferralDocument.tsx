@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-head-element, @next/next/no-img-element -- Standalone print document, not a Next route. */
 import { renderToStaticMarkup } from "react-dom/server";
-import { Referral } from "@/lib/types/consultation";
+import { HefStatus, Referral } from "@/lib/types/consultation";
 import { PatientInfo } from "@/lib/types/patient";
 import { LETTERHEAD } from "@/constants/letterhead";
 import { SignatureImage } from "./SignaturePad";
@@ -11,19 +11,22 @@ export interface PrintOptions {
 }
 
 /** Separate printable document: React escapes all patient/user-entered text. */
-export function referralDocumentHtml(referral: Referral, patient: PatientInfo, visitId: number, options: PrintOptions = {}) {
-  return referralBatchDocumentHtml([{ referral, patient, visitId }], options);
+export function referralDocumentHtml(referral: Referral, patient: PatientInfo, visitId: number, { hef, ...options }: PrintOptions & { hef?: HefStatus } = {}) {
+  return referralBatchDocumentHtml([{ referral, patient, visitId, hef }], options);
 }
 
 export interface PrintableReferral {
   referral: Referral;
   patient: PatientInfo;
   visitId: number;
+  hef?: HefStatus;
 }
+
+const yesNo = (value?: boolean | null) => value == null ? "Not recorded" : value ? "Yes" : "No";
 
 const BLANK = " "; // keeps an empty signature-block row its height, for writing by hand
 
-function ReferralPage({ referral, patient, visitId, logoUrl }: PrintableReferral & PrintOptions) {
+function ReferralPage({ referral, patient, visitId, hef, logoUrl }: PrintableReferral & PrintOptions) {
   const field = (label: string, value?: string | null) => value?.trim() ? <div className="field"><strong>{label}</strong><span>{value}</span></div> : null;
   const destinations = referral.referralType.filter(type => type.trim()).join(", ");
   const signedDate = referral.signedAt?.slice(0, 10);
@@ -50,6 +53,8 @@ function ReferralPage({ referral, patient, visitId, logoUrl }: PrintableReferral
       {field("Date of birth", patient.date_of_birth?.slice(0, 10))}
       {field("Sex", patient.sex)}
       {field("Address", patient.address)}
+      {field("HEF", yesNo(hef?.hasHef))}
+      {field("NSSF", yesNo(hef?.hasNssf))}
     </section>
 
     <p>Dear Doctor,</p>
