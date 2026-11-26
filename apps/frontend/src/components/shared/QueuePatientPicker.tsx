@@ -324,6 +324,8 @@ export default function QueuePatientPicker({
           const tbFlagged = !!patient.tb_flagged;
           // Flagged now or cleared: a TB patient only goes to Consult (the server refuses route edits).
           const routeLocked = patient.tb_status != null;
+          // At the last station, Discharge waits until its work is saved ("Done here").
+          const dischargeLocked = !next && !patient.station_done;
           const sticker = findSticker(stickerColours, patient.sticker_colour);
           // Folded, or grouping: only the patient is shown, nothing to press.
           const bare = compact || grouping;
@@ -419,23 +421,27 @@ export default function QueuePatientPicker({
                   />
                 )}
                 {canMove && <>
-                <Button
+                {/* The last station has no Next: the patient is discharged once its work is done. */}
+                <DisabledActionHint disabled={!next} message="Last station. Discharge when done.">
+                  <Button
                     type="button"
                     variant="ghost"
+                    disabled={!next}
                     className={cn(CARD_ACTION, "font-medium text-primary hover:text-primary")}
-                    title={next ? `Done here, move to ${stationLabel(next)}` : "Done here, finish visit"}
+                    title={next ? `Move to ${stationLabel(next)}` : undefined}
                     onClick={() => handleCompleteStation(patient)}
                   >
                     <Check className="size-3.5" />
                     {next ? "Next" : "Finish"}
                   </Button>
+                </DisabledActionHint>
                 <DisabledActionHint disabled={routeLocked} message={TB_ROUTE_LOCKED_HINT}>
                   <Button
                     type="button"
                     variant="ghost"
                     disabled={routeLocked}
                     className={cn(CARD_ACTION, subtle, "hover:text-foreground")}
-                    title={routeLocked ? undefined : "Send to station…: choose which stations this patient goes to next, and in what order"}
+                    title={routeLocked ? undefined : "Choose next stations"}
                     aria-label={`Send ${patient.english_name || "patient"} to another station`}
                     onClick={() => setEditingPatient(patient)}
                   >
@@ -443,16 +449,19 @@ export default function QueuePatientPicker({
                     Send to
                   </Button>
                 </DisabledActionHint>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn(CARD_ACTION, subtle, "hover:text-destructive")}
-                  title="Discharge patient from every queue"
-                  onClick={() => handleRemovePatient(patient)}
-                >
-                  <X className="size-3.5" />
-                  Discharge
-                </Button>
+                <DisabledActionHint disabled={dischargeLocked} message={`Save ${stationLabel(station)} first`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={dischargeLocked}
+                    className={cn(CARD_ACTION, subtle, "hover:text-destructive")}
+                    title={dischargeLocked ? undefined : "Remove from all queues"}
+                    onClick={() => handleRemovePatient(patient)}
+                  >
+                    <X className="size-3.5" />
+                    Discharge
+                  </Button>
+                </DisabledActionHint>
                 </>}
               </div>
               </div>

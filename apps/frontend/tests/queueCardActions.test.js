@@ -72,11 +72,22 @@ test("without 'Edit today's queue' the queue is view-only: Next, Send to and Dis
   }
 });
 
-test.each(['suspected', 'cleared'])('a TB patient (%s) can be finished or discharged, but not sent to other stations', async status => {
-  stationPatients = [{ ...tbPatient, tb_status: status, tb_flagged: status === 'suspected', stations: [{ station: 'consultation', completed: false }] }];
+test.each(['suspected', 'cleared'])('a TB patient (%s) can be discharged once done, but not sent to other stations', async status => {
+  stationPatients = [{ ...tbPatient, tb_status: status, tb_flagged: status === 'suspected', station_done: true, stations: [{ station: 'consultation', completed: false }] }];
   await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
   expect(button(renderer, 'Send to').props.disabled).toBe(true);
-  for (const text of ['Finish', 'Discharge']) expect(button(renderer, text).props.disabled).toBeFalsy();
+  expect(button(renderer, 'Discharge').props.disabled).toBeFalsy();
+});
+
+test('at the last station Finish is disabled, and Discharge waits until the station is done', async () => {
+  stationPatients = [{ ...tbPatient, tb_status: null, tb_flagged: false, station_done: false, stations: [{ station: 'consultation', completed: false }] }];
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+  expect(button(renderer, 'Finish').props.disabled).toBe(true);
+  expect(button(renderer, 'Discharge').props.disabled).toBe(true);
+  stationPatients = [{ ...stationPatients[0], station_done: true }];
+  await act(async () => { renderer = create(React.createElement(QueuePatientPicker, { station: 'consultation', onSelectPatient: jest.fn() })); });
+  expect(button(renderer, 'Finish').props.disabled).toBe(true);
+  expect(button(renderer, 'Discharge').props.disabled).toBeFalsy();
 });
 
 test('a selected TB card is highlighted in red only, not with the blue selection', async () => {

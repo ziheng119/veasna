@@ -35,8 +35,8 @@ Patients go through the stations they need in this order:
   patient has already been to Pharmacy (for example, sent back to Consult) a new
   prescription puts Pharmacy back on their route. A prescription for a visit that is
   already finished stays on the Pharmacy page's pending list. Picking a
-  patient shows only their prescriptions; once they are dispensed, press **Finish** to
-  complete the visit. A patient with no prescription finishes at their last station. If
+  patient shows only their prescriptions; once they are dispensed, press **Discharge** to
+  complete the visit. A patient with no prescription finishes at their last station: there **Finish** is greyed out, and **Discharge** unlocks once the station is done. If
   every prescription is cancelled before the patient reaches Pharmacy, Pharmacy comes off
   their stations again.
 - A station added later (Physiotherapy, Partner NGO, Pharmacy) goes in its place in this
@@ -179,10 +179,10 @@ there. Veasna follows that:
    Triage or in other queues.
 4. **Next:** the doctor writes the consultation notes, prescribes, and presses **Next**.
    The patient moves to the Pharmacy queue for their prescriptions (or, with nothing
-   prescribed, **Finish** ends their visit).
+   prescribed, **Discharge** ends their visit once the notes are saved).
 
 A TB patient's stations can't be changed, before or after the flag is cleared, so
-**Send to** is greyed out on their card. **Finish** and **Discharge** still work.
+**Send to** is greyed out on their card. **Next** and **Discharge** still work.
 
 Good to know:
 
@@ -194,7 +194,7 @@ Good to know:
 - If two people clear the same patient, the second press changes nothing.
 - Anyone can change the red flags or notes of an existing flag (on **Patient Details**).
   That never moves the patient.
-- A patient flagged by mistake still goes to Consult only. The doctor can **Finish**
+- A patient flagged by mistake still goes to Consult only. The doctor can **Discharge**
   them; register a new visit if they need other stations.
 
 ## Technical details
