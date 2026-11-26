@@ -14,8 +14,9 @@ const REGISTRATION_STATIONS = ['triage', 'dental', 'consultation', 'seva'];
 // station" (it has limited places), and Pharmacy when the doctor prescribes. "Send to" can reorder,
 // remove or revisit them, but never add them to a route that doesn't have them.
 const DOCTOR_ADDED_STATIONS = ['physiotherapy', 'pharmacy'];
-// Used when registration does not say. The partner NGO is added at Triage for suspected cataracts.
-const DEFAULT_REGISTRATION_STATIONS = ['triage', 'dental', 'consultation'];
+// Used when registration does not say. The registration form sends every patient here: Triage then
+// chooses their other stations (Dental, Consultation, the partner NGO).
+const DEFAULT_REGISTRATION_STATIONS = ['triage'];
 
 // Returns the valid stations from the input, de-duplicated and in station order,
 // or null when the input is not an array or contains an unknown station.

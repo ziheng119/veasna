@@ -242,8 +242,9 @@ These rules are enforced by the server, so they apply on every device:
   own clock says.
 - **Stations:** each visit goes through only the stations it needs, in clinic order
   (`STATIONS` in `utils/stations.js`): Triage, Dental, Consultation, Physiotherapy, Partner
-  NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration offers
-  `REGISTRATION_STATIONS`; Physiotherapy is added by the doctor and Pharmacy by prescribing
+  NGO (`seva`), Pharmacy. Dental is before Consultation so the doctor sees what dental found. It waits in one queue at a time. Registration accepts
+  `REGISTRATION_STATIONS` (the app sends Triage only, `DEFAULT_REGISTRATION_STATIONS`, and Triage
+  adds Dental, Consultation or the Partner NGO with `PUT /api/queue/:visitId/stations/:station`); Physiotherapy is added by the doctor and Pharmacy by prescribing
   (`setStationNeeded` in `utils/stationRoute.js`). Migration `018_dental_pharmacy_stations.sql`
   adds the two stations and the `dental` table.
 - **TB flag:** suspected TB is a flag on the visit, set at registration or at Triage when
@@ -262,8 +263,8 @@ These rules are enforced by the server, so they apply on every device:
   together (`utils/familyMoves.js`). Queue numbers are unique per day, kept so by the app
   and by the `visits_day_queue_no_key` index. Admin corrections can't run
   ahead of the next number (`queueNoJumpError` in `utils/queueNumber.js`).
-- **Partner NGO** (formerly Seva): patients are added from the Triage visual acuity form
-  when a cataract is suspected. The station is still `seva` in the database and API; its
+- **Partner NGO** (formerly Seva): patients are added at Triage (**Next stations**, under the registration details),
+  e.g. when a cataract is suspected. The station is still `seva` in the database and API; its
   display name is `PARTNER_NGO_NAME` in `apps/frontend/src/constants/partnerNgo.ts`.
 - **Prescriptions** are chosen from the pharmacy. Prescribing reserves stock
   at once; the pharmacy dispenses (stock goes down) or cancels (stock is released).

@@ -144,8 +144,8 @@ A few things worth knowing:
   30–45 °C) are treated as typing slips and must be corrected: leaving a filled-in field checks
   it, and BMI is only worked out from a height and weight within the limits.
   **Next** checks the tab you are leaving before moving on, puts the cursor in the first field to
-  fix, and a red dot marks any tab with fields to fix. The third tab, **HEF, TB & stations**, asks about HEF and NSSF, then the TB red
-  flags, then the stations; for a flagged patient the Submit button turns red. If Submit can't reach the host, a message
+  fix, and a red dot marks any tab with fields to fix. The third tab, **HEF & TB**, asks about HEF and NSSF, then the TB red
+  flags. Every patient is queued at Triage, which chooses their next stations (a suspected TB patient goes to Consult only); for a flagged patient the Submit button turns red. If Submit can't reach the host, a message
   under the form says the typing is kept and to press Submit again.
 - **Suspected TB:** tick 3 or more TB red flags at registration, or press **Flag
   suspected TB** at Triage (also 3 or more). Fewer than 3 doesn't flag the patient, but the

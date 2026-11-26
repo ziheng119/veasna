@@ -6,13 +6,20 @@ Patients go through the stations they need in this order:
 
 | Station | Who sends the patient there |
 | --- | --- |
-| Triage | Ticked at registration |
-| Dental | Ticked at registration |
-| Consult | Ticked at registration |
+| Triage | Every patient, at registration (except suspected TB, below) |
+| Dental | Ticked under **Next stations** at the end of Triage |
+| Consult | Ticked under **Next stations** at the end of Triage |
 | Physiotherapy | Only the doctor, with **Refer to physiotherapy station** on the Consult page |
-| Partner NGO | Ticked at registration, or added at Triage when a cataract is suspected (**Refer to optician**, under it, only records the referral for Analytics and adds no station) |
+| Partner NGO | Ticked under **Next stations** at the end of Triage, or by **Suspected cataract** → **Send to Partner NGO** on Visual Acuity (its other option, **Refer to optician**, which can be ticked as well, only records the referral for Analytics and adds no station) |
 | Pharmacy | Only when the doctor prescribes something at Consult |
 
+- **Registration doesn't choose stations.** Every patient is queued at Triage only. Under the
+  registration details (height, weight and so on) at the top of the Triage form, Triage ticks the patient's **Next stations** (Dental, Consult, Partner
+  NGO); none is ticked to start with. The ticked stations are added to the route, in clinic
+  order, when the patient is sent on (**Save & next**, **Send to next station** or **Next** on
+  the queue card); unticking one already on the route takes it off. A station the patient has
+  already finished shows as done. Sending a patient on with nothing ticked (and no other
+  station left) asks first, since it finishes their visit.
 - **Dental** comes before Consult so the doctor already has the dental notes and can
   refer the patient on. It shows the patient's triage notes, where tooth problems found at Triage are
   written. The students note what they did and tick **Referral needed** if the patient
@@ -158,8 +165,7 @@ there. Veasna follows that:
    already when it opens **Flag suspected TB**, and they show on Patient Details.
 2. **Consult only:** a flagged patient goes **straight to the Consult queue**, shown in
    red with a **TB** label in every queue. Consult is their only station: any others
-   (Triage, Dental, Partner NGO) are taken off their route, the registration form doesn't
-   offer them, and the doctor can't send them to Physiotherapy. If the doctor prescribes,
+   (Triage, Dental, Partner NGO) are taken off their route, they skip Triage, and the doctor can't send them to Physiotherapy. If the doctor prescribes,
    Pharmacy is added after Consult as for any patient.
 3. **Clear:** the doctor who sees them in the TB tent presses **Clear TB** on the
    patient's card in the **Consult** queue and confirms in the pop-up. The red marker

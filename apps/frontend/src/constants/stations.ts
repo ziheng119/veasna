@@ -26,8 +26,12 @@ export const REGISTRATION_STATION_IDS: StationId[] = ["triage", "dental", "consu
 // them but not add them. Must match DOCTOR_ADDED_STATIONS in apps/backend/utils/stations.js.
 export const DOCTOR_ADDED_STATION_IDS: StationId[] = ["physiotherapy", "pharmacy"];
 
-// Ticked by default at registration. The partner NGO is added at Triage when a cataract is suspected.
-export const DEFAULT_STATION_IDS: StationId[] = ["triage", "dental", "consultation"];
+// Registration sends every patient to Triage only (a suspected TB patient goes to Consult only, see
+// constants/tb.ts). Must match DEFAULT_REGISTRATION_STATIONS in apps/backend/utils/stations.js.
+export const REGISTRATION_ROUTE: StationId[] = ["triage"];
+
+// Chosen at the end of Triage: the other stations the patient goes to. None is ticked to start with.
+export const TRIAGE_NEXT_STATION_IDS: StationId[] = ["dental", "consultation", "seva"];
 
 // Page where each station's queue is worked. Opening it with ?visit=<id> selects that visit.
 export const STATION_PAGES: Record<StationId, string> = {

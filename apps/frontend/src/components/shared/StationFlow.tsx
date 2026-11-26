@@ -324,7 +324,7 @@ export function StationDonePrompt({ patient, done }: { patient: QueuedPatient; d
   const sendOn = async () => {
     setBusy(true);
     try {
-      if (!(await flow.saveDrafts(patient.visit_id))) return;
+      if (!(await flow.confirmLeave(patient.visit_id)) || !(await flow.saveDrafts(patient.visit_id))) return;
       await flow.advance(patient);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not send the patient on.");

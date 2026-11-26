@@ -36,7 +36,7 @@ a referral it reads **Open the referral**.
    The destinations are the places patients are sent outside the screening on referral
    days: **Preah Ang Duong Hospital** and **Samdech Ov Referral Hospital** (changed on the
    [Station data](station-data.md) page). An optician is not a destination here: Triage
-   ticks **Refer to optician** under the visual acuity, and those patients are listed under
+   ticks **Suspected cataract** → **Refer to optician** under the visual acuity, and those patients are listed under
    **Optician referrals** on [Analytics](analytics.md). Saved referrals that name Optician
    keep it. Physiotherapy isn't a
    destination: it is part of the screening, so the doctor ticks **Refer to physiotherapy
