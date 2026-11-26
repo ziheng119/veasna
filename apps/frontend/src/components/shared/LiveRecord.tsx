@@ -192,7 +192,7 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
         </span>
         <span className="flex items-center gap-2">
           {!restored && <Button type="button" size="sm" variant="outline" className="h-8 bg-background" onClick={live.keepMine}
-            title="Put back what you typed. Saving it replaces the other save.">Put mine back</Button>}
+            title="Restore your changes">Put mine back</Button>}
           <Button type="button" size="sm" variant="ghost" className="h-8" onClick={live.discardDraft}>Discard</Button>
         </span>
       </div>
@@ -209,7 +209,7 @@ export function LiveRecordNotice({ live, label }: { live: LiveRecord; label?: st
         <span className="flex items-center gap-2">
           <Button type="button" size="sm" variant="outline" className="h-8 bg-background" onClick={live.showSaved}>Show saved version</Button>
           <Button type="button" size="sm" variant="ghost" className="h-8" onClick={live.keepMine}
-            title="Keep what you typed. Saving it replaces the other save.">Keep mine</Button>
+            title="Keep your changes">Keep mine</Button>
         </span>
       </div>
     );

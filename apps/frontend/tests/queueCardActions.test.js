@@ -181,13 +181,13 @@ test('with a patient open the station queue folds (sort order and count only, no
   expect(toggle()).toBeUndefined();
   await act(async () => renderer.update(React.createElement(QueuePatientPicker, { ...props, selectedVisitId: 5 })));
   expect(folded()).toBe(true);
-  expect(toggle().props['aria-label']).toBe('Show the whole queue');
+  expect(toggle().props['aria-label']).toBe('Show queue');
   // Folded, the strip still says how it is sorted and how many are waiting: not the open patient.
   expect(label(renderer.root)).toMatch(/By (queue number|arrival time)/);
   expect(label(renderer.root)).toContain('0 waiting');
   await act(async () => toggle().props.onClick());
   expect(folded()).toBe(false);
-  expect(toggle().props['aria-label']).toBe('Fold the queue');
+  expect(toggle().props['aria-label']).toBe('Fold queue');
   // << folds it again; so does opening another patient.
   await act(async () => toggle().props.onClick());
   expect(folded()).toBe(true);

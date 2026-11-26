@@ -289,7 +289,7 @@ export function SaveAndNextButton({ patient, onSave, ready = false, locked = fal
     <Button type="button" variant={ready ? "success" : primary ? "default" : "outline"} disabled={disabled || busy} onClick={saveAndNext}
       // Re-mounting the class replays the pop each time the form becomes complete.
       key={ready ? "ready" : "not-ready"} className={cn("group/next", ready && "ready-pop")}
-      title={ready ? `Ready: ${locked ? "send" : "save and send"} the patient to their next station` : hint}>
+      title={ready ? (locked ? "Send to next station" : "Save and send on") : hint}>
       {ready && <Check aria-hidden="true" className="animate-in zoom-in-50 duration-300 motion-reduce:animate-none" />}
       {busy ? (locked ? "Sending..." : "Saving...") : locked ? "Next station" : "Save & next"}
       <ArrowRight aria-hidden="true" className="transition-transform duration-200 group-hover/next:translate-x-0.5" />

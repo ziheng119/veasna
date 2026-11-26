@@ -48,7 +48,7 @@ export default function DownloadAllPatientsButton() {
 
   return (
     <Button type="button" variant="outline" disabled={busy} onClick={download}
-      title="Every patient and visit this account can see, as a spreadsheet (CSV)">
+      title="Download all patients (CSV)">
       <Download className="size-4" aria-hidden="true" />
       {busy ? "Preparing..." : "Download all patient data"}
     </Button>

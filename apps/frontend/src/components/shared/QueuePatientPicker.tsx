@@ -280,8 +280,8 @@ export default function QueuePatientPicker({
               size="icon"
               className="size-7 animate-in fade-in zoom-in-75 duration-150"
               aria-expanded={!compact}
-              aria-label={compact ? "Show the whole queue" : "Fold the queue"}
-              title={compact ? "Show the whole queue" : "Fold the queue"}
+              aria-label={compact ? "Show queue" : "Fold queue"}
+              title={compact ? "Show queue" : "Fold queue"}
               disabled={grouping}
               onClick={() => setUnfolded(compact)}
             >

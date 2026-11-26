@@ -12,7 +12,7 @@ import type { StationId } from "./stations";
 
 // The only station a TB patient goes to. Must match TB_ROUTE in apps/backend/utils/tb.js.
 export const TB_STATIONS: StationId[] = ["consultation"];
-export const TB_ROUTE_LOCKED_HINT = "Suspected TB patients only go to Consult, so their stations can't be changed.";
+export const TB_ROUTE_LOCKED_HINT = "TB patients stay on Consult only";
 
 // Must match TB_MIN_RED_FLAGS in apps/backend/utils/tb.js.
 export const TB_MIN_RED_FLAGS = 3;

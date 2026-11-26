@@ -163,10 +163,10 @@ export default function Pharmacy() {
                           <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
                             In Stock
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider" title="Held by prescriptions waiting to be dispensed">
+                          <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider" title="Held for waiting prescriptions">
                             Reserved
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider" title="In stock minus reserved: what can still be prescribed">
+                          <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider" title="Left to prescribe">
                             Available
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">

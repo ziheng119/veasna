@@ -51,7 +51,7 @@ export default function ClearTbButton({ patient, onCleared, className }: Props) 
         type="button"
         variant="ghost"
         disabled={saving}
-        title="Doctor has seen this patient: clear the TB flag. They stay at Consult until you press Finish."
+        title="Clear the TB flag"
         aria-label={`Clear TB flag for ${name}`}
         onClick={() => setConfirming(true)}
         className={cn("text-tb-ink hover:text-tb-ink/80", className)}

@@ -2,6 +2,7 @@
 
 import { ReactNode, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { TOOLTIP_CLASS } from "./AppTooltips";
 
 /** A wrapper receives hover/focus events that disabled buttons cannot receive. */
 export default function DisabledActionHint({ disabled, message, children }: {
@@ -39,7 +40,7 @@ export default function DisabledActionHint({ disabled, message, children }: {
         <span
           id={id}
           role="tooltip"
-          className="pointer-events-none fixed z-50 w-60 max-w-[calc(100vw-16px)] rounded-lg border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
+          className={TOOLTIP_CLASS}
           style={{ left: position.x, top: position.y }}
         >
           {message}

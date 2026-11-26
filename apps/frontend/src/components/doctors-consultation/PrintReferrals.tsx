@@ -17,7 +17,7 @@ export default function PrintReferrals() {
   if (!allowed) return null;
   return <>
     <GlassButton type="button" className="shrink-0 px-4 in-data-queue-compact:px-2.5"
-      onClick={() => setOpen(true)} title="Print saved referrals for a day">
+      onClick={() => setOpen(true)} title="Print a day's referrals">
       <Printer className="size-4" aria-hidden="true" />
       {/* Icon only when the queue it sits in is folded. */}
       <span className="in-data-queue-compact:sr-only">Print referrals</span>

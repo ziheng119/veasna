@@ -324,6 +324,7 @@ Tactile and confident, but small: 36px tall, 14px medium text.
 - **Destructive:** Alarm Red with white text. Always opens a confirm dialog first.
 - **Outline / Secondary / Ghost:** white with a hairline border; quiet wash; or transparent with a wash on hover.
 - **Hover / Focus:** rises 1px with a medium shadow; focus shows a 3px ring in the brand blue at 50%. Press scales to 0.97.
+- **Hover messages:** give an element a `title`; `AppTooltips` (root layout) shows it as a dark styled tooltip instead of the browser's, on hover or keyboard focus. A disabled button gets no hover events, so wrap it in `DisabledActionHint` to say why it is greyed out.
 - **Glass button:** a round frosted pill for secondary actions (Print referrals, Referral list, consultation actions).
 
 ### Chips / Badges

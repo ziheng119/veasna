@@ -93,7 +93,7 @@ test('ticking "Refer to physiotherapy station" adds it to the route straight awa
 });
 
 test.each([
-  ['a TB patient', patient({ tb_status: 'suspected' }), /only go to Consult/],
+  ['a TB patient', patient({ tb_status: 'suspected' }), /stay on Consult only/],
   ['a patient already seen there', patient({ stations: [{ station: 'physiotherapy', completed: true }] }), /Already seen/],
 ])('Refer to physiotherapy station is locked for %s', async (_, value, hint) => {
   const shown = await render(React.createElement(SendToPhysiotherapy, { patient: value }));

@@ -369,9 +369,10 @@ export function TriageTabs({ patient, visit_id, patient_id, stations, onStations
             ...Object.fromEntries(fields.filter((field) => !String(previous[field.key] ?? "").trim())
                 .map((field) => [field.key, NOTHING_TO_REPORT])),
         }));
+    // A faint outline, with the app's hover message.
     const fillBlanksButton = (onClick: () => void, any: boolean) => (
-        <Button type="button" variant="ghost" className="mr-auto text-muted-foreground" disabled={!any || isLoading}
-            title={`Writes "${NOTHING_TO_REPORT}" in every empty box, for a patient with nothing to report`} onClick={onClick}>
+        <Button type="button" variant="outline" className="mr-auto self-center border-input/50 leading-none text-muted-foreground shadow-none"
+            disabled={!any || isLoading} title={`Fills empty boxes with "${NOTHING_TO_REPORT}"`} onClick={onClick}>
             Fill blanks with &ldquo;{NOTHING_TO_REPORT}&rdquo;
         </Button>
     );

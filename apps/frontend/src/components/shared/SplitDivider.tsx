@@ -101,7 +101,7 @@ export default function SplitDivider({ gridRef, share, onChange, onCommit }: Pro
         aria-valuemax={100}
         aria-valuenow={Math.round(share)}
         aria-valuetext={`Queue ${Math.round(share)}% of the width`}
-        title="Drag to resize the queue. Double-click to reset."
+        title="Drag to resize. Double-click to reset."
         tabIndex={0}
         data-dragging={dragging || undefined}
         onPointerDown={onPointerDown}

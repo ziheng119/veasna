@@ -111,7 +111,7 @@ export default function PendingPrescriptions({ onStockChanged, patient }: Props)
                     variant="ghost"
                     className="gap-1 text-muted-foreground hover:text-destructive"
                     disabled={busy !== null}
-                    title="Cancel and release the reserved stock"
+                    title="Cancel and free the stock"
                     onClick={() => act(p, "cancel")}
                   >
                     <X className="size-4" aria-hidden="true" /> Cancel
@@ -121,7 +121,7 @@ export default function PendingPrescriptions({ onStockChanged, patient }: Props)
                     size="sm"
                     className="gap-1"
                     disabled={busy !== null}
-                    title="Hand the drug over and take it off the stock count"
+                    title="Give out and deduct stock"
                     onClick={() => act(p, "dispense")}
                   >
                     <Check className="size-4" aria-hidden="true" /> Dispense
