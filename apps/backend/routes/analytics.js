@@ -4,6 +4,7 @@ const { authenticateToken } = require('./auth');
 const { permissionsFor } = require('../utils/permissions');
 const router = express.Router();
 const { getOptions } = require('../utils/formOptions');
+const { dischargePastVisits } = require('../utils/autoDischarge');
 
 const FILTER_ERROR = 'Select a valid date (YYYY-MM-DD).';
 // Calendar days preceding the selected date that each rolling period also includes.
@@ -315,7 +316,7 @@ router.get('/trend', authenticateToken, async (req, res) => {
 
 // GET /api/analytics/follow-up?date=YYYY-MM-DD&period=...
 // Who still needs something before the day can be closed: visits not yet discharged (with the
-// station they are at) and referrals saved without a signature. Contains patient names, so like the
+// station they are at; visits from earlier days were discharged when their day ended) and referrals saved without a signature. Contains patient names, so like the
 // referral lists it needs the analytics permission. At most FOLLOW_UP_LIMIT of each, oldest first.
 const FOLLOW_UP_LIMIT = 200;
 router.get('/follow-up', authenticateToken, async (req, res) => {
@@ -324,6 +325,8 @@ router.get('/follow-up', authenticateToken, async (req, res) => {
   const { date, period } = filters;
   try {
     if (!await activeAccount(req, res)) return;
+    // Exact right after midnight, without waiting for the minute sweep.
+    await dischargePastVisits();
     const startDate = await periodStart(period, date);
     const patient = `v.id AS "visitId", p.id AS "patientId", v.queue_no AS "queueNo",
       TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate", p.english_name AS "englishName", p.khmer_name AS "khmerName",

@@ -94,8 +94,8 @@ export default function FollowUpSection({ id, date, period, live, token, refresh
 
   return <SectionCard id={id} icon={ClipboardList} title="Needs follow-up" label="Needs follow-up" delay={delay}
     className={cn(outstanding && "attention-glow")}
-    description={live ? "Before closing the day: who is still in the clinic, and referrals that still need a signature." : "Visits in this period that were never discharged, and referrals saved without a signature."}
-    info={<>{openTitle} lists visits not marked discharged, with the station they are at. {live ? "" : "On a past date these are visits that were left open, not patients still waiting. "}Unsigned referrals are saved referral forms with no signature yet.</>}>
+    description={live ? "Before closing the day: who is still in the clinic, and referrals that still need a signature." : "Visits in this period still open (only today's can be: each day's queue is discharged when the day ends), and referrals saved without a signature."}
+    info={<>{openTitle} lists visits not marked discharged, with the station they are at. Visits still open when their day ends are discharged automatically, so earlier days never appear here. Unsigned referrals are saved referral forms with no signature yet.</>}>
     {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
       <span>{error}</span>
       <Button type="button" variant="outline" size="sm" onClick={() => setRetry(value => value + 1)}>Try again</Button>
