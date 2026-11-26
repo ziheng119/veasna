@@ -86,14 +86,18 @@ export default function QueuePatientPicker({
   // station's queue has loaded. The parameter is then removed so a reload does not reselect it.
   const router = useRouter();
   const pathname = usePathname();
-  const requestedVisitId = Number(useSearchParams().get("visit")) || null;
+  const searchParams = useSearchParams();
+  const requestedVisitId = Number(searchParams.get("visit")) || null;
   useEffect(() => {
     if (!requestedVisitId || !loaded || !token) return;
     const requested = patients.find((patient) => patient.visit_id === requestedVisitId);
     if (requested) onSelectPatient(requested);
     else toast(`That patient is no longer waiting at ${stationLabel(station)}.`);
-    router.replace(pathname, { scroll: false });
-  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station]);
+    // Other parameters stay for the opened form (e.g. signReferral, read by the Consult notes).
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("visit");
+    router.replace(rest.size ? `${pathname}?${rest}` : pathname, { scroll: false });
+  }, [requestedVisitId, loaded, token, patients, onSelectPatient, router, pathname, station, searchParams]);
 
   // Bring the selected patient into view however they were chosen (clinic search, link, click).
   useEffect(() => {

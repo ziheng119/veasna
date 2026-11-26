@@ -28,6 +28,10 @@ reporting on a trip afterwards.
   and the referrals saved without a signature, with the same TB, family and sticker
   markers as the queue. Pressing a name opens the patient's record. Today these patients
   are *still in the clinic*; on a past date they are visits that were *not discharged*.
+  While either list has anyone on it, the card's border pulses red. An unsigned referral
+  links to where it is signed: **Sign at Consult** (the patient is waiting at Consult today;
+  their referral opens) or **Sign in record** (that visit's Consultation tab in the patient's record, with the referral form open). The
+  referral form fills in the account's saved signature when the referral has none.
 - **Printing referral letters:** press **Print referral letters** on the **Visits with
   referrals** card to print saved referral letters for today, a date, a period or all
   dates. This needs the **Print and download** permission too. See

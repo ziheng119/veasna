@@ -74,12 +74,12 @@ export default function ReferralForm({ patient, patientInfo, retrievedReferral, 
   const readOnly = !canEditSavedData(user);
   const admin = isAdmin(user?.role);
   const canPrint = can(user, "print");
-  // A signature this user saved earlier in the session fills in on each new referral.
+  // A signature this user saved earlier in the session fills in on each new or still-unsigned referral.
   const savedSignature = useSavedSignatureStore((state) => (user && state.userId === user.id ? state.signature : null));
   const saveSignature = useSavedSignatureStore((state) => state.save);
   const forgetSignature = useSavedSignatureStore((state) => state.forget);
   const [signature, setSignature] = useState<Signature | null>(
-    () => retrievedReferral ? retrievedReferral.signature ?? null : savedSignature,
+    () => retrievedReferral?.signature ?? savedSignature,
   );
   const signatureSaved = !!savedSignature && JSON.stringify(savedSignature) === JSON.stringify(signature);
   const [saving, setSaving] = useState(false);

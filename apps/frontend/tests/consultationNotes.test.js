@@ -10,6 +10,7 @@ jest.mock('../src/components/shared/read-only/patient-container/referral/Referra
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 // Tested on their own in consultationPanels.test.js.
 jest.mock('../src/components/doctors-consultation/DentalSummary', () => ({ __esModule: true, default: () => null }));
+jest.mock('next/navigation', () => ({ useRouter: () => ({ replace: jest.fn() }), usePathname: () => '/doctors-consultation', useSearchParams: () => new URLSearchParams() }));
 jest.mock('../src/components/doctors-consultation/SendToPhysiotherapy', () => ({ __esModule: true, default: () => null }));
 const { getConsultation } = require('../src/lib/api/visit/doctors-consultation/getConsultation');
 const { postConsultation } = require('../src/lib/api/visit/doctors-consultation/postConsultation');

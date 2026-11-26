@@ -214,7 +214,7 @@ describe('saving a signature for this session', () => {
   };
   const pad = renderer => renderer.root.findByType('signature-pad');
 
-  test('a saved signature fills in on this user\'s next new referral, not on a saved one or another user\'s', async () => {
+  test('a saved signature fills in on this user\'s next new or unsigned referral, not on a signed one or another user\'s', async () => {
     const first = await render();
     expect(pad(first).props.value).toBeNull();
     await act(async () => pad(first).props.onChange(signature));
@@ -231,9 +231,14 @@ describe('saving a signature for this session', () => {
     expect(pad(next).props.saved).toBe(false);
     await act(async () => next.unmount());
 
-    const existing = await render({ referralDate: '2026-01-01', referralType: [], illness: '', duration: '', reason: '', signature: null });
-    expect(pad(existing).props.value).toBeNull();
-    await act(async () => existing.unmount());
+    // A saved referral not yet signed takes it too; one already signed keeps its own.
+    const unsigned = await render({ referralDate: '2026-01-01', referralType: [], illness: '', duration: '', reason: '', signature: null });
+    expect(pad(unsigned).props.value).toEqual(signature);
+    await act(async () => unsigned.unmount());
+    const signedBefore = [[[5, 5], [6, 6]]];
+    const signed = await render({ referralDate: '2026-01-01', referralType: [], illness: '', duration: '', reason: '', signature: signedBefore });
+    expect(pad(signed).props.value).toEqual(signedBefore);
+    await act(async () => signed.unmount());
 
     useSavedSignatureStore.getState().save(2, signature);
     const otherUser = await render();

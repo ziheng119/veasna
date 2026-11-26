@@ -4,6 +4,7 @@ import { useFormOptions } from "@/stores/useFormOptionsStore";
 import SavedRecordFields from "@/components/shared/SavedRecordFields";
 import { useSavedRecordAccess } from "@/hooks/useSavedRecordAccess";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ReferralButton from "../shared/read-only/patient-container/referral/ReferralButton";
 import { PatientInfo, QueuedPatient } from "@/lib/types/patient";
 import { getPatient } from "@/lib/api/patients/getPatient";
@@ -65,6 +66,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
   const [referralOpen, setReferralOpen] = useState(false);
   const [referralPrefill, setReferralPrefill] = useState<{ reason?: string; referralType?: string[] } | undefined>();
   const destinations = useFormOptions("referral_destinations");
+  // Opened with ?signReferral=<visit id> (Analytics, "Unsigned referrals"): the referral dialog opens
+  // once the saved referral has loaded, and the parameter is removed so a reload doesn't reopen it.
+  const router = useRouter();
+  const pathname = usePathname();
+  const signRequested = Number(useSearchParams().get("signReferral")) === patient.visit_id;
   const [physioReferred, setPhysioReferred] = useState(false);
 
   const values: NotesValues = { notes, conditionCategories };
@@ -162,6 +168,11 @@ export default function DoctorsNotesContainer({ patient }: Props) {
     showShared(data);
   }, [show, showShared]);
   const loadFailed = useRecordLoad(load, showAll, "Couldn't load the consultation");
+  useEffect(() => {
+    if (!signRequested || !loaded) return;
+    setReferralOpen(true);
+    router.replace(pathname, { scroll: false });
+  }, [signRequested, loaded, router, pathname]);
 
   // Saves made for this visit on another device show here too, including a referral written there.
   const live = useLiveRecord({
